@@ -1,60 +1,86 @@
 # ============================================================
-# ERP Automation - Dockerfile for Railway
-# Web-only deployment (بدون Chrome/Selenium — الاختبارات محليًا)
+# ERP Automation - Dockerfile for Railway (Full)
+# With Chrome + Selenium
 # ============================================================
 
 FROM python:3.11-slim
 
-# Environment
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     DEBIAN_FRONTEND=noninteractive
 
-# Working directory
 WORKDIR /app
 
-# Install minimal system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gnupg \
+    unzip \
     curl \
     ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome
+RUN wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get update \
+    && apt-get install -y /tmp/chrome.deb \
+    && rm /tmp/chrome.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ChromeDriver (latest stable matching Chrome)
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1) \
+    && echo "Chrome version: $CHROME_VERSION" \
+    && wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}.0.0/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip \
+    && unzip /tmp/chromedriver.zip -d /tmp/ \
+    && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ \
+    && chmod +x /usr/local/bin/chromedriver \
+    && rm /tmp/chromedriver.zip \
+    && rm -rf /tmp/chromedriver-linux64
 
 # Copy requirements & install
 COPY requirements.txt .
-
-# نثبّت المتطلبات الأساسية بس (بدون selenium/webdriver-manager)
-# عشان Railway مش محتاج chrome
 RUN pip install --upgrade pip && \
-    pip install \
-        Flask==3.0.0 \
-        python-dotenv==1.0.1 \
-        loguru==0.7.2 \
-        reportlab==5.0.1 \
-        openpyxl==3.1.5 \
-        slack-sdk==3.45.0 \
-        requests==2.34.2 \
-        gunicorn
+    pip install -r requirements.txt && \
+    pip install gunicorn
 
 # Copy project
 COPY . .
 
 # Create directories
 RUN mkdir -p reports/results reports/screenshots reports/logs reports/allure-results \
-    && mkdir -p logs
+    && mkdir -p logs \
+    && mkdir -p chrome_profile
 
-# Environment variables
+# Environment
 ENV PORT=5000
 ENV FLASK_ENV=production
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUTF8=1
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
-# Expose port
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run
 CMD ["python", "web/app.py"]
