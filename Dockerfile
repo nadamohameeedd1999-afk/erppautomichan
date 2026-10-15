@@ -1,5 +1,6 @@
 # ============================================================
 # ERP Automation - Dockerfile for Railway
+# Web-only deployment (بدون Chrome/Selenium — الاختبارات محليًا)
 # ============================================================
 
 FROM python:3.11-slim
@@ -13,45 +14,34 @@ ENV PYTHONUNBUFFERED=1 \
 # Working directory
 WORKDIR /app
 
-# Install system dependencies (Chrome for Selenium)
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    gnupg \
-    unzip \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Google Chrome (stable)
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install chromedriver
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1) \
-    && wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}.0.0/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip \
-    && unzip /tmp/chromedriver.zip -d /tmp/ \
-    && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm /tmp/chromedriver.zip \
-    && rm -rf /tmp/chromedriver-linux64
-
 # Copy requirements & install
 COPY requirements.txt .
+
+# نثبّت المتطلبات الأساسية بس (بدون selenium/webdriver-manager)
+# عشان Railway مش محتاج chrome
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
-    pip install gunicorn
+    pip install \
+        Flask==3.0.0 \
+        python-dotenv==1.0.1 \
+        loguru==0.7.2 \
+        reportlab==5.0.1 \
+        openpyxl==3.1.5 \
+        slack-sdk==3.45.0 \
+        requests==2.34.2 \
+        gunicorn
 
 # Copy project
 COPY . .
 
 # Create directories
 RUN mkdir -p reports/results reports/screenshots reports/logs reports/allure-results \
-    && mkdir -p logs \
-    && mkdir -p chrome_profile \
-    && mkdir -p drivers
+    && mkdir -p logs
 
 # Environment variables
 ENV PORT=5000
