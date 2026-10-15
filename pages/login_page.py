@@ -160,8 +160,8 @@ class LoginPage(BasePage):
     def login(self, username: str, password: str,
               select_activity: bool = True,
               select_branch: bool = True,
-              wait_activity: int = 8,
-              wait_branch: int = 8):
+              wait_activity: int = 3,
+              wait_branch: int = 3):
         """
         تسجيل الدخول الكامل مع اختيار النشاط والفرع
         

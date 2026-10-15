@@ -39,11 +39,11 @@ def test_full_cash_receipt_voucher_flow(driver, credentials):
 
     crv.take_screenshot("crv_before_save")
 
-    logger.info("2) تحقق من الحقول")
-    status = crv.get_all_status()
-    logger.info(f"حالة الحقول: {status}")
 
-    logger.info("3) حفظ")
+    logger.info("3) 'سداد الى' (autoPay)")
+    crv.click_auto_pay()
+
+    logger.info("4) حفظ")
     crv.click_save()
 
     logger.info("التعامل مع SweetAlerts...")
