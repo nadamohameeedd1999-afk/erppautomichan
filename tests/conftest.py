@@ -1,5 +1,6 @@
 """
-Pytest Fixtures — VNC mode (Chrome مرئي في Railway)
+Pytest Fixtures — Chrome خفيف للـ VNC + Railway
+يحافظ على VNC مع تقليل استهلاك Chrome
 """
 import pytest
 import os
@@ -21,7 +22,6 @@ if str(BASE_DIR) not in sys.path:
 from config.settings import USERNAME, PASSWORD
 from utils.logger import logger
 
-
 SELENIUM_HUB = os.getenv("SELENIUM_HUB", "http://localhost:4444")
 USE_GRID = os.getenv("USE_SELENIUM_GRID", "false").lower() == "true"
 
@@ -33,21 +33,39 @@ def _build_options():
     options = Options()
 
     if IS_DOCKER or IS_LINUX:
-        logger.info("🐳 Docker/Linux mode")
-        # نستخدم DISPLAY بدل headless — عشان يظهر في VNC
+        logger.info("🐳 Docker mode (VNC + memory-optimized)")
+
+        # ⚠️ مش بنستخدم --headless — عشان يظهر في VNC
+        # بس بنخفّف Chrome
+
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-extensions")
+        options.add_argument("--window-size=1366,768")
+
+        # ⚡ تخفيف الـ memory
         options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-ipc-flooding-protection")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--no-default-browser-check")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-plugins")
+        options.add_argument("--disable-images")  # ← صور off
+        options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees,IsolateOrigins,site-per-process")
+        options.add_argument("--js-flags=--max-old-space-size=128")
+        options.add_argument("--single-process")  # ← مهم للـ memory
+        options.add_argument("--no-zygote")
 
         chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/google-chrome")
         if os.path.exists(chrome_bin):
             options.binary_location = chrome_bin
-            logger.info(f"Chrome binary: {chrome_bin}")
+
     else:
         logger.info("💻 Local mode")
         options.add_argument("--start-maximized")
@@ -56,31 +74,27 @@ def _build_options():
     options.add_argument("--disable-notifications")
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--lang=ar-EG")
-    options.add_argument("--incognito")
 
     return options
 
 
-def _get_chromedriver_service():
+def _get_service():
     if IS_DOCKER or IS_LINUX:
         path = os.getenv("CHROMEDRIVER_PATH", "/usr/local/bin/chromedriver")
         if os.path.exists(path):
-            logger.info(f"✅ Using chromedriver: {path}")
             return Service(path)
-        else:
-            from webdriver_manager.chrome import ChromeDriverManager
-            return Service(ChromeDriverManager().install())
+        from webdriver_manager.chrome import ChromeDriverManager
+        return Service(ChromeDriverManager().install())
     else:
         DRIVER_PATH = BASE_DIR / "drivers" / "chromedriver.exe"
         if DRIVER_PATH.exists():
             return Service(str(DRIVER_PATH))
-        else:
-            from webdriver_manager.chrome import ChromeDriverManager
-            return Service(ChromeDriverManager().install())
+        from webdriver_manager.chrome import ChromeDriverManager
+        return Service(ChromeDriverManager().install())
 
 
 def _create_driver(options):
-    service = _get_chromedriver_service()
+    service = _get_service()
     return webdriver.Chrome(service=service, options=options)
 
 
@@ -104,8 +118,11 @@ def driver():
     driver.set_page_load_timeout(60)
     driver.set_script_timeout(60)
     driver.implicitly_wait(3)
+
     logger.success("✅ Chrome started")
+
     yield driver
+
     logger.info("Closing browser...")
     try:
         driver.quit()
