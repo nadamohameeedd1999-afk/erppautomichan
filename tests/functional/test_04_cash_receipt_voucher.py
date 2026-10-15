@@ -60,7 +60,7 @@ def test_full_cash_receipt_voucher_flow(driver, credentials):
     assert saved, f"❌ السند مش اتحفظ! URL: {driver.current_url}"
 
     logger.info("5) التحقق النهائي من صفحة القائمة...")
-    verified = crv.verify_voucher_in_list(expected_amount=CashReceiptDefaults.AMOUNT)
+    verified = crv.verify_voucher_in_list(expected_amount=CashReceiptDefaults.MONEY_AMOUNT)
     crv.take_screenshot("crv_verify_list")
 
     if verified:
