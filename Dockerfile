@@ -46,8 +46,8 @@ RUN wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-
     && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ChromeDriver (Using official JSON API)
-RUN CHROMEDRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | python -c "import sys, json; print(json.load(sys.stdin)['channels']['Stable']['downloads']['chromedriver'][3]['url'])") \
+# Install ChromeDriver — Linux version explicitly
+RUN CHROMEDRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | python -c "import sys, json; data=json.load(sys.stdin); downloads=data['channels']['Stable']['downloads']['chromedriver']; url=[d['url'] for d in downloads if d['platform']=='linux64'][0]; print(url)") \
     && echo "ChromeDriver URL: $CHROMEDRIVER_URL" \
     && wget -q "$CHROMEDRIVER_URL" -O /tmp/chromedriver.zip \
     && unzip /tmp/chromedriver.zip -d /tmp/ \
