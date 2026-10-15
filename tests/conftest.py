@@ -1,6 +1,6 @@
 """
-Pytest Fixtures — Chrome خفيف للـ VNC + Railway
-يحافظ على VNC مع تقليل استهلاك Chrome
+Pytest Fixtures — Safe flags مع VNC
+بدون --single-process (اللي بيكسر Chrome 155)
 """
 import pytest
 import os
@@ -33,34 +33,34 @@ def _build_options():
     options = Options()
 
     if IS_DOCKER or IS_LINUX:
-        logger.info("🐳 Docker mode (VNC + memory-optimized)")
+        logger.info("🐳 Docker mode (VNC + safe flags)")
 
-        # ⚠️ مش بنستخدم --headless — عشان يظهر في VNC
-        # بس بنخفّف Chrome
-
+        # ===== Basic =====
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1366,768")
+        options.add_argument("--window-size=1280,720")
 
-        # ⚡ تخفيف الـ memory
+        # ===== Memory optimization (آمنة) =====
         options.add_argument("--disable-background-networking")
         options.add_argument("--disable-background-timer-throttling")
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-ipc-flooding-protection")
         options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-extensions")
         options.add_argument("--mute-audio")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-plugins")
-        options.add_argument("--disable-images")  # ← صور off
-        options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees,IsolateOrigins,site-per-process")
-        options.add_argument("--js-flags=--max-old-space-size=128")
-        options.add_argument("--single-process")  # ← مهم للـ memory
-        options.add_argument("--no-zygote")
+        options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees")
+        options.add_argument("--disable-images")
+        options.add_argument("--js-flags=--max-old-space-size=256")
+
+        # ❌ مش بنستخدم:
+        # --single-process (بيكسر Chrome 155)
+        # --no-zygote (بيكسر Chrome 155)
+        # --disable-gpu (خفيف كفاية)
 
         chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/google-chrome")
         if os.path.exists(chrome_bin):
