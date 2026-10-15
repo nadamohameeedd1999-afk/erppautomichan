@@ -1,5 +1,5 @@
 # ============================================================
-# ERP Automation - Dockerfile with VNC (view Chrome live)
+# ERP Automation - Dockerfile with VNC
 # ============================================================
 
 FROM python:3.11-slim
@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# ===== System dependencies =====
+# ===== System deps =====
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg unzip curl ca-certificates \
     xvfb x11vnc novnc websockify \
@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxkbcommon0 libxrandr2 xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# ===== Google Chrome =====
+# ===== Chrome =====
 RUN wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get update \
     && apt-get install -y /tmp/chrome.deb \
@@ -51,15 +51,17 @@ COPY . .
 
 # ===== Create dirs =====
 RUN mkdir -p reports/results reports/screenshots reports/logs reports/allure-results \
-    && mkdir -p logs chrome_profile
+    && mkdir -p logs chrome_profile \
+    && mkdir -p /root/.vnc
 
-# ===== VNC Config =====
-RUN mkdir -p /root/.vnc && \
-    echo "erp" | vncpasswd -f > /root/.vnc/passwd && \
+# ===== VNC password =====
+# نستخدم x11vnc -storepasswd بدل vncpasswd
+RUN x11vnc -storepasswd erp /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
 # ===== Supervisor config =====
 RUN mkdir -p /etc/supervisor/conf.d
+
 COPY <<'EOF' /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -96,7 +98,7 @@ stderr_logfile=/var/log/flask.log
 environment=DISPLAY=":99",PORT="5000"
 EOF
 
-# ===== Environment =====
+# ===== ENV =====
 ENV PORT=5000
 ENV FLASK_ENV=production
 ENV PYTHONIOENCODING=utf-8
