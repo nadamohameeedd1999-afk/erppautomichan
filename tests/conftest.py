@@ -72,6 +72,9 @@ def _build_options():
         options.add_argument("--window-size=1920,1080")
 
     options.add_argument("--disable-notifications")
+    options.add_argument("--log-level=3")
+    options.add_argument("--disable-background-networking")
+    options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--lang=ar-EG")
 
@@ -99,7 +102,7 @@ def _create_driver(options):
 
 
 @pytest.fixture(scope="function")
-def driver():
+def driver(request):
     logger.info("=" * 50)
     logger.info(f"Starting Chrome ({'Docker' if IS_DOCKER else 'Local'})...")
 
@@ -123,6 +126,10 @@ def driver():
 
     yield driver
 
+    rep = getattr(request.node, "rep_call", None)
+    if rep is not None and rep.failed:
+        _attach_failure_screenshot(driver, request.node.name)
+
     logger.info("Closing browser...")
     try:
         driver.quit()
@@ -133,3 +140,29 @@ def driver():
 @pytest.fixture
 def credentials():
     return {"username": USERNAME, "password": PASSWORD}
+
+# ===== Failure screenshots =====
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Store each phase's report on the test item (rep_setup / rep_call / rep_teardown)."""
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, "rep_" + rep.when, rep)
+
+
+def _attach_failure_screenshot(driver, test_name):
+    """On test failure: save a screenshot to disk and attach it to Allure."""
+    try:
+        import re
+        import allure
+        from datetime import datetime
+        from config.settings import SCREENSHOTS_DIR
+
+        png = driver.get_screenshot_as_png()
+        safe = re.sub(r"[^\w\-]", "_", test_name)
+        allure.attach(png, name=f"FAILED_{safe}", attachment_type=allure.attachment_type.PNG)
+        path = SCREENSHOTS_DIR / f"FAILED_{safe}_{datetime.now():%Y%m%d_%H%M%S}.png"
+        path.write_bytes(png)
+        logger.error(f"Failure screenshot: {path}")
+    except Exception as e:
+        logger.warning(f"Could not capture failure screenshot: {str(e)[:100]}")
