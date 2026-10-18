@@ -55,6 +55,12 @@ def set_lang(lang):
 
 
 # ==================== Auth ====================
+def _safe_next(url):
+    """Allow only same-site relative paths after login (prevents open redirect)"""
+    if not url or not url.startswith("/") or url.startswith("//") or "\\" in url:
+        return url_for("index")
+    return url
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
@@ -67,7 +73,7 @@ def login():
 
         if auth.login_user(username, password):
             next_url = request.args.get("next", url_for("index"))
-            return redirect(next_url)
+            return redirect(_safe_next(next_url))
         else:
             error = "اسم المستخدم أو كلمة المرور غير صحيحة" if get_current_lang() == "ar" \
                 else "Invalid username or password"
