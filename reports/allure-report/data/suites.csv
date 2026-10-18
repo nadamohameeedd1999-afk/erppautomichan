@@ -1,2 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"اختبار كامل: إنشاء فاتورة بيع","147053","test_full_sales_invoice_flow","tests.functional","Thu Oct 15 13:41:19 EEST 2026","passed","Thu Oct 15 13:43:46 EEST 2026","","test_03_sales_invoice","",""
