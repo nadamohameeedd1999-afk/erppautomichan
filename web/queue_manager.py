@@ -55,11 +55,12 @@ class QueueManager:
                 return dict(self.history[task_id])
         return None
 
-    def add(self, task_id, test_path, test_name):
+    def add(self, task_id, test_path, test_name, repeat=1):
         task = {
             "task_id": task_id,
             "test_path": test_path,
             "test_name": test_name,
+            "repeat": repeat,
             "added_at": datetime.now().isoformat(),
             "status": "queued",
         }
@@ -130,6 +131,9 @@ class QueueManager:
                 env = os.environ.copy()
                 env["PYTHONIOENCODING"] = "utf-8"
                 env["PYTHONUTF8"] = "1"
+                env["TEST_REPEAT"] = str(task.get("repeat", 1) or 1)
+                lf.write(f"TEST_REPEAT: {env['TEST_REPEAT']}\n")
+                lf.flush()
 
                 self.process = subprocess.Popen(
                     cmd,

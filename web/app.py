@@ -467,6 +467,22 @@ def export_pdf():
 
 
 # ==================== API ====================
+MAX_REPEAT = 50
+
+
+def _repeat_from_request(test_path):
+    """عدد التكرار من الطلب (من 1 لـ MAX_REPEAT). اختبارات [param] بتتشغل مرة واحدة."""
+    data = request.get_json(silent=True) or {}
+    try:
+        n = int(data.get("repeat", 1))
+    except (TypeError, ValueError):
+        n = 1
+    n = max(1, min(MAX_REPEAT, n))
+    if "[" in test_path:
+        n = 1
+    return n
+
+
 @app.route("/api/run-test", methods=["POST"])
 @auth.login_required
 def run_test():
@@ -479,12 +495,13 @@ def run_test():
 
     task_id = f"run_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     qm = get_qm()
-    result = qm.add(task_id, test_path, test_name)
+    result = qm.add(task_id, test_path, test_name, repeat=_repeat_from_request(test_path))
 
     return jsonify({
         "success": True,
         "task_id": task_id,
         "queued": result["queued"],
+        "repeat": _repeat_from_request(test_path),
         "position": result["position"],
     })
 
@@ -844,12 +861,13 @@ def api_run_module_test():
 
     task_id = f"run_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     qm = get_qm()
-    result = qm.add(task_id, test_path, test_name)
+    result = qm.add(task_id, test_path, test_name, repeat=_repeat_from_request(test_path))
 
     return jsonify({
         "success": True,
         "task_id": task_id,
         "queued": result["queued"],
+        "repeat": _repeat_from_request(test_path),
         "position": result["position"],
         "test_path": test_path,
         "test_name": test_name,
