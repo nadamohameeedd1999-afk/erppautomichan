@@ -203,3 +203,40 @@ def pytest_generate_tests(metafunc):
             indirect=True,
             ids=lambda i: f"run{i}of{count}",
         )
+
+# ===== Repeat option: run each selected test N times =====
+def pytest_addoption(parser):
+    parser.addoption(
+        "--repeat",
+        action="store",
+        default=None,
+        help="Run every selected test N times (fresh browser each time). "
+             "Fallback: TEST_REPEAT env var.",
+    )
+
+
+def _repeat_count(config):
+    raw = config.getoption("--repeat", default=None)
+    if raw is None:
+        raw = os.getenv("TEST_REPEAT", "1")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
+
+
+@pytest.fixture
+def repeat_iteration(request):
+    return request.param
+
+
+def pytest_generate_tests(metafunc):
+    count = _repeat_count(metafunc.config)
+    if count > 1:
+        metafunc.fixturenames.append("repeat_iteration")
+        metafunc.parametrize(
+            "repeat_iteration",
+            range(1, count + 1),
+            indirect=True,
+            ids=lambda i: f"run{i}of{count}",
+        )
