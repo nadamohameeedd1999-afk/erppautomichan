@@ -1,71 +1,77 @@
 """
 اختبار سند القبض
 """
-import pytest
+import re
 import time
 import allure
+import pytest
 from pages.login_page import LoginPage
 from pages.cash_receipt_voucher_page import CashReceiptVoucherPage
 from utils.logger import logger
+from utils.list_verify import first_row_text, wait_for_new_first_row
 from config.cash_receipt_data import CashReceiptDefaults
 
 
-def _login_and_open_add(driver, credentials):
-    login = LoginPage(driver)
-    login.load()
-    login.login(credentials["username"], credentials["password"])
-    crv = CashReceiptVoucherPage(driver)
-    crv.open_list()
-    crv.click_add_new()
-    assert crv.is_on_add_page(), f"مش في صفحة الإضافة: {driver.current_url}"
-    return crv
+def _shot(page, name):
+    """Take a screenshot and attach it to the Allure report."""
+    path = page.take_screenshot(name)
+    if path:
+        allure.attach.file(path, name=name, attachment_type=allure.attachment_type.PNG)
 
 
 @allure.feature("Cash Receipt Voucher")
 @allure.story("Create Cash Receipt Voucher")
 @allure.severity(allure.severity_level.CRITICAL)
 @pytest.mark.smoke
-def test_full_cash_receipt_voucher_flow(driver, credentials):
-    """اختبار كامل: إنشاء سند قبض"""
-    start_time = time.time()
-    logger.info("=" * 60)
-    logger.info("اختبار: إنشاء سند قبض كامل")
-    logger.info("=" * 60)
+def test_full_cash_receipt_voucher_flow(driver, credentials, request):
+    """إنشاء سند قبض والتأكد إن سند جديد ظهر في القائمة"""
+    start = time.time()
+    logger.info(f"▶ {request.node.name}")
+    crv = CashReceiptVoucherPage(driver)
 
-    crv = _login_and_open_add(driver, credentials)
+    with allure.step("تسجيل الدخول"):
+        login = LoginPage(driver)
+        login.load()
+        login.login(credentials["username"], credentials["password"])
 
-    logger.info("1) ملء الحقول الإجبارية")
-    crv.fill_all_required_fields()
+    with allure.step("قراءة أول صف في قائمة السندات قبل الإضافة"):
+        crv.open_list()
+        before = first_row_text(driver)
+        allure.attach(str(before), name="first_row_before")
+        logger.info(f"أول صف قبل الإضافة: {str(before)[:120]}")
 
-    crv.take_screenshot("crv_before_save")
+    with allure.step("فتح صفحة إضافة سند"):
+        crv.click_add_new()
+        assert crv.is_on_add_page(), f"مش في صفحة الإضافة: {driver.current_url}"
 
+    with allure.step("ملء الحقول الإجبارية"):
+        crv.fill_all_required_fields()
+        _shot(crv, "crv_before_save")
 
-    logger.info("3) 'سداد الى' (autoPay)")
-    crv.click_auto_pay()
+    with allure.step("سداد الى (autoPay)"):
+        crv.click_auto_pay()
 
-    logger.info("4) حفظ")
-    crv.click_save()
+    with allure.step("حفظ السند"):
+        crv.click_save()
+        swal_count = crv.handle_all_swals(max_count=5, timeout=5)
+        logger.info(f"عدد SweetAlerts: {swal_count}")
+        saved = crv.wait_for_save_result(timeout=30)
+        _shot(crv, "crv_after_save")
+        assert saved, f"السند مش اتحفظ! URL: {driver.current_url}"
 
-    logger.info("التعامل مع SweetAlerts...")
-    swal_count = crv.handle_all_swals(max_count=5, timeout=5)
-    logger.info(f"عدد SweetAlerts: {swal_count}")
+    with allure.step("التأكد إن سند جديد ظهر في القائمة"):
+        after = wait_for_new_first_row(driver, crv.LIST_URL, before, timeout=60)
+        _shot(crv, "crv_list_after_save")
+        allure.attach(str(after), name="first_row_after")
+        assert after is not None, (
+            f"مظهرش سند جديد في القائمة بعد الحفظ. أول صف كان: {str(before)[:120]}"
+        )
 
-    logger.info("4) انتظار نتيجة الحفظ...")
-    saved = crv.wait_for_save_result(timeout=30)
-    crv.take_screenshot("crv_final")
+    with allure.step("فحص المبلغ في الصف الجديد (تسجيل فقط)"):
+        amounts = [float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*\.\d{2}", after)]
+        expected = float(CashReceiptDefaults.MONEY_AMOUNT)
+        allure.attach(str(amounts), name="amounts_in_new_row")
+        if expected not in amounts:
+            logger.warning(f"المبلغ المتوقع {expected} مش ظاهر في الصف الجديد. المبالغ: {amounts}")
 
-    elapsed = time.time() - start_time
-    logger.info(f"⏱️ الوقت الإجمالي: {int(elapsed // 60)}:{int(elapsed % 60):02d}")
-
-    assert saved, f"❌ السند مش اتحفظ! URL: {driver.current_url}"
-
-    logger.info("5) التحقق النهائي من صفحة القائمة...")
-    verified = crv.verify_voucher_in_list(expected_amount=CashReceiptDefaults.MONEY_AMOUNT)
-    crv.take_screenshot("crv_verify_list")
-
-    if verified:
-        logger.success("🎉✅ السند اتحفظ فعلاً وموجود في القائمة!")
-    else:
-        logger.warning("⚠️ السند مش موجود في القائمة (بس اتحفظ)")
-
-    logger.success(f"🎉 السند اتحفظ بنجاح! ({int(elapsed)} ثانية)")
+    logger.success(f"السند اتحفظ وظهر في القائمة ({int(time.time() - start)} ثانية)")
