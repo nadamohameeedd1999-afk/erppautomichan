@@ -94,16 +94,20 @@ class TestRunner {
         log.scrollTop = log.scrollHeight;
     }
 
-    async run(testPath, testName) {
+    async run(testPath, testName, repeat = 1) {
+        this.repeat = Math.max(1, parseInt(repeat, 10) || 1);
+        this._iter = 0;
+        this._iterShown = 0;
         this.openModal(testName);
         this.setProgress(5, 'جاري إرسال الطلب...');
         this.addLog(`بدء تشغيل: ${testName}`);
+        if (this.repeat > 1) this.addLog(`🔁 التكرار: ${this.repeat} مرة (متصفح جديد لكل مرة)`, 'info');
 
         try {
             const res = await fetch('/api/run-test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ test_path: testPath, test_name: testName })
+                body: JSON.stringify({ test_path: testPath, test_name: testName, repeat: this.repeat })
             });
 
             const data = await res.json();
@@ -132,14 +136,14 @@ class TestRunner {
 
     poll(taskId) {
         let attempts = 0;
-        const maxAttempts = 600; // ~20 min max
+        const maxAttempts = Math.max(600, (this.repeat || 1) * 200); // 20 min minimum, +6.5 min per repeat
         let lastStatus = null;
 
         this.pollTimer = setInterval(async () => {
             attempts++;
 
             if (attempts > maxAttempts) {
-                this.addLog('⏱️ انتهى الوقت المسموح (20 دقيقة)', 'error');
+                this.addLog('⏱️ انتهى الوقت المسموح', 'error');
                 this.setProgress(100, 'انتهى الوقت');
                 this.finish(false);
                 return;
@@ -153,7 +157,11 @@ class TestRunner {
                 const baseProgress = 15;
                 const maxProgress = 95;
                 const p = Math.min(baseProgress + (attempts * 1.5), maxProgress);
-                this.setProgress(p, 'جاري التشغيل...');
+                if ((this.repeat || 1) > 1) {
+                    await this.updateRepeatProgress(taskId, attempts);
+                } else {
+                    this.setProgress(p, 'جاري التشغيل...');
+                }
 
                 // لو الحالة اتغيرت، نطبع
                 if (data.status !== lastStatus) {
@@ -290,8 +298,39 @@ TestRunner.prototype.finish = function(success, taskId) {
 // ==================== Global Helper ====================
 window.TestRunner = TestRunner;
 
-window.runTest = function(testPath, testName) {
+window.runTest = function(testPath, testName, repeat) {
     const runner = new TestRunner({});
-    runner.run(testPath, testName);
+    runner.run(testPath, testName, repeat);
 };
 
+
+
+// ==================== Repeat progress ====================
+// بيقرأ اللوج ويعرف إحنا في أنهي تكرار (pytest بيطبع [run2of5] في اسم كل اختبار)
+TestRunner.prototype.updateRepeatProgress = async function(taskId, attempts) {
+    const n = this.repeat || 1;
+    try {
+        if (attempts % 3 === 1 || !this._iter) {
+            const res = await fetch(`/api/log/${taskId}?lines=1500`);
+            const d = await res.json();
+            if (d && d.success) {
+                let cur = 0;
+                for (const line of d.lines) {
+                    for (const m of line.matchAll(/\[run(\d+)of(\d+)\]/g)) {
+                        cur = Math.max(cur, parseInt(m[1], 10));
+                    }
+                }
+                if (cur > 0) this._iter = cur;
+            }
+        }
+    } catch (e) {
+        console.error('Repeat progress error:', e);
+    }
+    const cur = this._iter || 1;
+    if (cur !== this._iterShown) {
+        this._iterShown = cur;
+        this.addLog(`🔁 بدأ التكرار ${cur} من ${n}`, 'info');
+    }
+    const pct = Math.min(95, 10 + (85 * (cur - 1)) / n + 5);
+    this.setProgress(pct, `🔁 تكرار ${cur} من ${n}`);
+};

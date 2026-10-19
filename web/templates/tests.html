@@ -191,6 +191,10 @@
                 </span>
             </div>
             <div>
+                <div class="input-group d-inline-flex w-auto align-middle me-2" title="كام مرة يتكرر كل اختبار كامل (من 1 لـ 50)">
+                    <span class="input-group-text">🔁 التكرار</span>
+                    <input type="number" id="globalRepeat" class="form-control" style="max-width:80px" min="1" max="50" value="1">
+                </div>
                 <button class="btn btn-success" onclick="runSelected('full')">
                     <i class="bi bi-play-fill"></i> 🎯 شغّل المحدد كامل
                 </button>
@@ -518,6 +522,14 @@ function renderRow(t) {
         typeCell = `<span class="badge bg-secondary">غير متاح</span>`;
     }
 
+    // ===== التكرار (للاختبارات الكاملة فقط) =====
+    const repeatCell = t.full_available
+        ? `<div class="input-group input-group-sm mt-1" style="max-width:130px" title="عدد مرات تكرار الاختبار الكامل">
+               <span class="input-group-text">🔁</span>
+               <input type="number" class="form-control row-repeat" data-test-id="${t.id}" min="1" max="50" value="1">
+           </div>`
+        : '';
+
     // ===== آخر نتيجة =====
     let resultCell = '';
     if (t.last_result) {
@@ -543,7 +555,7 @@ function renderRow(t) {
                 <br>
                 <small class="text-muted">${t.url || t.page_key}</small>
             </td>
-            <td>${typeCell}</td>
+            <td>${typeCell}${repeatCell}</td>
             <td>${resultCell}</td>
             <td>
                 <button class="btn btn-sm btn-success"
@@ -639,6 +651,18 @@ function setType(testId, type) {
     }
 }
 
+function getRowRepeat(testId) {
+    const el = document.querySelector(`.row-repeat[data-test-id="${testId}"]`);
+    const n = el ? parseInt(el.value, 10) : 1;
+    return Math.max(1, Math.min(50, n || 1));
+}
+
+function getGlobalRepeat() {
+    const el = document.getElementById('globalRepeat');
+    const n = el ? parseInt(el.value, 10) : 1;
+    return Math.max(1, Math.min(50, n || 1));
+}
+
 function getRowType(testId) {
     const container = document.querySelector(`.type-toggle[data-test-id="${testId}"]`);
     if (!container) {
@@ -678,7 +702,8 @@ async function runRow(testId) {
 
     const name = `${test.name} (${type === 'full' ? 'كامل' : 'شاشة'})`;
     const runner = new TestRunner({});
-    await runner.run(path, name);
+    const repeat = (path === test.full_path) ? getRowRepeat(testId) : 1;
+    await runner.run(path, name + (repeat > 1 ? ` ×${repeat}` : ''), repeat);
 }
 
 async function runSelected(mode) {
@@ -711,7 +736,8 @@ async function runSelected(mode) {
         }
 
         if (path) {
-            tasks.push({ path, name: `${test.name} (${type === 'full' ? 'كامل' : 'شاشة'})` });
+            const rep = (path === test.full_path) ? getGlobalRepeat() : 1;
+            tasks.push({ path, repeat: rep, name: `${test.name} (${type === 'full' ? 'كامل' : 'شاشة'})${rep > 1 ? ' ×' + rep : ''}` });
         }
     }
 
@@ -720,11 +746,12 @@ async function runSelected(mode) {
         return;
     }
 
-    if (!confirm(`هيتم تشغيل ${tasks.length} اختبار. متأكد؟`)) return;
+    const totalRuns = tasks.reduce((s, t) => s + (t.repeat || 1), 0);
+    if (!confirm(`هيتم تشغيل ${tasks.length} اختبار (${totalRuns} تشغيلة إجمالاً). متأكد؟`)) return;
 
     for (const task of tasks) {
         const runner = new TestRunner({});
-        await runner.run(task.path, task.name);
+        await runner.run(task.path, task.name, task.repeat);
         await new Promise(r => setTimeout(r, 2000));
     }
 }
