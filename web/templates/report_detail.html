@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ t('details') }} - {{ site_name }}{% endblock %}
 
@@ -93,6 +93,9 @@
                     {% endif %}
                     <strong class="ms-2">{{ test.name }}</strong>
                     <div class="text-muted small ms-4">{{ test.file }}</div>
+                    {% if test.message %}
+                    <div class="small text-danger ms-4 mt-1" style="white-space: pre-wrap;">{{ test.message }}</div>
+                    {% endif %}
                 </div>
                 <span class="badge bg-light text-dark">{{ test.duration }} {{ t('seconds') }}</span>
             </div>

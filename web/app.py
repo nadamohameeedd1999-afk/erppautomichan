@@ -143,7 +143,7 @@ def reports():
     trend_duration = []
 
     for s in reversed(filtered[:20]):
-        ts = s.get("run_id", "")
+        ts = s.get("timestamp") or s.get("run_id", "")
         label = f"{ts[9:11]}:{ts[11:13]}" if len(ts) >= 13 else ts
         trend_labels.append(label)
         trend_passed.append(s.get("passed", 0))
@@ -184,7 +184,7 @@ def report_detail(run_id):
     report = next((s for s in summaries if s.get("run_id") == run_id), None)
     if not report:
         return redirect(url_for("reports"))
-    screenshots = data_helper.get_screenshots_for_run(run_id)
+    screenshots = data_helper.get_screenshots_for_run(run_id, report)
     return render_template("report_detail.html", report=report, screenshots=screenshots)
 
 

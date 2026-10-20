@@ -1,4 +1,4 @@
-﻿"""
+"""
 Data helper - reads test results, screenshots, schedules
 """
 import json
@@ -59,11 +59,21 @@ def get_stats():
     }
 
 
-def get_screenshots_for_run(run_id):
-    """Get screenshots for a specific run"""
+def get_screenshots_for_run(run_id, report=None):
+    """Get screenshots for a specific run (taken between its start and end when known)"""
     screenshots = []
     if not SCREENSHOTS_DIR.exists():
         return screenshots
+    if report and report.get("started_at") and report.get("finished_at"):
+        try:
+            start = datetime.fromisoformat(report["started_at"]).timestamp() - 2
+            end = datetime.fromisoformat(report["finished_at"]).timestamp() + 5
+            for f in sorted(SCREENSHOTS_DIR.glob("*.png"), key=lambda p: p.stat().st_mtime):
+                if start <= f.stat().st_mtime <= end:
+                    screenshots.append(f.name)
+            return screenshots
+        except Exception:
+            screenshots = []
 
     for f in sorted(SCREENSHOTS_DIR.glob("*.png"), reverse=True):
         if run_id[:8] in f.name:

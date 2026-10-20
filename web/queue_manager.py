@@ -177,6 +177,10 @@ class QueueManager:
 
             task["status"] = final_status
             task["exit_code"] = self.process.returncode
+            try:
+                self._write_summary(task, start_time, end_time, duration, self.process.returncode)
+            except Exception as e:
+                print(f"[{task_id}] summary error: {e}", flush=True)
             task["completed_at"] = end_time.isoformat()
             task["duration_seconds"] = round(duration, 1)
 
@@ -236,6 +240,63 @@ class QueueManager:
             }
         except Exception as e:
             return {"success": False, "error": str(e)[:200]}
+
+    def _write_summary(self, task, start_time, end_time, duration, exit_code):
+        """يكتب reports/results/summary_<task_id>.json — ده اللي صفحة التقارير بتقراه."""
+        task_id = task["task_id"]
+        raw = RESULTS_DIR / f"raw_{task_id}.json"
+        data = {"summary": {}, "tests": []}
+        if raw.exists():
+            try:
+                with open(raw, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                pass
+        s = data.get("summary", {}) or {}
+
+        def _message(t):
+            for phase in ("setup", "call", "teardown"):
+                ph = t.get(phase) or {}
+                if ph.get("outcome") in ("failed", "error"):
+                    crash = ph.get("crash") or {}
+                    msg = crash.get("message") or (ph.get("longrepr") or "")
+                    return str(msg)[-800:]
+            return ""
+
+        summary = {
+            "run_id": task_id,
+            "timestamp": start_time.strftime("%Y%m%d_%H%M%S"),
+            "started_at": start_time.isoformat(timespec="seconds"),
+            "finished_at": end_time.isoformat(timespec="seconds"),
+            "test_path": task.get("test_path", ""),
+            "test_name": task.get("test_name", ""),
+            "repeat": task.get("repeat", 1),
+            "duration_seconds": round(duration, 2),
+            "total": s.get("total", 0),
+            "passed": s.get("passed", 0),
+            "failed": s.get("failed", 0),
+            "errors": s.get("error", 0),
+            "skipped": s.get("skipped", 0),
+            "exit_code": exit_code,
+            "status": task.get("status"),
+            "tests": [
+                {
+                    "name": t["nodeid"].split("::")[-1],
+                    "file": t["nodeid"].split("::")[0],
+                    "outcome": t.get("outcome"),
+                    "duration": round(sum((t.get(p) or {}).get("duration", 0) for p in ("setup", "call", "teardown")), 2),
+                    "message": _message(t),
+                }
+                for t in data.get("tests", [])
+            ],
+        }
+        # pytest crashed before running anything (no json report): still record the run as failed
+        if not summary["total"] and exit_code not in (0, None):
+            summary["errors"] = 1
+            summary["total"] = 1
+        with open(RESULTS_DIR / f"summary_{task_id}.json", "w", encoding="utf-8") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+        return summary
 
     def read_summary(self, task_id):
         """يقرأ ملف summary JSON لو موجود"""

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ t('reports') }} - {{ site_name }}{% endblock %}
 
@@ -140,7 +140,7 @@
                             <td><strong class="text-success">{{ run.passed }}</strong></td>
                             <td><strong class="text-danger">{{ failed }}</strong></td>
                             <td>{{ run.duration_seconds|int }} {{ t('seconds') }}</td>
-                            <td class="text-muted small">{{ run.run_id[:13] }}</td>
+                            <td class="text-muted small">{{ (run.timestamp or run.run_id)[:13] }}</td>
                             <td>
                                 <a href="{{ url_for('report_detail', run_id=run.run_id) }}"
                                    class="btn btn-sm btn-primary">
