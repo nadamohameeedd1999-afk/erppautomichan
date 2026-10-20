@@ -247,7 +247,7 @@ class TestRunner {
                 finishArea.classList.remove('d-none');
                 const viewBtn = document.getElementById('viewReportBtn');
                 if (viewBtn) {
-                    viewBtn.onclick = () => { window.location.href = '/reports'; };
+                    viewBtn.onclick = () => { window.location.href = taskId ? `/reports/${encodeURIComponent(taskId)}` : '/reports'; };
                 }
             }
         }, 1500);

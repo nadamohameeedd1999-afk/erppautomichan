@@ -175,12 +175,13 @@ class QueueManager:
             else:
                 final_status = "failed"
 
-            task["status"] = final_status
-            task["exit_code"] = self.process.returncode
             try:
-                self._write_summary(task, start_time, end_time, duration, self.process.returncode)
+                self._write_summary({**task, "status": final_status}, start_time, end_time, duration,
+                                    self.process.returncode)
             except Exception as e:
                 print(f"[{task_id}] summary error: {e}", flush=True)
+            task["status"] = final_status
+            task["exit_code"] = self.process.returncode
             task["completed_at"] = end_time.isoformat()
             task["duration_seconds"] = round(duration, 1)
 

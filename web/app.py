@@ -185,7 +185,10 @@ def report_detail(run_id):
     if not report:
         return redirect(url_for("reports"))
     screenshots = data_helper.get_screenshots_for_run(run_id, report)
-    return render_template("report_detail.html", report=report, screenshots=screenshots)
+    shots = [{"file": f, "label": data_helper.screenshot_label(f)} for f in screenshots]
+    log_lines = data_helper.read_run_log(run_id)
+    return render_template("report_detail.html", report=report, screenshots=screenshots,
+                           shots=shots, log_lines=log_lines)
 
 
 @app.route("/schedule")

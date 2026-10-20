@@ -81,6 +81,55 @@ def get_screenshots_for_run(run_id, report=None):
     return screenshots
 
 
+_ANSI = __import__("re").compile(r"\x1b\[[0-9;]*m")
+LOGS_DIR = BASE_DIR / "reports" / "logs"
+
+
+def read_run_log(run_id, max_lines=3000):
+    """Log of one run (reports/logs/<run_id>.log) without color codes, each line tagged with a level."""
+    f = LOGS_DIR / f"{run_id}.log"
+    if not f.exists():
+        return []
+    try:
+        lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-max_lines:]
+    except Exception:
+        return []
+    out = []
+    for raw in lines:
+        line = _ANSI.sub("", raw)
+        if "| ERROR" in line or "FAILED" in line or line.startswith("E ") or "❌" in line:
+            lvl = "error"
+        elif "| WARNING" in line or "⚠️" in line:
+            lvl = "warning"
+        elif "| SUCCESS" in line or "PASSED" in line or "✅" in line or "🎯" in line:
+            lvl = "success"
+        elif line.startswith("=====") or line.startswith("____"):
+            lvl = "head"
+        else:
+            lvl = ""
+        out.append({"text": line, "level": lvl})
+    return out
+
+
+_SHOT_LABELS = [
+    ("FAILED_", "❌ لحظة الفشل"),
+    ("list_after_save", "📋 القايمة بعد الحفظ"),
+    ("after_save", "💾 بعد الحفظ"),
+    ("before_save", "📝 قبل الحفظ (الحقول متملية)"),
+    ("_swal_", "💬 رسالة على الشاشة"),
+    ("login_success", "🔑 بعد تسجيل الدخول"),
+    ("ERROR_login", "🔑 فشل تسجيل الدخول"),
+    ("inspect", "🔍 قراءة الحقول"),
+]
+
+
+def screenshot_label(name):
+    for key, label in _SHOT_LABELS:
+        if key in name:
+            return label
+    return name.rsplit(".", 1)[0]
+
+
 def get_all_screenshots():
     """Get all screenshots"""
     screenshots = []

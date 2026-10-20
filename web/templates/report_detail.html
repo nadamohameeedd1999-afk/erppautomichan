@@ -105,57 +105,130 @@
     {% endif %}
 
     <!-- Screenshots -->
-    {% if screenshots %}
-    <div class="card border-0 shadow-sm">
+    {% if shots %}
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-0 pt-3">
             <h5 class="fw-bold mb-0">
-                <i class="bi bi-camera text-primary"></i> {{ t('screenshot') }}
-                <span class="badge bg-primary ms-2">{{ screenshots|length }}</span>
+                <i class="bi bi-camera text-primary"></i> اللقطات
+                <span class="badge bg-primary ms-2">{{ shots|length }}</span>
+                <small class="text-muted fw-normal ms-2">بالترتيب — اضغطي على أي لقطة لتكبيرها</small>
             </h5>
         </div>
         <div class="card-body">
-            <div class="row g-3">
-                {% for img in screenshots %}
-                <div class="col-md-4 col-lg-3">
-                    <div class="screenshot-card">
-                        <img src="{{ url_for('serve_screenshot', filename=img) }}"
-                             alt="{{ img }}"
-                             onclick="showImage('{{ url_for('serve_screenshot', filename=img) }}', '{{ img }}')">
-                        <div class="p-2 text-center">
-                            <small class="text-muted">{{ img }}</small>
-                        </div>
-                    </div>
-                </div>
+            <div class="shot-grid">
+                {% for s in shots %}
+                <figure class="shot {% if 'FAILED_' in s.file %}shot-failed{% endif %}" onclick="openShot({{ loop.index0 }})">
+                    <div class="shot-img"><img src="{{ url_for('serve_screenshot', filename=s.file) }}" alt="{{ s.label }}" loading="lazy"></div>
+                    <figcaption>
+                        <span class="shot-num">{{ loop.index }}</span> {{ s.label }}
+                        <div class="shot-file">{{ s.file }}</div>
+                    </figcaption>
+                </figure>
                 {% endfor %}
             </div>
         </div>
     </div>
     {% endif %}
+
+    <!-- Log -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="fw-bold mb-0"><i class="bi bi-file-text text-primary"></i> اللوج</h5>
+            {% if log_lines %}
+            <div class="d-flex gap-2 align-items-center">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="logImportant" onchange="filterLog(this.checked)">
+                    <label class="form-check-label small" for="logImportant">المهم بس (نجاح / تحذير / خطأ)</label>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="copyLog()"><i class="bi bi-clipboard"></i> نسخ</button>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body pt-0">
+            {% if log_lines %}
+            <pre class="run-log" id="runLogBox">{% for l in log_lines %}<span class="ll {{ l.level }}">{{ l.text }}</span>
+{% endfor %}</pre>
+            {% else %}
+            <div class="text-muted small">مفيش لوج محفوظ للتشغيلة دي (التشغيلات القديمة ماكانش ليها لوج).</div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
-<!-- Image Modal -->
+<!-- Image viewer -->
 <div class="modal fade" id="imageModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 92vw;">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="imageTitle"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold" id="imageTitle"></h6>
+                <div class="ms-auto me-2 d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="stepShot(-1)" title="السابقة">→</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="stepShot(1)" title="التالية">←</button>
+                    <a class="btn btn-sm btn-outline-primary" id="imageOpen" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+                <button type="button" class="btn-close m-0" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center">
-                <img id="imagePreview" src="" class="img-fluid rounded">
+            <div class="modal-body text-center bg-dark p-2">
+                <img id="imagePreview" src="" style="max-width: 100%; max-height: 82vh; object-fit: contain;">
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-function showImage(src, title) {
-    document.getElementById('imagePreview').src = src;
-    document.getElementById('imageTitle').textContent = title;
-    new bootstrap.Modal(document.getElementById('imageModal')).show();
-}
-</script>
+{% block extra_css %}
+<style>
+    .shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .shot { margin: 0; border: 1px solid #e3e6ef; border-radius: 10px; overflow: hidden; cursor: zoom-in;
+            background: #fff; transition: box-shadow .15s, transform .15s; }
+    .shot:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: translateY(-2px); }
+    .shot-failed { border: 2px solid #dc3545; }
+    .shot-img { height: 160px; overflow: hidden; background: #f4f5f9; }
+    .shot-img img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+    .shot figcaption { padding: 8px 10px; font-size: 13px; font-weight: 600; }
+    .shot-num { display: inline-block; min-width: 22px; height: 22px; line-height: 22px; text-align: center;
+                border-radius: 50%; background: #0d6efd; color: #fff; font-size: 12px; margin-inline-end: 4px; }
+    .shot-failed .shot-num { background: #dc3545; }
+    .shot-file { font-weight: 400; font-size: 11px; color: #8a8fa3; direction: ltr; text-align: left;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run-log { background: #1e1e1e; color: #d4d4d4; padding: 14px; border-radius: 8px; max-height: 520px;
+               overflow: auto; font-size: 12px; direction: ltr; text-align: left; white-space: pre-wrap; margin: 0; }
+    .run-log .ll { display: block; unicode-bidi: plaintext; }
+    .run-log .error { color: #ff7b7b; } .run-log .warning { color: #ffd166; }
+    .run-log .success { color: #7ee787; } .run-log .head { color: #79c0ff; }
+    .run-log.only-important .ll:not(.error):not(.warning):not(.success) { display: none; }
+</style>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+const SHOTS = {{ shots | tojson }};
+let shotIdx = 0;
+function openShot(i) {
+    shotIdx = i;
+    const s = SHOTS[i];
+    const src = '/screenshots/' + encodeURIComponent(s.file);
+    document.getElementById('imagePreview').src = src;
+    document.getElementById('imageOpen').href = src;
+    document.getElementById('imageTitle').textContent = `${i + 1}/${SHOTS.length} — ${s.label}`;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('imageModal')).show();
+}
+function stepShot(d) { if (SHOTS.length) openShot((shotIdx + d + SHOTS.length) % SHOTS.length); }
+document.addEventListener('keydown', e => {
+    if (!document.getElementById('imageModal').classList.contains('show')) return;
+    if (e.key === 'ArrowLeft') stepShot(1);
+    if (e.key === 'ArrowRight') stepShot(-1);
+});
+function filterLog(on) { const b = document.getElementById('runLogBox'); if (b) b.classList.toggle('only-important', on); }
+function copyLog() {
+    const b = document.getElementById('runLogBox');
+    if (b && navigator.clipboard) navigator.clipboard.writeText(b.innerText);
+}
+// scroll the log to the first error
+(function () {
+    const b = document.getElementById('runLogBox');
+    const e = b && b.querySelector('.ll.error');
+    if (e) b.scrollTop = Math.max(0, e.offsetTop - 60);
+})();
+</script>
+{% endblock %}
