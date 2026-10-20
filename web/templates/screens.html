@@ -14,6 +14,7 @@
     .fields-table code { font-size: 12px; direction: ltr; unicode-bidi: embed; }
     .fields-table .form-control-sm, .fields-table .form-select-sm { min-width: 110px; }
     .ord-btn { padding: 0 6px; line-height: 1.2; }
+    .ord-num { width: 64px; min-width: 64px !important; }
     .job-log { background: #1e1e1e; color: #d4d4d4; font-size: 12px; direction: ltr; text-align: left;
                max-height: 220px; overflow: auto; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
     .step-ok { color: #198754; } .step-bad { color: #dc3545; }
@@ -113,7 +114,7 @@
                     <table class="table table-sm mb-0 fields-table">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:60px">الترتيب</th>
+                                <th style="width:80px" title="اكتبي رقم الترتيب في الخانة — الحقل بيتنقل لمكانه لوحده">الترتيب</th>
                                 <th style="width:30px">✓</th>
                                 <th>الحقل</th>
                                 <th>النوع</th>
@@ -339,6 +340,7 @@ async function openScreen(key) {
 
 // ==================== fields table ====================
 function renderRows() {
+    ROWS = [...ROWS.filter(r => r.include), ...ROWS.filter(r => !r.include)];
     const body = $('fieldsBody');
     const visibleRows = ROWS.map((r, i) => ({r, i})).filter(x => SHOW_ALL || x.r.include || x.r.required || x.r.depends_on || x.r.saved);
     $('fieldsCount').textContent = ROWS.filter(r => r.include).length;
@@ -373,8 +375,11 @@ function renderRows() {
         return `
         <tr class="${r.include ? '' : 'excluded'} ${r.missing ? 'missing' : ''}">
             <td class="text-nowrap">
-                <button class="btn btn-sm btn-light ord-btn" onclick="moveRow(${i}, -1)" title="لفوق">▲</button>
-                <button class="btn btn-sm btn-light ord-btn" onclick="moveRow(${i}, 1)" title="لتحت">▼</button>
+                ${r.include
+                    ? `<input type="number" class="form-control form-control-sm text-center fw-bold ord-num" min="1" max="${includedIds.length}"
+                              value="${includedIds.indexOf(r.id) + 1}" title="اكتبي رقم الترتيب واضغطي Enter"
+                              onchange="setOrder(${i}, this.value)" onkeydown="if (event.key === 'Enter') this.blur()">`
+                    : `<span class="text-muted small">—</span>`}
             </td>
             <td><input class="form-check-input" type="checkbox" ${r.include ? 'checked' : ''} onchange="setRow(${i}, 'include', this.checked)"></td>
             <td>
@@ -402,6 +407,16 @@ function renderRows() {
 }
 
 function setRow(i, key, val) {
+    if (key === 'include' && val) {
+        // newly ticked field gets the next number: goes right after the last ticked field
+        const row = ROWS.splice(i, 1)[0];
+        row.include = true;
+        let last = -1;
+        ROWS.forEach((r, k) => { if (r.include) last = k; });
+        ROWS.splice(last + 1, 0, row);
+        renderRows();
+        return;
+    }
     ROWS[i][key] = val;
     if (key === 'include' && !val) ROWS.forEach(r => { if (r.depends_on === ROWS[i].id) r.depends_on = null; });
     renderRows();
@@ -412,6 +427,18 @@ function setKind(i, kind) {
     r.kind = kind;
     const allowed = KIND_STRATEGIES[kind] || Object.keys(STRATEGIES);
     if (!allowed.includes(r.strategy)) r.strategy = allowed[0];
+    renderRows();
+}
+
+// put row i at position n (1-based) among the ticked fields
+function setOrder(i, n) {
+    const included = ROWS.filter(r => r.include);
+    n = Math.max(1, Math.min(included.length, parseInt(n, 10) || 1));
+    const row = ROWS[i];
+    const others = included.filter(r => r !== row);
+    others.splice(n - 1, 0, row);
+    const rest = ROWS.filter(r => !r.include);
+    ROWS = [...others, ...rest];
     renderRows();
 }
 
