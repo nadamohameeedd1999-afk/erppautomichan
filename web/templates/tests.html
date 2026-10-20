@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}{{ t('tests') }} - {{ site_name }}{% endblock %}
 
@@ -696,7 +696,7 @@ function scenarioCell(t) {
         return `<a href="/scenarios?screen=${encodeURIComponent(t.page_key)}" class="small text-muted text-decoration-none" title="إضافة سيناريو للشاشة دي">＋ إضافة سيناريو</a>`;
     }
     const opts = [];
-    if (t.full_path) opts.push(['base', '⭐ الأساسي (إعداد الشاشة)']);
+    if (t.full_path) opts.push(['base', '⭐ الأساسي']);
     list.forEach(s => opts.push([s.key, '🎬 ' + s.name]));
     if (list.length + (t.full_path ? 1 : 0) > 1) opts.push(['all', `▶ كل السيناريوهات (${list.length + (t.full_path ? 1 : 0)})`]);
     let cur = SCN_CHOICE[t.id];
