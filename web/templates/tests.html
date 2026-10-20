@@ -552,7 +552,9 @@ function renderRow(t) {
             </td>
             <td>
                 <strong>${t.icon} ${t.name}</strong>
-                ${t.builder ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none ms-1" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>` : ''}
+                ${t.scenario
+                    ? `<a href="/scenarios?screen=${encodeURIComponent(t.screen_key)}&scn=${encodeURIComponent(t.scenario_key)}" class="badge bg-info text-dark text-decoration-none ms-1" title="سيناريو — اضغط للتعديل">🎬 سيناريو</a>`
+                    : (t.builder ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none ms-1" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>` : '')}
                 <br>
                 <small class="text-muted">${t.url || t.page_key}</small>
             </td>

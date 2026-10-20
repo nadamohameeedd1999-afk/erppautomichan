@@ -223,6 +223,36 @@ class ScreenRunner(BasePage):
                     pass
         if empty:
             parts.append("قوائم فاضية وقت الحفظ: " + "، ".join(empty))
+        try:
+            extra = self.driver.execute_script(r"""
+                function lbl(e){
+                  var l = e.id ? document.querySelector('label[for="' + CSS.escape(e.id) + '"]') : null;
+                  return ((l && l.innerText) || e.id || e.name || '').replace(/\s*\*\s*$/, '').trim();
+                }
+                function vis(e){ var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+                var invalid = [], emptyReq = [], toasts = [];
+                document.querySelectorAll('.input-validation-error, [aria-invalid=true], .is-invalid').forEach(function(e){
+                  var n = lbl(e); if (n && invalid.indexOf(n) === -1) invalid.push(n);
+                });
+                document.querySelectorAll('input[data-val-required], select[data-val-required], textarea[data-val-required]').forEach(function(e){
+                  if (e.type === 'hidden' && !e.classList.contains('select2-hidden-accessible')) return;
+                  var box = e.classList.contains('select2-hidden-accessible') && e.id ? document.getElementById('select2-' + e.id + '-container') : e;
+                  if (!box || !vis(box)) return;
+                  if (!String(e.value || '').trim()) { var n = lbl(e); if (n && emptyReq.indexOf(n) === -1) emptyReq.push(n); }
+                });
+                document.querySelectorAll('.toast, .toast-message, .toastr, .noty_body, .notifyjs-corner, .alert').forEach(function(e){
+                  var t = (e.innerText || '').replace(/\s+/g, ' ').trim(); if (t && vis(e) && toasts.indexOf(t) === -1) toasts.push(t);
+                });
+                return {invalid: invalid.slice(0, 15), emptyReq: emptyReq.slice(0, 15), toasts: toasts.slice(0, 5)};
+            """) or {}
+            if extra.get("invalid"):
+                parts.append("حقول متعلّم عليها غلط (أحمر): " + "، ".join(extra["invalid"]))
+            if extra.get("emptyReq"):
+                parts.append("حقول إجبارية لسه فاضية: " + "، ".join(extra["emptyReq"]))
+            if extra.get("toasts"):
+                parts.append("رسايل ظاهرة: " + " | ".join(extra["toasts"]))
+        except Exception:
+            pass
         if self.alerts and not self.error_alerts:
             parts.append("آخر رسالة: " + self.alerts[-1])
         return "\n   ".join(parts) or "مفيش رسالة خطأ ظاهرة"
@@ -310,6 +340,21 @@ def run_screen_test(driver, credentials, key):
     """Entry used by the generated pytest files."""
     cfg = screen_config.load(key)
     logger.info(f"▶ منشئ الشاشات: {cfg['name_ar']} ({key}) — {len(cfg['fields'])} حقل")
+    try:
+        allure.dynamic.title(cfg["name_ar"])
+    except Exception:
+        pass
+    try:
+        run_screen(driver, credentials, cfg, save=True)
+    except FieldFillError as e:
+        raise AssertionError(f"وقف عند حقل: {e}") from None
+
+
+def run_scenario_test(driver, credentials, screen_key, scenario_key):
+    """Entry used by the generated scenario pytest files."""
+    from engine import scenario_config
+    cfg = scenario_config.load(screen_key, scenario_key)
+    logger.info(f"▶ سيناريو: {cfg['name_ar']} ({cfg['key']}) — {len(cfg['fields'])} حقل")
     try:
         allure.dynamic.title(cfg["name_ar"])
     except Exception:

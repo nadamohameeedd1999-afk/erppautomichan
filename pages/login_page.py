@@ -1,4 +1,4 @@
-﻿from selenium.webdriver.common.by import By
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -84,11 +84,13 @@ class LoginPage(BasePage):
                     )
                 )
             except TimeoutException:
-                logger.warning(f"⚠️ القائمة مش ظهرت لـ [{label}]")
-                # جرب نغلقها
-                self.driver.find_element(By.TAG_NAME, "body").click()
+                logger.warning(f"⚠️ القائمة مش ظهرت لـ [{label}] — هختار بالـ JavaScript")
+                try:
+                    self.driver.find_element(By.TAG_NAME, "body").click()
+                except Exception:
+                    pass
                 time.sleep(0.5)
-                return False
+                return self._select_first_option_js(select2_id, label)
             
             # ═══ 3) اختار أول عنصر حقيقي (مش placeholder) ═══
             options = self.driver.find_elements(
@@ -147,6 +149,31 @@ class LoginPage(BasePage):
             except Exception:
                 pass
             return False
+
+    def _select_first_option_js(self, select_id: str, label: str) -> bool:
+        """Fallback: يختار أول عنصر حقيقي في الـ <select> نفسه ويبعت change (زي ما Select2 بيعمل)."""
+        result = self.driver.execute_script(r"""
+            var s = document.getElementById(arguments[0]);
+            if (!s) return {ok: false, why: 'no-select'};
+            var all = Array.from(s.options).map(function (o) { return o.text.trim(); });
+            var cur = s.selectedIndex >= 0 && s.options[s.selectedIndex] ? s.options[s.selectedIndex] : null;
+            if (cur && cur.value && !/اختر|select|----/i.test(cur.text)) return {ok: true, text: cur.text.trim(), already: true, all: all};
+            for (var i = 0; i < s.options.length; i++) {
+                var o = s.options[i], t = o.text.trim();
+                if (!o.value || !t || /اختر|select|بحث|----/i.test(t)) continue;
+                s.selectedIndex = i;
+                if (window.jQuery) { jQuery(s).trigger('change'); } else { s.dispatchEvent(new Event('change', {bubbles: true})); }
+                return {ok: true, text: t, all: all};
+            }
+            return {ok: false, why: 'no-real-option', all: all};
+        """, select_id) or {}
+        if result.get("ok"):
+            how = "كان مختار بالفعل" if result.get("already") else "اتختار بالـ JavaScript"
+            logger.success(f"✅ [{label}] = '{result.get('text')}' ({how}) — الخيارات: {result.get('all')}")
+            time.sleep(1.5)
+            return True
+        logger.warning(f"⚠️ [{label}] مفيش عنصر يتختار ({result.get('why')}) — الخيارات: {result.get('all')}")
+        return False
 
     def select_activity(self, timeout: int = 15) -> bool:
         """اختيار النشاط الرئيسي - أول عنصر حقيقي"""

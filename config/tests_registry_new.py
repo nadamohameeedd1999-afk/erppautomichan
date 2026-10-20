@@ -310,7 +310,8 @@ class TestsRegistry:
                         s = json.load(f)
                     tp = s.get("test_path", "")
                     # نستخرج page_key من مسار الاختبار
-                    m = re.search(r'\[([^\]]+)\]', tp) or re.search(r'test_screen_(\w+)\.py', tp)
+                    m = (re.search(r'\[([^\]]+)\]', tp) or re.search(r'test_screen_(\w+)\.py', tp)
+                         or re.search(r'test_scn_(\w+)\.py', tp))
                     if m:
                         pk = m.group(1)
                         if pk not in last_results:
@@ -395,6 +396,44 @@ class TestsRegistry:
                     "duration_estimate": 150 if full_available else 15,
                     "builder": page_key in screen_cfgs,
                 })
+
+        # سيناريوهات (أنواع السيناريوهات) — كل سيناريو صف لوحده تحت مديول الشاشة بتاعته
+        try:
+            from engine import scenario_config
+            scenarios = [c for c in scenario_config.list_all() if not c.get("error")]
+        except Exception:
+            scenarios = []
+        page_module = {}
+        for mk, mi in all_modules.items():
+            for pk in mi["pages"]:
+                page_module.setdefault(pk, mk)
+        for c in scenarios:
+            sk = c["screen_key"]
+            mod_key = page_module.get(sk) or (screen_cfgs.get(sk) or {}).get("module_key") or "custom"
+            mod_info = all_modules.get(mod_key) or {
+                "name_ar": "شاشات منشئ الشاشات", "name_en": "Screen Builder", "icon": "🧩"}
+            if mod_key not in all_modules:
+                mod_key = "custom"
+            result.append({
+                "id": f"{mod_key}::{c['key']}",
+                "module_key": mod_key,
+                "module_name": mod_info.get(f"name_{lang}", mod_info["name_ar"]),
+                "module_icon": mod_info["icon"],
+                "page_key": c["key"],
+                "screen_key": sk,
+                "scenario_key": c["scenario_key"],
+                "name": c["name_ar"],
+                "icon": "🎬",
+                "url": c["list_url"],
+                "full_path": scenario_config.test_path_for(sk, c["scenario_key"]),
+                "smoke_path": None,
+                "full_available": True,
+                "smoke_available": False,
+                "last_result": last_results.get(c["key"]),
+                "duration_estimate": 120,
+                "builder": True,
+                "scenario": True,
+            })
 
         # شاشات اتعملت في منشئ الشاشات ومش موجودة في المديولات
         for key, c in screen_cfgs.items():

@@ -44,7 +44,69 @@ def _cfg():
 @auth.login_required
 def screens_page():
     sc = _cfg()
-    return render_template("screens.html", strategies=sc.STRATEGIES, kinds=sc.KINDS)
+    return render_template("screens.html", strategies=sc.STRATEGIES, kinds=sc.KINDS, mode="screen")
+
+
+@bp.route("/scenarios")
+@auth.login_required
+def scenarios_page():
+    sc = _cfg()
+    return render_template("screens.html", strategies=sc.STRATEGIES, kinds=sc.KINDS, mode="scenario")
+
+
+# ---------------- scenarios ----------------
+def _scn():
+    from engine import scenario_config
+    return scenario_config
+
+
+@bp.route("/api/scenarios")
+@auth.login_required
+def api_scn_list():
+    S = _scn()
+    screen = (request.args.get("screen") or "").strip() or None
+    items = []
+    for c in S.list_all(screen):
+        items.append({
+            "key": c["key"], "screen_key": c.get("screen_key"), "scenario_key": c.get("scenario_key"),
+            "scenario_name": c.get("scenario_name"), "screen_name": c.get("screen_name", c.get("screen_key")),
+            "fields": len(c.get("fields", [])), "updated_at": c.get("updated_at", ""), "error": c.get("error"),
+            "test_path": S.test_path_for(c.get("screen_key", ""), c.get("scenario_key", "")),
+        })
+    return jsonify({"success": True, "scenarios": items})
+
+
+@bp.route("/api/scenarios/<screen>/<scn>", methods=["GET"])
+@auth.login_required
+def api_scn_get(screen, scn):
+    S = _scn()
+    try:
+        return jsonify({"success": True, "config": S.load(screen, scn)})
+    except S.ScenarioError as e:
+        return jsonify({"success": False, "error": str(e)}), 404
+
+
+@bp.route("/api/scenarios/<screen>/<scn>", methods=["POST"])
+@auth.login_required
+def api_scn_save(screen, scn):
+    S = _scn()
+    data = request.get_json(silent=True) or {}
+    cfg = data.get("config") or data
+    cfg["screen_key"], cfg["scenario_key"] = screen, scn
+    try:
+        saved = S.save(cfg)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    return jsonify({"success": True, "config": saved, "test_path": S.test_path_for(screen, scn)})
+
+
+@bp.route("/api/scenarios/<screen>/<scn>", methods=["DELETE"])
+@auth.login_required
+def api_scn_delete(screen, scn):
+    S = _scn()
+    if not (S.PART_RE.match(screen or "") and S.PART_RE.match(scn or "")):
+        return jsonify({"success": False, "error": "مفتاح غلط"}), 400
+    return jsonify({"success": S.delete(screen, scn)})
 
 
 # ---------------- configs ----------------
@@ -75,6 +137,12 @@ def api_catalog():
             out.append({"module_key": mk, "module_name": m.get("name_ar", mk), "key": pk,
                         "name_ar": p.get("name_ar", pk), "name_en": p.get("name_en", ""),
                         "url": p.get("url", ""), "has_config": pk in have})
+    listed = {p["key"] for p in out}
+    for c in sc.list_all():
+        if not c.get("error") and c["key"] not in listed:
+            out.append({"module_key": c.get("module_key", "custom"), "module_name": "شاشات منشئ الشاشات",
+                        "key": c["key"], "name_ar": c.get("name_ar", c["key"]), "name_en": c.get("name_en", ""),
+                        "url": c.get("list_url", ""), "has_config": True})
     return jsonify({"success": True, "pages": out})
 
 

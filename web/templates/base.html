@@ -68,6 +68,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'screens.scenarios_page' %}active{% endif %}" href="{{ url_for('screens.scenarios_page') }}">
+                        <i class="bi bi-diagram-3"></i>
+                        {% if current_lang == 'ar' %}أنواع السيناريوهات{% else %}Scenarios{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'schedule' %}active{% endif %}" href="{{ url_for('schedule') }}">
                         <i class="bi bi-calendar-week"></i> {{ t('schedule') }}
                     </a>

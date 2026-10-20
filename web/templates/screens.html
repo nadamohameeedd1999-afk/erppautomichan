@@ -26,17 +26,30 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
+        {% if mode == 'scenario' %}
+        <h3 class="fw-bold mb-0"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</h3>
+        <small class="text-muted">لكل شاشة أكتر من سيناريو (مثلاً سند قبض من عميل إلى عميل، من مورد…). كل سيناريو بيتحفظ باسمه ويظهر في الاختبارات لوحده.</small>
+        {% else %}
         <h3 class="fw-bold mb-0"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</h3>
         <small class="text-muted">اختار شاشة ← اقرأ حقولها ← حدد هتتملى إزاي ← جرّب ← احفظ. أي شاشة ليها إعداد بتظهر في الاختبارات كـ "اختبار كامل".</small>
+        {% endif %}
     </div>
-    <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
+    <div class="d-flex gap-2">
+        {% if mode == 'scenario' %}
+        <a class="btn btn-outline-secondary" href="/screens"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</a>
+        <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> سيناريو جديد</button>
+        {% else %}
+        <a class="btn btn-outline-secondary" href="/scenarios"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</a>
+        <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
+        {% endif %}
+    </div>
 </div>
 
 <div class="row g-3">
     <!-- ============ saved screens ============ -->
     <div class="col-lg-3">
         <div class="card shadow-sm">
-            <div class="card-header fw-bold">الشاشات اللي ليها إعداد</div>
+            <div class="card-header fw-bold">{% if mode == 'scenario' %}السيناريوهات المحفوظة{% else %}الشاشات اللي ليها إعداد{% endif %}</div>
             <div class="list-group list-group-flush sb-list" id="screensList">
                 <div class="list-group-item text-muted small">جاري التحميل...</div>
             </div>
@@ -47,8 +60,25 @@
     <div class="col-lg-9">
         <!-- step 1 -->
         <div class="card shadow-sm mb-3">
-            <div class="card-header fw-bold"><span class="sb-step">1</span> الشاشة</div>
+            <div class="card-header fw-bold"><span class="sb-step">1</span> {% if mode == 'scenario' %}الشاشة والسيناريو{% else %}الشاشة{% endif %}</div>
             <div class="card-body">
+                {% if mode == 'scenario' %}
+                <div class="row g-2 mb-2 p-2 rounded" style="background: rgba(13,110,253,.06)">
+                    <div class="col-md-5">
+                        <label class="form-label small">اسم السيناريو <span class="text-danger">*</span></label>
+                        <input class="form-control fw-bold" id="scnName" placeholder="سند قبض من عميل إلى عميل">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">مفتاح السيناريو (إنجليزي) <span class="text-danger">*</span></label>
+                        <input class="form-control ltr" id="scnKey" placeholder="customer_to_customer">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-outline-primary w-100" onclick="copyFromScreen()" title="ياخد الحقول والأزرار من إعداد الشاشة في منشئ الشاشات كبداية">
+                            <i class="bi bi-files"></i> ابدأ من حقول إعداد الشاشة
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label small">اختار من شاشات النظام</label>
@@ -61,7 +91,7 @@
                         <input class="form-control" id="fNameAr">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label small">المفتاح (إنجليزي) <span class="text-danger">*</span></label>
+                        <label class="form-label small">{% if mode == 'scenario' %}مفتاح الشاشة{% else %}المفتاح (إنجليزي){% endif %} <span class="text-danger">*</span></label>
                         <input class="form-control ltr" id="fKey" placeholder="cash_receipt">
                     </div>
                     <div class="col-md-4">
@@ -236,6 +266,9 @@
 {% block extra_js %}
 <script>
 const STRATEGIES = {{ strategies | tojson }};
+const MODE = '{{ mode }}';             // 'screen' | 'scenario'
+const IS_SCN = MODE === 'scenario';
+const SEP = '__';
 const KIND_STRATEGIES = {
     select2: ['first', 'fixed', 'search', 'keep'],
     select:  ['first', 'fixed', 'search', 'keep'],
@@ -261,6 +294,7 @@ const $ = id => document.getElementById(id);
 
 // ==================== load ====================
 async function loadScreens(selectKey) {
+    if (IS_SCN) return loadScenarios();
     const r = await fetch('/api/screens').then(r => r.json()).catch(() => ({success: false}));
     const box = $('screensList');
     if (!r.success || !r.screens.length) {
@@ -274,6 +308,25 @@ async function loadScreens(selectKey) {
             ${s.error ? `<div class="small text-danger">${esc(s.error)}</div>` :
               `<div class="small text-muted">${s.fields} حقل · ${esc((s.updated_at || '').replace('T', ' '))}</div>`}
         </div>`).join('');
+}
+
+async function loadScenarios() {
+    const r = await fetch('/api/scenarios').then(r => r.json()).catch(() => ({success: false}));
+    const box = $('screensList');
+    if (!r.success || !r.scenarios.length) {
+        box.innerHTML = '<div class="list-group-item text-muted small">لسه مفيش سيناريوهات. اختاري شاشة واكتبي اسم السيناريو.</div>';
+        return;
+    }
+    const groups = {};
+    r.scenarios.forEach(x => { (groups[x.screen_key] = groups[x.screen_key] || []).push(x); });
+    box.innerHTML = Object.entries(groups).map(([sk, items]) => `
+        <div class="list-group-item bg-light small fw-bold">🧩 ${esc(items[0].screen_name || sk)}</div>` +
+        items.map(x => `
+        <div class="list-group-item ${x.key === CURRENT_KEY ? 'active-screen' : ''}" onclick="openScenario('${esc(x.screen_key)}', '${esc(x.scenario_key)}')">
+            <div class="fw-bold">${x.error ? '⚠️' : '🎬'} ${esc(x.scenario_name)}</div>
+            ${x.error ? `<div class="small text-danger">${esc(x.error)}</div>` :
+              `<div class="small text-muted">${x.fields} حقل · ${esc((x.updated_at || '').replace('T', ' '))}</div>`}
+        </div>`).join('')).join('');
 }
 
 async function loadCatalog() {
@@ -292,6 +345,7 @@ function pickFromCatalog(key) {
     if (!key) return;
     const p = CATALOG.find(x => x.key === key);
     if (!p) return;
+    if (IS_SCN) { pickScreenForScenario(p); return; }
     if (p.has_config) { openScreen(key); return; }
     newScreen(true);
     $('fKey').value = p.key;
@@ -303,24 +357,77 @@ function pickFromCatalog(key) {
     $('catalogSelect').value = key;
 }
 
+// scenario mode: choose the screen this scenario belongs to (keeps the scenario name)
+async function pickScreenForScenario(p) {
+    $('fKey').value = p.key;
+    $('fNameAr').value = p.name_ar;
+    $('fNameEn').value = p.name_en || '';
+    $('fModuleKey').value = p.module_key;
+    $('fListUrl').value = p.url;
+    $('fAddUrl').value = p.url.split('?')[0].replace(/\/$/, '') + '/AddEdit';
+    $('catalogSelect').value = p.key;
+    if (p.has_config && !ROWS.length) await copyFromScreen(true);
+}
+
+// copy fields / buttons / checks from the screen's config (منشئ الشاشات) as a starting point
+async function copyFromScreen(silent) {
+    const key = $('fKey').value.trim();
+    if (!key) { alert('اختاري الشاشة الأول'); return; }
+    const r = await fetch(`/api/screens/${encodeURIComponent(key)}`).then(r => r.json()).catch(() => ({success: false}));
+    if (!r.success) { if (!silent) alert('الشاشة دي مالهاش إعداد في منشئ الشاشات — اقرئي الحقول من هنا'); return; }
+    if (ROWS.length && !silent && !confirm('هتستبدلي الحقول الحالية بحقول إعداد الشاشة؟')) return;
+    const c = r.config;
+    $('fNameAr').value = c.name_ar; $('fNameEn').value = c.name_en; $('fModuleKey').value = c.module_key;
+    $('fListUrl').value = c.list_url; $('fAddUrl').value = c.add_url; $('fAddButton').value = c.add_button;
+    $('fSave').value = c.save_button;
+    $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
+    $('vRowContains').value = (c.verify.row_contains || []).join(', ');
+    ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
+    BEFORE_SAVE = c.before_save.map(a => ({...a}));
+    renderRows(); renderBeforeSave();
+    $('saveState').textContent = `اتنسخت حقول "${c.name_ar}" — غيّري اللي يخص السيناريو ده واحفظي`;
+}
+
 function newScreen(keepCatalog) {
     CURRENT_KEY = null;
     ROWS = []; BEFORE_SAVE = []; BUTTONS = [];
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
+    if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
     $('fSave').value = 'button#save';
     $('vNewRow').checked = true; $('vStrict').checked = false;
     if (!keepCatalog) $('catalogSelect').value = '';
     $('btnDelete').disabled = true;
     $('dryCard').classList.add('d-none');
     $('inspectWarnings').innerHTML = '';
-    $('saveState').textContent = 'شاشة جديدة — مش محفوظة';
+    $('saveState').textContent = IS_SCN ? 'سيناريو جديد — مش محفوظ' : 'شاشة جديدة — مش محفوظة';
     renderRows(); renderBeforeSave(); renderButtons(); loadScreens();
+}
+
+async function openScenario(screen, scn) {
+    const r = await fetch(`/api/scenarios/${encodeURIComponent(screen)}/${encodeURIComponent(scn)}`).then(r => r.json());
+    if (!r.success) { alert(r.error); return; }
+    fillEditor(r.config);
+    $('fKey').value = r.config.screen_key;
+    $('fNameAr').value = r.config.screen_name;
+    $('scnName').value = r.config.scenario_name;
+    $('scnKey').value = r.config.scenario_key;
+    $('catalogSelect').value = CATALOG.some(p => p.key === r.config.screen_key) ? r.config.screen_key : '';
+    $('saveState').textContent = `محفوظ · آخر تعديل ${(r.config.updated_at || '').replace('T', ' ')} · الاختبار: tests/scenarios/test_scn_${r.config.key}.py`;
+    loadScenarios();
+    history.replaceState(null, '', `/scenarios?screen=${encodeURIComponent(screen)}&scn=${encodeURIComponent(scn)}`);
 }
 
 async function openScreen(key) {
     const r = await fetch(`/api/screens/${encodeURIComponent(key)}`).then(r => r.json());
     if (!r.success) { alert(r.error); return; }
+    fillEditor(r.config);
     const c = r.config;
+    $('saveState').textContent = `محفوظ · آخر تعديل ${(c.updated_at || '').replace('T', ' ')} · الاختبار: tests/screens/test_screen_${c.key}.py`;
+    loadScreens();
+    history.replaceState(null, '', `/screens?key=${encodeURIComponent(c.key)}`);
+}
+
+function fillEditor(c) {
     CURRENT_KEY = c.key;
     $('fKey').value = c.key; $('fNameAr').value = c.name_ar; $('fNameEn').value = c.name_en;
     $('fModuleKey').value = c.module_key; $('fListUrl').value = c.list_url; $('fAddUrl').value = c.add_url;
@@ -333,9 +440,7 @@ async function openScreen(key) {
     $('btnDelete').disabled = false;
     $('dryCard').classList.add('d-none');
     $('inspectWarnings').innerHTML = '';
-    $('saveState').textContent = `محفوظ · آخر تعديل ${(c.updated_at || '').replace('T', ' ')} · الاختبار: tests/screens/test_screen_${c.key}.py`;
-    renderRows(); renderBeforeSave(); loadScreens();
-    history.replaceState(null, '', `/screens?key=${encodeURIComponent(c.key)}`);
+    renderRows(); renderBeforeSave();
 }
 
 // ==================== fields table ====================
@@ -508,6 +613,15 @@ function addBeforeSave() {
 
 // ==================== config build ====================
 function buildConfig() {
+    const cfg = buildScreenConfig();
+    if (!IS_SCN) return cfg;
+    const scnKey = $('scnKey').value.trim().toLowerCase();
+    return {...cfg, key: cfg.key && scnKey ? cfg.key + SEP + scnKey : (cfg.key || 'draft'),
+            screen_key: cfg.key, scenario_key: scnKey, scenario_name: $('scnName').value.trim(),
+            screen_name: cfg.name_ar};
+}
+
+function buildScreenConfig() {
     return {
         key: $('fKey').value.trim().toLowerCase(),
         name_ar: $('fNameAr').value.trim(),
@@ -534,6 +648,7 @@ function buildConfig() {
 
 async function saveConfig() {
     const cfg = buildConfig();
+    if (IS_SCN) return saveScenario(cfg);
     if (!cfg.key) { alert('اكتب المفتاح (إنجليزي) للشاشة'); return; }
     const r = await fetch(`/api/screens/${encodeURIComponent(cfg.key)}`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: cfg}),
@@ -544,8 +659,27 @@ async function saveConfig() {
     $('saveState').innerHTML = `✅ اتحفظ. الشاشة ظهرت في <a href="/tests">الاختبارات</a> كاختبار كامل · <code class="ltr">${esc(r.test_path)}</code>`;
 }
 
+async function saveScenario(cfg) {
+    if (!cfg.screen_key) { alert('اختاري الشاشة'); return; }
+    if (!cfg.scenario_name) { alert('اكتبي اسم السيناريو'); $('scnName').focus(); return; }
+    if (!cfg.scenario_key) { alert('اكتبي مفتاح السيناريو بالإنجليزي (مثال: customer_to_customer)'); $('scnKey').focus(); return; }
+    const r = await fetch(`/api/scenarios/${encodeURIComponent(cfg.screen_key)}/${encodeURIComponent(cfg.scenario_key)}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: cfg}),
+    }).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    await openScenario(cfg.screen_key, cfg.scenario_key);
+    $('saveState').innerHTML = `✅ اتحفظ السيناريو. ظهر في <a href="/tests">الاختبارات</a> تحت ${esc(cfg.screen_name)} · <code class="ltr">${esc(r.test_path)}</code>`;
+}
+
 async function deleteConfig() {
     if (!CURRENT_KEY) return;
+    if (IS_SCN) {
+        const [screen, scn] = CURRENT_KEY.split(SEP);
+        if (!confirm(`مسح السيناريو "${$('scnName').value}"؟`)) return;
+        await fetch(`/api/scenarios/${encodeURIComponent(screen)}/${encodeURIComponent(scn)}`, {method: 'DELETE'});
+        newScreen();
+        return;
+    }
     if (!confirm(`مسح إعداد "${CURRENT_KEY}"؟ (الاختبار بتاعه هيتمسح كمان)`)) return;
     await fetch(`/api/screens/${encodeURIComponent(CURRENT_KEY)}`, {method: 'DELETE'});
     await loadCatalog();
@@ -556,6 +690,11 @@ function runFull() {
     if (!CURRENT_KEY) { alert('احفظ الإعداد الأول'); return; }
     const n = Math.max(1, Math.min(50, parseInt($('runRepeat').value, 10) || 1));
     const runner = new TestRunner({});
+    if (IS_SCN) {
+        runner.run(`tests/scenarios/test_scn_${CURRENT_KEY}.py::test_scenario_flow`,
+                   `${$('fNameAr').value} — ${$('scnName').value}${n > 1 ? ' ×' + n : ''}`, n);
+        return;
+    }
     runner.run(`tests/screens/test_screen_${CURRENT_KEY}.py::test_screen_flow`,
                `${$('fNameAr').value || CURRENT_KEY} (منشئ الشاشات)${n > 1 ? ' ×' + n : ''}`, n);
 }
@@ -662,7 +801,17 @@ async function dryRun() {
 // ==================== init ====================
 (async function () {
     await loadCatalog();
-    const key = new URLSearchParams(location.search).get('key');
+    const q = new URLSearchParams(location.search);
+    if (IS_SCN) {
+        if (q.get('screen') && q.get('scn')) await openScenario(q.get('screen'), q.get('scn'));
+        else {
+            newScreen();
+            const p = CATALOG.find(x => x.key === q.get('screen'));
+            if (p) await pickScreenForScenario(p);
+        }
+        return;
+    }
+    const key = q.get('key');
     if (key) await openScreen(key); else { newScreen(); }
 })();
 </script>

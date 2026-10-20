@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SCREENS_DIR = BASE_DIR / "config" / "screens"
 TESTS_DIR = BASE_DIR / "tests" / "screens"
 
-KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,60}$")
+KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,90}$")
 
 KINDS = ("select2", "select", "text", "number", "date", "textarea", "checkbox", "hidden")
 
