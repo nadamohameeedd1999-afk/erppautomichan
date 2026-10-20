@@ -1,0 +1,1315 @@
+{
+  "name": "CashReceiptVoucher",
+  "title": "سند قبض",
+  "enabled": false,
+  "_note": "مسودة من الماسح. راجع الحقول ثم خلّي enabled=true.",
+  "list_url": "",
+  "repeat": 1,
+  "verify": true,
+  "fields": [
+    {
+      "id": "navColorPicker",
+      "label": "navColorPicker",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "LayoutDepartmentId",
+      "label": "LayoutDepartmentId",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "LayoutDepartmentId",
+      "label": "LayoutDepartmentId",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "side-menu-search",
+      "label": "side-menu-search",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "DocumentNumber",
+      "label": "رقم المستند",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "DepartmentId",
+      "label": "الفرع *",
+      "required": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "01 - الفرع الاول",
+        "2 - الفرع ٢"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "PaymentSerialNumber",
+      "label": "السيريال",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "SystemPageId",
+      "label": "SystemPageId",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "Date",
+      "label": "التاريخ *",
+      "required": true,
+      "type": "date",
+      "mode": "keep"
+    },
+    {
+      "id": "MoneyAmount",
+      "label": "الاجمالى (بالعملة المحلية) *",
+      "required": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "IsAdvancedPayments",
+      "label": "دفعات مقدمة",
+      "required": true,
+      "type": "checkbox",
+      "checked": false,
+      "skip": true
+    },
+    {
+      "id": "TotalForeign",
+      "label": "الاجمالى (بالعملة الاجنبية)",
+      "required": false,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "stopAutomaticCount",
+      "label": "إيقاف التحويل التلقائي للعملة",
+      "required": false,
+      "type": "checkbox",
+      "checked": false,
+      "skip": true
+    },
+    {
+      "id": "Originalamount",
+      "label": "اصل المبلغ",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "IsVat",
+      "label": "قيمة الضريبة",
+      "required": true,
+      "type": "checkbox",
+      "checked": false,
+      "skip": true
+    },
+    {
+      "id": "TaxValueed",
+      "label": "TaxValueed",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "SalesQuotationNo",
+      "label": "SalesQuotationNo",
+      "required": false,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "ProjectId",
+      "label": "المشروع:",
+      "required": false,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "SourceTypeId",
+      "label": "من *",
+      "required": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "عميل",
+        "مورد",
+        "موظف",
+        "إيرادات مباشرة",
+        "اخرى",
+        "مساهم",
+        "مندوب",
+        "متعامل"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CustomerId",
+      "label": "العميل",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "11 - الريادة"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "AccountId",
+      "label": "الحساب",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1010201001 - عملاء محليين",
+        "1010202001 - عملاء خارجيين",
+        "1010401001 - ذمم الموظفين",
+        "1010405001 - تامين ايجارات - مستردة",
+        "1020101001 - قيمة الاراضى",
+        "1020101002 - مجمع اهلاك الاراضى",
+        "1020102001 - قيمة الاثاث والتجهيزات",
+        "1020102002 - مجمع اهلاك الاثاث والتجهيزات",
+        "1020103001 - قيمة المكائن والمعدات",
+        "1020103002 - مجمع اهلاك المكائن والمعدات",
+        "..."
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "VendorId",
+      "label": "المورد",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "11 - مورد نخبة",
+        "41 - مورد أصول"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "PartiesId",
+      "label": "المتعاملين",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "ShareholderId",
+      "label": "المساهم",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "EmployeeId",
+      "label": "الموظف",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1 - موظف افتراضي",
+        "2 - على",
+        "3 - محمد فوزى"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "VendorOrCustomerDepartmentId",
+      "label": "فرع العميل",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "SalesRepId",
+      "label": "الموظف",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "على"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "TechnicianId",
+      "label": "TechnicianId",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "DirectRevenueId",
+      "label": "أنواع الإيرادات",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CustomerVendorId",
+      "label": "المورد المرتبط بالعميل",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "41 - مورد أصول",
+        "11 - مورد نخبة"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CustomerBranchesId",
+      "label": "فروع العملاء",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CustomerRepId",
+      "label": "الموظف",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "2 - على"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "BasedOn",
+      "label": "بناء على",
+      "required": true,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "11 - عمولة"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "BorrowRequestId",
+      "label": "طلب سُلفة",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "IsBorrowRepayment",
+      "label": "مرتبط بسداد سلفة",
+      "required": true,
+      "skip": true,
+      "type": "checkbox",
+      "checked": false,
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "BorrowRequestDetailId",
+      "label": "القسط",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CashReceiptPaymentMethodId",
+      "label": "طريقة الدفع *",
+      "required": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1 - نقدى",
+        "2 - حوالة بنكية",
+        "3 - شيك مصدق",
+        "4 - حساب",
+        "5 - متعدد",
+        "6 - تسوية مورد",
+        "8 - متعامل"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CashBoxId",
+      "label": "الصناديق والعهد",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1 - الصندوق الرئيسى"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "ChartOfAccountId",
+      "label": "الحساب",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1010201001 - عملاء محليين",
+        "1010202001 - عملاء خارجيين",
+        "1010401001 - ذمم الموظفين",
+        "1010405001 - تامين ايجارات - مستردة",
+        "1020101001 - قيمة الاراضى",
+        "1020101002 - مجمع اهلاك الاراضى",
+        "1020102001 - قيمة الاثاث والتجهيزات",
+        "1020102002 - مجمع اهلاك الاثاث والتجهيزات",
+        "1020103001 - قيمة المكائن والمعدات",
+        "1020103002 - مجمع اهلاك المكائن والمعدات",
+        "..."
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "BankAccountId",
+      "label": "الحساب البنكي",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1234445566777888 - البنك الاهلى شركة النخبة"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "TransactionNo",
+      "label": "رقم الحوالة",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "TransactionDate",
+      "label": "تاريخ الحوالة",
+      "required": true,
+      "skip": true,
+      "type": "date",
+      "mode": "keep",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "AccountingDocumentId",
+      "label": "AccountingDocumentId",
+      "required": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CostCenterId",
+      "label": "مركز التكلفة",
+      "required": false,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1001001 - ماكينة حقن بلاستيك النخبة"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CurrencyId",
+      "label": "العملة *",
+      "required": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "SAR - ريال سعودي",
+        "EUR - يورو",
+        "USD - دولار أمريكى",
+        "37 - SAR"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "CurrencyEquivalent",
+      "label": "سعر الصرف",
+      "required": false,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "ManualNumber",
+      "label": "ManualNumber",
+      "required": false,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "ReferenceNumber",
+      "label": "ReferenceNumber",
+      "required": false,
+      "type": "text",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "Notes",
+      "label": "بناء على تسعير رقم",
+      "required": false,
+      "type": "textarea",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "explanation",
+      "label": "الشرح",
+      "required": false,
+      "type": "textarea",
+      "value": "اختبار آلي {seq}"
+    },
+    {
+      "id": "IsInvoiceSelected",
+      "label": "تحديد الفواتير",
+      "required": false,
+      "skip": true,
+      "type": "checkbox",
+      "checked": false,
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "BasedOnn",
+      "label": "BasedOnn",
+      "required": false,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "الكل",
+        "تاريخ الاستحقاق",
+        "تاريخ الفاتورة"
+      ],
+      "_note": "غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "StartDate",
+      "label": "التاريخ من",
+      "required": false,
+      "type": "date",
+      "mode": "keep",
+      "date_format": "%Y-%m-%d"
+    },
+    {
+      "id": "EndDate",
+      "label": "التاريخ إلى",
+      "required": false,
+      "type": "date",
+      "mode": "keep",
+      "date_format": "%Y-%m-%d"
+    },
+    {
+      "name": "",
+      "label": "",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "CashAmount",
+      "label": "نقدى",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "PayMethodCheckBox",
+      "label": "نقدى",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1 - الصندوق الرئيسى"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "PaymentAmountLC",
+      "label": "نقدى",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "BankPaymentAmount",
+      "label": "نقدى",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "PayMethodBankAccountId",
+      "label": "نقدى",
+      "required": false,
+      "skip": true,
+      "type": "select",
+      "mode": "first_real",
+      "_available": [
+        "1234445566777888 - البنك الاهلى شركة النخبة"
+      ],
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه | غيّر mode إلى fixed وحط value لو عايز عنصر بعينه"
+    },
+    {
+      "id": "attachmentsInput",
+      "label": "ارفق ملف",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    },
+    {
+      "id": "new",
+      "label": "new",
+      "required": false,
+      "skip": true,
+      "type": "text",
+      "value": "اختبار آلي {seq}",
+      "_note": "متخطّى تلقائياً (مخفي/معطّل/للقراءة فقط/ملف) - شيل skip لو عايزه"
+    }
+  ],
+  "add_url": "/CashReceiptVoucher/AddEdit"
+}

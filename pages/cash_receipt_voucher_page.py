@@ -105,41 +105,50 @@ class CashReceiptVoucherPage(BasePage):
             pass
         return None
 
-    def _set_select2(self, select_id, value, name):
+    def _options_text(self, select_id):
         try:
-            current = self._get_select2_value(select_id)
-            if current and value and (value in current or current in value):
-                logger.info(f"⏭️ {name} متملي: {current}")
-                return current
+            texts = self.driver.execute_script(
+                "var s=document.getElementById(arguments[0]); if(!s) return [];"
+                "return Array.from(s.options).map(function(o){return o.text.trim();});", select_id) or []
+        except Exception:
+            texts = []
+        return [t for t in texts if t and not self.s2._is_placeholder(t)]
 
-            if value:
-                logger.info(f"اختيار '{value}' في {name}")
-                if self.s2.select_by_id(select_id, value):
-                    time.sleep(0.5)
-                    result = self._get_select2_value(select_id)
-                    if result:
-                        logger.success(f"✅ {name} = {result}")
-                        return result
+    def _set_select2(self, select_id, value, name):
+        """
+        قاعدة صارمة: لو فيه قيمة مطلوبة ومش موجودة، الاختبار يقف برسالة فيها الخيارات المتاحة.
+        مفيش اختيار عنصر تاني بصمت. (value = None معناها أول خيار حقيقي)
+        """
+        current = self._get_select2_value(select_id)
+        if current and value and (value in current or current in value):
+            logger.info(f"⏭️ {name} متملي: {current}")
+            return current
 
-            if self.s2.force_select_value(select_id, value or ""):
+        if value:
+            logger.info(f"اختيار '{value}' في {name}")
+            if self.s2.select_by_id(select_id, value):
                 time.sleep(0.5)
                 result = self._get_select2_value(select_id)
-                if result:
-                    logger.success(f"✅ {name} (force) = {result}")
+                if result and (value in result or result in value):
+                    logger.success(f"✅ {name} = {result}")
                     return result
+            options = self._options_text(select_id)
+            shown = " | ".join(options[:15]) + (f" ... (+{len(options) - 15})" if len(options) > 15 else "")
+            msg = (f"{name}: القيمة '{value}' مش موجودة في القايمة ({select_id}). "
+                   f"الخيارات المتاحة: {shown or '(القايمة فاضية)'}")
+            logger.error(f"❌ {msg}")
+            raise AssertionError(msg)
 
-            if self.s2.select_first_real_option(select_id):
-                time.sleep(0.5)
-                result = self._get_select2_value(select_id)
-                if result:
-                    logger.success(f"✅ {name} (أول) = {result}")
-                    return result
-
-            logger.warning(f"⚠️ فشل {name}")
-            return None
-        except Exception as e:
-            logger.warning(f"⚠️ {name}: {str(e)[:120]}")
-            return None
+        # مفيش قيمة مطلوبة -> أول خيار حقيقي
+        if self.s2.select_first_real_option(select_id) or self.s2.force_select_value(select_id, ""):
+            time.sleep(0.5)
+            result = self._get_select2_value(select_id)
+            if result:
+                logger.success(f"✅ {name} (أول خيار) = {result}")
+                return result
+        msg = f"{name}: القايمة فاضية ({select_id}) — مفيش ولا خيار يتختار"
+        logger.error(f"❌ {msg}")
+        raise AssertionError(msg)
 
     def fill_source_type(self):
         return self._set_select2(self.SOURCE_TYPE_SELECT2, CashReceiptDefaults.SOURCE_TYPE, "نوع المصدر")

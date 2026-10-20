@@ -1,0 +1,108 @@
+{
+  "key": "cash_issue",
+  "name_ar": "سند الدفع",
+  "name_en": "Cash Issue Voucher",
+  "module_key": "general_accounting",
+  "icon": "🧩",
+  "list_url": "/CashIssueVoucher",
+  "add_url": "/CashIssueVoucher/AddEdit",
+  "add_button": "a[href='/CashIssueVoucher/AddEdit']",
+  "save_button": "button#Save",
+  "fields": [
+    {
+      "id": "SourceTypeId",
+      "label": "الى",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": null,
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CustomerId",
+      "label": "العميل",
+      "kind": "select2",
+      "strategy": "search",
+      "value": "1",
+      "format": "",
+      "depends_on": null,
+      "required": false,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "MoneyAmount",
+      "label": "الاجمالى (بالعملة المحلية)",
+      "kind": "number",
+      "strategy": "fixed",
+      "value": "100",
+      "format": "",
+      "depends_on": null,
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CostCenterId",
+      "label": "مركز التكلفة",
+      "kind": "select2",
+      "strategy": "search",
+      "value": "1",
+      "format": "",
+      "depends_on": null,
+      "required": false,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CashIssuePaymentMethodId",
+      "label": "طريقة الدفع",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": null,
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "DepartmentId",
+      "label": "الفرع",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": null,
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CashBoxId",
+      "label": "الصناديق والعهد",
+      "kind": "select2",
+      "strategy": "search",
+      "value": "1",
+      "format": "",
+      "depends_on": null,
+      "required": false,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    }
+  ],
+  "before_save": [],
+  "verify": {
+    "new_first_row": true,
+    "row_contains": [],
+    "row_contains_strict": false,
+    "timeout": 60
+  },
+  "save_timeout": 40,
+  "status": "complete",
+  "notes": "",
+  "updated_at": "2026-10-20T14:04:21"
+}

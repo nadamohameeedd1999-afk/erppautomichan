@@ -310,7 +310,7 @@ class TestsRegistry:
                         s = json.load(f)
                     tp = s.get("test_path", "")
                     # نستخرج page_key من مسار الاختبار
-                    m = re.search(r'\[([^\]]+)\]', tp)
+                    m = re.search(r'\[([^\]]+)\]', tp) or re.search(r'test_screen_(\w+)\.py', tp)
                     if m:
                         pk = m.group(1)
                         if pk not in last_results:
@@ -331,6 +331,14 @@ class TestsRegistry:
         # نبني set للاختبارات المعرّفة
         defined_tests = {t["page_key"]: t for t in cls.get_all()}
 
+        # شاشات منشئ الشاشات (config/screens/*.json) — بتكسب على الاختبار القديم لنفس الشاشة
+        try:
+            from engine import screen_config
+            screen_cfgs = {c["key"]: c for c in screen_config.list_all() if not c.get("error")}
+        except Exception:
+            screen_cfgs = {}
+        used_screens = set()
+
         # نلف على كل الصفحات في كل المديولات
         for mod_key, mod_info in all_modules.items():
             for page_key, page_info in mod_info["pages"].items():
@@ -349,7 +357,13 @@ class TestsRegistry:
                 full_available = False
                 smoke_available = False
 
-                if defined:
+                if page_key in screen_cfgs:
+                    full_path = screen_config.test_path_for(page_key)
+                    full_available = True
+                    used_screens.add(page_key)
+                    smoke_path = f"tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[{page_key}]"
+                    smoke_available = True
+                elif defined:
                     if defined["type"] == "full":
                         full_path = defined["test_path"]
                         full_available = True
@@ -379,7 +393,35 @@ class TestsRegistry:
                     "smoke_available": smoke_available,
                     "last_result": lr,
                     "duration_estimate": 150 if full_available else 15,
+                    "builder": page_key in screen_cfgs,
                 })
+
+        # شاشات اتعملت في منشئ الشاشات ومش موجودة في المديولات
+        for key, c in screen_cfgs.items():
+            if key in used_screens:
+                continue
+            mod_key = c.get("module_key") or "custom"
+            mod_info = all_modules.get(mod_key) or {
+                "name_ar": "شاشات منشئ الشاشات", "name_en": "Screen Builder", "icon": "🧩"}
+            if mod_key not in all_modules:
+                mod_key = "custom"
+            result.append({
+                "id": f"{mod_key}::{key}",
+                "module_key": mod_key,
+                "module_name": mod_info.get(f"name_{lang}", mod_info["name_ar"]),
+                "module_icon": mod_info["icon"],
+                "page_key": key,
+                "name": c["name_en"] if lang == "en" else c["name_ar"],
+                "icon": c.get("icon") or "🧩",
+                "url": c["list_url"],
+                "full_path": screen_config.test_path_for(key),
+                "smoke_path": None,
+                "full_available": True,
+                "smoke_available": False,
+                "last_result": last_results.get(key),
+                "duration_estimate": 120,
+                "builder": True,
+            })
 
         return result
 

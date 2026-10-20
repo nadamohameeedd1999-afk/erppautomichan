@@ -46,6 +46,11 @@ def test_full_cash_receipt_voucher_flow(driver, credentials, request):
 
     with allure.step("ملء الحقول الإجبارية"):
         crv.fill_all_required_fields()
+        for sid, label in (("SourceTypeId", "نوع المصدر"), ("CustomerId", "العميل"), ("CashReceiptPaymentMethodId", "طريقة الدفع")):
+            txt = crv.s2.get_selected_text(sid)
+            assert txt and not crv.s2._is_placeholder(txt), (
+                f"الحقل [{label}] مش اتملى فعلاً (القيمة: {txt!r}). لو الموقع ظهر بالإنجليزي راجع لغة الموقع"
+            )
         _shot(crv, "crv_before_save")
 
     with allure.step("سداد الى (autoPay)"):

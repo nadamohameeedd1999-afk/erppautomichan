@@ -77,6 +77,7 @@ def _build_options():
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--lang=ar-EG")
+    options.add_experimental_option("prefs", {"intl.accept_languages": "ar-EG,ar,en;q=0.5"})
 
     return options
 

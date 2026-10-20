@@ -24,6 +24,10 @@ from web.queue_manager import get_manager as get_qm
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config.from_object(Config)
 
+# ==================== Screen Builder (منشئ الشاشات) ====================
+from web.screens_api import bp as screens_bp
+app.register_blueprint(screens_bp)
+
 
 # ==================== Context Processors ====================
 @app.context_processor

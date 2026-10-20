@@ -1,26 +1,31 @@
-﻿"""
+"""
 Select2 Helper
 """
+import re
+import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from utils.logger import logger
-import time
 
 
 class Select2Helper:
-    PLACEHOLDERS = ["--اختر--", "-اختر-", "اختر", "-- Select --", "Select", ""]
+    # أي نص بعد حذف المسافات والشرطات وتحويله لحروف صغيرة يطابق واحد من الكلمات دي = placeholder.
+    # بيغطي عربي وإنجليزي: --اختر-- / -- Select -- / --Select-- / Please select ...
+    PLACEHOLDER_WORDS = ("", "اختر", "select", "choose", "pleaseselect", "selectone")
 
     def __init__(self, driver, timeout=10):
         self.driver = driver
         self.wait = WebDriverWait(driver, timeout)
 
+    @staticmethod
+    def _norm(text) -> str:
+        return re.sub(r"[\s\-_.]+", "", text or "").lower()
+
     def _is_placeholder(self, text: str) -> bool:
-        if not text:
-            return True
-        return text.strip() in self.PLACEHOLDERS
+        return self._norm(text) in self.PLACEHOLDER_WORDS
 
     def _close_dropdown_fast(self):
         try:
@@ -128,14 +133,16 @@ class Select2Helper:
                 var sel = document.getElementById('{select_id}');
                 if (!sel) return 'no-select';
                 var searchValue = '{value}';
-                var placeholders = ['--اختر--', '-اختر-', 'اختر', '-- Select --', 'Select'];
+                var norm = function(t) {{ return (t || '').replace(/[\\s\\-_.]+/g, '').toLowerCase(); }};
+                var words = ['', 'اختر', 'select', 'choose', 'pleaseselect', 'selectone'];
+                var isPh = function(t) {{ return words.indexOf(norm(t)) !== -1; }};
                 var selectedIndex = -1;
                 var selectedText = '';
 
                 if (searchValue && searchValue.length > 0) {{
                     for (var i = 0; i < sel.options.length; i++) {{
                         var optText = sel.options[i].text.trim();
-                        if (optText.indexOf(searchValue) !== -1 && placeholders.indexOf(optText) === -1) {{
+                        if (optText.indexOf(searchValue) !== -1 && !isPh(optText)) {{
                             selectedIndex = i;
                             selectedText = optText;
                             break;
@@ -146,7 +153,7 @@ class Select2Helper:
                 if (selectedIndex === -1) {{
                     for (var j = 0; j < sel.options.length; j++) {{
                         var optText2 = sel.options[j].text.trim();
-                        if (!optText2 || optText2.length < 3 || placeholders.indexOf(optText2) !== -1) {{
+                        if (!optText2 || optText2.length < 3 || isPh(optText2)) {{
                             continue;
                         }}
                         selectedIndex = j;

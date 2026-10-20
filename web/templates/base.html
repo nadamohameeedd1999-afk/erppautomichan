@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ current_lang }}" dir="{{ text_dir }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -59,6 +59,12 @@
                 <li class="nav-item">
                     <a class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}" href="{{ url_for('reports') }}">
                         <i class="bi bi-bar-chart-line"></i> {{ t('reports') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'screens.screens_page' %}active{% endif %}" href="{{ url_for('screens.screens_page') }}">
+                        <i class="bi bi-ui-checks-grid"></i>
+                        {% if current_lang == 'ar' %}منشئ الشاشات{% else %}Screen Builder{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">

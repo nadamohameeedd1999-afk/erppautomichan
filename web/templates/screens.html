@@ -1,0 +1,642 @@
+{% extends "base.html" %}
+
+{% block title %}منشئ الشاشات - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sb-list .list-group-item { cursor: pointer; }
+    .sb-list .list-group-item.active-screen { border-inline-start: 4px solid #0d6efd; background: rgba(13,110,253,.06); }
+    .sb-step { font-size: 12px; font-weight: 700; color: #fff; background: #0d6efd; border-radius: 50%;
+               width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; margin-inline-end: 6px; }
+    .fields-table td, .fields-table th { vertical-align: middle; font-size: 13px; }
+    .fields-table tr.excluded { opacity: .45; }
+    .fields-table tr.missing td:first-child { border-inline-start: 4px solid #dc3545; }
+    .fields-table code { font-size: 12px; direction: ltr; unicode-bidi: embed; }
+    .fields-table .form-control-sm, .fields-table .form-select-sm { min-width: 110px; }
+    .ord-btn { padding: 0 6px; line-height: 1.2; }
+    .job-log { background: #1e1e1e; color: #d4d4d4; font-size: 12px; direction: ltr; text-align: left;
+               max-height: 220px; overflow: auto; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
+    .step-ok { color: #198754; } .step-bad { color: #dc3545; }
+    .ltr { direction: ltr; text-align: left; }
+    .sticky-actions { position: sticky; bottom: 0; z-index: 5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-0"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</h3>
+        <small class="text-muted">اختار شاشة ← اقرأ حقولها ← حدد هتتملى إزاي ← جرّب ← احفظ. أي شاشة ليها إعداد بتظهر في الاختبارات كـ "اختبار كامل".</small>
+    </div>
+    <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
+</div>
+
+<div class="row g-3">
+    <!-- ============ saved screens ============ -->
+    <div class="col-lg-3">
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">الشاشات اللي ليها إعداد</div>
+            <div class="list-group list-group-flush sb-list" id="screensList">
+                <div class="list-group-item text-muted small">جاري التحميل...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ editor ============ -->
+    <div class="col-lg-9">
+        <!-- step 1 -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-bold"><span class="sb-step">1</span> الشاشة</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">اختار من شاشات النظام</label>
+                        <select class="form-select" id="catalogSelect" onchange="pickFromCatalog(this.value)">
+                            <option value="">— أو اكتب رابط شاشة جديدة تحت —</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">اسم الشاشة (عربي)</label>
+                        <input class="form-control" id="fNameAr">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">المفتاح (إنجليزي) <span class="text-danger">*</span></label>
+                        <input class="form-control ltr" id="fKey" placeholder="cash_receipt">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">رابط القايمة <span class="text-danger">*</span></label>
+                        <input class="form-control ltr" id="fListUrl" placeholder="/CashReceiptVoucher">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">رابط الإضافة</label>
+                        <input class="form-control ltr" id="fAddUrl" placeholder="/CashReceiptVoucher/AddEdit">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">زرار الإضافة (CSS) — اختياري</label>
+                        <input class="form-control ltr" id="fAddButton" placeholder="a[href='/CashReceiptVoucher/AddEdit']">
+                    </div>
+                    <input type="hidden" id="fModuleKey">
+                    <input type="hidden" id="fNameEn">
+                </div>
+                <div class="d-flex gap-2 mt-3 flex-wrap align-items-center">
+                    <button class="btn btn-info text-white" id="btnInspect" onclick="inspect()">
+                        <i class="bi bi-search"></i> اقرأ الحقول
+                    </button>
+                    <div class="form-check ms-2">
+                        <input class="form-check-input" type="checkbox" id="fDetectDeps" checked>
+                        <label class="form-check-label small" for="fDetectDeps">اكتشف الحقول المعتمدة على بعض (زي المشروع بعد العميل)</label>
+                    </div>
+                    <small class="text-muted ms-auto">القراءة بتفتح فورم الإضافة بس — مش بتحفظ أي حاجة.</small>
+                </div>
+                <div id="jobBox" class="mt-3 d-none">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <div class="spinner-border spinner-border-sm text-primary" id="jobSpinner"></div>
+                        <strong id="jobTitle">...</strong>
+                    </div>
+                    <div class="job-log" id="jobLog"></div>
+                </div>
+                <div id="inspectWarnings" class="mt-2"></div>
+            </div>
+        </div>
+
+        <!-- step 2 -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><span class="sb-step">2</span> الحقول وطريقة تعبئتها</span>
+                <span class="small fw-normal">
+                    <span id="fieldsCount" class="badge bg-primary">0</span> حقل متعلّم عليه
+                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleShowAll()" id="btnShowAll">إظهار كل الحقول</button>
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 fields-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:60px">الترتيب</th>
+                                <th style="width:30px">✓</th>
+                                <th>الحقل</th>
+                                <th>النوع</th>
+                                <th>طريقة التعبئة</th>
+                                <th>القيمة</th>
+                                <th>بيعتمد على</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fieldsBody">
+                            <tr><td colspan="7" class="text-center text-muted py-4">اختار شاشة واضغط "اقرأ الحقول"</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-2 border-top d-flex gap-2 flex-wrap align-items-end">
+                    <div><label class="form-label small mb-0">إضافة حقل يدوي — الـ id بس (أو الصقي العنصر وهو هيطلّع الـ id)</label>
+                        <input class="form-control form-control-sm ltr" id="manId" placeholder="MoneyAmount"></div>
+                    <div><label class="form-label small mb-0">الاسم</label>
+                        <input class="form-control form-control-sm" id="manLabel" placeholder="المبلغ"></div>
+                    <div><label class="form-label small mb-0">النوع</label>
+                        <select class="form-select form-select-sm" id="manKind">
+                            {% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+                        </select></div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="addManual()"><i class="bi bi-plus"></i> إضافة</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- step 3 -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-bold"><span class="sb-step">3</span> الحفظ والتأكيد</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small">زرار الحفظ (CSS)</label>
+                        <input class="form-control ltr" id="fSave" list="buttonsList" value="button#save">
+                        <datalist id="buttonsList"></datalist>
+                        <label class="form-label small mt-3">أزرار تتداس قبل الحفظ (بالترتيب)</label>
+                        <div id="beforeSaveBox" class="small"></div>
+                        <div class="input-group input-group-sm mt-1">
+                            <input class="form-control ltr" id="bsSelector" list="buttonsList" placeholder="button#autoPay">
+                            <button class="btn btn-outline-primary" onclick="addBeforeSave()">إضافة</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="vNewRow" checked>
+                            <label class="form-check-label" for="vNewRow">اتأكد إن صف جديد ظهر أول القايمة بعد الحفظ</label>
+                        </div>
+                        <label class="form-label small mt-2">نص لازم يكون في الصف الجديد (افصل بفاصلة)</label>
+                        <input class="form-control" id="vRowContains" placeholder="200.00">
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" type="checkbox" id="vStrict">
+                            <label class="form-check-label small" for="vStrict">لو النص مش موجود الاختبار يفشل (غير كده تحذير بس)</label>
+                        </div>
+                        <label class="form-label small mt-2">ملاحظات</label>
+                        <input class="form-control" id="fNotes">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- dry-run result -->
+        <div class="card shadow-sm mb-3 d-none" id="dryCard">
+            <div class="card-header fw-bold">نتيجة التجربة</div>
+            <div class="card-body" id="dryBody"></div>
+        </div>
+
+        <div class="card shadow-sm sticky-actions">
+            <div class="card-body d-flex gap-2 flex-wrap align-items-center">
+                <button class="btn btn-warning" id="btnDry" onclick="dryRun()"><i class="bi bi-eyedropper"></i> جرّب التعبئة بدون حفظ</button>
+                <button class="btn btn-success" onclick="saveConfig()"><i class="bi bi-save"></i> حفظ الإعداد</button>
+                <div class="input-group" style="max-width:260px">
+                    <span class="input-group-text">🔁</span>
+                    <input type="number" class="form-control" id="runRepeat" min="1" max="50" value="1" title="عدد مرات التكرار">
+                    <button class="btn btn-primary" onclick="runFull()"><i class="bi bi-play-fill"></i> تشغيل كامل</button>
+                </div>
+                <button class="btn btn-outline-danger ms-auto" id="btnDelete" onclick="deleteConfig()" disabled><i class="bi bi-trash"></i> مسح الإعداد</button>
+            </div>
+            <div class="px-3 pb-2 small text-muted" id="saveState"></div>
+        </div>
+    </div>
+</div>
+
+<!-- running modal (used by runner.js) -->
+<div class="modal fade" id="runningModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-play-circle"></i> جاري التشغيل</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <h4 class="fw-bold mb-1" id="runTestName">—</h4>
+                    <div class="text-muted"><i class="bi bi-clock"></i> <span id="runTime" class="fw-bold">00:00</span></div>
+                </div>
+                <div class="progress mb-3" style="height: 14px;"><div class="progress-bar" id="runProgress" style="width: 0%;"></div></div>
+                <div class="text-center mb-3"><span id="runStatus" class="badge bg-primary fs-6 px-3 py-2">جاري البدء...</span></div>
+                <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;" id="runLog"></div>
+                <div id="finishArea" class="d-none text-center mt-3">
+                    <button class="btn btn-primary" id="viewReportBtn"><i class="bi bi-file-earmark-bar-graph"></i> عرض التفاصيل</button>
+                    <button class="btn btn-info ms-2" id="viewLogBtn"><i class="bi bi-file-text"></i> عرض اللوج</button>
+                </div>
+                <div id="logViewer" class="d-none mt-3">
+                    <div class="d-flex justify-content-between mb-2"><strong>📋 Log</strong>
+                        <button class="btn btn-sm btn-outline-secondary" id="refreshLogBtn"><i class="bi bi-arrow-clockwise"></i></button></div>
+                    <pre id="logContent" style="background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:8px;max-height:400px;overflow:auto;font-size:12px;direction:ltr;text-align:left;"></pre>
+                </div>
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-danger btn-sm" id="stopBtn" style="display:none;"><i class="bi bi-stop-circle"></i> إيقاف</button>
+                    <button class="btn btn-secondary btn-sm ms-2" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> إغلاق</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const STRATEGIES = {{ strategies | tojson }};
+const KIND_STRATEGIES = {
+    select2: ['first', 'fixed', 'search', 'keep'],
+    select:  ['first', 'fixed', 'search', 'keep'],
+    text:    ['fixed', 'unique', 'today', 'keep'],
+    number:  ['fixed', 'unique', 'keep'],
+    date:    ['today', 'fixed', 'keep'],
+    textarea:['fixed', 'unique', 'keep'],
+    checkbox:['check', 'uncheck', 'keep'],
+    hidden:  ['keep', 'fixed'],
+};
+const KIND_LABEL = { select2: 'قايمة Select2', select: 'قايمة', text: 'نص', number: 'رقم', date: 'تاريخ',
+                     textarea: 'نص طويل', checkbox: 'اختيار ✓', hidden: 'مخفي' };
+
+let ROWS = [];          // [{id,label,kind,required,visible,include,strategy,value,format,depends_on,options,missing,...}]
+let BEFORE_SAVE = [];
+let BUTTONS = [];
+let CATALOG = [];
+let CURRENT_KEY = null; // key of the loaded saved config
+let SHOW_ALL = false;
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+
+// ==================== load ====================
+async function loadScreens(selectKey) {
+    const r = await fetch('/api/screens').then(r => r.json()).catch(() => ({success: false}));
+    const box = $('screensList');
+    if (!r.success || !r.screens.length) {
+        box.innerHTML = '<div class="list-group-item text-muted small">لسه مفيش شاشات. اختار شاشة واضغط "اقرأ الحقول".</div>';
+        return;
+    }
+    box.innerHTML = r.screens.map(s => `
+        <div class="list-group-item ${s.key === CURRENT_KEY ? 'active-screen' : ''}" onclick="openScreen('${esc(s.key)}')">
+            <div class="fw-bold">${s.error ? '⚠️' : '🧩'} ${esc(s.name_ar)}</div>
+            <div class="small text-muted ltr">${esc(s.list_url || s.key)}</div>
+            ${s.error ? `<div class="small text-danger">${esc(s.error)}</div>` :
+              `<div class="small text-muted">${s.fields} حقل · ${esc((s.updated_at || '').replace('T', ' '))}</div>`}
+        </div>`).join('');
+}
+
+async function loadCatalog() {
+    const r = await fetch('/api/screens/catalog').then(r => r.json()).catch(() => ({success: false}));
+    if (!r.success) return;
+    CATALOG = r.pages;
+    const groups = {};
+    CATALOG.forEach(p => { (groups[p.module_name] = groups[p.module_name] || []).push(p); });
+    $('catalogSelect').innerHTML = '<option value="">— أو اكتب رابط شاشة جديدة تحت —</option>' +
+        Object.entries(groups).map(([g, items]) => `<optgroup label="${esc(g)}">` +
+            items.map(p => `<option value="${esc(p.key)}">${p.has_config ? '🧩 ' : ''}${esc(p.name_ar)} — ${esc(p.url)}</option>`).join('') +
+            '</optgroup>').join('');
+}
+
+function pickFromCatalog(key) {
+    if (!key) return;
+    const p = CATALOG.find(x => x.key === key);
+    if (!p) return;
+    if (p.has_config) { openScreen(key); return; }
+    newScreen(true);
+    $('fKey').value = p.key;
+    $('fNameAr').value = p.name_ar;
+    $('fNameEn').value = p.name_en || '';
+    $('fModuleKey').value = p.module_key;
+    $('fListUrl').value = p.url;
+    $('fAddUrl').value = p.url.split('?')[0].replace(/\/$/, '') + '/AddEdit';
+    $('catalogSelect').value = key;
+}
+
+function newScreen(keepCatalog) {
+    CURRENT_KEY = null;
+    ROWS = []; BEFORE_SAVE = []; BUTTONS = [];
+    ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
+    $('fSave').value = 'button#save';
+    $('vNewRow').checked = true; $('vStrict').checked = false;
+    if (!keepCatalog) $('catalogSelect').value = '';
+    $('btnDelete').disabled = true;
+    $('dryCard').classList.add('d-none');
+    $('inspectWarnings').innerHTML = '';
+    $('saveState').textContent = 'شاشة جديدة — مش محفوظة';
+    renderRows(); renderBeforeSave(); renderButtons(); loadScreens();
+}
+
+async function openScreen(key) {
+    const r = await fetch(`/api/screens/${encodeURIComponent(key)}`).then(r => r.json());
+    if (!r.success) { alert(r.error); return; }
+    const c = r.config;
+    CURRENT_KEY = c.key;
+    $('fKey').value = c.key; $('fNameAr').value = c.name_ar; $('fNameEn').value = c.name_en;
+    $('fModuleKey').value = c.module_key; $('fListUrl').value = c.list_url; $('fAddUrl').value = c.add_url;
+    $('fAddButton').value = c.add_button; $('fSave').value = c.save_button; $('fNotes').value = c.notes || '';
+    $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
+    $('vRowContains').value = (c.verify.row_contains || []).join(', ');
+    ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
+    BEFORE_SAVE = c.before_save.map(a => ({...a}));
+    $('catalogSelect').value = CATALOG.some(p => p.key === c.key) ? c.key : '';
+    $('btnDelete').disabled = false;
+    $('dryCard').classList.add('d-none');
+    $('inspectWarnings').innerHTML = '';
+    $('saveState').textContent = `محفوظ · آخر تعديل ${(c.updated_at || '').replace('T', ' ')} · الاختبار: tests/screens/test_screen_${c.key}.py`;
+    renderRows(); renderBeforeSave(); loadScreens();
+    history.replaceState(null, '', `/screens?key=${encodeURIComponent(c.key)}`);
+}
+
+// ==================== fields table ====================
+function renderRows() {
+    const body = $('fieldsBody');
+    const visibleRows = ROWS.map((r, i) => ({r, i})).filter(x => SHOW_ALL || x.r.include || x.r.required || x.r.depends_on || x.r.saved);
+    $('fieldsCount').textContent = ROWS.filter(r => r.include).length;
+    $('btnShowAll').textContent = SHOW_ALL ? 'إظهار المهم بس' : `إظهار كل الحقول (${ROWS.length})`;
+    if (!ROWS.length) {
+        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">اختار شاشة واضغط "اقرأ الحقول"</td></tr>';
+        return;
+    }
+    const includedIds = ROWS.filter(r => r.include).map(r => r.id);
+    body.innerHTML = visibleRows.map(({r, i}) => {
+        const strategies = KIND_STRATEGIES[r.kind] || Object.keys(STRATEGIES);
+        const needsValue = ['fixed', 'search', 'unique'].includes(r.strategy);
+        const dl = r.options && r.options.length ? `list="opts_${i}"` : '';
+        const placeholder = r.strategy === 'unique' ? 'AUTO-{ts}' : (r.strategy === 'today' ? 'الصيغة: %Y-%m-%d' : '');
+        const valueCell = r.strategy === 'today'
+            ? `<input class="form-control form-control-sm ltr" value="${esc(r.format || '')}" placeholder="%Y-%m-%d" title="صيغة التاريخ (%d/%m/%Y مثلاً)" onchange="setRow(${i}, 'format', this.value)">`
+            : (needsValue ? `<input class="form-control form-control-sm" ${dl} value="${esc(r.value || '')}" placeholder="${esc(placeholder)}" onchange="setRow(${i}, 'value', this.value)">
+                 ${dl ? `<datalist id="opts_${i}">${r.options.map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : ''}`
+               : `<span class="text-muted small">${esc(r.current_value || r.value || '—')}</span>`);
+        const depOptions = includedIds.filter(id => id !== r.id).map(id => {
+            const lbl = (ROWS.find(x => x.id === id) || {}).label || id;
+            return `<option value="${esc(id)}" ${r.depends_on === id ? 'selected' : ''}>${esc(lbl)}</option>`;
+        }).join('');
+        const badges = [
+            r.required ? '<span class="badge bg-danger">إجباري</span>' : '',
+            r.appears_after_choice ? '<span class="badge bg-secondary" title="بيظهر بعد اختيار حقل قبله">بيظهر بعدين</span>' : '',
+            r.in_table ? '<span class="badge bg-dark" title="حقل داخل جدول سطور">جدول</span>' : '',
+            r.visible === false ? '<span class="badge bg-light text-dark">مخفي</span>' : '',
+            r.missing ? '<span class="badge bg-danger">مش لاقيه في الصفحة!</span>' : '',
+        ].join(' ');
+        const optInfo = r.options && r.options.length ? `<div class="small text-muted">${r.options.length} خيار: ${esc(r.options.slice(0, 3).join('، '))}${r.options.length > 3 ? '…' : ''}</div>` : '';
+        return `
+        <tr class="${r.include ? '' : 'excluded'} ${r.missing ? 'missing' : ''}">
+            <td class="text-nowrap">
+                <button class="btn btn-sm btn-light ord-btn" onclick="moveRow(${i}, -1)" title="لفوق">▲</button>
+                <button class="btn btn-sm btn-light ord-btn" onclick="moveRow(${i}, 1)" title="لتحت">▼</button>
+            </td>
+            <td><input class="form-check-input" type="checkbox" ${r.include ? 'checked' : ''} onchange="setRow(${i}, 'include', this.checked)"></td>
+            <td>
+                <input class="form-control form-control-sm fw-bold mb-1" value="${esc(r.label)}" onchange="setRow(${i}, 'label', this.value)">
+                <code>${esc(r.id)}</code> ${badges} ${optInfo}
+            </td>
+            <td>
+                <select class="form-select form-select-sm" style="min-width:120px" onchange="setKind(${i}, this.value)" title="لو النوع غلط غيّريه — طرق التعبئة بتتغير على حسبه">
+                    ${Object.keys(KIND_LABEL).map(k => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${esc(KIND_LABEL[k])}</option>`).join('')}
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm" onchange="setRow(${i}, 'strategy', this.value)">
+                    ${strategies.map(s => `<option value="${s}" ${r.strategy === s ? 'selected' : ''}>${esc(STRATEGIES[s])}</option>`).join('')}
+                </select>
+            </td>
+            <td>${valueCell}</td>
+            <td>
+                <select class="form-select form-select-sm" onchange="setRow(${i}, 'depends_on', this.value || null)">
+                    <option value="">—</option>${depOptions}
+                </select>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function setRow(i, key, val) {
+    ROWS[i][key] = val;
+    if (key === 'include' && !val) ROWS.forEach(r => { if (r.depends_on === ROWS[i].id) r.depends_on = null; });
+    renderRows();
+}
+
+function setKind(i, kind) {
+    const r = ROWS[i];
+    r.kind = kind;
+    const allowed = KIND_STRATEGIES[kind] || Object.keys(STRATEGIES);
+    if (!allowed.includes(r.strategy)) r.strategy = allowed[0];
+    renderRows();
+}
+
+function moveRow(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= ROWS.length) return;
+    [ROWS[i], ROWS[j]] = [ROWS[j], ROWS[i]];
+    renderRows();
+}
+
+function toggleShowAll() { SHOW_ALL = !SHOW_ALL; renderRows(); }
+
+// accepts a plain id, "#Id", a pasted HTML element, or a Select2 container id
+function cleanId(raw) {
+    let v = String(raw || '').trim();
+    if (v.includes('<')) { const m = v.match(/\bid\s*=\s*["']([^"']+)["']/i); v = m ? m[1] : ''; }
+    v = v.replace(/^#/, '');
+    const s2 = v.match(/^select2-(.+?)-(container|results)$/);
+    return s2 ? s2[1] : v;
+}
+
+function addManual() {
+    const id = cleanId($('manId').value);
+    if (!id) { alert('مش لاقي id — اكتبي الـ id بس (زي CustomerId)'); return; }
+    if (ROWS.some(r => r.id === id)) { alert('الحقل ده موجود بالفعل'); return; }
+    const kind = $('manKind').value;
+    ROWS.push({id, label: $('manLabel').value.trim().replace(/\s*\*\s*$/, '') || id, kind, required: false, visible: true, include: true,
+               strategy: (KIND_STRATEGIES[kind] || ['fixed'])[0], value: '', options: [], manual: true});
+    $('manId').value = ''; $('manLabel').value = '';
+    renderRows();
+}
+
+// ==================== before save / buttons ====================
+function renderButtons() {
+    $('buttonsList').innerHTML = BUTTONS.map(b => `<option value="${esc(b.selector)}">${esc(b.text)}</option>`).join('');
+}
+
+function renderBeforeSave() {
+    const box = $('beforeSaveBox');
+    const detected = BUTTONS.filter(b => b.selector !== $('fSave').value && !BEFORE_SAVE.some(a => a.selector === b.selector));
+    box.innerHTML = BEFORE_SAVE.map((a, i) => `
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-primary">${i + 1}</span>
+            <code class="ltr">${esc(a.selector)}</code> <span>${esc(a.label || '')}</span>
+            <button class="btn btn-sm btn-link text-danger p-0 ms-auto" onclick="BEFORE_SAVE.splice(${i}, 1); renderBeforeSave()">إزالة</button>
+        </div>`).join('') || '<div class="text-muted">مفيش</div>';
+    if (detected.length) {
+        box.innerHTML += '<div class="text-muted mt-1">أزرار لقيناها في الصفحة: ' + detected.map(b =>
+            `<a href="#" class="me-2" onclick="addDetected(${BUTTONS.indexOf(b)}); return false;">+ ${esc(b.text || b.selector)}</a>`).join('') + '</div>';
+    }
+}
+
+function addDetected(i) {
+    const b = BUTTONS[i];
+    if (b) BEFORE_SAVE.push({selector: b.selector, label: b.text || b.selector, force_visible: true});
+    renderBeforeSave();
+}
+
+function addBeforeSave() {
+    const sel = $('bsSelector').value.trim();
+    if (!sel) return;
+    const b = BUTTONS.find(x => x.selector === sel);
+    BEFORE_SAVE.push({selector: sel, label: b ? b.text : sel, force_visible: true});
+    $('bsSelector').value = '';
+    renderBeforeSave();
+}
+
+// ==================== config build ====================
+function buildConfig() {
+    return {
+        key: $('fKey').value.trim().toLowerCase(),
+        name_ar: $('fNameAr').value.trim(),
+        name_en: $('fNameEn').value.trim(),
+        module_key: $('fModuleKey').value.trim() || 'custom',
+        list_url: $('fListUrl').value.trim(),
+        add_url: $('fAddUrl').value.trim(),
+        add_button: $('fAddButton').value.trim(),
+        save_button: $('fSave').value.trim() || 'button#save',
+        fields: ROWS.filter(r => r.include).map(r => ({
+            id: r.id, label: r.label, kind: r.kind, strategy: r.strategy, value: r.value || '',
+            format: r.format || '', depends_on: r.depends_on || null, required: !!r.required,
+            wait_after: r.wait_after ?? 0.5, timeout: r.timeout ?? 15,
+        })),
+        before_save: BEFORE_SAVE,
+        verify: {
+            new_first_row: $('vNewRow').checked,
+            row_contains: $('vRowContains').value.split(',').map(s => s.trim()).filter(Boolean),
+            row_contains_strict: $('vStrict').checked,
+        },
+        notes: $('fNotes').value.trim(),
+    };
+}
+
+async function saveConfig() {
+    const cfg = buildConfig();
+    if (!cfg.key) { alert('اكتب المفتاح (إنجليزي) للشاشة'); return; }
+    const r = await fetch(`/api/screens/${encodeURIComponent(cfg.key)}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: cfg}),
+    }).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    await loadCatalog();
+    await openScreen(cfg.key);
+    $('saveState').innerHTML = `✅ اتحفظ. الشاشة ظهرت في <a href="/tests">الاختبارات</a> كاختبار كامل · <code class="ltr">${esc(r.test_path)}</code>`;
+}
+
+async function deleteConfig() {
+    if (!CURRENT_KEY) return;
+    if (!confirm(`مسح إعداد "${CURRENT_KEY}"؟ (الاختبار بتاعه هيتمسح كمان)`)) return;
+    await fetch(`/api/screens/${encodeURIComponent(CURRENT_KEY)}`, {method: 'DELETE'});
+    await loadCatalog();
+    newScreen();
+}
+
+function runFull() {
+    if (!CURRENT_KEY) { alert('احفظ الإعداد الأول'); return; }
+    const n = Math.max(1, Math.min(50, parseInt($('runRepeat').value, 10) || 1));
+    const runner = new TestRunner({});
+    runner.run(`tests/screens/test_screen_${CURRENT_KEY}.py::test_screen_flow`,
+               `${$('fNameAr').value || CURRENT_KEY} (منشئ الشاشات)${n > 1 ? ' ×' + n : ''}`, n);
+}
+
+// ==================== jobs ====================
+async function pollJob(jobId, title) {
+    $('jobBox').classList.remove('d-none');
+    $('jobSpinner').classList.remove('d-none');
+    $('jobTitle').textContent = title;
+    $('btnInspect').disabled = true; $('btnDry').disabled = true;
+    try {
+        for (let n = 0; n < 600; n++) {
+            await new Promise(res => setTimeout(res, 2000));
+            const r = await fetch(`/api/screens/jobs/${jobId}`).then(r => r.json()).catch(() => null);
+            if (!r) continue;
+            if (!r.success) { $('jobTitle').textContent = '❌ ' + r.error; return null; }
+            $('jobLog').textContent = (r.log || []).join('\n');
+            $('jobLog').scrollTop = $('jobLog').scrollHeight;
+            if (r.status === 'done') return r.result;
+        }
+    } finally {
+        $('jobSpinner').classList.add('d-none');
+        $('btnInspect').disabled = false; $('btnDry').disabled = false;
+    }
+    return null;
+}
+
+async function inspect() {
+    const list_url = $('fListUrl').value.trim();
+    if (!list_url) { alert('اكتب رابط شاشة القايمة'); return; }
+    const r = await fetch('/api/screens/inspect', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({list_url, add_url: $('fAddUrl').value.trim(), add_button: $('fAddButton').value.trim(),
+                              no_deps: !$('fDetectDeps').checked}),
+    }).then(r => r.json());
+    if (!r.success) { alert(r.error); return; }
+    const res = await pollJob(r.job_id, 'بقرأ حقول الشاشة... (بيفتح المتصفح ويسجل دخول)');
+    if (!res) return;
+    if (!res.success) { $('jobTitle').textContent = '❌ ' + (res.error || 'فشل'); return; }
+    $('jobTitle').textContent = `✅ لقيت ${res.fields.length} حقل و ${res.buttons.length} زرار`;
+    applyInspection(res);
+}
+
+function applyInspection(res) {
+    if (res.add_url) $('fAddUrl').value = res.add_url;
+    if (res.add_button && !$('fAddButton').value) $('fAddButton').value = res.add_button;
+    if (!CURRENT_KEY && res.suggested_save) $('fSave').value = res.suggested_save;
+    BUTTONS = res.buttons || [];
+    const existing = {};
+    ROWS.forEach(r => existing[r.id] = r);
+    const fresh = res.fields.map(f => {
+        const old = existing[f.id];
+        const base = {
+            id: f.id, label: f.label || f.id, kind: f.kind, required: f.required, visible: f.visible,
+            in_table: f.in_table, appears_after_choice: f.appears_after_choice, options: f.options || [],
+            current_value: f.value, depends_on: f.depends_on || null,
+        };
+        if (old) return {...base, ...old, kind: base.kind, options: base.options, visible: base.visible, required: base.required || old.required, missing: false,
+                         strategy: (KIND_STRATEGIES[base.kind] || []).includes(old.strategy) ? old.strategy : f.suggested_strategy,
+                         depends_on: old.depends_on || base.depends_on};
+        return {...base, include: !CURRENT_KEY && f.suggested_include, strategy: f.suggested_strategy,
+                value: f.kind === 'number' && f.suggested_strategy === 'fixed' ? (f.value || '100') : ''};
+    });
+    // saved/manual fields the page doesn't have anymore
+    ROWS.filter(r => !res.fields.some(f => f.id === r.id)).forEach(r => fresh.push({...r, missing: !r.manual}));
+    // keep saved order first
+    if (CURRENT_KEY) {
+        const order = ROWS.map(r => r.id);
+        fresh.sort((a, b) => {
+            const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+            return (ia === -1 ? 1e6 : ia) - (ib === -1 ? 1e6 : ib);
+        });
+    }
+    ROWS = fresh;
+    $('inspectWarnings').innerHTML = (res.warnings || []).map(w => `<div class="alert alert-warning py-1 small mb-1">⚠️ ${esc(w)}</div>`).join('') +
+        (res.screenshot_name ? `<a class="small" target="_blank" href="/screenshots/${encodeURIComponent(res.screenshot_name)}">📸 لقطة الفورم</a>` : '');
+    renderRows(); renderButtons(); renderBeforeSave();
+}
+
+async function dryRun() {
+    const cfg = buildConfig();
+    if (!cfg.key) cfg.key = 'draft';
+    if (!cfg.fields.length) { alert('علّم على حقل واحد على الأقل'); return; }
+    const r = await fetch('/api/screens/dry-run', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: cfg}),
+    }).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    const res = await pollJob(r.job_id, 'بجرّب التعبئة... (من غير حفظ)');
+    if (!res) return;
+    $('jobTitle').textContent = res.success ? '✅ التعبئة نجحت' : '❌ التعبئة وقفت';
+    const steps = res.steps || [];
+    const shots = (res.screenshot_names || []).map(n => `<a target="_blank" href="/screenshots/${encodeURIComponent(n)}">📸 ${esc(n)}</a>`).join(' ');
+    $('dryBody').innerHTML = `
+        ${res.success ? '' : `<div class="alert alert-danger small" style="white-space:pre-wrap">${esc(res.error || '')}</div>`}
+        <table class="table table-sm small mb-2"><thead><tr><th></th><th>الحقل</th><th>المطلوب</th><th>اللي اتملى</th><th>ثانية</th></tr></thead><tbody>
+        ${steps.map(s => `<tr><td class="${s.ok ? 'step-ok' : 'step-bad'}">${s.ok ? '✅' : '❌'}</td><td>${esc(s.label)}</td>
+            <td>${esc(STRATEGIES[s.strategy] || s.strategy)} ${s.wanted ? '· ' + esc(s.wanted) : ''}</td>
+            <td>${s.ok ? esc(s.result) : `<span class="text-danger">${esc(s.error)}</span>`}</td><td>${s.seconds}</td></tr>`).join('')}
+        </tbody></table>${shots}`;
+    $('dryCard').classList.remove('d-none');
+    $('dryCard').scrollIntoView({behavior: 'smooth'});
+}
+
+// ==================== init ====================
+(async function () {
+    await loadCatalog();
+    const key = new URLSearchParams(location.search).get('key');
+    if (key) await openScreen(key); else { newScreen(); }
+})();
+</script>
+{% endblock %}
