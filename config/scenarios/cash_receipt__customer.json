@@ -1,0 +1,122 @@
+{
+  "key": "cash_receipt__customer",
+  "name_ar": "سند القبض — سند قبض من عميل الي عميل",
+  "name_en": "Cash Receipt Voucher",
+  "module_key": "general_accounting",
+  "icon": "🎬",
+  "list_url": "/CashReceiptVoucher",
+  "add_url": "/CashReceiptVoucher/AddEdit",
+  "add_button": "a[href='/CashReceiptVoucher/AddEdit']",
+  "save_button": "button#save",
+  "fields": [
+    {
+      "id": "SourceTypeId",
+      "label": "نوع المصدر",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": null,
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CustomerId",
+      "label": "العميل",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": "SourceTypeId",
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CashReceiptPaymentMethodId",
+      "label": "طريقة الدفع",
+      "kind": "select2",
+      "strategy": "search",
+      "value": "1",
+      "format": "",
+      "depends_on": "CustomerId",
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CostCenterId",
+      "label": "مركز التكلفة",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": "CashReceiptPaymentMethodId",
+      "required": false,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "CashBoxId",
+      "label": "الصناديق والعهد",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": "CostCenterId",
+      "required": false,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "MoneyAmount",
+      "label": "المبلغ",
+      "kind": "number",
+      "strategy": "fixed",
+      "value": "200",
+      "format": "",
+      "depends_on": "CashBoxId",
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    },
+    {
+      "id": "AccountingDocumentId",
+      "label": "التوجيهات المحاسبية",
+      "kind": "select2",
+      "strategy": "first",
+      "value": "",
+      "format": "",
+      "depends_on": "MoneyAmount",
+      "required": true,
+      "wait_after": 0.5,
+      "timeout": 15.0
+    }
+  ],
+  "before_save": [
+    {
+      "action": "click",
+      "selector": "button#autoPay",
+      "label": "سداد الى",
+      "force_visible": true,
+      "wait_after": 1.5
+    }
+  ],
+  "verify": {
+    "new_first_row": true,
+    "row_contains": [
+      "200.00"
+    ],
+    "row_contains_strict": false,
+    "timeout": 60
+  },
+  "save_timeout": 40,
+  "status": "complete",
+  "notes": "",
+  "updated_at": "2026-10-20T15:32:25",
+  "screen_key": "cash_receipt",
+  "scenario_key": "customer",
+  "scenario_name": "سند قبض من عميل الي عميل",
+  "screen_name": "سند القبض"
+}
