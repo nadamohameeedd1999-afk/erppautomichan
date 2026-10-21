@@ -1,0 +1,136 @@
+"""
+Live view (البث المباشر) through the dashboard itself.
+
+- /novnc/<file>        the noVNC web client (files from NOVNC_DIR, default /usr/share/novnc)
+- /novnc-ws            websocket -> raw TCP bridge to the VNC server (VNC_HOST:VNC_PORT, default localhost:5900)
+- /api/live/status     is noVNC there? is the VNC server up? is a test running?
+
+Everything goes through the dashboard's own port and login, so on Railway nothing
+else has to be exposed. Needs `flask-sock` (in requirements.txt); without it the page
+falls back to the external VNC URL from the tunnel settings.
+"""
+import os
+import socket
+import threading
+from pathlib import Path
+
+from flask import Blueprint, abort, jsonify, send_from_directory, session
+
+from web import auth
+
+bp = Blueprint("live", __name__)
+
+NOVNC_DIRS = [os.getenv("NOVNC_DIR", ""), "/usr/share/novnc", "/usr/share/novnc/www",
+              str(Path(__file__).resolve().parent / "static" / "novnc")]
+VNC_HOST = os.getenv("VNC_HOST", "localhost")
+VNC_PORT = int(os.getenv("VNC_PORT", "5900"))
+VNC_PASSWORD = os.getenv("VNC_PASSWORD", "erp")
+
+try:
+    from flask_sock import Sock
+    _sock = Sock()
+    HAS_SOCK = True
+except Exception:          # flask-sock not installed (e.g. local Windows before pip install)
+    _sock = None
+    HAS_SOCK = False
+
+
+def novnc_dir():
+    for d in NOVNC_DIRS:
+        if d and (Path(d) / "vnc.html").exists():
+            return Path(d)
+    return None
+
+
+def vnc_port_open(timeout=0.6):
+    try:
+        with socket.create_connection((VNC_HOST, VNC_PORT), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def init_app(app):
+    app.register_blueprint(bp)
+    if HAS_SOCK:
+        _sock.init_app(app)
+        _sock.route("/novnc-ws")(_ws_bridge)
+
+
+@bp.route("/novnc/<path:filename>")
+@auth.login_required
+def novnc_files(filename):
+    d = novnc_dir()
+    if not d:
+        abort(404)
+    return send_from_directory(str(d), filename)
+
+
+@bp.route("/api/live/status")
+@auth.login_required
+def live_status():
+    running, running_name = False, ""
+    try:
+        from web.queue_manager import get_manager
+        cur = (get_manager().get_status() or {}).get("running")
+        if cur and cur.get("status") in (None, "running", "queued"):
+            running, running_name = True, cur.get("test_name", "")
+    except Exception:
+        pass
+    return jsonify({
+        "success": True,
+        "proxy": HAS_SOCK and novnc_dir() is not None,
+        "has_sock": HAS_SOCK,
+        "novnc": novnc_dir() is not None,
+        "vnc_up": vnc_port_open(),
+        "test_running": running,
+        "test_name": running_name,
+    })
+
+
+def _ws_bridge(ws):
+    """Bridges the noVNC websocket to the VNC TCP port (what websockify does)."""
+    if "user_id" not in session:
+        ws.close()
+        return
+    try:
+        tcp = socket.create_connection((VNC_HOST, VNC_PORT), timeout=5)
+    except OSError:
+        ws.close()
+        return
+    tcp.settimeout(None)
+    alive = {"on": True}
+
+    def tcp_to_ws():
+        try:
+            while alive["on"]:
+                data = tcp.recv(65536)
+                if not data:
+                    break
+                ws.send(data)
+        except Exception:
+            pass
+        finally:
+            alive["on"] = False
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    threading.Thread(target=tcp_to_ws, daemon=True).start()
+    try:
+        while alive["on"]:
+            msg = ws.receive(timeout=30)
+            if msg is None:
+                continue
+            if isinstance(msg, str):
+                msg = msg.encode("latin-1")
+            tcp.sendall(msg)
+    except Exception:
+        pass
+    finally:
+        alive["on"] = False
+        try:
+            tcp.close()
+        except Exception:
+            pass

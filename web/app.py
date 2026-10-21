@@ -28,6 +28,10 @@ app.config.from_object(Config)
 from web.screens_api import bp as screens_bp
 app.register_blueprint(screens_bp)
 
+# ==================== Live view (noVNC through the dashboard) ====================
+from web import live_vnc
+live_vnc.init_app(app)
+
 
 # ==================== Context Processors ====================
 @app.context_processor
@@ -407,11 +411,13 @@ def serve_screenshot(filename):
 def live_viewer():
     from web import tunnel_helper
     config = tunnel_helper.load_config()
-    vnc_full_url = tunnel_helper.get_vnc_full_url()
+    from web import live_vnc
+    ext = (config.get("vnc_url") or "").strip()
     return render_template(
         "live_viewer.html",
-        vnc_full_url=vnc_full_url,
+        vnc_full_url=tunnel_helper.get_vnc_full_url() if ext else "",
         tunnel_config=config,
+        vnc_password=live_vnc.VNC_PASSWORD,
     )
 
 
