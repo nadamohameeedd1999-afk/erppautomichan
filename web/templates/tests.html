@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ t('tests') }} - {{ site_name }}{% endblock %}
 
@@ -473,7 +473,9 @@ function renderAll() {
                         <tr>
                             <th style="width:40px;"></th>
                             <th>الشاشة</th>
-                            <th style="width:200px;">النوع</th>
+                            <th style="width:130px;">منشئ الشاشات</th>
+                            <th style="width:110px;">التكرار</th>
+                            <th style="width:170px;">النوع</th>
                             <th style="width:230px;">السيناريو</th>
                             <th style="width:120px;">آخر نتيجة</th>
                             <th style="width:150px;">الإجراءات</th>
@@ -525,11 +527,11 @@ function renderRow(t) {
 
     // ===== التكرار (للاختبارات الكاملة فقط) =====
     const repeatCell = t.full_available
-        ? `<div class="input-group input-group-sm mt-1" style="max-width:130px" title="عدد مرات تكرار الاختبار الكامل">
+        ? `<div class="input-group input-group-sm" style="max-width:100px" title="عدد مرات تكرار الاختبار الكامل">
                <span class="input-group-text">🔁</span>
                <input type="number" class="form-control row-repeat" data-test-id="${t.id}" min="1" max="50" value="1">
            </div>`
-        : '';
+        : '<span class="text-muted small">—</span>';
 
     // ===== آخر نتيجة =====
     let resultCell = '';
@@ -553,11 +555,14 @@ function renderRow(t) {
             </td>
             <td>
                 <strong>${t.icon} ${t.name}</strong>
-                ${t.builder && t.full_path ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none ms-1" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>` : ''}
                 <br>
                 <small class="text-muted">${t.url || t.page_key}</small>
             </td>
-            <td>${typeCell}${repeatCell}</td>
+            <td>${t.builder && t.full_path
+                    ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>`
+                    : '<span class="text-muted small">—</span>'}</td>
+            <td>${repeatCell}</td>
+            <td>${typeCell}</td>
             <td>${scenarioCell(t)}</td>
             <td>${resultCell}</td>
             <td>
