@@ -143,6 +143,8 @@ def normalize(cfg: dict) -> dict:
             "depends_on": dep,
             "required": bool(f.get("required", False)),
             "wait_after": float(f.get("wait_after", 0.5) or 0),
+            # لو القيمة مش موجودة: شغّل الشاشة/السيناريو ده الأول يعملها (مثلاً customer أو customer__new)
+            "create_with": str(f.get("create_with") or "").strip(),
             "timeout": float(f.get("timeout", 15) or 15),
         })
 
@@ -176,6 +178,9 @@ def normalize(cfg: dict) -> dict:
             "new_first_row": bool(verify.get("new_first_row", True)),
             "row_contains": [str(x) for x in (verify.get("row_contains") or []) if str(x).strip()],
             "row_contains_strict": bool(verify.get("row_contains_strict", False)),
+            # بعد الحفظ: افتح السند الجديد واتأكد إن كل حقل اتسجل بنفس القيمة
+            "open_saved": bool(verify.get("open_saved", False)),
+            "open_selector": str(verify.get("open_selector") or "").strip(),
             "timeout": int(verify.get("timeout", 60) or 60),
         },
         "save_timeout": int(cfg.get("save_timeout", 40) or 40),

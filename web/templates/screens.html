@@ -205,6 +205,11 @@
                             <input class="form-check-input" type="checkbox" id="vStrict">
                             <label class="form-check-label small" for="vStrict">لو النص مش موجود الاختبار يفشل (غير كده تحذير بس)</label>
                         </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="vOpenSaved">
+                            <label class="form-check-label fw-bold" for="vOpenSaved">افتح السند بعد الحفظ واتأكد إن كل القيم اتسجلت صح</label>
+                        </div>
+                        <input class="form-control form-control-sm ltr mt-1" id="vOpenSel" placeholder="(اختياري) CSS للينك الفتح في أول صف — مثلاً a.btn-edit">
                         <label class="form-label small mt-2">ملاحظات</label>
                         <input class="form-control" id="fNotes">
                     </div>
@@ -300,6 +305,7 @@ const $ = id => document.getElementById(id);
 
 // ==================== load ====================
 let SCN_BY_SCREEN = {};
+let CREATE_OPTS = [];       // screens + scenarios that can create missing data
 async function loadCounts() {
     const [a, b] = await Promise.all([
         fetch('/api/screens').then(r => r.json()).catch(() => ({})),
@@ -307,7 +313,12 @@ async function loadCounts() {
     ]);
     SCN_BY_SCREEN = {};
     (b.scenarios || []).forEach(x => (SCN_BY_SCREEN[x.screen_key] = SCN_BY_SCREEN[x.screen_key] || []).push(x));
+    CREATE_OPTS = [
+        ...(a.screens || []).filter(x => !x.error).map(x => ({key: x.key, name: '🧩 ' + x.name_ar})),
+        ...(b.scenarios || []).filter(x => !x.error).map(x => ({key: x.key, name: '🎬 ' + (x.screen_name || x.screen_key) + ' — ' + x.scenario_name})),
+    ];
     $('tabCountScreens').textContent = (a.screens || []).length || '';
+    if (ROWS.length) renderRows();
     $('tabCountScn').textContent = (b.scenarios || []).length || '';
 }
 
@@ -405,6 +416,7 @@ async function copyFromScreen(silent) {
     $('fSave').value = c.save_button;
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
+    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     renderRows(); renderBeforeSave();
@@ -417,7 +429,7 @@ function newScreen(keepCatalog) {
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
     if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
     $('fSave').value = 'button#save';
-    $('vNewRow').checked = true; $('vStrict').checked = false;
+    $('vNewRow').checked = true; $('vStrict').checked = false; $('vOpenSaved').checked = false; $('vOpenSel').value = '';
     if (!keepCatalog) $('catalogSelect').value = '';
     $('btnDelete').disabled = true;
     $('dryCard').classList.add('d-none');
@@ -457,6 +469,7 @@ function fillEditor(c) {
     $('fAddButton').value = c.add_button; $('fSave').value = c.save_button; $('fNotes').value = c.notes || '';
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
+    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     $('catalogSelect').value = CATALOG.some(p => p.key === c.key) ? c.key : '';
@@ -524,7 +537,13 @@ function renderRows() {
                     ${strategies.map(s => `<option value="${s}" ${r.strategy === s ? 'selected' : ''}>${esc(STRATEGIES[s])}</option>`).join('')}
                 </select>
             </td>
-            <td>${valueCell}</td>
+            <td>${valueCell}
+                ${['fixed', 'search'].includes(r.strategy) ? `
+                <select class="form-select form-select-sm mt-1" title="لو القيمة دي مش موجودة في القايمة، شغّل الشاشة/السيناريو ده الأول يعملها وبعدين كمّل"
+                        onchange="setRow(${i}, 'create_with', this.value)">
+                    <option value="">لو مش موجودة: يوقف ويقولّي</option>
+                    ${CREATE_OPTS.map(o => `<option value="${esc(o.key)}" ${r.create_with === o.key ? 'selected' : ''}>لو مش موجودة: اعملها بـ ${esc(o.name)}</option>`).join('')}
+                </select>` : ''}</td>
             <td>
                 <select class="form-select form-select-sm" onchange="setRow(${i}, 'depends_on', this.value || null)">
                     <option value="">—</option>${depOptions}
@@ -657,6 +676,7 @@ function buildScreenConfig() {
         fields: ROWS.filter(r => r.include).map(r => ({
             id: r.id, label: r.label, kind: r.kind, strategy: r.strategy, value: r.value || '',
             format: r.format || '', depends_on: r.depends_on || null, required: !!r.required,
+            create_with: (['fixed', 'search'].includes(r.strategy) && r.create_with) || '',
             wait_after: r.wait_after ?? 0.5, timeout: r.timeout ?? 15,
         })),
         before_save: BEFORE_SAVE,
@@ -664,6 +684,8 @@ function buildScreenConfig() {
             new_first_row: $('vNewRow').checked,
             row_contains: $('vRowContains').value.split(',').map(s => s.trim()).filter(Boolean),
             row_contains_strict: $('vStrict').checked,
+            open_saved: $('vOpenSaved').checked,
+            open_selector: $('vOpenSel').value.trim(),
         },
         notes: $('fNotes').value.trim(),
     };

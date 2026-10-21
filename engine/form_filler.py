@@ -21,9 +21,10 @@ from engine import text_match
 class FieldFillError(AssertionError):
     """Raised when a field cannot be filled the way the config asks."""
 
-    def __init__(self, field, message, options=None):
+    def __init__(self, field, message, options=None, missing=False):
         self.field = field
         self.options = options or []
+        self.missing = missing          # True = the wanted value isn't in the list (data problem)
         label = field.get("label") or field.get("id")
         text = f"[{label} / {field.get('id')}] {message}"
         if options is not None:
@@ -202,7 +203,7 @@ class FormFiller:
                 why = ""
                 if not text_match.real_options(texts) and field.get("depends_on"):
                     why = f" — القايمة فاضية بعد اختيار الحقل اللي قبله ({field['depends_on']})"
-                raise FieldFillError(field, f"القيمة المطلوبة '{wanted}' مش موجودة ({how}){why}", texts)
+                raise FieldFillError(field, f"القيمة المطلوبة '{wanted}' مش موجودة ({how}){why}", texts, missing=True)
 
         chosen = self.driver.execute_script(SET_INDEX_JS, sid, idx)
         return self._confirm_select(field, chosen)

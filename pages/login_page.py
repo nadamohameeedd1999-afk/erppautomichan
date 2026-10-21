@@ -200,6 +200,15 @@ class LoginPage(BasePage):
             wait_activity: وقت انتظار ظهور النشاط (ثواني)
             wait_branch: وقت انتظار ظهور الفرع (ثواني)
         """
+        # ♻️ لو فيه جلسة دخول محفوظة وصالحة، نستخدمها ونوفّر وقت شاشة الدخول
+        try:
+            from engine import session_cache
+            if session_cache.restore(self.driver):
+                logger.success("♻️ استخدمت جلسة الدخول المحفوظة (من غير شاشة الدخول)")
+                return True
+        except Exception:
+            pass
+
         logger.info("=" * 50)
         logger.info("بدء تسجيل الدخول")
         logger.info("=" * 50)
@@ -239,6 +248,11 @@ class LoginPage(BasePage):
                 lambda d: "/Login" not in d.current_url
             )
             logger.success(f"✅ تم الدخول! URL: {self.driver.current_url}")
+            try:
+                from engine import session_cache
+                session_cache.save(self.driver)
+            except Exception:
+                pass
             time.sleep(2)
             self.take_screenshot("login_success")
             return True
