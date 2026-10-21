@@ -1,77 +1,210 @@
 ﻿{% extends "base.html" %}
+{% block title %}مركز التشغيل - {{ site_name }}{% endblock %}
 
-{% block title %}Queue - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+    .rc-card { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(30,40,90,.06); }
+    .rc-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+    .now-box { border-radius: 12px; padding: 16px; background: linear-gradient(90deg, #f3efff, #fff); border: 1px solid #e4dcff; }
+    .now-box.idle { background: #f7f8fb; border-color: #eceef4; }
+    .rec { width: 10px; height: 10px; border-radius: 50%; background: #dc3545; display: inline-block; animation: blink 1.1s infinite; margin-inline-end: 6px; }
+    @keyframes blink { 50% { opacity: .25; } }
+    .mini-log { background: #1e1e1e; color: #d4d4d4; font-size: 12px; border-radius: 8px; padding: 10px; height: 230px; overflow: auto; direction: ltr; text-align: left; white-space: pre-wrap; margin: 0; }
+    .mini-log .e { color: #ff7b7b; } .mini-log .w { color: #ffd166; } .mini-log .s { color: #7ee787; }
+    .q-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f1f5; }
+    .q-item:last-child { border-bottom: 0; }
+    .q-pos { width: 26px; height: 26px; border-radius: 50%; background: #eef0f6; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .chip.ok { background: #e6f6ee; color: #198754; } .chip.bad { background: #fdecec; color: #dc3545; }
+    .src { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #eef0f6; color: #555; }
+    .src.schedule { background: #fff3cd; } .src.retry { background: #e7f1ff; } .src.rerun { background: #efe7ff; }
+    .muted { color: #8a8fa3; font-size: 12px; }
+    .fail-msg { font-size: 12px; color: #c0392b; white-space: pre-wrap; }
+    [data-theme="dark"] .rc-card { background: #1f2330; } [data-theme="dark"] .now-box { background: #262a3a; border-color: #343a50; }
+    [data-theme="dark"] .q-item { border-color: #2c3142; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="animate-in">
-    <div class="mb-4">
-        <h1 class="display-5 fw-bold mb-2">
-            <i class="bi bi-list-task text-primary"></i>
-            {% if current_lang == 'ar' %}طابور الاختبارات{% else %}Test Queue{% endif %}
-        </h1>
-        <p class="text-muted mb-0">
-            {% if current_lang == 'ar' %}عرض الاختبارات الجارية والمنتظرة{% else %}View running and waiting tests{% endif %}
-        </p>
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-cpu text-primary"></i> مركز التشغيل</h1>
+            <div class="text-muted">اللي شغال دلوقتي، واللي مستني دوره، وآخر التشغيلات — كله في مكان واحد.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary" href="/tests"><i class="bi bi-plus-lg"></i> ضيفي اختبارات</a>
+            <a class="btn btn-outline-danger" href="/live"><i class="bi bi-broadcast"></i> بث مباشر</a>
+        </div>
     </div>
 
-    <div class="row g-4">
-        <!-- Running -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
+    <div class="row g-3">
+        <!-- running now -->
+        <div class="col-lg-7">
+            <div class="card rc-card h-100">
+                <div class="card-header">شغال دلوقتي <span class="muted" id="srvTime"></span></div>
                 <div class="card-body">
-                    <h5 class="fw-bold mb-3">
-                        <i class="bi bi-play-circle text-success"></i>
-                        {% if current_lang == 'ar' %}يعمل حالياً{% else %}Currently Running{% endif %}
-                    </h5>
-
-                    {% if status.running %}
-                    <div class="p-3 border rounded" style="background: var(--bg-primary);">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>{{ status.running.test_name }}</strong>
-                                <div class="text-muted small">{{ status.running.task_id }}</div>
-                            </div>
-                            <span class="badge bg-warning pulse">Running</span>
-                        </div>
+                    <div class="now-box idle" id="nowBox">
+                        <div class="text-muted">مفيش اختبار شغال دلوقتي.</div>
                     </div>
-                    {% else %}
-                    <p class="text-muted">{% if current_lang == 'ar' %}لا يوجد اختبار يعمل{% else %}No test running{% endif %}</p>
-                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-3 mb-1">
+                        <strong class="small">آخر سطور اللوج</strong>
+                        <span class="muted">بيتحدّث كل ثانيتين</span>
+                    </div>
+                    <pre class="mini-log" id="miniLog">—</pre>
                 </div>
             </div>
         </div>
 
-        <!-- Queue -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="fw-bold mb-3">
-                        <i class="bi bi-hourglass-split text-warning"></i>
-                        {% if current_lang == 'ar' %}في الانتظار{% else %}Waiting{% endif %}
-                        <span class="badge bg-secondary">{{ status.queue_length }}</span>
-                    </h5>
+        <!-- waiting -->
+        <div class="col-lg-5">
+            <div class="card rc-card h-100">
+                <div class="card-header">
+                    <span>مستني دوره <span class="badge bg-primary" id="qCount">0</span></span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="clearQueue()" id="btnClear" disabled><i class="bi bi-trash"></i> فضّي الطابور</button>
+                </div>
+                <div class="card-body pt-2" id="queueList"></div>
+            </div>
+        </div>
 
-                    {% if status.queue %}
-                        {% for task in status.queue %}
-                        <div class="p-3 border rounded mb-2" style="background: var(--bg-primary);">
-                            <strong>{{ task.test_name }}</strong>
-                            <div class="text-muted small">{{ task.task_id }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                    <p class="text-muted">{% if current_lang == 'ar' %}الطابور فاضي{% else %}Queue is empty{% endif %}</p>
-                    {% endif %}
+        <!-- recent -->
+        <div class="col-12">
+            <div class="card rc-card">
+                <div class="card-header">
+                    <span>آخر التشغيلات</span>
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm" id="fltStatus" style="width:auto" onchange="renderRecent()">
+                            <option value="">الكل</option><option value="bad">الفاشل بس</option><option value="ok">الناجح بس</option>
+                        </select>
+                        <select class="form-select form-select-sm" id="fltSource" style="width:auto" onchange="renderRecent()">
+                            <option value="">كل المصادر</option><option value="manual">يدوي</option><option value="schedule">جدولة</option>
+                            <option value="retry">إعادة تلقائية</option><option value="rerun">إعادة يدوية</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body pt-2">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr class="muted"><th>الاختبار</th><th>النتيجة</th><th>المصدر</th><th>الوقت</th><th>المدة</th><th></th></tr></thead>
+                            <tbody id="recentBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Refresh -->
-    <div class="text-center mt-4">
-        <button onclick="location.reload()" class="btn btn-primary">
-            <i class="bi bi-arrow-clockwise"></i>
-            {% if current_lang == 'ar' %}تحديث{% else %}Refresh{% endif %}
-        </button>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SRC = { manual: 'يدوي', schedule: '⏰ جدولة', retry: '🔁 إعادة تلقائية', rerun: '↻ إعادة يدوية' };
+let DATA = { recent: [] };
+
+function rel(iso) {
+    const d = new Date(iso); if (isNaN(d)) return '';
+    const s = Math.round((Date.now() - d) / 1000);
+    if (s < 60) return 'من شوية';
+    if (s < 3600) return `من ${Math.round(s / 60)} د`;
+    if (s < 86400) return `من ${Math.round(s / 3600)} س`;
+    return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+}
+function since(iso) {
+    const d = new Date(iso); if (isNaN(d)) return '';
+    const s = Math.max(0, Math.round((Date.now() - d) / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+async function load() {
+    try { DATA = await fetch('/api/run-center').then(r => r.json()); } catch (e) { return; }
+    renderNow(); renderQueue(); renderRecent();
+}
+
+function renderNow() {
+    const box = document.getElementById('nowBox');
+    const cur = DATA.running;
+    if (!cur) {
+        box.className = 'now-box idle';
+        box.innerHTML = '<div class="text-muted">مفيش اختبار شغال دلوقتي.</div>';
+        document.getElementById('miniLog').textContent = '—';
+        return;
+    }
+    box.className = 'now-box';
+    box.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+            <div>
+                <div class="fw-bold fs-5"><span class="rec"></span>${esc(cur.test_name)}</div>
+                <div class="muted ltr">${esc(cur.test_path)}</div>
+                <div class="mt-1"><span class="src ${esc(cur.source || 'manual')}">${SRC[cur.source] || 'يدوي'}</span>
+                    ${cur.repeat > 1 ? `<span class="src">🔁 ×${cur.repeat}</span>` : ''}
+                    ${cur.schedule_name ? `<span class="src schedule">${esc(cur.schedule_name)}</span>` : ''}</div>
+            </div>
+            <div class="text-end">
+                <div class="fs-4 fw-bold" id="elapsed">${cur.started_at ? since(cur.started_at) : '…'}</div>
+                <div class="d-flex gap-1 mt-1">
+                    <a class="btn btn-sm btn-outline-danger" href="/live"><i class="bi bi-eye"></i> شوفي</a>
+                    <button class="btn btn-sm btn-danger" onclick="stopNow()"><i class="bi bi-stop-fill"></i> إيقاف</button>
+                </div>
+            </div>
+        </div>`;
+    const log = document.getElementById('miniLog');
+    log.innerHTML = (DATA.log || []).map(l => {
+        const c = /ERROR|FAILED|❌|^E /.test(l) ? 'e' : /WARNING|⚠️/.test(l) ? 'w' : /SUCCESS|✅|PASSED|🎯/.test(l) ? 's' : '';
+        return `<div class="${c}">${esc(l)}</div>`;
+    }).join('') || '…';
+    log.scrollTop = log.scrollHeight;
+}
+
+function renderQueue() {
+    const q = DATA.queue || [];
+    document.getElementById('qCount').textContent = q.length;
+    document.getElementById('btnClear').disabled = !q.length;
+    document.getElementById('queueList').innerHTML = q.length ? q.map((t, i) => `
+        <div class="q-item">
+            <span class="q-pos">${i + 1}</span>
+            <div class="flex-grow-1"><div class="fw-bold">${esc(t.test_name)}</div>
+                <div><span class="src ${esc(t.source || 'manual')}">${SRC[t.source] || 'يدوي'}</span> <span class="muted">اتضاف ${rel(t.added_at)}</span></div></div>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" ${i === 0 ? 'disabled' : ''} onclick="move('${t.task_id}', -1)" title="قدّميه">▲</button>
+                <button class="btn btn-outline-secondary" ${i === q.length - 1 ? 'disabled' : ''} onclick="move('${t.task_id}', 1)" title="أخّريه">▼</button>
+                <button class="btn btn-outline-danger" onclick="removeTask('${t.task_id}')" title="شيليه من الطابور">✕</button>
+            </div>
+        </div>`).join('') : '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-2 d-block"></i>مفيش حاجة مستنية</div>';
+}
+
+function renderRecent() {
+    const fs = document.getElementById('fltStatus').value, fsrc = document.getElementById('fltSource').value;
+    const rows = (DATA.recent || []).filter(r => (!fs || (fs === 'ok') === r.passed) && (!fsrc || (r.source || 'manual') === fsrc));
+    document.getElementById('recentBody').innerHTML = rows.map(r => `
+        <tr>
+            <td><div class="fw-bold">${esc(r.name)}</div>${!r.passed && r.message ? `<div class="fail-msg">${esc(r.message)}</div>` : ''}
+                ${r.auto_retry ? '<div class="muted">🔁 اتعاد تلقائياً (شكله مشكلة بيئة)</div>' : ''}</td>
+            <td><span class="chip ${r.passed ? 'ok' : 'bad'}">${r.passed ? 'ناجح' : 'فاشل'}</span></td>
+            <td><span class="src ${esc(r.source || 'manual')}">${SRC[r.source] || 'يدوي'}</span></td>
+            <td class="muted">${rel(r.time)}</td>
+            <td class="muted">${Math.round(r.duration)} ث</td>
+            <td class="text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" href="/reports/${encodeURIComponent(r.run_id)}">التقرير</a>
+                ${r.path ? `<button class="btn btn-sm btn-outline-primary" onclick='rerun(${JSON.stringify(r.path)}, ${JSON.stringify(r.name)})'>↻ تاني</button>` : ''}
+            </td>
+        </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">مفيش تشغيلات</td></tr>';
+}
+
+async function post(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(r => r.json());
+}
+async function move(id, d) { await post(`/api/run-center/move/${encodeURIComponent(id)}/${d}`); load(); }
+async function removeTask(id) { await post(`/api/run-center/remove/${encodeURIComponent(id)}`); load(); }
+async function clearQueue() { if (confirm('تشيلي كل اللي مستني في الطابور؟')) { await post('/api/run-center/clear'); load(); } }
+async function stopNow() { if (confirm('توقفي الاختبار الشغال؟')) { await post('/api/stop'); setTimeout(load, 1500); } }
+async function rerun(path, name) {
+    const r = await post('/api/run-center/rerun', { path, name: name.replace(/^⏰ /, '') + ' (إعادة)' });
+    if (!r.success) alert(r.error); load();
+}
+
+load();
+setInterval(load, 2000);
+setInterval(() => { const e = document.getElementById('elapsed'); if (e && DATA.running && DATA.running.started_at) e.textContent = since(DATA.running.started_at); }, 1000);
+</script>
 {% endblock %}

@@ -32,6 +32,12 @@ app.register_blueprint(screens_bp)
 from web import live_vnc
 live_vnc.init_app(app)
 
+# ==================== Run center / schedules / compare ====================
+from web.ops_api import bp as ops_bp
+app.register_blueprint(ops_bp)
+from web import scheduler as _scheduler
+_scheduler.start()
+
 
 # ==================== Context Processors ====================
 @app.context_processor
@@ -198,76 +204,6 @@ def report_detail(run_id):
     log_lines = data_helper.read_run_log(run_id)
     return render_template("report_detail.html", report=report, screenshots=screenshots,
                            shots=shots, log_lines=log_lines)
-
-
-@app.route("/schedule")
-@auth.login_required
-def schedule():
-    lang = get_current_lang()
-    schedules = data_helper.load_schedules()
-    tests_list = data_helper.get_tests_registry(lang)
-    return render_template("schedule.html", schedules=schedules, tests=tests_list)
-
-
-@app.route("/schedule/add", methods=["POST"])
-@auth.login_required
-def schedule_add():
-    name = request.form.get("name", "").strip()
-    test_id = request.form.get("test_id", "").strip()
-    time_val = request.form.get("time", "").strip()
-    frequency = request.form.get("frequency", "daily")
-
-    if name and test_id and time_val:
-        schedules = data_helper.load_schedules()
-        schedules.append({
-            "id": f"sch_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "name": name,
-            "test_id": test_id,
-            "time": time_val,
-            "frequency": frequency,
-            "enabled": True,
-            "created_at": datetime.now().isoformat(),
-        })
-        data_helper.save_schedules(schedules)
-
-    return redirect(url_for("schedule"))
-
-
-@app.route("/schedule/delete/<sch_id>", methods=["POST"])
-@auth.login_required
-def schedule_delete(sch_id):
-    schedules = data_helper.load_schedules()
-    schedules = [s for s in schedules if s.get("id") != sch_id]
-    data_helper.save_schedules(schedules)
-    return redirect(url_for("schedule"))
-
-
-@app.route("/compare")
-@auth.login_required
-def compare():
-    all_runs = data_helper.load_summaries()
-    run_a = request.args.get("a", "")
-    run_b = request.args.get("b", "")
-
-    data_a = next((r for r in all_runs if r.get("run_id") == run_a), None)
-    data_b = next((r for r in all_runs if r.get("run_id") == run_b), None)
-
-    return render_template(
-        "compare.html",
-        all_runs=all_runs,
-        run_a=run_a,
-        run_b=run_b,
-        data_a=data_a,
-        data_b=data_b,
-    )
-
-
-@app.route("/queue")
-@auth.login_required
-def queue():
-    qm = get_qm()
-    status = qm.get_status()
-    return render_template("queue.html", status=status)
 
 
 # ==================== Settings ====================

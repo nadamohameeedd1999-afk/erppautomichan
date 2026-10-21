@@ -1,192 +1,197 @@
 ﻿{% extends "base.html" %}
+{% block title %}المقارنة - {{ site_name }}{% endblock %}
 
-{% block title %}Compare - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+    .cmp-card { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(30,40,90,.06); }
+    .cmp-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; }
+    .nav-pills .nav-link { border-radius: 10px; font-weight: 700; }
+    .side { border-radius: 12px; padding: 14px; border: 1px solid #e3e6ef; height: 100%; }
+    .side.ok { border-color: #b7e4c7; background: #f3fbf6; } .side.bad { border-color: #f5c2c7; background: #fdf3f4; }
+    .side .tag { font-weight: 800; font-size: 13px; color: #6f42c1; }
+    .verdict { border-radius: 12px; padding: 12px 16px; background: #f5f0ff; border: 1px solid #e4dcff; font-weight: 700; }
+    .diff-row td { background: #fff8e1 !important; }
+    .muted { color: #8a8fa3; font-size: 12px; }
+    .fail-msg { font-size: 12px; color: #c0392b; white-space: pre-wrap; }
+    .shot-pair img { width: 100%; height: 170px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid #e3e6ef; cursor: zoom-in; }
+    .shot-none { height: 170px; border-radius: 8px; border: 1px dashed #d5d9e6; display: flex; align-items: center; justify-content: center; color: #aab; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .chip.ok { background: #e6f6ee; color: #198754; } .chip.bad { background: #fdecec; color: #dc3545; }
+    .up { color: #198754; font-weight: 700; } .down { color: #dc3545; font-weight: 700; }
+    .stat { text-align: center; } .stat .v { font-size: 26px; font-weight: 800; } .stat .l { font-size: 12px; color: #8a8fa3; }
+    [data-theme="dark"] .cmp-card { background: #1f2330; } [data-theme="dark"] .side { background: transparent; }
+    [data-theme="dark"] .verdict { background: #2b2440; border-color: #3d3360; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="animate-in">
-    <div class="mb-4">
-        <h1 class="display-5 fw-bold mb-2">
-            <i class="bi bi-arrow-left-right text-primary"></i>
-            {% if current_lang == 'ar' %}مقارنة التشغيلات{% else %}Compare Runs{% endif %}
-        </h1>
-        <p class="text-muted mb-0">
-            {% if current_lang == 'ar' %}قارن بين تشغيلين{% else %}Compare two runs{% endif %}
-        </p>
+    <div class="mb-3">
+        <h1 class="fw-bold mb-1"><i class="bi bi-arrow-left-right text-primary"></i> المقارنة</h1>
+        <div class="text-muted">إيه اللي اتغيّر؟ قارني تشغيلتين، أو تابعي اختبار على مدار الوقت، أو شوفي الأسبوع ده مقابل اللي قبله.</div>
     </div>
 
-    {% if all_runs|length < 2 %}
-        <div class="empty-state text-center py-5">
-            <i class="bi bi-inbox display-1 text-muted"></i>
-            <h5 class="mt-3">
-                {% if current_lang == 'ar' %}تحتاج على الأقل تشغيلين{% else %}Need at least 2 runs{% endif %}
-            </h5>
+    <ul class="nav nav-pills mb-3 gap-2">
+        <li class="nav-item"><a class="nav-link {{ 'active' if tab == 'runs' }}" href="/compare?tab=runs">⚖️ تشغيلتين جنب بعض</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if tab == 'test' }}" href="/compare?tab=test">📈 اختبار على مدار الوقت</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if tab == 'week' }}" href="/compare?tab=week">🗓️ الأسبوع ده مقابل اللي قبله</a></li>
+    </ul>
+
+    {% if not runs %}
+    <div class="card cmp-card"><div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>لسه مفيش تشغيلات تتقارن. شغّلي اختبار من <a href="/tests">الاختبارات</a>.</div></div>
+
+    {% elif tab == 'runs' %}
+    <!-- ================= two runs ================= -->
+    <form class="card cmp-card mb-3" method="get">
+        <input type="hidden" name="tab" value="runs">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-5"><label class="form-label small fw-bold">التشغيلة أ (القديمة)</label>
+                <select class="form-select" name="a">
+                    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == a }}>{{ '✓' if r.passed else '✗' }} {{ r.name }} — {{ r.label }} ({{ r.duration }} ث)</option>{% endfor %}
+                </select></div>
+            <div class="col-md-5"><label class="form-label small fw-bold">التشغيلة ب (الأحدث)</label>
+                <select class="form-select" name="b">
+                    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == b }}>{{ '✓' if r.passed else '✗' }} {{ r.name }} — {{ r.label }} ({{ r.duration }} ث)</option>{% endfor %}
+                </select></div>
+            <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-arrow-left-right"></i> قارني</button></div>
         </div>
+    </form>
+
+    {% if cmp %}
+    <div class="verdict mb-3">💡 {{ cmp.verdict | join(' · ') }}</div>
+    <div class="row g-3 mb-3">
+        {% for side, x in [('أ', cmp.a), ('ب', cmp.b)] %}
+        <div class="col-md-6"><div class="side {{ 'ok' if x.passed else 'bad' }}">
+            <div class="d-flex justify-content-between"><span class="tag">التشغيلة {{ side }}</span>
+                <span class="chip {{ 'ok' if x.passed else 'bad' }}">{{ 'ناجح' if x.passed else 'فاشل' }}</span></div>
+            <div class="fw-bold fs-5 mt-1">{{ x.name }}</div>
+            <div class="muted">{{ x.time.replace('T', ' ') }} · {{ x.duration|int }} ثانية · {{ {'manual': 'يدوي', 'schedule': '⏰ جدولة', 'retry': '🔁 إعادة تلقائية', 'rerun': '↻ إعادة'}.get(x.source, x.source) }}</div>
+            {% if x.message %}<div class="fail-msg mt-2">{{ x.message }}</div>{% endif %}
+            <a class="small" href="/reports/{{ x.run_id }}">التقرير الكامل ←</a>
+        </div></div>
+        {% endfor %}
+    </div>
+
+    <div class="card cmp-card mb-3">
+        <div class="card-header">الحقول — اتملت بإيه في كل مرة <span class="muted fw-normal">(الصفوف الصفرا مختلفة)</span></div>
+        <div class="card-body pt-2">
+            {% if cmp.fields %}
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr class="muted"><th>الحقل</th><th>أ</th><th>ب</th></tr></thead>
+                <tbody>{% for f in cmp.fields %}<tr class="{{ '' if f.same else 'diff-row' }}"><td class="fw-bold">{{ f.label }}</td><td>{{ f.a }}</td><td>{{ f.b }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% else %}<div class="muted">التشغيلات دي مفيهاش تفاصيل حقول (اختبارات قديمة أو مش من منشئ الاختبارات).</div>{% endif %}
+        </div>
+    </div>
+
+    {% if cmp.shots %}
+    <div class="card cmp-card mb-3">
+        <div class="card-header">اللقطات جنب بعض</div>
+        <div class="card-body pt-2">
+            {% for s in cmp.shots %}
+            <div class="fw-bold small mt-2 mb-1">{{ s.label }}</div>
+            <div class="row g-2 shot-pair">
+                <div class="col-6">{% if s.a %}<a href="/screenshots/{{ s.a }}" target="_blank"><img src="/screenshots/{{ s.a }}" loading="lazy"></a>{% else %}<div class="shot-none">مفيش في أ</div>{% endif %}</div>
+                <div class="col-6">{% if s.b %}<a href="/screenshots/{{ s.b }}" target="_blank"><img src="/screenshots/{{ s.b }}" loading="lazy"></a>{% else %}<div class="shot-none">مفيش في ب</div>{% endif %}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% elif a and b %}
+    <div class="alert alert-warning">مش لاقي واحدة من التشغيلتين.</div>
+    {% endif %}
+
+    {% elif tab == 'test' %}
+    <!-- ================= one test over time ================= -->
+    <form class="card cmp-card mb-3" method="get">
+        <input type="hidden" name="tab" value="test">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-9"><label class="form-label small fw-bold">الاختبار</label>
+                <select class="form-select" name="key" onchange="this.form.submit()">
+                    {% for t in tests %}<option value="{{ t.key }}" {{ 'selected' if t.key == key }}>{{ t.name }} ({{ t.count }} تشغيلة)</option>{% endfor %}
+                </select></div>
+        </div>
+    </form>
+    {% if hist %}
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md"><div class="card cmp-card"><div class="card-body stat"><div class="v">{{ hist.pass_pct }}%</div><div class="l">نسبة النجاح</div></div></div></div>
+        <div class="col-6 col-md"><div class="card cmp-card"><div class="card-body stat"><div class="v">{{ hist.total }}</div><div class="l">تشغيلة</div></div></div></div>
+        <div class="col-6 col-md"><div class="card cmp-card"><div class="card-body stat"><div class="v">{{ hist.avg }}<small> ث</small></div><div class="l">متوسط المدة ({{ hist.min }}–{{ hist.max }})</div></div></div></div>
+        <div class="col-6 col-md"><div class="card cmp-card"><div class="card-body stat"><div class="v {{ 'up' if hist.streak_passed else 'down' }}">{{ hist.streak }}</div><div class="l">مرات {{ 'نجاح' if hist.streak_passed else 'فشل' }} ورا بعض (دلوقتي)</div></div></div></div>
+    </div>
+    <div class="card cmp-card mb-3">
+        <div class="card-header">المدة والنتيجة في كل مرة <span class="muted fw-normal">النقطة الحمرا = فشل · اضغطي على نقطة تفتح تقريرها</span></div>
+        <div class="card-body"><div style="height: 280px"><canvas id="histChart"></canvas></div></div>
+    </div>
+    <div class="card cmp-card">
+        <div class="card-header">آخر الفشل</div>
+        <div class="card-body pt-2">
+            {% for r in hist.runs|reverse if not r.passed %}{% if loop.index <= 6 %}
+            <div class="py-2 border-bottom"><a class="fw-bold" href="/reports/{{ r.run_id }}">{{ r.label }}</a>
+                <div class="fail-msg">{{ r.message }}</div></div>
+            {% endif %}{% else %}<div class="muted">ولا مرة فشل 👌</div>{% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
-        <!-- Selection -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('compare') }}" class="row g-3 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-1-circle text-primary"></i>
-                            {% if current_lang == 'ar' %}التشغيل الأول{% else %}First Run{% endif %}
-                        </label>
-                        <select name="a" class="form-select" required>
-                            {% for r in all_runs %}
-                            <option value="{{ r.run_id }}" {% if r.run_id == run_a %}selected{% endif %}>
-                                {{ r.run_id }} - {{ r.test_name or 'Test' }} ({{ r.passed }}✅ / {{ r.failed + r.errors }}❌)
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="col-md-2 text-center">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-arrow-left-right"></i>
-                            {% if current_lang == 'ar' %}قارن{% else %}Compare{% endif %}
-                        </button>
-                    </div>
-
-                    <div class="col-md-5">
-                        <label class="form-label fw-bold">
-                            <i class="bi bi-2-circle text-primary"></i>
-                            {% if current_lang == 'ar' %}التشغيل الثاني{% else %}Second Run{% endif %}
-                        </label>
-                        <select name="b" class="form-select" required>
-                            {% for r in all_runs %}
-                            <option value="{{ r.run_id }}" {% if r.run_id == run_b %}selected{% endif %}>
-                                {{ r.run_id }} - {{ r.test_name or 'Test' }} ({{ r.passed }}✅ / {{ r.failed + r.errors }}❌)
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </form>
+    <!-- ================= week vs week ================= -->
+    <div class="card cmp-card">
+        <div class="card-header">آخر 7 أيام مقابل الـ 7 اللي قبلهم</div>
+        <div class="card-body pt-2">
+            <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr class="muted"><th>الاختبار</th><th>الحالة</th><th class="text-center">التشغيلات</th><th class="text-center">نسبة النجاح</th><th class="text-center">متوسط المدة</th><th></th></tr></thead>
+                <tbody>
+                {% for w in week %}
+                <tr>
+                    <td class="fw-bold">{{ w.name }}</td>
+                    <td><span class="badge bg-{{ w.tag_class }} {{ 'text-dark' if w.tag_class in ('light', 'warning', 'info') }}">{{ w.tag }}</span></td>
+                    <td class="text-center">{{ w.prev.n if w.prev else 0 }} ← {{ w.cur.n if w.cur else 0 }}</td>
+                    <td class="text-center">
+                        {{ (w.prev.pass ~ '%') if w.prev else '—' }} ← <strong>{{ (w.cur.pass ~ '%') if w.cur else '—' }}</strong>
+                        {% if w.cur and w.prev and w.cur.pass != w.prev.pass %}<span class="{{ 'up' if w.cur.pass > w.prev.pass else 'down' }}">({{ '+' if w.cur.pass > w.prev.pass }}{{ w.cur.pass - w.prev.pass }})</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        {{ (w.prev.avg ~ ' ث') if w.prev else '—' }} ← <strong>{{ (w.cur.avg ~ ' ث') if w.cur else '—' }}</strong>
+                        {% if w.cur and w.prev and w.prev.avg and w.cur.avg != w.prev.avg %}<span class="{{ 'down' if w.cur.avg > w.prev.avg else 'up' }}">({{ '+' if w.cur.avg > w.prev.avg }}{{ w.cur.avg - w.prev.avg }})</span>{% endif %}
+                    </td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="/compare?tab=test&key={{ w.key }}">التفاصيل</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">مفيش تشغيلات في آخر أسبوعين</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
             </div>
         </div>
-
-        {% if data_a and data_b %}
-        <!-- Comparison -->
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm" style="border-top: 4px solid #4f46e5 !important;">
-                    <div class="card-body">
-                        <h5 class="fw-bold mb-3">
-                            <span class="badge bg-primary">🅰️</span> {{ run_a }}
-                        </h5>
-                        <div class="text-muted small mb-2">{{ data_a.test_name or 'Test' }}</div>
-
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span>Total</span><strong>{{ data_a.total }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-success">Passed</span>
-                            <strong class="text-success">{{ data_a.passed }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-danger">Failed</span>
-                            <strong class="text-danger">{{ data_a.failed + data_a.errors }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2">
-                            <span>Duration</span>
-                            <strong>{{ data_a.duration_seconds|int }}s</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm" style="border-top: 4px solid #a855f7 !important;">
-                    <div class="card-body">
-                        <h5 class="fw-bold mb-3">
-                            <span class="badge" style="background: #a855f7;">🅱️</span> {{ run_b }}
-                        </h5>
-                        <div class="text-muted small mb-2">{{ data_b.test_name or 'Test' }}</div>
-
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span>Total</span><strong>{{ data_b.total }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-success">Passed</span>
-                            <strong class="text-success">{{ data_b.passed }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-danger">Failed</span>
-                            <strong class="text-danger">{{ data_b.failed + data_b.errors }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between py-2">
-                            <span>Duration</span>
-                            <strong>{{ data_b.duration_seconds|int }}s</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chart -->
-        <div class="chart-container-compact mt-4">
-            <div class="chart-title-compact">
-                <i class="bi bi-bar-chart text-primary"></i>
-                {% if current_lang == 'ar' %}مقارنة بصرية{% else %}Visual Comparison{% endif %}
-            </div>
-            <div id="compareChart" style="height: 280px;"></div>
-        </div>
-        {% endif %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
-{% if data_a and data_b %}
+{% if tab == 'test' and hist %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const compareData = {
-    a: {
-        passed: {{ data_a.passed }},
-        failed: {{ data_a.failed + data_a.errors }},
-        duration: {{ data_a.duration_seconds }},
-    },
-    b: {
-        passed: {{ data_b.passed }},
-        failed: {{ data_b.failed + data_b.errors }},
-        duration: {{ data_b.duration_seconds }},
-    }
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('compareChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Passed', 'Failed', 'Duration (s)'],
-            datasets: [
-                {
-                    label: '🅰️ {{ run_a }}',
-                    data: [compareData.a.passed, compareData.a.failed, compareData.a.duration],
-                    backgroundColor: '#4f46e5',
-                    borderRadius: 8,
-                },
-                {
-                    label: '🅱️ {{ run_b }}',
-                    data: [compareData.b.passed, compareData.b.failed, compareData.b.duration],
-                    backgroundColor: '#a855f7',
-                    borderRadius: 8,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#0f172a' } }
-            },
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
+const H = {{ hist | tojson }};
+if (window.Chart) {
+    const ch = new Chart(document.getElementById('histChart'), {
+        type: 'line',
+        data: { labels: H.runs.map(r => r.label), datasets: [{
+            label: 'المدة (ثانية)', data: H.runs.map(r => Math.round(r.duration)), tension: .25, borderColor: '#6f42c1',
+            backgroundColor: 'rgba(111,66,193,.08)', fill: true,
+            pointRadius: 6, pointHoverRadius: 8,
+            pointBackgroundColor: H.runs.map(r => r.passed ? '#20c997' : '#f06272'),
+            pointBorderColor: H.runs.map(r => r.passed ? '#20c997' : '#f06272') }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false },
+                   tooltip: { callbacks: { afterLabel: c => H.runs[c.dataIndex].passed ? 'ناجح' : 'فاشل: ' + (H.runs[c.dataIndex].message || '').slice(0, 80) } } },
+                   scales: { y: { beginAtZero: true } },
+                   onClick: (e, els) => { if (els.length) location.href = '/reports/' + H.runs[els[0].index].run_id; } },
     });
-});
+}
 </script>
 {% endif %}
 {% endblock %}

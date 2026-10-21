@@ -1,122 +1,231 @@
 ﻿{% extends "base.html" %}
+{% block title %}الجدولة - {{ site_name }}{% endblock %}
 
-{% block title %}{{ t('schedule') }} - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+    .sc-card { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(30,40,90,.06); }
+    .sc-card.off { opacity: .6; }
+    .sc-card .card-body { padding: 16px 18px; }
+    .sc-next { font-size: 13px; color: #6f42c1; font-weight: 700; }
+    .muted { color: #8a8fa3; font-size: 12px; }
+    .day-chip { border: 1px solid #d5d9e6; border-radius: 20px; padding: 4px 12px; cursor: pointer; user-select: none; font-size: 13px; }
+    .day-chip.on { background: #6f42c1; color: #fff; border-color: #6f42c1; }
+    .time-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef0f6; border-radius: 20px; padding: 3px 10px; font-weight: 700; direction: ltr; }
+    .time-chip button { border: 0; background: none; color: #dc3545; padding: 0; }
+    .mode-opt { border: 1px solid #e3e6ef; border-radius: 12px; padding: 10px 12px; cursor: pointer; flex: 1; min-width: 170px; }
+    .mode-opt.on { border-color: #6f42c1; background: #f5f0ff; }
+    .picker { max-height: 300px; overflow: auto; border: 1px solid #e3e6ef; border-radius: 10px; padding: 6px 10px; }
+    .picker .grp { font-weight: 800; font-size: 12px; color: #6f42c1; margin-top: 8px; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .chip.ok { background: #e6f6ee; color: #198754; } .chip.bad { background: #fdecec; color: #dc3545; } .chip.wait { background: #eef0f6; color: #555; }
+    [data-theme="dark"] .sc-card { background: #1f2330; } [data-theme="dark"] .mode-opt.on { background: #2b2440; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="animate-in">
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
         <div>
-            <h1 class="display-5 fw-bold mb-2">
-                <i class="bi bi-calendar-week text-primary"></i>
-                {{ t('schedule') }}
-            </h1>
-            <p class="text-muted mb-0">{{ t('schedule_subtitle') }}</p>
+            <h1 class="fw-bold mb-1"><i class="bi bi-calendar-week text-primary"></i> الجدولة</h1>
+            <div class="text-muted">الاختبارات بتشتغل لوحدها في المواعيد اللي تحدديها — من جوه الداشبورد نفسه.
+                <span class="muted">التوقيت: {{ tz }} · الساعة دلوقتي <span id="nowTxt"></span></span></div>
         </div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-            <i class="bi bi-plus-circle"></i> {{ t('create_schedule') }}
-        </button>
+        <button class="btn btn-primary" onclick="openForm()"><i class="bi bi-plus-lg"></i> جدولة جديدة</button>
     </div>
 
-    {% if schedules %}
-        <div class="row g-3">
-            {% for sch in schedules %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card test-card h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="fw-bold mb-0">{{ sch.name }}</h5>
-                            {% if sch.enabled %}
-                                <span class="badge bg-success">{{ t('enabled') }}</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ t('disabled') }}</span>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-2">
-                            <i class="bi bi-clock text-primary"></i>
-                            <strong class="ms-1">{{ sch.time }}</strong>
-                            <span class="text-muted ms-2">
-                                {% if sch.frequency == 'daily' %}{{ t('daily') }}
-                                {% elif sch.frequency == 'weekly' %}{{ t('weekly') }}
-                                {% elif sch.frequency == 'monthly' %}{{ t('monthly') }}
-                                {% else %}{{ t('once') }}
-                                {% endif %}
-                            </span>
-                        </div>
-
-                        <div class="mb-3 text-muted small">
-                            <i class="bi bi-clipboard"></i> {{ sch.test_id }}
-                        </div>
-
-                        <form method="POST" action="{{ url_for('schedule_delete', sch_id=sch.id) }}"
-                              onsubmit="return confirm('حذف الجدولة دي؟')">
-                            <button class="btn btn-outline-danger btn-sm w-100">
-                                <i class="bi bi-trash"></i> {{ t('delete') }}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="empty-state">
-            <i class="bi bi-calendar-x"></i>
-            <h5>{{ t('no_data') }}</h5>
-        </div>
-    {% endif %}
-
-    <div class="alert alert-info mt-4">
-        <i class="bi bi-info-circle"></i>
-        <strong>{{ t('schedule_note_title') }}:</strong> {{ t('schedule_note') }}
-    </div>
+    <div class="row g-3" id="schedList"><div class="text-muted">جاري التحميل…</div></div>
 </div>
 
-<div class="modal fade" id="addScheduleModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- form -->
+<div class="modal fade" id="schedModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-plus-circle"></i> {{ t('create_schedule') }}
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="formTitle">جدولة جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="fId">
+                <label class="form-label fw-bold">الاسم</label>
+                <input class="form-control mb-3" id="fName" placeholder="مثلاً: الحسابات العامة كل يوم الصبح">
+
+                <label class="form-label fw-bold">هيشغّل إيه؟</label>
+                <div class="d-flex gap-2 flex-wrap mb-2">
+                    <div class="mode-opt" data-mode="list" onclick="setMode('list')"><div class="fw-bold">اختبارات أختارها</div><div class="muted">من القايمة تحت</div></div>
+                    <div class="mode-opt" data-mode="all_full" onclick="setMode('all_full')"><div class="fw-bold">كل الاختبارات الكاملة</div><div class="muted">وكل السيناريوهات</div></div>
+                    <div class="mode-opt" data-mode="failed" onclick="setMode('failed')"><div class="fw-bold">الفاشل بس</div><div class="muted">اللي آخر نتيجة ليه فشلت</div></div>
+                </div>
+                <div id="pickerBox" class="mb-3">
+                    <input class="form-control form-control-sm mb-1" id="pickSearch" placeholder="ابحثي…" oninput="renderPicker()">
+                    <div class="picker" id="picker"></div>
+                    <div class="muted mt-1"><span id="pickCount">0</span> اختبار متختار</div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">المواعيد</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <input type="time" class="form-control" id="fTime" value="09:00" style="max-width:150px">
+                            <button class="btn btn-outline-primary" onclick="addTime()">إضافة</button>
+                        </div>
+                        <div id="timesBox" class="d-flex gap-2 flex-wrap"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الأيام <span class="muted">(من غير اختيار = كل يوم)</span></label>
+                        <div class="d-flex gap-1 flex-wrap" id="daysBox"></div>
+                        <div class="mt-2 d-flex gap-2">
+                            <button class="btn btn-sm btn-link p-0" onclick="setDays([6,0,1,2,3])">أيام الشغل</button>
+                            <button class="btn btn-sm btn-link p-0" onclick="setDays([])">كل يوم</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">التكرار لكل اختبار</label>
+                        <input type="number" class="form-control" id="fRepeat" min="1" max="50" value="1">
+                    </div>
+                </div>
             </div>
-            <form method="POST" action="{{ url_for('schedule_add') }}">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">{{ t('test_name') }}</label>
-                        <input type="text" name="name" class="form-control" required placeholder="...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t('tests') }}</label>
-                        <select name="test_id" class="form-select" required>
-                            <option value="">{{ t('all') }}...</option>
-                            {% for test in tests %}
-                            <option value="{{ test.id }}">{{ test.icon }} {{ test.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label class="form-label">{{ t('date') }}</label>
-                            <input type="time" name="time" class="form-control" required value="08:00">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">{{ t('duration') }}</label>
-                            <select name="frequency" class="form-select">
-                                <option value="daily">{{ t('daily') }}</option>
-                                <option value="weekly">{{ t('weekly') }}</option>
-                                <option value="monthly">{{ t('monthly') }}</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('cancel') }}</button>
-                    <button type="submit" class="btn btn-primary">{{ t('save') }}</button>
-                </div>
-            </form>
+            <div class="modal-footer">
+                <div class="me-auto muted" id="formNext"></div>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button class="btn btn-primary" onclick="saveForm()"><i class="bi bi-save"></i> حفظ</button>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const DAY_NAMES = {{ day_names | tojson }};      // 0=Mon … 6=Sun
+const DAY_ORDER = [5, 6, 0, 1, 2, 3, 4];          // السبت الأول
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let DATA = { schedules: [], catalog: [] };
+let FORM = { mode: 'list', targets: [], times: [], days: [] };
+
+function fmtNext(iso) {
+    if (!iso) return 'متوقفة';
+    const d = new Date(iso), s = (d - new Date(DATA.now || Date.now())) / 1000;
+    const when = s < 3600 ? `بعد ${Math.max(1, Math.round(s / 60))} دقيقة` : s < 86400 ? `بعد ${Math.round(s / 3600)} ساعة` : `بعد ${Math.round(s / 86400)} يوم`;
+    return `الجاية: ${DAY_NAMES[(d.getDay() + 6) % 7]} ${iso.slice(11, 16)} (${when})`;
+}
+
+async function load() {
+    DATA = await fetch('/api/schedules').then(r => r.json());
+    document.getElementById('nowTxt').textContent = (DATA.now || '').slice(11, 16);
+    const box = document.getElementById('schedList');
+    if (!DATA.schedules.length) {
+        box.innerHTML = `<div class="col-12"><div class="card sc-card"><div class="card-body text-center py-5">
+            <i class="bi bi-calendar-plus fs-1 text-primary d-block mb-2"></i>
+            <div class="fw-bold mb-1">لسه مفيش جدولة</div>
+            <div class="text-muted mb-3">مثلاً: شغّلي كل الاختبارات الكاملة كل يوم الساعة 9 الصبح، وابعتي النتيجة.</div>
+            <button class="btn btn-primary" onclick="openForm()">اعملي أول جدولة</button></div></div></div>`;
+        return;
+    }
+    const MODE = { list: 'اختبارات محددة', all_full: 'كل الاختبارات الكاملة', failed: 'الفاشل بس' };
+    box.innerHTML = DATA.schedules.map(s => {
+        const last = s.last
+            ? (s.last.done < s.last.total ? `<span class="chip wait">شغال ${s.last.done}/${s.last.total}</span>`
+               : `<span class="chip ${s.last.failed ? 'bad' : 'ok'}">آخر مرة: ${s.last.passed} ناجح${s.last.failed ? ' · ' + s.last.failed + ' فاشل' : ''}</span>`)
+            : '<span class="muted">لسه ما اشتغلتش</span>';
+        return `<div class="col-md-6 col-xl-4"><div class="card sc-card h-100 ${s.enabled ? '' : 'off'}"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div><div class="fw-bold fs-6">${esc(s.name)}</div>
+                    <div class="muted">${MODE[s.mode] || ''} · ${s.target_count} اختبار${s.repeat > 1 ? ' · 🔁×' + s.repeat : ''}</div></div>
+                <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ${s.enabled ? 'checked' : ''}
+                    onchange="toggle('${s.id}', this.checked)" title="تشغيل/إيقاف الجدولة"></div>
+            </div>
+            <div class="my-2"><i class="bi bi-clock"></i> <strong class="ltr">${s.times.join(' · ')}</strong> — ${esc(s.days_text)}</div>
+            <div class="sc-next mb-2">${fmtNext(s.next)}</div>
+            <div class="mb-3">${last}</div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success" onclick="runNow('${s.id}')"><i class="bi bi-play-fill"></i> شغّليها دلوقتي</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openForm('${s.id}')"><i class="bi bi-pencil"></i> تعديل</button>
+                <button class="btn btn-sm btn-outline-danger ms-auto" onclick="del('${s.id}')"><i class="bi bi-trash"></i></button>
+            </div>
+        </div></div></div>`;
+    }).join('');
+}
+
+// ---------- form ----------
+function openForm(id) {
+    const s = DATA.schedules.find(x => x.id === id);
+    FORM = s ? { mode: s.mode, targets: (s.targets || []).map(t => t.path), times: [...s.times], days: [...s.days] }
+             : { mode: 'list', targets: [], times: ['09:00'], days: [] };
+    document.getElementById('fId').value = s ? s.id : '';
+    document.getElementById('fName').value = s ? s.name : '';
+    document.getElementById('fRepeat').value = s ? s.repeat : 1;
+    document.getElementById('formTitle').textContent = s ? 'تعديل الجدولة' : 'جدولة جديدة';
+    document.getElementById('pickSearch').value = '';
+    setMode(FORM.mode); renderTimes(); renderDays(); renderPicker();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('schedModal')).show();
+}
+function setMode(m) {
+    FORM.mode = m;
+    document.querySelectorAll('.mode-opt').forEach(e => e.classList.toggle('on', e.dataset.mode === m));
+    document.getElementById('pickerBox').style.display = m === 'list' ? '' : 'none';
+}
+function renderPicker() {
+    const q = document.getElementById('pickSearch').value.trim();
+    const groups = {};
+    DATA.catalog.filter(t => !q || t.name.includes(q)).forEach(t => (groups[t.group] = groups[t.group] || []).push(t));
+    document.getElementById('picker').innerHTML = Object.entries(groups).map(([g, items]) =>
+        `<div class="grp">${esc(g)}</div>` + items.map(t => `
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="p_${btoa(unescape(encodeURIComponent(t.path))).replace(/=/g, '')}"
+            ${FORM.targets.includes(t.path) ? 'checked' : ''} onchange='pick(${JSON.stringify(t.path)}, this.checked)'>
+            <label class="form-check-label" for="p_${btoa(unescape(encodeURIComponent(t.path))).replace(/=/g, '')}">${t.kind === 'scenario' ? '🎬 ' : t.kind === 'smoke' ? '⚡ ' : '🎯 '}${esc(t.name)}</label></div>`).join('')
+    ).join('') || '<div class="muted p-2">مفيش نتايج</div>';
+    document.getElementById('pickCount').textContent = FORM.targets.length;
+}
+function pick(path, on) {
+    FORM.targets = FORM.targets.filter(p => p !== path);
+    if (on) FORM.targets.push(path);
+    document.getElementById('pickCount').textContent = FORM.targets.length;
+}
+function addTime() {
+    const t = document.getElementById('fTime').value;
+    if (t && !FORM.times.includes(t)) FORM.times.push(t);
+    FORM.times.sort(); renderTimes();
+}
+function renderTimes() {
+    document.getElementById('timesBox').innerHTML = FORM.times.map(t =>
+        `<span class="time-chip">${t}<button onclick="FORM.times = FORM.times.filter(x => x !== '${t}'); renderTimes()">✕</button></span>`).join('')
+        || '<span class="muted">ضيفي ميعاد</span>';
+}
+function setDays(d) { FORM.days = [...d]; renderDays(); }
+function renderDays() {
+    document.getElementById('daysBox').innerHTML = DAY_ORDER.map(d =>
+        `<span class="day-chip ${FORM.days.includes(d) ? 'on' : ''}" onclick="toggleDay(${d})">${DAY_NAMES[d]}</span>`).join('');
+}
+function toggleDay(d) { FORM.days = FORM.days.includes(d) ? FORM.days.filter(x => x !== d) : [...FORM.days, d]; renderDays(); }
+
+async function saveForm() {
+    const cat = Object.fromEntries(DATA.catalog.map(t => [t.path, t.name]));
+    const body = {
+        id: document.getElementById('fId').value || undefined,
+        name: document.getElementById('fName').value.trim(),
+        mode: FORM.mode, times: FORM.times, days: FORM.days,
+        repeat: parseInt(document.getElementById('fRepeat').value, 10) || 1,
+        targets: FORM.targets.map(p => ({ path: p, name: cat[p] || p })),
+        enabled: true,
+    };
+    const r = await fetch('/api/schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    bootstrap.Modal.getInstance(document.getElementById('schedModal')).hide();
+    load();
+}
+async function toggle(id, on) {
+    await fetch(`/api/schedules/${id}/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on }) });
+    load();
+}
+async function runNow(id) {
+    const r = await fetch(`/api/schedules/${id}/run`, { method: 'POST' }).then(r => r.json());
+    if (r.success) { if (confirm(`اتضاف ${r.queued} اختبار للطابور. تروحي لمركز التشغيل؟`)) location.href = '/queue'; load(); }
+    else alert(r.error);
+}
+async function del(id) {
+    if (!confirm('تمسحي الجدولة دي؟')) return;
+    await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
+    load();
+}
+load();
+setInterval(load, 30000);
+</script>
 {% endblock %}

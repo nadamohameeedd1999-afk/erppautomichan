@@ -189,15 +189,17 @@ def compute_home(lang="ar"):
 
     # ---------- schedules ----------
     upcoming = []
-    for sch in data_helper.load_schedules() or []:
-        if not sch.get("enabled", True):
-            continue
-        nxt = _next_run(sch, now)
-        tid = sch.get("test_id", "")
-        upcoming.append({"name": sch.get("name") or tid, "test": tid, "time": sch.get("time", ""),
-                         "frequency": sch.get("frequency", ""),
-                         "next": nxt.isoformat(timespec="minutes") if nxt else ""})
-    upcoming.sort(key=lambda x: x["next"] or "9")
+    try:
+        from web import scheduler
+        for sch in scheduler.load():
+            nxt = scheduler.next_run(sch)
+            if not nxt:
+                continue
+            upcoming.append({"name": sch.get("name"), "time": "، ".join(sch.get("times", [])),
+                             "frequency": scheduler.describe_days(sch), "next": nxt.isoformat(timespec="minutes")})
+    except Exception:
+        pass
+    upcoming.sort(key=lambda x: x["next"])
 
     durations7 = [r["duration"] for r in last7 if r["duration"]]
     last = runs[0] if runs else None
@@ -229,3 +231,164 @@ def compute_home(lang="ar"):
         "recent": [{**r, "time": r["time"].isoformat(timespec="minutes")} for r in runs[:10]],
         "upcoming": upcoming[:5],
     }
+
+
+# =====================================================================
+#  Comparison helpers (شاشة المقارنة)
+# =====================================================================
+_STEP_START = re.compile(r"\|\s*INFO\s*\|\s*(\d+)/(\d+)\)\s*(.+?)\s*\[(\w+)\]\s*(.*)$")
+_STEP_OK = re.compile(r"\|\s*SUCCESS\s*\|\s*✅\s*(.+?)\s*=\s*(.*)$")
+_STEP_BAD = re.compile(r"\|\s*ERROR\s*\|\s*❌\s*\[(.+?)\s*/\s*([^\]]+)\]\s*(.*)$")
+
+
+def parse_steps(run_id):
+    """Field-by-field fill results from a run's log: [{label, strategy, wanted, result, ok, error}]"""
+    lines = [l["text"] for l in data_helper.read_run_log(run_id)]
+    steps, cur = [], None
+    for line in lines:
+        m = _STEP_START.search(line)
+        if m:
+            cur = {"n": int(m.group(1)), "label": m.group(3).strip(), "strategy": m.group(4),
+                   "wanted": m.group(5).strip(), "result": None, "ok": None, "error": ""}
+            steps.append(cur)
+            continue
+        if cur is None:
+            continue
+        m = _STEP_OK.search(line)
+        if m and m.group(1).strip() == cur["label"]:
+            cur["result"], cur["ok"] = m.group(2).strip(), True
+            continue
+        m = _STEP_BAD.search(line)
+        if m and m.group(1).strip() == cur["label"]:
+            cur["ok"], cur["error"] = False, m.group(3).strip()
+    return steps
+
+
+def all_runs():
+    out = []
+    for s in data_helper.load_summaries():
+        t = run_time(s)
+        if not t:
+            continue
+        out.append({
+            "run_id": s.get("run_id", ""), "key": test_key(s.get("test_path", "")),
+            "name": s.get("test_name") or test_key(s.get("test_path", "")),
+            "time": t, "passed": run_passed(s), "duration": float(s.get("duration_seconds") or 0),
+            "message": "" if run_passed(s) else first_failure_message(s), "summary": s,
+            "source": s.get("source", "manual"),
+        })
+    out.sort(key=lambda r: r["time"], reverse=True)
+    return out
+
+
+def run_detail(run_id):
+    r = next((x for x in all_runs() if x["run_id"] == run_id), None)
+    if not r:
+        return None
+    shots = data_helper.get_screenshots_for_run(run_id, r["summary"])
+    return {**r, "time": r["time"].isoformat(timespec="minutes"), "steps": parse_steps(run_id),
+            "shots": [{"file": f, "label": data_helper.screenshot_label(f)} for f in shots],
+            "summary": None}
+
+
+def compare_runs(a_id, b_id):
+    a, b = run_detail(a_id), run_detail(b_id)
+    if not a or not b:
+        return None
+    labels = []
+    for s in a["steps"] + b["steps"]:
+        if s["label"] not in labels:
+            labels.append(s["label"])
+    amap = {s["label"]: s for s in a["steps"]}
+    bmap = {s["label"]: s for s in b["steps"]}
+    fields = []
+    for lb in labels:
+        x, y = amap.get(lb), bmap.get(lb)
+        rx = (x or {}).get("result") if (x or {}).get("ok") else ("❌ " + (x or {}).get("error", "")[:80] if x else "—")
+        ry = (y or {}).get("result") if (y or {}).get("ok") else ("❌ " + (y or {}).get("error", "")[:80] if y else "—")
+        fields.append({"label": lb, "a": rx or "—", "b": ry or "—", "same": (rx or "") == (ry or "")})
+    shot_pairs = []
+    blabels = {s["label"]: s for s in b["shots"]}
+    for s in a["shots"]:
+        shot_pairs.append({"label": s["label"], "a": s["file"], "b": (blabels.pop(s["label"], None) or {}).get("file")})
+    for lb, s in blabels.items():
+        shot_pairs.append({"label": lb, "a": None, "b": s["file"]})
+    verdict = []
+    if a["passed"] != b["passed"]:
+        verdict.append(f"التشغيلة {'أ' if a['passed'] else 'ب'} نجحت والتانية فشلت")
+    d = round(b["duration"] - a["duration"])
+    if abs(d) >= 5:
+        verdict.append(f"ب {'أبطأ' if d > 0 else 'أسرع'} بـ {abs(d)} ثانية ({round(100 * abs(d) / max(1, a['duration']))}%)")
+    diff_fields = [f["label"] for f in fields if not f["same"]]
+    if diff_fields:
+        verdict.append("اختلاف في: " + "، ".join(diff_fields[:6]))
+    if not verdict:
+        verdict.append("نفس النتيجة تقريباً")
+    return {"a": a, "b": b, "fields": fields, "shots": shot_pairs, "verdict": verdict}
+
+
+def test_history(key, limit=40):
+    rs = [r for r in all_runs() if r["key"] == key][:limit]
+    rs.reverse()
+    if not rs:
+        return None
+    passed = sum(r["passed"] for r in rs)
+    streak, last = 0, rs[-1]["passed"]
+    for r in reversed(rs):
+        if r["passed"] != last:
+            break
+        streak += 1
+    durs = [r["duration"] for r in rs if r["duration"]]
+    return {
+        "key": key, "name": rs[-1]["name"],
+        "runs": [{"run_id": r["run_id"], "time": r["time"].isoformat(timespec="minutes"),
+                  "label": r["time"].strftime("%d/%m %H:%M"), "passed": r["passed"],
+                  "duration": r["duration"], "message": r["message"]} for r in rs],
+        "pass_pct": round(100 * passed / len(rs)), "total": len(rs),
+        "avg": round(sum(durs) / len(durs)) if durs else 0,
+        "min": round(min(durs)) if durs else 0, "max": round(max(durs)) if durs else 0,
+        "streak": streak, "streak_passed": last,
+    }
+
+
+def week_compare():
+    t = datetime.now()
+    cur_start, prev_start = t - timedelta(days=7), t - timedelta(days=14)
+    groups = defaultdict(lambda: {"cur": [], "prev": [], "name": ""})
+    for r in all_runs():
+        g = groups[r["key"]]
+        g["name"] = g["name"] or r["name"]
+        if r["time"] > cur_start:
+            g["cur"].append(r)
+        elif r["time"] > prev_start:
+            g["prev"].append(r)
+    rows = []
+    for key, g in groups.items():
+        if not g["cur"] and not g["prev"]:
+            continue
+
+        def st(rs):
+            if not rs:
+                return None
+            ds = [x["duration"] for x in rs if x["duration"]]
+            return {"n": len(rs), "pass": round(100 * sum(x["passed"] for x in rs) / len(rs)),
+                    "avg": round(sum(ds) / len(ds)) if ds else 0, "last_passed": rs[0]["passed"]}
+        c, p = st(g["cur"]), st(g["prev"])
+        if c and not p:
+            tag = ("جديد", "info")
+        elif p and not c:
+            tag = ("ما اتشغلش الأسبوع ده", "secondary")
+        elif p["last_passed"] and not c["last_passed"]:
+            tag = ("بقى فاشل", "danger")
+        elif not p["last_passed"] and c["last_passed"]:
+            tag = ("اتصلّح", "success")
+        elif c["pass"] < p["pass"] - 10 or (p["avg"] and c["avg"] > p["avg"] * 1.25):
+            tag = ("اتدهور", "warning")
+        elif c["pass"] > p["pass"] + 10 or (p["avg"] and c["avg"] < p["avg"] * 0.8):
+            tag = ("اتحسن", "success")
+        else:
+            tag = ("ثابت", "light")
+        rows.append({"key": key, "name": g["name"], "cur": c, "prev": p, "tag": tag[0], "tag_class": tag[1]})
+    order = {"بقى فاشل": 0, "اتدهور": 1, "جديد": 2, "اتصلّح": 3, "اتحسن": 4, "ثابت": 5, "ما اتشغلش الأسبوع ده": 6}
+    rows.sort(key=lambda r: (order.get(r["tag"], 9), r["name"]))
+    return rows

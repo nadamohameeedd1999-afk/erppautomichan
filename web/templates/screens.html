@@ -20,10 +20,18 @@
     .step-ok { color: #198754; } .step-bad { color: #dc3545; }
     .ltr { direction: ltr; text-align: left; }
     .sticky-actions { position: sticky; bottom: 0; z-index: 5; }
+    .builder-tabs .nav-link { border-radius: 10px; font-weight: 700; }
+    .scn-mini { font-size: 12px; }
+    .scn-mini a { text-decoration: none; }
 </style>
 {% endblock %}
 
 {% block content %}
+<ul class="nav nav-pills mb-3 gap-2 builder-tabs">
+    <li class="nav-item"><a class="nav-link {{ 'active' if mode != 'scenario' }}" href="/screens"><i class="bi bi-ui-checks-grid"></i> الشاشات <span class="badge bg-light text-dark ms-1" id="tabCountScreens"></span></a></li>
+    <li class="nav-item"><a class="nav-link {{ 'active' if mode == 'scenario' }}" href="/scenarios"><i class="bi bi-diagram-3"></i> السيناريوهات <span class="badge bg-light text-dark ms-1" id="tabCountScn"></span></a></li>
+    <li class="nav-item ms-auto small text-muted align-self-center">الشاشة = الإعداد الأساسي لكل شاشة · السيناريو = طريقة تانية لنفس الشاشة باسم مختلف</li>
+</ul>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
         {% if mode == 'scenario' %}
@@ -36,10 +44,8 @@
     </div>
     <div class="d-flex gap-2">
         {% if mode == 'scenario' %}
-        <a class="btn btn-outline-secondary" href="/screens"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> سيناريو جديد</button>
         {% else %}
-        <a class="btn btn-outline-secondary" href="/scenarios"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
         {% endif %}
     </div>
@@ -293,7 +299,20 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const $ = id => document.getElementById(id);
 
 // ==================== load ====================
+let SCN_BY_SCREEN = {};
+async function loadCounts() {
+    const [a, b] = await Promise.all([
+        fetch('/api/screens').then(r => r.json()).catch(() => ({})),
+        fetch('/api/scenarios').then(r => r.json()).catch(() => ({})),
+    ]);
+    SCN_BY_SCREEN = {};
+    (b.scenarios || []).forEach(x => (SCN_BY_SCREEN[x.screen_key] = SCN_BY_SCREEN[x.screen_key] || []).push(x));
+    $('tabCountScreens').textContent = (a.screens || []).length || '';
+    $('tabCountScn').textContent = (b.scenarios || []).length || '';
+}
+
 async function loadScreens(selectKey) {
+    await loadCounts();
     if (IS_SCN) return loadScenarios();
     const r = await fetch('/api/screens').then(r => r.json()).catch(() => ({success: false}));
     const box = $('screensList');
@@ -307,6 +326,10 @@ async function loadScreens(selectKey) {
             <div class="small text-muted ltr">${esc(s.list_url || s.key)}</div>
             ${s.error ? `<div class="small text-danger">${esc(s.error)}</div>` :
               `<div class="small text-muted">${s.fields} حقل · ${esc((s.updated_at || '').replace('T', ' '))}</div>`}
+            <div class="scn-mini mt-1" onclick="event.stopPropagation()">
+                ${(SCN_BY_SCREEN[s.key] || []).map(x => `<a class="badge bg-info-subtle text-dark me-1" href="/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}">🎬 ${esc(x.scenario_name)}</a>`).join('')}
+                <a href="/scenarios?screen=${encodeURIComponent(s.key)}">＋ سيناريو</a>
+            </div>
         </div>`).join('');
 }
 

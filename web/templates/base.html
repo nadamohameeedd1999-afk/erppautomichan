@@ -25,7 +25,10 @@
         })();
     </script>
 
-    {% block extra_css %}{% endblock %}
+    <style id="nav-nowrap">
+    .navbar .navbar-nav .nav-link { white-space: nowrap; padding-left: .55rem; padding-right: .55rem; font-size: .95rem; }
+</style>
+{% block extra_css %}{% endblock %}
 </head>
 <body>
 
@@ -46,60 +49,50 @@
 
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                {% set ep = request.endpoint or '' %}
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
-                        <i class="bi bi-house-door"></i> {{ t('home') }}
+                    <a class="nav-link {% if ep == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                        <i class="bi bi-speedometer2"></i> {% if current_lang == 'ar' %}الرئيسية{% else %}Home{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'tests' %}active{% endif %}" href="{{ url_for('tests') }}">
+                    <a class="nav-link {% if ep == 'tests' %}active{% endif %}" href="{{ url_for('tests') }}">
                         <i class="bi bi-clipboard-check"></i> {{ t('tests') }}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}" href="{{ url_for('reports') }}">
-                        <i class="bi bi-bar-chart-line"></i> {{ t('reports') }}
+                    <a class="nav-link {% if ep in ('screens.screens_page', 'screens.scenarios_page') %}active{% endif %}" href="{{ url_for('screens.screens_page') }}">
+                        <i class="bi bi-tools"></i> {% if current_lang == 'ar' %}منشئ الاختبارات{% else %}Test Builder{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'screens.screens_page' %}active{% endif %}" href="{{ url_for('screens.screens_page') }}">
-                        <i class="bi bi-ui-checks-grid"></i>
-                        {% if current_lang == 'ar' %}منشئ الشاشات{% else %}Screen Builder{% endif %}
+                    <a class="nav-link {% if ep == 'ops.run_center' %}active{% endif %}" href="{{ url_for('ops.run_center') }}">
+                        <i class="bi bi-cpu"></i> {% if current_lang == 'ar' %}مركز التشغيل{% else %}Run Center{% endif %}
+                        <span class="badge rounded-pill bg-danger ms-1 d-none" id="navRunBadge">●</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'screens.scenarios_page' %}active{% endif %}" href="{{ url_for('screens.scenarios_page') }}">
-                        <i class="bi bi-diagram-3"></i>
-                        {% if current_lang == 'ar' %}أنواع السيناريوهات{% else %}Scenarios{% endif %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'schedule' %}active{% endif %}" href="{{ url_for('schedule') }}">
+                    <a class="nav-link {% if ep == 'ops.schedule_page' %}active{% endif %}" href="{{ url_for('ops.schedule_page') }}">
                         <i class="bi bi-calendar-week"></i> {{ t('schedule') }}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'compare' %}active{% endif %}" href="{{ url_for('compare') }}">
-                        <i class="bi bi-arrow-left-right"></i>
-                        {% if current_lang == 'ar' %}مقارنة{% else %}Compare{% endif %}
+                    <a class="nav-link {% if 'reports' in ep or ep == 'report_detail' %}active{% endif %}" href="{{ url_for('reports') }}">
+                        <i class="bi bi-bar-chart-line"></i> {{ t('reports') }}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'queue' %}active{% endif %}" href="{{ url_for('queue') }}">
-                        <i class="bi bi-list-task"></i>
-                        {% if current_lang == 'ar' %}الطابور{% else %}Queue{% endif %}
+                    <a class="nav-link {% if ep == 'ops.compare_page' %}active{% endif %}" href="{{ url_for('ops.compare_page') }}">
+                        <i class="bi bi-arrow-left-right"></i> {% if current_lang == 'ar' %}المقارنة{% else %}Compare{% endif %}
                     </a>
                 </li>
-
-
-<li class="nav-item">
-    <a class="nav-link {% if request.endpoint == 'live_viewer' %}active{% endif %}" href="{{ url_for('live_viewer') }}">
-        <i class="bi bi-broadcast text-danger"></i>
-        {% if current_lang == 'ar' %}بث مباشر{% else %}Live{% endif %}
-    </a>
-</li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
+                    <a class="nav-link {% if ep == 'live_viewer' %}active{% endif %}" href="{{ url_for('live_viewer') }}">
+                        <i class="bi bi-broadcast text-danger"></i> {% if current_lang == 'ar' %}بث مباشر{% else %}Live{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if ep == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
                         <i class="bi bi-gear"></i> {{ t('settings') }}
                     </a>
                 </li>
@@ -206,6 +199,19 @@
             window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: newTheme } }));
         });
     }
+})();
+</script>
+
+<script>
+(function () {
+    const b = document.getElementById('navRunBadge');
+    if (!b) return;
+    async function p() {
+        try { const q = await fetch('/api/queue').then(r => r.json());
+              b.classList.toggle('d-none', !q.running);
+              b.textContent = q.running ? (q.queue_length ? q.queue_length + 1 : '●') : ''; } catch (e) {}
+    }
+    p(); setInterval(p, 5000);
 })();
 </script>
 
