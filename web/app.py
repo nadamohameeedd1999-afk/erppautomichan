@@ -99,11 +99,16 @@ def logout():
 @app.route("/")
 @auth.login_required
 def index():
+    from web import insights
     lang = get_current_lang()
-    tests = data_helper.get_tests_registry(lang)
-    stats = data_helper.get_stats()
-    recent_runs = data_helper.load_recent_runs(limit=5)
-    return render_template("index.html", tests=tests, stats=stats, recent_runs=recent_runs)
+    return render_template("index.html", home=insights.compute_home(lang))
+
+
+@app.route("/api/home")
+@auth.login_required
+def api_home():
+    from web import insights
+    return jsonify({"success": True, **insights.compute_home(get_current_lang())})
 
 
 @app.route("/tests")

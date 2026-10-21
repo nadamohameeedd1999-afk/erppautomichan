@@ -316,7 +316,7 @@ class TestsRegistry:
                         pk = m.group(1)
                         if pk not in last_results:
                             last_results[pk] = {
-                                "outcome": "passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed",
+                                "outcome": ("passed" if s.get("exit_code") == 0 else "failed") if "exit_code" in s else ("passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed"),
                                 "duration": s.get("duration_seconds", 0),
                                 "timestamp": s.get("timestamp", ""),
                                 "run_id": s.get("run_id", ""),
@@ -454,6 +454,10 @@ class TestsRegistry:
                 result.append(row)
             row["scenarios"] = items
             row["full_available"] = True
+            # آخر نتيجة للصف = الأحدث بين الأساسي وكل السيناريوهات
+            cands = [x for x in [row.get("last_result")] + [i.get("last_result") for i in items] if x]
+            if cands:
+                row["last_result"] = max(cands, key=lambda x: str(x.get("timestamp") or x.get("run_id") or ""))
         for r in result:
             r.setdefault("scenarios", [])
 

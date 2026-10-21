@@ -234,6 +234,7 @@ class TestRunner {
     }
 
     finish(success, taskId) {
+        try { window.dispatchEvent(new CustomEvent('testFinished', { detail: { success, taskId } })); } catch (e) {}
         if (this.pollTimer) {
             clearInterval(this.pollTimer);
             this.pollTimer = null;

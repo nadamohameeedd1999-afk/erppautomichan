@@ -813,7 +813,10 @@ async function runSelected(mode) {
 // ==================== Helpers ====================
 function formatTimeAgo(isoStr) {
     try {
-        const d = new Date(isoStr);
+        // يقبل "2026-10-20T15:03:30" أو "20261020_150330"
+        const m = String(isoStr || '').match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+        const d = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : new Date(isoStr);
+        if (isNaN(d.getTime())) return '';
         const diff = (Date.now() - d.getTime()) / 1000;
         if (diff < 60) return 'الآن';
         if (diff < 3600) return `${Math.floor(diff/60)}د`;
@@ -869,5 +872,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== Init ====================
 loadAll();
+
+// ===== آخر نتيجة تتحدّث لوحدها بعد ما أي اختبار يخلص =====
+window.addEventListener('testFinished', () => { setTimeout(() => { try { loadAll(); } catch (e) {} }, 1500); });
 </script>
 {% endblock %}
