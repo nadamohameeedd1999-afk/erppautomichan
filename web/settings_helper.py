@@ -103,6 +103,41 @@ def load_users():
     return users
 
 
+def sync_env_admin():
+    """ADMIN_PASSWORD in .env is always the admin's password (so it can never be "lost").
+    Runs at start-up: creates the admin if missing, re-activates it and updates its password."""
+    password = os.getenv("ADMIN_PASSWORD")
+    if not password:
+        return False
+    username = os.getenv("ADMIN_USERNAME", "admin")
+    users = load_users()
+    u = next((x for x in users if x.get("username") == username), None)
+    if u is None:
+        u = {"id": f"u_{username}", "username": username, "full_name": "Administrator",
+             "created_at": datetime.now().isoformat()}
+        users.append(u)
+    changed = not _check_password(u.get("password_hash"), password) or u.get("role") != "admin" \
+        or not u.get("active", True)
+    if changed:
+        u["password_hash"] = _hash_password(password)
+        u["role"] = "admin"
+        u["active"] = True
+        save_users(users)
+        print(f"[auth] '{username}' password synced from ADMIN_PASSWORD (.env)", flush=True)
+    return changed
+
+
+def reset_password(username, password):
+    users = load_users()
+    for u in users:
+        if u.get("username") == username:
+            u["password_hash"] = _hash_password(password)
+            u["active"] = True
+            save_users(users)
+            return True
+    return False
+
+
 def save_users(users):
     _save_json(USERS_FILE, {"users": users})
 

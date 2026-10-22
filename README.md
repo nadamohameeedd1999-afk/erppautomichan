@@ -14,6 +14,10 @@ python web/app.py           # http://localhost:5000
 
 أو `start_all.ps1` (بيشغّل اللوحة + Cloudflare tunnel).
 
+### نسيتي كلمة سر لوحة التحكم؟
+- اكتبي `ADMIN_PASSWORD=...` في `.env` وشغّلي البرنامج تاني، أو
+- `python tools\reset_password.py`
+
 ## Docker
 
 ```bash
@@ -56,6 +60,7 @@ data/
 | المتغير | الافتراضي | |
 |---|---|---|
 | `BASE_URL` / `LOGIN_USERNAME` / `LOGIN_PASSWORD` | — | موقع الـ ERP |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / — | دخول لوحة التحكم — كل ما البرنامج يشتغل بيتظبط عليها |
 | `SECRET_KEY` | بيتولّد محليًا | **لازم** في السيرفر |
 | `DATA_DIR` | `./data` | مكان البيانات |
 | `DEFS_DIR` | `./config` | مكان تعريفات الشاشات والسيناريوهات |

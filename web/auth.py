@@ -26,6 +26,15 @@ def _recent_failures(key):
     return attempts
 
 
+def is_locked(username):
+    """seconds left if (ip, username) is locked after too many wrong tries, else 0"""
+    key = (_client_ip(), (username or "").lower())
+    att = _recent_failures(key)
+    if len(att) < MAX_ATTEMPTS:
+        return 0
+    return int(LOCK_SECONDS - (time.time() - att[0])) + 1
+
+
 def login_required(f):
     """Decorator: requires login"""
     @wraps(f)

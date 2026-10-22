@@ -39,6 +39,13 @@ app.register_blueprint(ops_bp)
 from web import scheduler as _scheduler
 _scheduler.start()
 
+# ADMIN_PASSWORD in .env = admin's password, always
+try:
+    from web import settings_helper as _sh_boot
+    _sh_boot.sync_env_admin()
+except Exception as _e:
+    print(f"[startup] admin sync: {_e}", flush=True)
+
 # generated test files for every saved screen / scenario (needed when definitions live in data/)
 try:
     from engine import screen_config as _sc, scenario_config as _scn
@@ -98,8 +105,18 @@ def login():
             next_url = request.args.get("next", url_for("index"))
             return redirect(_safe_next(next_url))
         else:
-            error = "اسم المستخدم أو كلمة المرور غير صحيحة" if get_current_lang() == "ar" \
-                else "Invalid username or password"
+            from web import settings_helper as _sh
+            left = auth.is_locked(username)
+            ar = get_current_lang() == "ar"
+            if left:
+                error = (f"اتقفل الدخول مؤقتًا بعد {auth.MAX_ATTEMPTS} محاولات غلط — جربي تاني بعد {(left + 59) // 60} دقيقة "
+                         f"(أو اقفلي البرنامج وشغليه تاني)") if ar else f"Too many attempts, try again in {(left + 59) // 60} min"
+            elif not _sh.get_user(username):
+                error = (f"مفيش مستخدم اسمه '{username}' في لوحة التحكم. ده دخول لوحة التحكم مش الـ ERP — "
+                         f"المستخدم الأساسي اسمه admin") if ar else f"No dashboard user '{username}'"
+            else:
+                error = ("كلمة المرور غلط. لو نسيتيها: اكتبي ADMIN_PASSWORD=... في ملف .env وشغّلي البرنامج تاني"
+                         ) if ar else "Wrong password (set ADMIN_PASSWORD in .env and restart to reset)"
 
     return render_template("login.html", error=error)
 
