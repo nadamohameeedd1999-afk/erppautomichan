@@ -49,15 +49,11 @@ RUN pip install --upgrade pip && \
 # ===== Copy project =====
 COPY . .
 
-# ===== Create dirs =====
-RUN mkdir -p reports/results reports/screenshots reports/logs reports/allure-results \
-    && mkdir -p logs chrome_profile \
-    && mkdir -p /root/.vnc
-
-# ===== VNC password =====
-# نستخدم x11vnc -storepasswd بدل vncpasswd
-RUN x11vnc -storepasswd erp /root/.vnc/passwd && \
-    chmod 600 /root/.vnc/passwd
+# ===== Data folder (mount a volume here so nothing is lost on redeploy) =====
+ENV DATA_DIR=/app/data \
+    DEFS_DIR=/app/data/defs
+RUN mkdir -p /app/data /root/.vnc
+VOLUME ["/app/data"]
 
 # ===== Supervisor config =====
 RUN mkdir -p /etc/supervisor/conf.d
@@ -76,18 +72,13 @@ stdout_logfile=/var/log/xvfb.log
 stderr_logfile=/var/log/xvfb.log
 
 [program:x11vnc]
-command=/usr/bin/x11vnc -display :99 -forever -shared -rfbauth /root/.vnc/passwd -rfbport 5900
+; listens on localhost only — the dashboard proxies it behind its own login (/live)
+; password comes from the VNC_PASSWORD variable (default: erp)
+command=/bin/sh -c 'x11vnc -storepasswd "${VNC_PASSWORD:-erp}" /root/.vnc/passwd >/dev/null 2>&1; exec /usr/bin/x11vnc -display :99 -forever -shared -localhost -rfbauth /root/.vnc/passwd -rfbport 5900' 
 autorestart=true
 priority=20
 stdout_logfile=/var/log/x11vnc.log
 stderr_logfile=/var/log/x11vnc.log
-
-[program:novnc]
-command=/usr/bin/websockify --web=/usr/share/novnc 6080 localhost:5900
-autorestart=true
-priority=30
-stdout_logfile=/var/log/novnc.log
-stderr_logfile=/var/log/novnc.log
 
 [program:flask]
 command=python web/app.py
@@ -107,6 +98,6 @@ ENV DISPLAY=:99
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
-EXPOSE 5000 5900 6080
+EXPOSE 5000
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

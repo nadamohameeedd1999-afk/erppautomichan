@@ -3,7 +3,7 @@ Run center (مركز التشغيل), schedules (الجدولة) and comparison 
 """
 from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, send_file
 
 from web import auth, insights, scheduler
 from web.queue_manager import get_manager
@@ -180,3 +180,68 @@ def compare_page():
     else:
         ctx.update({"week": insights.week_compare()})
     return render_template("compare.html", **ctx)
+
+
+# ======================= backups & trash =======================
+@bp.route("/backups")
+@auth.login_required
+def backups_page():
+    from config import paths
+    return render_template("backups.html", data_dir=str(paths.DATA_DIR))
+
+
+@bp.route("/api/backups")
+@auth.login_required
+def api_backups():
+    from web import backup
+    return jsonify({"success": True, "backups": backup.list_all(), "trash": backup.trash_list(),
+                    "keep": backup.KEEP_AUTO, "hour": backup.BACKUP_HOUR})
+
+
+@bp.route("/api/backups", methods=["POST"])
+@auth.login_required
+def api_backup_create():
+    from web import backup
+    full = bool((request.get_json(silent=True) or {}).get("full"))
+    return jsonify({"success": True, "backup": backup.create("manual", full=full)})
+
+
+@bp.route("/backups/download/<name>")
+@auth.login_required
+def backup_download(name):
+    from web import backup
+    p = backup.path_of(name)
+    if not p:
+        return jsonify({"success": False, "error": "مش موجود"}), 404
+    return send_file(str(p), as_attachment=True, download_name=p.name)
+
+
+@bp.route("/api/backups/restore", methods=["POST"])
+@auth.login_required
+def api_backup_restore():
+    from web import backup
+    from config import paths
+    if not auth.is_admin():
+        return jsonify({"success": False, "error": "الاسترجاع للأدمن بس"}), 403
+    up = request.files.get("file")
+    if up and up.filename:
+        tmp = paths.STATE_DIR / "upload_restore.zip"
+        up.save(str(tmp))
+        target = tmp
+    else:
+        target = backup.path_of((request.form.get("name") or (request.get_json(silent=True) or {}).get("name") or ""))
+    if not target:
+        return jsonify({"success": False, "error": "اختاري نسخة"}), 400
+    try:
+        r = backup.restore(target)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"الملف ده مش نسخة سليمة: {e}"}), 400
+    return jsonify({"success": True, **r})
+
+
+@bp.route("/api/trash/restore", methods=["POST"])
+@auth.login_required
+def api_trash_restore():
+    from web import backup
+    rel = (request.get_json(silent=True) or {}).get("id", "")
+    return jsonify({"success": backup.trash_restore(rel)})

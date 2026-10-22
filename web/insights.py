@@ -2,7 +2,7 @@
 Numbers for the home dashboard (الرئيسية): KPIs, trend, coverage, failing now,
 flaky tests, slowest tests, recent runs, upcoming schedules.
 
-Everything is read from reports/results/summary_*.json + the tests registry,
+Everything is read from data/runs/results/summary_*.json + the tests registry,
 so it needs no database.
 """
 import re

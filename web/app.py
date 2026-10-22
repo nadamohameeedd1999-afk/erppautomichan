@@ -16,6 +16,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, jsonify, send_from_directory, flash, Response
 )
+from config import paths
 from web.config import Config
 from web.i18n_helper import t, get_current_lang, get_dir
 from web import data_helper, export_helper, settings_helper, auth
@@ -37,6 +38,14 @@ from web.ops_api import bp as ops_bp
 app.register_blueprint(ops_bp)
 from web import scheduler as _scheduler
 _scheduler.start()
+
+# generated test files for every saved screen / scenario (needed when definitions live in data/)
+try:
+    from engine import screen_config as _sc, scenario_config as _scn
+    _sc.sync_stubs()
+    _scn.sync_stubs()
+except Exception as _e:
+    print(f"[startup] sync_stubs: {_e}", flush=True)
 
 
 # ==================== Context Processors ====================
@@ -679,7 +688,7 @@ def tunnel_settings_save():
 @app.route("/settings/tunnel/reload", methods=["POST"])
 @auth.login_required
 def tunnel_settings_reload():
-    """يعيد قراءة الروابط من config/tunnel_config.json"""
+    """يعيد قراءة الروابط من data/settings/tunnel_config.json"""
     flash("✅ تم إعادة تحميل الإعدادات", "success")
     return redirect(url_for("settings") + "#tunnel")
 
@@ -766,7 +775,7 @@ def api_close_browser():
     """يقفل المتصفح"""
     from web import selenium_opener
     opener = selenium_opener.get_opener()
-    if opener.close():
+    if opener and opener.close():
         return jsonify({"success": True, "message": "Browser closed"})
     return jsonify({"success": False, "message": "No browser open"})
 
@@ -777,7 +786,7 @@ def api_browser_status():
     """حالة المتصفح"""
     from web import selenium_opener
     opener = selenium_opener.get_opener()
-    return jsonify({"success": True, "is_open": opener.is_open()})
+    return jsonify({"success": True, "is_open": bool(opener and opener.is_open())})
 
 
 @app.route("/api/run-module-test", methods=["POST"])
@@ -865,7 +874,7 @@ def api_get_log(task_id):
 def api_list_logs():
     """يسرد ملفات اللوج"""
     from pathlib import Path
-    logs_dir = Path(__file__).resolve().parent.parent / "reports" / "logs"
+    logs_dir = paths.RUN_LOGS_DIR
     if not logs_dir.exists():
         return jsonify({"success": True, "logs": []})
 
@@ -885,8 +894,8 @@ def api_list_logs():
 def api_test_debug(task_id):
     """تقرير مفصل عن اختبار — للـ debugging"""
     from pathlib import Path
-    results_dir = Path(__file__).resolve().parent.parent / "reports" / "results"
-    logs_dir = Path(__file__).resolve().parent.parent / "reports" / "logs"
+    results_dir = paths.RESULTS_DIR
+    logs_dir = paths.RUN_LOGS_DIR
 
     # raw JSON
     raw_file = results_dir / f"raw_{task_id}.json"
@@ -1013,8 +1022,8 @@ def api_allure_generate():
     import subprocess
     import shutil
 
-    allure_results = BASE_DIR / "reports" / "allure-results"
-    allure_report = BASE_DIR / "reports" / "allure-report"
+    allure_results = paths.ALLURE_RESULTS_DIR
+    allure_report = paths.ALLURE_REPORT_DIR
 
     if not allure_results.exists():
         return jsonify({"success": False, "error": "No allure-results folder"})
@@ -1082,7 +1091,7 @@ def api_allure_generate():
 def serve_allure_report(filename):
     """يقدم ملفات تقرير Allure"""
     from flask import send_from_directory
-    allure_report = BASE_DIR / "reports" / "allure-report"
+    allure_report = paths.ALLURE_REPORT_DIR
     return send_from_directory(str(allure_report), filename)
 
 
@@ -1090,8 +1099,8 @@ def serve_allure_report(filename):
 @auth.login_required
 def api_allure_status():
     """حالة Allure"""
-    allure_results = BASE_DIR / "reports" / "allure-results"
-    allure_report = BASE_DIR / "reports" / "allure-report"
+    allure_results = paths.ALLURE_RESULTS_DIR
+    allure_report = paths.ALLURE_REPORT_DIR
 
     allure_cli = _find_allure_cli()
 

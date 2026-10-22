@@ -130,6 +130,10 @@
                             <small class="text-muted">{{ current_user.role }}</small>
                         </h6></li>
                         <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('ops.backups_page') }}">
+                            <i class="bi bi-shield-check"></i>
+                            {% if current_lang == 'ar' %}النسخ الاحتياطي والمحذوفات{% else %}Backups{% endif %}
+                        </a></li>
                         <li><a class="dropdown-item" href="{{ url_for('users') }}">
                             <i class="bi bi-people"></i>
                             {% if current_lang == 'ar' %}إدارة المستخدمين{% else %}Users{% endif %}

@@ -10,19 +10,6 @@ class TestsRegistry:
     TESTS = [
         # ===== الحسابات العامة =====
         {
-            "id": "cash_receipt_full",
-            "module_key": "general_accounting",
-            "page_key": "cash_receipt",
-            "type": "full",
-            "name_ar": "سند القبض - كامل",
-            "name_en": "Cash Receipt - Full",
-            "icon": "💵",
-            "test_path": "tests/functional/test_04_cash_receipt_voucher.py::test_full_cash_receipt_voucher_flow",
-            "duration_estimate": 120,
-            "tags": ["full", "accounting"],
-            "available": True,
-        },
-        {
             "id": "journal_entries_smoke",
             "module_key": "general_accounting",
             "page_key": "journal_entries",
@@ -290,7 +277,7 @@ class TestsRegistry:
         - full_available: هل فيه اختبار كامل؟
         - smoke_available: هل فيه smoke؟
         - full_path / smoke_path
-        - last_result: آخر نتيجة (من reports/results)
+        - last_result: آخر نتيجة (من data/runs/results)
         """
         import json
         import re
@@ -298,7 +285,8 @@ class TestsRegistry:
         from datetime import datetime
 
         BASE_DIR = Path(__file__).resolve().parent.parent
-        RESULTS_DIR = BASE_DIR / "reports" / "results"
+        from config import paths
+        RESULTS_DIR = paths.RESULTS_DIR
 
         # نبني خريطة: page_key → آخر نتيجة
         last_results = {}

@@ -13,7 +13,8 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 # مسار الـ Chrome Profile
-PROFILE_DIR = BASE_DIR / "chrome_profile"
+from config import paths  # noqa: E402
+PROFILE_DIR = paths.CHROME_PROFILE_DIR
 PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -164,7 +165,7 @@ def _save_screenshot(driver, result):
     """يحفظ صورة"""
     try:
         from datetime import datetime
-        screenshots_dir = BASE_DIR / "reports" / "screenshots"
+        screenshots_dir = paths.SCREENSHOTS_DIR
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         filename = f"opened_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         driver.save_screenshot(str(screenshots_dir / filename))

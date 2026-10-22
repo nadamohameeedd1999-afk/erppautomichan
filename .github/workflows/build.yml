@@ -1,4 +1,4 @@
-﻿name: Basic CI
+name: CI
 
 on:
   push:
@@ -8,26 +8,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Install dependencies
+      - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Verify Python syntax
-        run: |
-          python -m compileall config/ pages/ utils/ tests/ web/
-
-      - name: Success
-        run: echo "All checks passed successfully!"
+      - name: Syntax check
+        run: python -m compileall -q config engine pages utils tests web
+      - name: Tests are collectable (no browser)
+        run: python -m pytest --collect-only -q
+      - name: Dashboard starts
+        env:
+          SECRET_KEY: ci
+          SCHEDULER: "0"
+        run: python -c "import sys; sys.path.insert(0, '.'); from web.app import app; print(len(app.url_map._rules), 'routes')"

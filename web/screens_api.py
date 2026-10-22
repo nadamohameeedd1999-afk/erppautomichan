@@ -24,7 +24,8 @@ from flask import Blueprint, jsonify, render_template, request
 from web import auth
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-JOBS_DIR = BASE_DIR / "reports" / "screen_jobs"
+from config import paths  # noqa: E402
+JOBS_DIR = paths.JOBS_DIR
 
 bp = Blueprint("screens", __name__)
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")

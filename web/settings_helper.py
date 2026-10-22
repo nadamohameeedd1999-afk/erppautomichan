@@ -11,36 +11,20 @@ from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG_DIR = BASE_DIR / "config"
-SITE_CONFIG = CONFIG_DIR / "site_config.json"
-USERS_FILE = CONFIG_DIR / "users.json"
+from config import paths
+CONFIG_DIR = paths.SETTINGS_DIR
+SITE_CONFIG = paths.settings_file("site_config.json")
+USERS_FILE = paths.settings_file("users.json")
 UPLOADS_DIR = BASE_DIR / "web" / "static" / "uploads"
 
 
 def _load_json(path, default=None):
-    """Load JSON with BOM support"""
-    if not path.exists():
-        return default
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        pass
-    try:
-        with open(path, "r", encoding="utf-8-sig") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"[settings] Error loading {path}: {e}")
-        return default
-
+    from config.storage import load_json
+    return load_json(path, default)
 
 def _save_json(path, data):
-    """Save JSON without BOM"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(data, ensure_ascii=False, indent=2)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-
+    from config.storage import save_json
+    save_json(path, data)
 
 # ==================== Site Config ====================
 def load_site_config():
@@ -200,7 +184,7 @@ def get_uploads_dir():
 
 
 # ==================== Email Config ====================
-EMAIL_CONFIG_FILE = CONFIG_DIR / "email_config.json"
+EMAIL_CONFIG_FILE = paths.settings_file("email_config.json")
 
 
 def load_email_config():

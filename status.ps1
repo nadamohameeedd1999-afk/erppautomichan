@@ -72,7 +72,7 @@ Write-Host ""
 Write-Host "  ──────────────────────────────────────────" -ForegroundColor DarkGray
 Write-Host "  🌐 الروابط:" -ForegroundColor Cyan
 
-$tunnelConfig = Join-Path $PSScriptRoot "config\tunnel_config.json"
+$tunnelConfig = Join-Path $PSScriptRoot "data\settings\tunnel_config.json"
 if (Test-Path $tunnelConfig) {
     $config = Get-Content $tunnelConfig -Raw | ConvertFrom-Json
 

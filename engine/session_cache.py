@@ -1,7 +1,7 @@
 """
 Reuse the ERP login between tests (saves ~40 seconds per test).
 
-After a successful login the browser cookies are saved to reports/_state/session_<id>.json.
+After a successful login the browser cookies are saved to data/state/session_<id>.json.
 The next test loads them into its fresh browser; if the site still accepts them we skip the
 login screen, otherwise we log in normally and save the new cookies.
 
@@ -17,7 +17,8 @@ from pathlib import Path
 from config.settings import BASE_URL, USERNAME
 from utils.logger import logger
 
-STATE_DIR = Path(__file__).resolve().parent.parent / "reports" / "_state"
+from config import paths  # noqa: E402
+STATE_DIR = paths.STATE_DIR
 ENABLED = os.getenv("SESSION_REUSE", "1") not in ("0", "false", "False")
 MAX_AGE = int(os.getenv("SESSION_REUSE_MINUTES", "25")) * 60
 

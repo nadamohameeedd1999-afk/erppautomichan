@@ -12,9 +12,9 @@ param(
 
 $ErrorActionPreference = "Continue"
 $BASE_DIR = $PSScriptRoot
-$LOG_DIR = Join-Path $BASE_DIR "logs"
+$LOG_DIR = Join-Path $BASE_DIR "data\logs"
 $CONFIG_DIR = Join-Path $BASE_DIR "config"
-$TUNNEL_CONFIG = Join-Path $CONFIG_DIR "tunnel_config.json"
+$TUNNEL_CONFIG = Join-Path $BASE_DIR "data\settings\tunnel_config.json"
 $CF_LOG_FLASK = Join-Path $LOG_DIR "cf_flask.log"
 $CF_LOG_VNC = Join-Path $LOG_DIR "cf_vnc.log"
 
@@ -297,6 +297,7 @@ if ($flaskUrl -or $vncUrl) {
         updated_at = (Get-Date).ToString("o")
     } | ConvertTo-Json
 
+    New-Item -ItemType Directory -Force -Path (Split-Path $TUNNEL_CONFIG) | Out-Null
     $newConfig | Out-File -Encoding utf8 $TUNNEL_CONFIG
     Write-Ok "tunnel_config.json اتحدّث"
 } else {

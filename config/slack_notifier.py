@@ -1,4 +1,4 @@
-﻿"""
+"""
 Slack notification service
 """
 import json
@@ -6,30 +6,18 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG_FILE = BASE_DIR / "config" / "slack_config.json"
+from config import paths
+CONFIG_FILE = paths.settings_file("slack_config.json")
 
 
 def load_config():
-    if not CONFIG_FILE.exists():
-        return None
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
-                return json.load(f)
-        except Exception:
-            return None
-    except Exception:
-        return None
+    from config.storage import load_json
+    return load_json(CONFIG_FILE, None)
 
 
 def save_config(config):
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(config, ensure_ascii=False, indent=2)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        f.write(content)
+    from config.storage import save_json
+    save_json(CONFIG_FILE, config)
 
 
 def send_test_notification(summary, test_name=""):

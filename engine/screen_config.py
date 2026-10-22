@@ -11,7 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SCREENS_DIR = BASE_DIR / "config" / "screens"
+from config import paths  # noqa: E402
+from config.storage import save_json, load_json, to_trash  # noqa: E402
+SCREENS_DIR = paths.SCREENS_DIR
 TESTS_DIR = BASE_DIR / "tests" / "screens"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,90}$")
@@ -195,8 +197,7 @@ def load(key: str) -> dict:
     path = SCREENS_DIR / f"{key}.json"
     if not path.exists():
         raise ConfigError(f"مفيش إعداد للشاشة '{key}' ({path})")
-    with open(path, "r", encoding="utf-8-sig") as fp:
-        return normalize(json.load(fp))
+    return normalize(load_json(path, {}))
 
 
 def list_all() -> list:
@@ -206,8 +207,7 @@ def list_all() -> list:
         return out
     for p in sorted(SCREENS_DIR.glob("*.json")):
         try:
-            with open(p, "r", encoding="utf-8-sig") as fp:
-                out.append(normalize(json.load(fp)))
+            out.append(normalize(load_json(p, {})))
         except Exception as e:
             out.append({"key": p.stem, "name_ar": p.stem, "error": str(e)[:300], "status": "broken"})
     return out
@@ -249,21 +249,17 @@ def write_stub(cfg: dict) -> Path:
 def save(cfg: dict) -> dict:
     cfg = normalize(cfg)
     cfg["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    SCREENS_DIR.mkdir(parents=True, exist_ok=True)
-    path = SCREENS_DIR / f"{cfg['key']}.json"
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    save_json(SCREENS_DIR / f"{cfg['key']}.json", cfg)     # keeps older versions in data/history
     write_stub(cfg)
     return cfg
 
 
 def delete(key: str) -> bool:
-    found = False
-    for p in (SCREENS_DIR / f"{key}.json", stub_path(key)):
-        if p.exists():
-            p.unlink()
-            found = True
+    """Moves the config to data/trash (recoverable) and removes its generated test."""
+    found = to_trash(SCREENS_DIR / f"{key}.json")
+    if stub_path(key).exists():
+        stub_path(key).unlink()
+        found = True
     return found
 
 

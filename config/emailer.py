@@ -1,4 +1,4 @@
-﻿"""
+"""
 Email notification service
 """
 import json
@@ -9,17 +9,13 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG_FILE = BASE_DIR / "config" / "email_config.json"
+from config import paths
+CONFIG_FILE = paths.settings_file("email_config.json")
 
 
 def load_config():
-    if not CONFIG_FILE.exists():
-        return None
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+    from config.storage import load_json
+    return load_json(CONFIG_FILE, None)
 
 
 def send_test_notification(summary, test_name=""):

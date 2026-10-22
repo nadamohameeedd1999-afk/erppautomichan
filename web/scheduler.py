@@ -1,7 +1,7 @@
 """
 Scheduler (الجدولة) — runs inside the dashboard, no Windows Task Scheduler needed.
 
-config/schedules/schedules.json (path can be moved with SCHEDULES_FILE, e.g. onto a Railway volume):
+data/schedules.json (path can be moved with SCHEDULES_FILE, e.g. onto a Railway volume):
 [
   {"id": "sch_...", "name": "كل يوم الصبح", "enabled": true,
    "mode": "list" | "all_full" | "failed",
@@ -21,7 +21,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SCHEDULES_FILE = Path(os.getenv("SCHEDULES_FILE") or (BASE_DIR / "config" / "schedules" / "schedules.json"))
+from config import paths  # noqa: E402
+SCHEDULES_FILE = paths.SCHEDULES_FILE
 TZ_NAME = os.getenv("SCHEDULE_TZ", "Africa/Cairo")
 DAY_NAMES = ["الاتنين", "التلات", "الأربع", "الخميس", "الجمعة", "السبت", "الحد"]   # 0=Mon
 
@@ -54,13 +55,6 @@ def _old_test_path(test_id):
             return t["test_path"], t.get("name_ar", test_id)
     except Exception:
         pass
-    try:
-        from config.test_registry import TestRegistry
-        for t in TestRegistry.get_all_localized("ar"):
-            if t.get("id") == test_id:
-                return t.get("test_path") or t.get("path"), t.get("name", test_id)
-    except Exception:
-        pass
     return None, test_id
 
 
@@ -89,20 +83,14 @@ def _normalize(s):
 
 
 def load():
-    if not SCHEDULES_FILE.exists():
-        return []
-    try:
-        data = json.loads(SCHEDULES_FILE.read_text(encoding="utf-8-sig"))
-        return [_normalize(s) for s in data if isinstance(s, dict)]
-    except Exception:
-        return []
+    from config.storage import load_json
+    data = load_json(SCHEDULES_FILE, []) or []
+    return [_normalize(s) for s in data if isinstance(s, dict)]
 
 
 def save(items):
-    SCHEDULES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = SCHEDULES_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(SCHEDULES_FILE)
+    from config.storage import save_json
+    save_json(SCHEDULES_FILE, items)
 
 
 def upsert(data):
@@ -239,6 +227,11 @@ def _loop():
             _tick()
         except Exception as e:
             print(f"[scheduler] tick error: {e}", flush=True)
+        try:
+            from web import backup
+            backup.auto_tick(now())
+        except Exception as e:
+            print(f"[backup] tick error: {e}", flush=True)
         time.sleep(20)
 
 

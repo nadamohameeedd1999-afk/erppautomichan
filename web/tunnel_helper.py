@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tunnel Helper - Manage public tunnel URLs (Cloudflare/ngrok)
 """
 import json
@@ -7,31 +7,17 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
-TUNNEL_FILE = CONFIG_DIR / "tunnel_config.json"
+from config import paths
+TUNNEL_FILE = paths.settings_file("tunnel_config.json")
 
 
 def _load_json(path, default=None):
-    if not path.exists():
-        return default
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        try:
-            with open(path, "r", encoding="utf-8-sig") as f:
-                return json.load(f)
-        except Exception:
-            return default
-    except Exception:
-        return default
-
+    from config.storage import load_json
+    return load_json(path, default)
 
 def _save_json(path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(data, ensure_ascii=False, indent=2)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-
+    from config.storage import save_json
+    save_json(path, data)
 
 def load_config():
     default = {

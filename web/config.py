@@ -12,11 +12,24 @@ load_dotenv(BASE_DIR / ".env")
 
 IS_PRODUCTION = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_ENVIRONMENT_NAME"))
 
+from config import paths  # noqa: E402
+
 _secret = os.getenv("SECRET_KEY")
 if not _secret:
     if IS_PRODUCTION:
         raise RuntimeError("SECRET_KEY must be set in production (Railway Variables)")
-    _secret = secrets.token_hex(32)  # local dev only: changes on every restart
+    # local: generate once and keep it, so a restart doesn't log everybody out
+    _key_file = paths.settings_file("secret_key")
+    try:
+        _secret = _key_file.read_text(encoding="utf-8").strip()
+    except Exception:
+        _secret = ""
+    if not _secret:
+        _secret = secrets.token_hex(32)
+        try:
+            _key_file.write_text(_secret, encoding="utf-8")
+        except Exception:
+            pass
 
 
 class Config:
@@ -30,8 +43,8 @@ class Config:
     BABEL_DEFAULT_TIMEZONE = "Africa/Cairo"
     LANGUAGES = ["ar", "en"]
     BASE_DIR = BASE_DIR
-    RESULTS_DIR = BASE_DIR / "reports" / "results"
-    SCREENSHOTS_DIR = BASE_DIR / "reports" / "screenshots"
-    LOGS_DIR = BASE_DIR / "logs"
-    SLACK_CONFIG = BASE_DIR / "config" / "slack_config.json"
-    EMAIL_CONFIG = BASE_DIR / "config" / "email_config.json"
+    RESULTS_DIR = paths.RESULTS_DIR
+    SCREENSHOTS_DIR = paths.SCREENSHOTS_DIR
+    LOGS_DIR = paths.APP_LOGS_DIR
+    SLACK_CONFIG = paths.settings_file("slack_config.json")
+    EMAIL_CONFIG = paths.settings_file("email_config.json")

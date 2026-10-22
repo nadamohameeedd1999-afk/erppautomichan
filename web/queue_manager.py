@@ -13,8 +13,11 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-LOGS_DIR = BASE_DIR / "reports" / "logs"
-RESULTS_DIR = BASE_DIR / "reports" / "results"
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+from config import paths  # noqa: E402
+LOGS_DIR = paths.RUN_LOGS_DIR
+RESULTS_DIR = paths.RESULTS_DIR
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -304,7 +307,7 @@ class QueueManager:
             return {"success": False, "error": str(e)[:200]}
 
     def _write_summary(self, task, start_time, end_time, duration, exit_code):
-        """يكتب reports/results/summary_<task_id>.json — ده اللي صفحة التقارير بتقراه."""
+        """يكتب data/runs/results/summary_<task_id>.json — ده اللي صفحة التقارير بتقراه."""
         task_id = task["task_id"]
         raw = RESULTS_DIR / f"raw_{task_id}.json"
         data = {"summary": {}, "tests": []}

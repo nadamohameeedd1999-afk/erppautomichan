@@ -1,6 +1,6 @@
 @echo off
 echo Generating Allure Report...
-allure generate reports/allure-results -o reports/allure-report --clean
+allure generate data/runs/allure-results -o data/runs/allure-report --clean
 echo Opening Allure Report...
-allure open reports/allure-report
+allure open data/runs/allure-report
 pause
