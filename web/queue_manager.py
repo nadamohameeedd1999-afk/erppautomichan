@@ -3,8 +3,6 @@ Queue Manager - Manages running and queued tests
 + Full logging of stdout/stderr
 + History of completed tasks
 """
-import os
-import re
 import threading
 import subprocess
 import sys
@@ -13,21 +11,10 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
-from config import paths  # noqa: E402
-LOGS_DIR = paths.RUN_LOGS_DIR
-RESULTS_DIR = paths.RESULTS_DIR
+LOGS_DIR = BASE_DIR / "reports" / "logs"
+RESULTS_DIR = BASE_DIR / "reports" / "results"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-
-# إعادة تلقائية مرة واحدة لو الفشل شكله من البيئة (بطء/انقطاع/المتصفح وقع) مش من الشاشة نفسها
-AUTO_RETRY = os.getenv("AUTO_RETRY", "1") not in ("0", "false", "False")
-INFRA_PATTERNS = re.compile(
-    r"TimeoutException|WebDriverException|InvalidSessionIdException|SessionNotCreated|"
-    r"chrome not reachable|disconnected|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|"
-    r"net::ERR_|Read timed out|Max retries exceeded|ConnectionResetError|RemoteDisconnected",
-    re.I)
 
 
 class QueueManager:
@@ -68,16 +55,14 @@ class QueueManager:
                 return dict(self.history[task_id])
         return None
 
-    def add(self, task_id, test_path, test_name, repeat=1, source="manual", front=False, extra=None):
+    def add(self, task_id, test_path, test_name, repeat=1):
         task = {
             "task_id": task_id,
             "test_path": test_path,
             "test_name": test_name,
             "repeat": repeat,
-            "source": source,            # manual / schedule / retry / rerun
             "added_at": datetime.now().isoformat(),
             "status": "queued",
-            **(extra or {}),
         }
 
         with self.lock:
@@ -86,10 +71,7 @@ class QueueManager:
                 self.stopped = False
                 should_start = True
             else:
-                if front:
-                    self.queue.insert(0, task)
-                else:
-                    self.queue.append(task)
+                self.queue.append(task)
                 should_start = False
 
         if should_start:
@@ -98,43 +80,6 @@ class QueueManager:
         else:
             position = len(self.queue)
             return {"queued": True, "position": position}
-
-    # ---------- queue editing ----------
-    def remove(self, task_id):
-        with self.lock:
-            before = len(self.queue)
-            self.queue = [t for t in self.queue if t.get("task_id") != task_id]
-            return len(self.queue) < before
-
-    def move(self, task_id, delta):
-        with self.lock:
-            i = next((k for k, t in enumerate(self.queue) if t.get("task_id") == task_id), None)
-            if i is None:
-                return False
-            j = max(0, min(len(self.queue) - 1, i + int(delta)))
-            self.queue.insert(j, self.queue.pop(i))
-            return True
-
-    def clear(self):
-        with self.lock:
-            n = len(self.queue)
-            self.queue = []
-            return n
-
-    def recent_history(self, limit=30):
-        with self.lock:
-            items = sorted(self.history.values(), key=lambda t: t.get("completed_at") or "", reverse=True)
-            return [dict(t) for t in items[:limit]]
-
-    def _should_retry(self, task, log_file):
-        if not AUTO_RETRY or task.get("source") == "retry" or task.get("retried"):
-            return None
-        try:
-            tail = log_file.read_text(encoding="utf-8", errors="replace")[-20000:]
-        except Exception:
-            return None
-        m = INFRA_PATTERNS.search(tail)
-        return m.group(0) if m else None
 
     def stop_current(self):
         with self.lock:
@@ -230,10 +175,6 @@ class QueueManager:
             else:
                 final_status = "failed"
 
-            retry_reason = self._should_retry(task, log_file) if final_status == "failed" else None
-            if retry_reason:
-                task["auto_retry"] = f"{task_id}_r"
-                task["retry_reason"] = retry_reason
             try:
                 self._write_summary({**task, "status": final_status}, start_time, end_time, duration,
                                     self.process.returncode)
@@ -266,11 +207,6 @@ class QueueManager:
 
         finally:
             self.process = None
-            if task.get("auto_retry"):
-                # إعادة مرة واحدة أول الطابور
-                self.add(task["auto_retry"], task["test_path"], f"{task.get('test_name', '')} (إعادة تلقائية)",
-                         repeat=task.get("repeat", 1), source="retry", front=True,
-                         extra={"retry_of": task_id, "retried": True})
             self._next()
 
     def _next(self):
@@ -307,7 +243,7 @@ class QueueManager:
             return {"success": False, "error": str(e)[:200]}
 
     def _write_summary(self, task, start_time, end_time, duration, exit_code):
-        """يكتب data/runs/results/summary_<task_id>.json — ده اللي صفحة التقارير بتقراه."""
+        """يكتب reports/results/summary_<task_id>.json — ده اللي صفحة التقارير بتقراه."""
         task_id = task["task_id"]
         raw = RESULTS_DIR / f"raw_{task_id}.json"
         data = {"summary": {}, "tests": []}
@@ -336,10 +272,6 @@ class QueueManager:
             "test_path": task.get("test_path", ""),
             "test_name": task.get("test_name", ""),
             "repeat": task.get("repeat", 1),
-            "source": task.get("source", "manual"),
-            "retry_of": task.get("retry_of"),
-            "auto_retry": task.get("auto_retry"),
-            "retry_reason": task.get("retry_reason"),
             "duration_seconds": round(duration, 2),
             "total": s.get("total", 0),
             "passed": s.get("passed", 0),

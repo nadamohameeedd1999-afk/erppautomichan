@@ -6,10 +6,9 @@ from pathlib import Path
 from datetime import datetime
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-from config import paths
-RESULTS_DIR = paths.RESULTS_DIR
-SCREENSHOTS_DIR = paths.SCREENSHOTS_DIR
-SCHEDULES_FILE = paths.SCHEDULES_FILE
+RESULTS_DIR = BASE_DIR / "reports" / "results"
+SCREENSHOTS_DIR = BASE_DIR / "reports" / "screenshots"
+SCHEDULES_FILE = BASE_DIR / "config" / "schedules" / "schedules.json"
 
 
 def load_summaries(limit=None):
@@ -83,11 +82,11 @@ def get_screenshots_for_run(run_id, report=None):
 
 
 _ANSI = __import__("re").compile(r"\x1b\[[0-9;]*m")
-LOGS_DIR = paths.RUN_LOGS_DIR
+LOGS_DIR = BASE_DIR / "reports" / "logs"
 
 
 def read_run_log(run_id, max_lines=3000):
-    """Log of one run (data/runs/logs/<run_id>.log) without color codes, each line tagged with a level."""
+    """Log of one run (reports/logs/<run_id>.log) without color codes, each line tagged with a level."""
     f = LOGS_DIR / f"{run_id}.log"
     if not f.exists():
         return []
@@ -163,8 +162,8 @@ def get_tests_registry(lang="ar"):
     import sys
     sys.path.insert(0, str(BASE_DIR))
     try:
-        from config.tests_registry_new import TestsRegistry
-        return TestsRegistry.get_all_localized(lang)
+        from config.test_registry import TestRegistry
+        return TestRegistry.get_all_localized(lang)
     except Exception as e:
         print(f"[data_helper] Error: {e}")
         return []
