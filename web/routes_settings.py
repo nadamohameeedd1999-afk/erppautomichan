@@ -43,6 +43,8 @@ def settings():
         users=users,
         test_sites_data=test_sites_data,
         tunnel_config=__import__("web.tunnel_helper", fromlist=["load_config"]).load_config(),
+        ai_models=__import__("web.explain", fromlist=["AI_MODELS"]).AI_MODELS,
+        ai_model=site_config.get("anthropic_model") or "claude-sonnet-5-5",
         login_styles_list=LOGIN_STYLE_NAMES[get_current_lang()],
         ui_themes_list=UI_THEME_NAMES[get_current_lang()],
         login_style_saved=site_config.get("login_style") or "terminal",
@@ -74,6 +76,22 @@ UI_THEME_NAMES = {
            ("minimal", "Minimal + top menu", "Light and calm, menu on top"),
            ("rail", "Icon rail", "Dark, icons-only sidebar")],
 }
+
+
+@route("/api/settings/test-ai", methods=["POST"])
+@auth.login_required
+def settings_test_ai():
+    """try the Claude key (the typed one, or the saved one if the field still shows ••••)"""
+    from web import explain
+    d = request.get_json(silent=True) or {}
+    key = str(d.get("key") or "").strip()
+    if key.startswith("•") or key == "__clear__":
+        key = ""
+    try:
+        res = explain.test_key(key or None, str(d.get("model") or "").strip() or None)
+        return jsonify({"success": True, **res})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 @route("/settings/appearance", methods=["POST"])
@@ -109,6 +127,9 @@ def settings_site_save():
         config["anthropic_api_key"] = ""
     elif key and not key.startswith("•"):           # the masked value means «unchanged»
         config["anthropic_api_key"] = key
+    model = request.form.get("anthropic_model", "").strip()
+    if model:
+        config["anthropic_model"] = model
     settings_helper.save_site_config(config)
     flash("✅ تم حفظ إعدادات الموقع", "success")
     return redirect(url_for("settings"))

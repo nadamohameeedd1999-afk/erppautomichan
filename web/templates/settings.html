@@ -256,7 +256,19 @@ function editProfile(id, name, url, username, notes) {
                             <label class="form-label">🧠 مفتاح Claude API <span class="text-muted small">(اختياري — لشرح أسباب الفشل بالذكاء الاصطناعي)</span></label>
                             <input type="password" name="anthropic_api_key" class="form-control" dir="ltr" autocomplete="off"
                                    value="{{ '••••••••' if site_config.anthropic_api_key else '' }}" placeholder="sk-ant-...">
-                            <div class="form-text">من غير مفتاح الشرح التلقائي شغال عادي. اكتبي <code>__clear__</code> عشان تمسحيه. بيتبعت لـ Claude رسالة الفشل وآخر اللوج وصورة الشاشة بس.</div>
+                            <div class="row g-2 mt-1 align-items-center">
+                                <div class="col-md-5">
+                                    <select name="anthropic_model" id="aiModel" class="form-select form-select-sm">
+                                        {% for m, label in ai_models %}<option value="{{ m }}" {{ 'selected' if m == ai_model }}>{{ label }} · {{ m }}</option>{% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-7 d-flex gap-2 align-items-center flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAi()">🧪 اختبري المفتاح</button>
+                                    <a class="small" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">اعملي مفتاح من Anthropic Console ↗</a>
+                                    <span class="small" id="aiTestResult">{% if site_config.anthropic_api_key %}<span class="text-success">● فيه مفتاح محفوظ</span>{% endif %}</span>
+                                </div>
+                            </div>
+                            <div class="form-text">من غير مفتاح الشرح التلقائي شغال عادي. بعد ما تحفظي المفتاح، زرار «✨ اسأل الذكاء الاصطناعي» بيظهر في تقرير أي اختبار فاشل. اكتبي <code>__clear__</code> عشان تمسحيه. بيتبعت لـ Claude رسالة الفشل وآخر اللوج وصورة الشاشة بس — والاستهلاك بيتحسب على حساب Anthropic Console بتاعك.</div>
                         </div>
 
                         <div class="mb-3">
@@ -843,6 +855,19 @@ function editProfile(id, name, url, username, notes) {
 }
 </script>
 <script>
+async function testAi() {
+    const out = document.getElementById('aiTestResult');
+    out.innerHTML = '<span class="text-muted">⏳ بجرب…</span>';
+    const key = document.querySelector('input[name=anthropic_api_key]').value.trim();
+    try {
+        const r = await fetch('/api/settings/test-ai', {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key, model: document.getElementById('aiModel').value})}).then(r => r.json());
+        out.innerHTML = r.success
+            ? `<span class="text-success">✅ شغال — ${r.model} ردّ «${(r.reply || '').replace(/</g, '&lt;')}»${key && !key.startsWith('•') ? ' · متنسيش «حفظ»' : ''}</span>`
+            : `<span class="text-danger">❌ ${(r.error || '').replace(/</g, '&lt;')}</span>`;
+    } catch (e) { out.innerHTML = `<span class="text-danger">❌ ${e}</span>`; }
+}
+
 // المظهر: live mini previews (loaded when the tab opens) + highlight the picked card + open the tab from #appearance
 document.addEventListener('DOMContentLoaded', function () {
     function load() { document.querySelectorAll('#appearance iframe[data-src]').forEach(f => { f.src = f.dataset.src; f.removeAttribute('data-src'); }); }

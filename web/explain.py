@@ -123,6 +123,57 @@ def ai_available():
     return bool(_api_key())
 
 
+AI_MODELS = [("claude-sonnet-5-5", "Sonnet — متوازن (الافتراضي)"), ("claude-haiku-5-5", "Haiku — الأسرع والأرخص"),
+             ("claude-opus-5-5", "Opus — الأقوى والأغلى")]
+
+
+def _model():
+    from web import settings_helper as sh
+    return (sh.load_site_config().get("anthropic_model") or os.getenv("ANTHROPIC_MODEL") or AI_MODELS[0][0]).strip()
+
+
+def _call(key, model, content, max_tokens=700, timeout=60):
+    """one request to the Claude API; errors come back in Arabic, with what to do"""
+    import urllib.error
+    body = json.dumps({"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": content}]}).encode()
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
+        "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            msg = (json.loads(e.read().decode()).get("error") or {}).get("message", "")
+        except Exception:
+            msg = ""
+        low = msg.lower()
+        if e.code == 401:
+            raise RuntimeError("المفتاح غلط أو اتلغى — اعملي مفتاح جديد من console.anthropic.com وحطيه في الإعدادات") from None
+        if e.code == 403:
+            raise RuntimeError(f"المفتاح مالوش صلاحية على ده: {msg}") from None
+        if "credit" in low or "balance" in low or "billing" in low:
+            raise RuntimeError("الرصيد خلص في حساب Anthropic — اشحني من console.anthropic.com → Billing") from None
+        if e.code == 404 or "model" in low:
+            raise RuntimeError(f"الموديل «{model}» مش متاح للمفتاح ده — اختاري موديل تاني من الإعدادات ({msg})") from None
+        if e.code == 429:
+            raise RuntimeError("طلبات كتير ورا بعض — استني دقيقة وجربي تاني") from None
+        if e.code in (500, 529):
+            raise RuntimeError("سيرفر Claude مشغول دلوقتي — جربي كمان شوية") from None
+        raise RuntimeError(f"Claude API رجّع {e.code}: {msg or e.reason}") from None
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"مقدرتش أوصل لـ api.anthropic.com من السيرفر (الشبكة / البروكسي): {e.reason}") from None
+
+
+def test_key(key=None, model=None):
+    key = (key or _api_key()).strip()
+    if not key:
+        raise RuntimeError("مفيش مفتاح — اكتبيه الأول")
+    model = model or _model()
+    data = _call(key, model, [{"type": "text", "text": "رد بكلمة واحدة: تمام"}], max_tokens=10, timeout=30)
+    text = "".join(c.get("text", "") for c in data.get("content", []) if c.get("type") == "text").strip()
+    return {"model": data.get("model", model), "reply": text[:40]}
+
+
 def _cache(run_id):
     d = paths.RUNS_DIR / "explain"
     d.mkdir(parents=True, exist_ok=True)
@@ -144,7 +195,7 @@ def ask_ai(run_id, message, log_lines, screenshot_path=None):
     key = _api_key()
     if not key:
         raise RuntimeError("مفيش مفتاح Claude API — ضيفيه من الإعدادات")
-    model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+    model = _model()
     tail = "\n".join(log_lines[-120:])[-12000:]
     prompt = (
         "إنت مهندس اختبار لنظام ERP عربي (NQ ERP، ASP.NET MVC). اختبار آلي (Selenium) فشل.\n"
@@ -154,13 +205,10 @@ def ask_ai(run_id, message, log_lines, screenshot_path=None):
         f"رسالة الفشل:\n{message[:3000]}\n\nآخر اللوج:\n{tail}")
     content = [{"type": "text", "text": prompt}]
     if screenshot_path and os.path.exists(screenshot_path):
-        content.insert(0, {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+        content.insert(0, {"type": "image", "source": {"type": "base64",
+                                                       "media_type": "image/jpeg" if screenshot_path.lower().endswith((".jpg", ".jpeg")) else "image/png",
                                                        "data": base64.b64encode(open(screenshot_path, "rb").read()).decode()}})
-    body = json.dumps({"model": model, "max_tokens": 700, "messages": [{"role": "user", "content": content}]}).encode()
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
-        "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        data = json.loads(r.read().decode())
+    data = _call(key, model, content)
     text = "".join(c.get("text", "") for c in data.get("content", []) if c.get("type") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     try:

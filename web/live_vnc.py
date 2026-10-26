@@ -44,8 +44,8 @@ def novnc_dir():
 
 def vnc_port_open(timeout=0.6):
     try:
-        with socket.create_connection((VNC_HOST, VNC_PORT), timeout=timeout):
-            return True
+        _vnc_connect(timeout).close()
+        return True
     except OSError:
         return False
 
@@ -86,6 +86,70 @@ def init_app(app):
     if HAS_SOCK:
         _sock.init_app(app)
         _sock.route("/novnc-ws")(_ws_bridge)
+        _sock.route("/novnc-ws-test")(_ws_echo)
+
+
+def _vnc_connect(timeout=5):
+    """x11vnc -localhost listens on IPv4 127.0.0.1; 'localhost' may resolve to ::1 first"""
+    last = None
+    for host in dict.fromkeys([VNC_HOST, "127.0.0.1"]):
+        try:
+            return socket.create_connection((host, VNC_PORT), timeout=timeout)
+        except OSError as e:
+            last = e
+    raise last
+
+
+def _ws_echo(ws):
+    """the live page checks that websockets get through the server / Railway before opening noVNC"""
+    try:
+        msg = ws.receive(timeout=5)
+        ws.send("pong" if msg == "ping" else "?")
+    except Exception:
+        pass
+
+
+# ---------------- picture mode (no websocket needed): a JPEG of the test browser's screen ----------------
+_frame = {"t": 0.0, "data": b"", "lock": threading.Lock()}
+
+
+def grab_frame(max_w=1280, quality=62):
+    import io
+    import time
+    with _frame["lock"]:
+        if time.time() - _frame["t"] < 0.35 and _frame["data"]:      # several viewers share one grab
+            return _frame["data"]
+        from PIL import ImageGrab
+        disp = os.getenv("DISPLAY", ":99")
+        im = ImageGrab.grab(xdisplay=disp).convert("RGB")
+        if im.width > max_w:
+            im = im.resize((max_w, round(im.height * max_w / im.width)))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=quality, optimize=True)
+        _frame.update(t=time.time(), data=buf.getvalue())
+        return _frame["data"]
+
+
+def frames_available():
+    if os.name == "nt":
+        return False
+    try:
+        from PIL import ImageGrab, features      # noqa: F401
+        disp = os.getenv("DISPLAY", ":99").split(":")[-1].split(".")[0] or "99"
+        return features.check("xcb") and os.path.exists(f"/tmp/.X11-unix/X{disp}")
+    except Exception:
+        return False
+
+
+@bp.route("/api/live/frame.jpg")
+@auth.login_required
+def live_frame():
+    from flask import Response
+    try:
+        data = grab_frame()
+    except Exception as e:
+        return jsonify({"success": False, "error": f"مقدرتش آخد صورة الشاشة: {e}"}), 503
+    return Response(data, mimetype="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @bp.route("/novnc/<path:filename>")
@@ -114,6 +178,7 @@ def live_status():
         "has_sock": HAS_SOCK,
         "novnc": novnc_dir() is not None,
         "vnc_up": vnc_port_open(),
+        "frames": frames_available(),
         "test_running": running,
         "test_name": running_name,
     })
@@ -125,8 +190,9 @@ def _ws_bridge(ws):
         ws.close()
         return
     try:
-        tcp = socket.create_connection((VNC_HOST, VNC_PORT), timeout=5)
-    except OSError:
+        tcp = _vnc_connect()
+    except OSError as e:
+        print(f"[live] websocket: مقدرتش أوصل لسيرفر العرض {VNC_HOST}:{VNC_PORT}: {e}", flush=True)
         ws.close()
         return
     tcp.settimeout(None)

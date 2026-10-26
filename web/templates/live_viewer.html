@@ -9,6 +9,9 @@
     .live-switch .form-check-input { width: 3.2em; height: 1.6em; cursor: pointer; margin: 0; }
     .live-frame { position: relative; background: #0b0d12; border-radius: 12px; overflow: hidden; height: 72vh; min-height: 420px; }
     .live-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .live-frame #liveImg { width: 100%; height: 100%; object-fit: contain; display: block; background: #0b0d12; }
+    .mode-bar { position: absolute; bottom: 10px; inset-inline-start: 10px; display: flex; gap: 8px; align-items: center;
+                background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 10px; z-index: 5; }
     .live-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
                 justify-content: center; color: #aab0c0; gap: 12px; text-align: center; padding: 20px; }
     .live-off i { font-size: 56px; opacity: .6; }
@@ -58,6 +61,11 @@
 
     <div class="live-frame shadow-sm" id="liveFrame">
         <iframe id="vncFrame" allow="clipboard-read; clipboard-write; fullscreen" style="display:none"></iframe>
+        <img id="liveImg" alt="" style="display:none">
+        <div class="mode-bar" id="modeBar" style="display:none">
+            <span id="modeTxt"></span>
+            <button class="btn btn-sm btn-outline-light" id="modeBtn" onclick="switchMode()"></button>
+        </div>
         <div class="live-off" id="liveOff">
             <i class="bi bi-camera-video-off"></i>
             <div class="fw-bold fs-5" id="offTitle">البث متوقف</div>
@@ -92,33 +100,128 @@ function vncUrl() {
     return '';
 }
 
-function setLive(on, auto) {
+// MODE: 'vnc' = noVNC (full, needs websockets) · 'pics' = a picture of the screen every half second (works everywhere)
+let MODE = null, WS_OK = null, picTimer = null, watchTimer = null, lastUrl = null;
+
+function wsWorks() {
+    if (WS_OK !== null) return Promise.resolve(WS_OK);
+    return new Promise(res => {
+        let done = false;
+        const fin = ok => { if (done) return; done = true; WS_OK = ok; try { w.close(); } catch (e) {} res(ok); };
+        let w;
+        try { w = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/novnc-ws-test'); }
+        catch (e) { return fin(false); }
+        w.onopen = () => w.send('ping');
+        w.onmessage = e => fin(e.data === 'pong');
+        w.onerror = () => fin(false);
+        w.onclose = () => fin(false);
+        setTimeout(() => fin(false), 5000);
+    });
+}
+
+async function setLive(on, auto) {
     LIVE = on;
     autoStarted = !!auto && on;
-    const frame = document.getElementById('vncFrame');
-    const off = document.getElementById('liveOff');
     document.getElementById('liveToggle').checked = on;
     document.getElementById('liveLabel').textContent = on ? '🔴 البث شغال' : 'البث متوقف';
-    if (on) {
-        const url = vncUrl();
-        if (!url) {
-            LIVE = false;
-            document.getElementById('liveToggle').checked = false;
-            document.getElementById('liveLabel').textContent = 'البث متوقف';
+    stopAll();
+    if (!on) { showOff('البث متوقف', 'شغّلي البث من الزرار اللي فوق.'); return; }
+    let mode = opts.mode;
+    if (mode === 'vnc' || !mode) {
+        if (STATUS.proxy) { showOff('بيوصل…', 'بتأكد إن الاتصال المباشر شغال على السيرفر'); mode = (await wsWorks()) ? 'vnc' : (STATUS.frames ? 'pics' : 'vnc'); }
+        else if (EXTERNAL_URL) mode = 'vnc';
+        else mode = STATUS.frames ? 'pics' : null;
+    }
+    if (mode === 'pics' && !STATUS.frames) mode = STATUS.proxy || EXTERNAL_URL ? 'vnc' : null;
+    if (!mode || !LIVE) {
+        if (!mode) {
+            LIVE = false; document.getElementById('liveToggle').checked = false; document.getElementById('liveLabel').textContent = 'البث متوقف';
             showOff('العرض مش متاح هنا', STATUS.has_sock === false
                 ? 'محتاجين نثبّت flask-sock: python -m pip install flask-sock وبعدين نعيد تشغيل الداشبورد.'
-                : 'noVNC مش متثبت على الجهاز ده. على Railway بيشتغل لوحده، ومحلياً ممكن تحطي رابط VNC في الإعدادات (النفق).');
-            return;
+                : 'البث بيشتغل على السيرفر (Railway). محلياً ممكن تحطي رابط VNC في الإعدادات.');
         }
-        frame.src = url;
-        frame.style.display = 'block';
-        off.style.display = 'none';
-        document.getElementById('openTab').href = url;
-    } else {
-        frame.src = 'about:blank';                // يقفل الاتصال فعلاً
-        frame.style.display = 'none';
-        showOff('البث متوقف', 'شغّلي البث من الزرار اللي فوق.');
+        return;
     }
+    start(mode, WS_OK === false && mode === 'pics');
+}
+
+function start(mode, fellBack) {
+    MODE = mode;
+    const frame = document.getElementById('vncFrame'), img = document.getElementById('liveImg');
+    document.getElementById('liveOff').style.display = 'none';
+    if (mode === 'vnc') {
+        const url = vncUrl(); lastUrl = url;
+        frame.src = url; frame.style.display = 'block'; img.style.display = 'none';
+        document.getElementById('openTab').href = url;
+        watchTimer = setTimeout(checkVnc, 8000);           // noVNC couldn't connect -> pictures
+    } else {
+        frame.src = 'about:blank'; frame.style.display = 'none'; img.style.display = 'block';
+        document.getElementById('openTab').href = '/api/live/frame.jpg';
+        picLoop();
+    }
+    modeBar(fellBack);
+}
+
+function checkVnc() {
+    if (!LIVE || MODE !== 'vnc') return;
+    let bad = false;
+    try {
+        const d = document.getElementById('vncFrame').contentDocument;
+        const st = d && d.getElementById('noVNC_status');
+        const connected = d && d.documentElement.classList.contains('noVNC_connected');
+        bad = !connected && !!st && /failed|disconnect|فشل/i.test(st.textContent || '');
+        if (!connected && !bad && d && d.getElementById('noVNC_connect_dlg') && d.getElementById('noVNC_connect_dlg').classList.contains('noVNC_open')) bad = true;
+    } catch (e) {}
+    if (bad && STATUS.frames) { stopAll(); start('pics', true); }
+    else if (LIVE && MODE === 'vnc') watchTimer = setTimeout(checkVnc, 5000);
+}
+
+async function picLoop() {
+    const img = document.getElementById('liveImg');
+    while (LIVE && MODE === 'pics') {
+        const t0 = Date.now();
+        try {
+            const r = await fetch('/api/live/frame.jpg?t=' + t0, {cache: 'no-store'});
+            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+            const url = URL.createObjectURL(await r.blob());
+            const old = img.src; img.src = url; if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+        } catch (e) {
+            showOff('مقدرتش آخد صورة الشاشة', String(e.message || e)); await new Promise(r => setTimeout(r, 3000));
+            if (LIVE && MODE === 'pics') document.getElementById('liveOff').style.display = 'none';
+        }
+        await new Promise(r => setTimeout(r, Math.max(150, 500 - (Date.now() - t0))));
+    }
+}
+
+function stopAll() {
+    clearTimeout(watchTimer);
+    MODE = null;
+    const frame = document.getElementById('vncFrame');
+    frame.src = 'about:blank'; frame.style.display = 'none';
+    document.getElementById('liveImg').style.display = 'none';
+    document.getElementById('modeBar').style.display = 'none';
+}
+
+function modeBar(fellBack) {
+    const bar = document.getElementById('modeBar');
+    if (MODE === 'pics') {
+        document.getElementById('modeTxt').textContent = fellBack
+            ? '📷 وضع الصور — الاتصال المباشر (WebSocket) مش شغال على السيرفر، فبعرض صورة الشاشة كل نص ثانية'
+            : '📷 وضع الصور (مشاهدة بس)';
+        document.getElementById('modeBtn').textContent = 'جربي التحكم الكامل';
+        document.getElementById('modeBtn').style.display = (STATUS.proxy || EXTERNAL_URL) ? '' : 'none';
+    } else {
+        document.getElementById('modeTxt').textContent = '🖥️ عرض مباشر (noVNC)';
+        document.getElementById('modeBtn').textContent = 'وضع الصور';
+        document.getElementById('modeBtn').style.display = STATUS.frames ? '' : 'none';
+    }
+    bar.style.display = 'flex';
+}
+
+function switchMode() {
+    const next = MODE === 'pics' ? 'vnc' : 'pics';
+    saveOpt('mode', next); WS_OK = null;
+    stopAll(); start(next, false);
 }
 
 function showOff(title, hint) {
@@ -127,7 +230,7 @@ function showOff(title, hint) {
     document.getElementById('liveOff').style.display = 'flex';
 }
 
-function reconnect() { if (LIVE) { setLive(false); setTimeout(() => setLive(true, autoStarted), 300); } }
+function reconnect() { if (LIVE) { const a = autoStarted; WS_OK = null; setLive(false); setTimeout(() => setLive(true, a), 300); } }
 function goFull() {
     const el = document.getElementById('liveFrame');
     (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
@@ -138,8 +241,8 @@ async function poll() {
         STATUS = await fetch('/api/live/status').then(r => r.json());
     } catch (e) { STATUS = {}; }
     const dv = document.getElementById('dotVnc'), tv = document.getElementById('txtVnc');
-    if (STATUS.proxy || EXTERNAL_URL) {
-        dv.className = 'dot ' + (STATUS.vnc_up || EXTERNAL_URL ? 'on' : 'off');
+    if (STATUS.proxy || EXTERNAL_URL || STATUS.frames) {
+        dv.className = 'dot ' + (STATUS.vnc_up || EXTERNAL_URL || STATUS.frames ? 'on' : 'off');
         tv.textContent = STATUS.vnc_up ? 'سيرفر العرض شغال' : (EXTERNAL_URL ? 'رابط خارجي' : 'سيرفر العرض واقف');
     } else {
         dv.className = 'dot off'; tv.textContent = 'العرض مش متاح هنا';
