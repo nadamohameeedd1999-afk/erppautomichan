@@ -474,6 +474,7 @@ function renderAll() {
                             <th style="width:40px;"></th>
                             <th>الشاشة</th>
                             <th style="width:200px;">النوع</th>
+                            <th style="width:230px;">السيناريو</th>
                             <th style="width:120px;">آخر نتيجة</th>
                             <th style="width:150px;">الإجراءات</th>
                         </tr>
@@ -552,13 +553,12 @@ function renderRow(t) {
             </td>
             <td>
                 <strong>${t.icon} ${t.name}</strong>
-                ${t.scenario
-                    ? `<a href="/scenarios?screen=${encodeURIComponent(t.screen_key)}&scn=${encodeURIComponent(t.scenario_key)}" class="badge bg-info text-dark text-decoration-none ms-1" title="سيناريو — اضغط للتعديل">🎬 سيناريو</a>`
-                    : (t.builder ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none ms-1" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>` : '')}
+                ${t.builder && t.full_path ? `<a href="/screens?key=${encodeURIComponent(t.page_key)}" class="badge bg-warning text-dark text-decoration-none ms-1" title="الشاشة دي شغالة من منشئ الشاشات — اضغط للتعديل">🧩 منشئ الشاشات</a>` : ''}
                 <br>
                 <small class="text-muted">${t.url || t.page_key}</small>
             </td>
             <td>${typeCell}${repeatCell}</td>
+            <td>${scenarioCell(t)}</td>
             <td>${resultCell}</td>
             <td>
                 <button class="btn btn-sm btn-success"
@@ -680,33 +680,74 @@ function getRowType(testId) {
     return container.dataset.selectedType || 'full';
 }
 
+// ==================== Scenarios ====================
+// اختيار السيناريو لكل شاشة (بيفضل محفوظ لو الجدول اتعمله رسم تاني أو الصفحة اتحدّثت)
+const SCN_KEY = 'erp_scenario_choice';
+let SCN_CHOICE = (() => { try { return JSON.parse(localStorage.getItem(SCN_KEY) || '{}'); } catch (e) { return {}; } })();
+
+function setScenario(testId, value) {
+    SCN_CHOICE[testId] = value;
+    try { localStorage.setItem(SCN_KEY, JSON.stringify(SCN_CHOICE)); } catch (e) {}
+}
+
+function scenarioCell(t) {
+    const list = t.scenarios || [];
+    if (!list.length) {
+        return `<a href="/scenarios?screen=${encodeURIComponent(t.page_key)}" class="small text-muted text-decoration-none" title="إضافة سيناريو للشاشة دي">＋ إضافة سيناريو</a>`;
+    }
+    const opts = [];
+    if (t.full_path) opts.push(['base', '⭐ الأساسي (إعداد الشاشة)']);
+    list.forEach(s => opts.push([s.key, '🎬 ' + s.name]));
+    if (list.length + (t.full_path ? 1 : 0) > 1) opts.push(['all', `▶ كل السيناريوهات (${list.length + (t.full_path ? 1 : 0)})`]);
+    let cur = SCN_CHOICE[t.id];
+    if (!opts.some(o => o[0] === cur)) cur = opts[0][0];
+    return `<select class="form-select form-select-sm row-scn" data-test-id="${t.id}" onchange="setScenario('${t.id}', this.value)">
+                ${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <div class="small mt-1"><a class="text-decoration-none" href="/scenarios?screen=${encodeURIComponent(t.page_key)}">＋ سيناريو جديد</a></div>`;
+}
+
+// الاختبارات الكاملة اللي هتتشغل للصف ده حسب السيناريو المختار
+function fullTargets(test) {
+    const list = test.scenarios || [];
+    if (!list.length) return test.full_path ? [{path: test.full_path, label: ''}] : [];
+    const el = document.querySelector(`.row-scn[data-test-id="${test.id}"]`);
+    const choice = el ? el.value : (SCN_CHOICE[test.id] || (test.full_path ? 'base' : list[0].key));
+    const base = test.full_path ? [{path: test.full_path, label: 'الأساسي'}] : [];
+    const scn = list.map(s => ({path: s.full_path, label: s.name}));
+    if (choice === 'all') return [...base, ...scn];
+    if (choice === 'base') return base;
+    const one = list.find(s => s.key === choice);
+    return one ? [{path: one.full_path, label: one.name}] : base;
+}
+
 // ==================== Run ====================
 async function runRow(testId) {
     const test = ALL_TESTS.find(t => t.id === testId);
     if (!test) return;
 
     const type = getRowType(testId);
-    let path = null;
+    const isFull = test.full_available && (type === 'full' || !test.smoke_available);
 
-    if (type === 'full' && test.full_available) {
-        path = test.full_path;
-    } else if (type === 'smoke' && test.smoke_available) {
-        path = test.smoke_path;
-    } else if (test.full_available) {
-        path = test.full_path;
-    } else if (test.smoke_available) {
-        path = test.smoke_path;
+    if (isFull) {
+        const targets = fullTargets(test);
+        if (!targets.length) { alert('مفيش اختبار كامل للسيناريو ده'); return; }
+        const repeat = getRowRepeat(testId);
+        for (const tg of targets) {
+            const runner = new TestRunner({});
+            await runner.run(tg.path, `${test.name}${tg.label ? ' — ' + tg.label : ''} (كامل)${repeat > 1 ? ' ×' + repeat : ''}`, repeat);
+        }
+        return;
     }
 
+    const path = test.smoke_available ? test.smoke_path : null;
     if (!path) {
         alert('مفيش اختبار متاح للشاشة دي');
         return;
     }
-
-    const name = `${test.name} (${type === 'full' ? 'كامل' : 'شاشة'})`;
+    const name = `${test.name} (شاشة)`;
     const runner = new TestRunner({});
-    const repeat = (path === test.full_path) ? getRowRepeat(testId) : 1;
-    await runner.run(path, name + (repeat > 1 ? ` ×${repeat}` : ''), repeat);
+    await runner.run(path, name, 1);
 }
 
 async function runSelected(mode) {
@@ -738,9 +779,14 @@ async function runSelected(mode) {
             }
         }
 
-        if (path) {
-            const rep = (path === test.full_path) ? getGlobalRepeat() : 1;
-            tasks.push({ path, repeat: rep, name: `${test.name} (${type === 'full' ? 'كامل' : 'شاشة'})${rep > 1 ? ' ×' + rep : ''}` });
+        if (type === 'full' && test.full_available) {
+            const rep = getGlobalRepeat();
+            fullTargets(test).forEach(tg => tasks.push({
+                path: tg.path, repeat: rep,
+                name: `${test.name}${tg.label ? ' — ' + tg.label : ''} (كامل)${rep > 1 ? ' ×' + rep : ''}`,
+            }));
+        } else if (path) {
+            tasks.push({ path, repeat: 1, name: `${test.name} (شاشة)` });
         }
     }
 

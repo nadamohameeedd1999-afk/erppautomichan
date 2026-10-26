@@ -397,44 +397,6 @@ class TestsRegistry:
                     "builder": page_key in screen_cfgs,
                 })
 
-        # سيناريوهات (أنواع السيناريوهات) — كل سيناريو صف لوحده تحت مديول الشاشة بتاعته
-        try:
-            from engine import scenario_config
-            scenarios = [c for c in scenario_config.list_all() if not c.get("error")]
-        except Exception:
-            scenarios = []
-        page_module = {}
-        for mk, mi in all_modules.items():
-            for pk in mi["pages"]:
-                page_module.setdefault(pk, mk)
-        for c in scenarios:
-            sk = c["screen_key"]
-            mod_key = page_module.get(sk) or (screen_cfgs.get(sk) or {}).get("module_key") or "custom"
-            mod_info = all_modules.get(mod_key) or {
-                "name_ar": "شاشات منشئ الشاشات", "name_en": "Screen Builder", "icon": "🧩"}
-            if mod_key not in all_modules:
-                mod_key = "custom"
-            result.append({
-                "id": f"{mod_key}::{c['key']}",
-                "module_key": mod_key,
-                "module_name": mod_info.get(f"name_{lang}", mod_info["name_ar"]),
-                "module_icon": mod_info["icon"],
-                "page_key": c["key"],
-                "screen_key": sk,
-                "scenario_key": c["scenario_key"],
-                "name": c["name_ar"],
-                "icon": "🎬",
-                "url": c["list_url"],
-                "full_path": scenario_config.test_path_for(sk, c["scenario_key"]),
-                "smoke_path": None,
-                "full_available": True,
-                "smoke_available": False,
-                "last_result": last_results.get(c["key"]),
-                "duration_estimate": 120,
-                "builder": True,
-                "scenario": True,
-            })
-
         # شاشات اتعملت في منشئ الشاشات ومش موجودة في المديولات
         for key, c in screen_cfgs.items():
             if key in used_screens:
@@ -461,6 +423,39 @@ class TestsRegistry:
                 "duration_estimate": 120,
                 "builder": True,
             })
+
+        # السيناريوهات بتتعرض جوه صف الشاشة بتاعتها (قايمة "السيناريو" في صفحة الاختبارات)
+        try:
+            from engine import scenario_config
+            scenarios = [c for c in scenario_config.list_all() if not c.get("error")]
+        except Exception:
+            scenarios = []
+        by_screen = {}
+        for c in scenarios:
+            by_screen.setdefault(c["screen_key"], []).append({
+                "key": c["scenario_key"],
+                "name": c.get("scenario_name") or c["scenario_key"],
+                "full_path": scenario_config.test_path_for(c["screen_key"], c["scenario_key"]),
+                "last_result": last_results.get(c["key"]),
+            })
+        rows_by_page = {r["page_key"]: r for r in result}
+        for sk, items in by_screen.items():
+            row = rows_by_page.get(sk)
+            if row is None:
+                first = next(c for c in scenarios if c["screen_key"] == sk)
+                row = {
+                    "id": f"custom::{sk}", "module_key": "custom",
+                    "module_name": "شاشات منشئ الشاشات" if lang != "en" else "Screen Builder",
+                    "module_icon": "🧩", "page_key": sk,
+                    "name": first.get("screen_name") or sk, "icon": "🧩", "url": first.get("list_url", ""),
+                    "full_path": None, "smoke_path": None, "full_available": False, "smoke_available": False,
+                    "last_result": None, "duration_estimate": 120, "builder": True,
+                }
+                result.append(row)
+            row["scenarios"] = items
+            row["full_available"] = True
+        for r in result:
+            r.setdefault("scenarios", [])
 
         return result
 
