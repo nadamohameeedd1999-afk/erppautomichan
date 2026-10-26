@@ -53,8 +53,25 @@ def api_run_center():
                        "message": r["message"], "path": s.get("test_path"), "source": s.get("source", "manual"),
                        "retry_of": s.get("retry_of"), "auto_retry": s.get("auto_retry"),
                        "repeat": s.get("repeat", 1)})
-    return jsonify({"success": True, "running": cur, "queue": st.get("queue", []), "log": log_tail,
+    return jsonify({"success": True, "running": cur, "running_all": st.get("running_all", []), "workers": st.get("workers", 1),
+                    "queue": st.get("queue", []), "log": log_tail,
                     "recent": recent, "server_time": datetime.now().isoformat(timespec="seconds")})
+
+
+@bp.route("/api/run-center/workers", methods=["POST"])
+@auth.login_required
+def api_rc_workers():
+    n = (request.get_json(silent=True) or {}).get("workers", 1)
+    qm = get_manager()
+    n = qm.set_workers(n)
+    qm._pump()                      # free slots start waiting tests right away
+    return jsonify({"success": True, "workers": n})
+
+
+@bp.route("/api/run-center/stop/<task_id>", methods=["POST"])
+@auth.login_required
+def api_rc_stop(task_id):
+    return jsonify({"success": get_manager().stop_current(task_id)})
 
 
 @bp.route("/api/run-center/remove/<task_id>", methods=["POST"])
@@ -113,9 +130,53 @@ def _sched_view(s):
 @bp.route("/api/schedules")
 @auth.login_required
 def api_sched_list():
+    from web import test_sites_helper as ts
+    sites = [{"id": p.get("id"), "name": p.get("name"), "url": p.get("base_url")} for p in ts.load_all().get("profiles", [])]
     return jsonify({"success": True, "schedules": [_sched_view(s) for s in scheduler.load()],
                     "catalog": _test_catalog(), "now": scheduler.now().isoformat(timespec="minutes"),
-                    "tz": scheduler.TZ_NAME})
+                    "tz": scheduler.TZ_NAME, "sites": sites,
+                    "hook": {"url": request.host_url.rstrip("/") + "/api/hooks/run", "token": hook_token()} if auth.is_admin() else None})
+
+
+# ======================= run after every ERP update (رابط تشغيل خارجي) =======================
+def hook_token(new=False):
+    import secrets
+    from config import paths
+    f = paths.settings_file("hook_token")
+    if new or not f.exists():
+        f.write_text(secrets.token_urlsafe(24), encoding="utf-8")
+    return f.read_text(encoding="utf-8").strip()
+
+
+@bp.route("/api/hooks/token", methods=["POST"])
+@auth.login_required
+def api_hook_token_new():
+    if not auth.is_admin():
+        return jsonify({"success": False, "error": "للأدمن بس"}), 403
+    return jsonify({"success": True, "token": hook_token(new=True)})
+
+
+@bp.route("/api/hooks/run", methods=["GET", "POST"])
+def api_hook_run():
+    """Called by the ERP publish script / CI after a new version is on the test site.
+    ?token=...&schedule=<id or name>  [&site=<profile id or name>]   or  &tests=all"""
+    import hmac
+    d = {**request.args, **(request.get_json(silent=True) or {}), **request.form}
+    if not hmac.compare_digest(str(d.get("token") or request.headers.get("X-Token") or ""), hook_token()):
+        return jsonify({"success": False, "error": "token غلط"}), 403
+    want = str(d.get("schedule") or "").strip()
+    if want:
+        s = next((x for x in scheduler.load() if want in (x["id"], x["name"])), None)
+        if not s:
+            return jsonify({"success": False, "error": f"مفيش جدولة اسمها {want}"}), 404
+    elif str(d.get("tests") or "") == "all":
+        s = {"id": "hook_all", "name": "كل الاختبارات (رابط)", "mode": "all_full", "repeat": 1}
+    else:
+        return jsonify({"success": False, "error": "حددي schedule=<اسم الجدولة> أو tests=all"}), 400
+    site = d.get("site")
+    batch = scheduler.fire(s, manual=True, site=site if site is not None else None, source="hook")
+    print(f"[hook] 🚀 {s['name']}: {len(batch)} اختبار (version={d.get('version', '')})", flush=True)
+    return jsonify({"success": True, "queued": len(batch), "schedule": s["name"], "tasks": batch})
 
 
 @bp.route("/api/schedules", methods=["POST"])
@@ -245,3 +306,53 @@ def api_trash_restore():
     from web import backup
     rel = (request.get_json(silent=True) or {}).get("id", "")
     return jsonify({"success": backup.trash_restore(rel)})
+
+
+# ======================= daily report (التقرير اليومي) =======================
+def _report_range():
+    from datetime import datetime, timedelta
+    def parse(v, default):
+        try:
+            return datetime.fromisoformat(v) if v else default
+        except ValueError:
+            return default
+    now = datetime.now()
+    to = parse(request.args.get("to"), now)
+    frm = parse(request.args.get("from"), to - timedelta(days=1))
+    return frm, to
+
+
+@bp.route("/reports/daily")
+@auth.login_required
+def daily_report_page():
+    from web import daily_report
+    frm, to = _report_range()
+    page = daily_report.html_report(frm, to, (auth.current_user() or {}).get("full_name", ""))
+    q = request.query_string.decode()
+    bar = (f'<div class="noprint" style="font-family:Tahoma;text-align:center;margin:10px">'
+           f'<a href="/reports/daily.pdf?{q}" style="background:#0F7C7A;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none">⬇️ PDF</a> '
+           f'<a href="javascript:print()" style="margin-inline-start:8px">🖨️ طباعة</a> '
+           f'<a href="/reports" style="margin-inline-start:8px">↩ التقارير</a></div>')
+    return page.replace("<body>", "<body>" + bar, 1)
+
+
+@bp.route("/reports/daily.pdf")
+@auth.login_required
+def daily_report_pdf():
+    from flask import Response
+    from web import daily_report
+    frm, to = _report_range()
+    pdf = daily_report.pdf_report(frm, to, (auth.current_user() or {}).get("full_name", ""))
+    return Response(pdf, mimetype="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="daily_report_{to:%Y%m%d}.pdf"'})
+
+
+@bp.route("/api/reports/daily/send", methods=["POST"])
+@auth.login_required
+def daily_report_send():
+    from web import daily_report
+    try:
+        f = daily_report.send_daily()
+        return jsonify({"success": True, "file": f.name})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

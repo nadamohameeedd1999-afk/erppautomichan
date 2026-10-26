@@ -45,3 +45,4 @@ tree.txt
 *.zip
 *.patch
 *.tmp
+selftest/mock_erp/node_modules

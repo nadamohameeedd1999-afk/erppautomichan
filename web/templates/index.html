@@ -231,6 +231,10 @@
             <div class="card panel" style="height:auto">
                 <div class="card-header">🐢 الأبطأ <small>متوسط المدة</small></div>
                 <div class="card-body pt-2 mini-list">
+                    {% for s in home.slower %}
+                    <div class="item" style="background:#fff4e5;border-radius:8px;padding:4px 6px"><div class="fw-bold">⚠️ {{ s.name }}</div>
+                        <span class="muted">آخر مرة {{ s.last }} ث — المعتاد {{ s.usual }} ث (+{{ s.pct }}%)</span></div>
+                    {% endfor %}
                     {% for s in home.slow %}
                     <div class="item"><div class="fw-bold">{{ s.name }}</div><span class="muted">{{ s.avg }} ث · {{ s.runs }} مرة</span></div>
                     {% else %}

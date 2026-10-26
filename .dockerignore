@@ -17,3 +17,4 @@ chrome_profile/
 _backup*/
 _safe_*/
 _old_builder/
+selftest/

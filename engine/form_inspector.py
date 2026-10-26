@@ -16,6 +16,7 @@ from config.settings import BASE_URL
 from pages.base_page import BasePage
 from utils.logger import logger
 from engine import text_match
+from engine.smart_values import guess as smart_guess
 
 SCAN_JS = r"""
 var root = arguments[0] || document;
@@ -320,9 +321,9 @@ class FormInspector(BasePage):
             elif f["kind"] == "checkbox":
                 f["suggested_strategy"] = "keep"
             elif f["kind"] == "number":
-                f["suggested_strategy"] = "fixed"
+                f["suggested_strategy"] = "smart" if smart_guess(f["label"], f["id"]) else "fixed"
             else:
-                f["suggested_strategy"] = "keep" if f["value"] else "unique"
+                f["suggested_strategy"] = "keep" if f["value"] else ("smart" if smart_guess(f["label"], f["id"]) else "unique")
             f["options"] = text_match.real_options(f.get("options"))[:40]
             fields.append(f)
 
@@ -331,7 +332,7 @@ class FormInspector(BasePage):
         elif not any(f["required"] for f in fields):
             warnings.append("مالقيتش حقول إجبارية متعلّم عليها — علّمي على الحقول المهمة بنفسك")
         if any(f["in_table"] and f["visible"] for f in fields):
-            warnings.append("الشاشة فيها جدول أصناف/سطور — حقول الجدول لسه مش مدعومة في المحرك العام")
+            warnings.append("الشاشة فيها جدول أصناف/سطور — استخدمي «➕ قالب: إضافة صنف» أو «⏺ سجّلي خطواتك» للسطور")
 
         buttons = self.scan_buttons()
         save = next((b["selector"] for b in buttons if b["id"].lower() in ("save", "btnsave")), "")

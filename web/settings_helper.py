@@ -15,7 +15,8 @@ from config import paths
 CONFIG_DIR = paths.SETTINGS_DIR
 SITE_CONFIG = paths.settings_file("site_config.json")
 USERS_FILE = paths.settings_file("users.json")
-UPLOADS_DIR = BASE_DIR / "web" / "static" / "uploads"
+UPLOADS_DIR = paths.SETTINGS_DIR / "uploads"          # logo / favicon live with the data (not lost on redeploy)
+LEGACY_UPLOADS_DIR = BASE_DIR / "web" / "static" / "uploads"
 
 
 def _load_json(path, default=None):
@@ -216,6 +217,15 @@ def delete_user(user_id):
 def get_uploads_dir():
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     return UPLOADS_DIR
+
+
+def find_upload(filename):
+    """the uploaded logo/favicon: data/settings/uploads first, then the old web/static/uploads"""
+    for d in (UPLOADS_DIR, LEGACY_UPLOADS_DIR):
+        p = (d / filename).resolve()
+        if p.parent == d.resolve() and p.exists():
+            return p
+    return None
 
 
 # ==================== Email Config ====================

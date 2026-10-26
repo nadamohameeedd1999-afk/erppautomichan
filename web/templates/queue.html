@@ -42,7 +42,12 @@
         <!-- running now -->
         <div class="col-lg-7">
             <div class="card rc-card h-100">
-                <div class="card-header">شغال دلوقتي <span class="muted" id="srvTime"></span></div>
+                <div class="card-header">شغال دلوقتي <span class="muted" id="srvTime"></span>
+                    <span class="ms-auto d-flex align-items-center gap-1 small fw-normal" title="كام اختبار يشتغل في نفس الوقت. اختبارين على نفس الشاشة عمرهم ما بيشتغلوا مع بعض.">
+                        في نفس الوقت:
+                        <select class="form-select form-select-sm" id="workersSel" style="width:70px" onchange="setWorkers(this.value)">
+                            <option>1</option><option>2</option><option>3</option><option>4</option></select>
+                    </span></div>
                 <div class="card-body">
                     <div class="now-box idle" id="nowBox">
                         <div class="text-muted">مفيش اختبار شغال دلوقتي.</div>
@@ -121,7 +126,17 @@ async function load() {
     renderNow(); renderQueue(); renderRecent();
 }
 
+async function setWorkers(n) {
+    await fetch('/api/run-center/workers', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({workers: +n})});
+    load();
+}
+async function stopOne(id) {
+    if (!confirm('توقفي الاختبار ده؟')) return;
+    await fetch('/api/run-center/stop/' + encodeURIComponent(id), {method: 'POST'}); load();
+}
 function renderNow() {
+    const sel = document.getElementById('workersSel');
+    if (sel && document.activeElement !== sel) sel.value = DATA.workers || 1;
     const box = document.getElementById('nowBox');
     const cur = DATA.running;
     if (!cur) {
@@ -130,6 +145,7 @@ function renderNow() {
         document.getElementById('miniLog').textContent = '—';
         return;
     }
+    const others = (DATA.running_all || []).slice(1);
     box.className = 'now-box';
     box.innerHTML = `
         <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
@@ -147,7 +163,12 @@ function renderNow() {
                     <button class="btn btn-sm btn-danger" onclick="stopNow()"><i class="bi bi-stop-fill"></i> إيقاف</button>
                 </div>
             </div>
-        </div>`;
+        </div>
+        ${others.map(t => `<div class="d-flex justify-content-between align-items-center border-top mt-2 pt-2">
+            <div><span class="rec"></span><strong>${esc(t.test_name)}</strong>
+                <span class="muted">${t.started_at ? since(t.started_at) : ''}</span></div>
+            <button class="btn btn-sm btn-outline-danger" onclick="stopOne('${esc(t.task_id)}')"><i class="bi bi-stop-fill"></i></button>
+        </div>`).join('')}`;
     const log = document.getElementById('miniLog');
     log.innerHTML = (DATA.log || []).map(l => {
         const c = /ERROR|FAILED|❌|^E /.test(l) ? 'e' : /WARNING|⚠️/.test(l) ? 'w' : /SUCCESS|✅|PASSED|🎯/.test(l) ? 's' : '';
@@ -197,7 +218,7 @@ async function post(url, body) {
 async function move(id, d) { await post(`/api/run-center/move/${encodeURIComponent(id)}/${d}`); load(); }
 async function removeTask(id) { await post(`/api/run-center/remove/${encodeURIComponent(id)}`); load(); }
 async function clearQueue() { if (confirm('تشيلي كل اللي مستني في الطابور؟')) { await post('/api/run-center/clear'); load(); } }
-async function stopNow() { if (confirm('توقفي الاختبار الشغال؟')) { await post('/api/stop'); setTimeout(load, 1500); } }
+async function stopNow() { if (confirm('توقفي الاختبار الشغال؟')) { await post('/api/run-center/stop/' + encodeURIComponent(DATA.running.task_id)); setTimeout(load, 1500); } }
 async function rerun(path, name) {
     const r = await post('/api/run-center/rerun', { path, name: name.replace(/^⏰ /, '') + ' (إعادة)' });
     if (!r.success) alert(r.error); load();

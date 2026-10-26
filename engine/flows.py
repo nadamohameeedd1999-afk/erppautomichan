@@ -47,6 +47,9 @@ STEP_TYPES = {
     "row_click": "اضغط زرار جوه صف",
     "fill_cell": "املى خانة في سطر",
     "upload": "ارفع ملف",
+    "remember": "احفظ قيمة في متغير",
+    "assert": "اتأكد من حسبة/قيمة",
+    "check_print": "اطبع واتأكد إن الطباعة فتحت",
 }
 NEEDS_TARGET = {"click", "check", "expect_text"}
 SAMPLE_FILES = ("pdf", "png", "jpg", "xlsx", "txt")
@@ -222,6 +225,49 @@ for (var t=0;t<tables.length;t++){
 return {el:null, count:0, header:false};
 """
 
+READ_REF_JS = COMMON_JS + r"""
+// value of a reference: an id, css:..., sum:<column header>, or a label text (value of its field / text next to it)
+var ref = String(arguments[0] || '').trim(), scope = topPopup() || document;
+function val(e){ if (!e) return null;
+  if (e.tagName === 'SELECT') { var o = e.options[e.selectedIndex]; return o ? o.text.trim() : ''; }
+  if (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA') return e.type === 'checkbox' ? String(e.checked) : (e.value || '').trim();
+  return txt(e); }
+if (/^sum:/i.test(ref)) {
+  var w = N(ref.slice(4)), total = 0, found = false;
+  scope.querySelectorAll('table').forEach(function(tb){
+    if (found || !vis(tb)) return;
+    var ths = tb.querySelectorAll('thead th, thead td'), col = -1, idx = 0;
+    for (var h=0;h<ths.length;h++){ var tx = N(txt(ths[h])); if (col===-1 && tx && (tx===w || tx.indexOf(w)!==-1)) col = idx; idx += (ths[h].colSpan||1); }
+    if (col === -1) return; found = true;
+    tb.querySelectorAll('tbody tr').forEach(function(tr){ if (!vis(tr)) return; var k = 0;
+      for (var c=0;c<tr.children.length;c++){ var td = tr.children[c];
+        if (k === col) { var f = td.querySelector('input, select'); var v = f ? val(f) : txt(td);
+          var n = parseFloat(String(v).replace(/[٠-٩]/g, function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[^0-9.\-]/g, ''));
+          if (!isNaN(n)) total += n; break; }
+        k += (td.colSpan || 1); } });
+  });
+  return found ? String(total) : null;
+}
+if (/^css:/i.test(ref)) return val(document.querySelector(ref.slice(4)));
+var byId = document.getElementById(ref); if (byId) {
+  if (byId.classList.contains('select2-hidden-accessible') || byId.tagName==='SELECT') return val(byId);
+  return val(byId); }
+var w2 = N(ref), best = null, bestLen = 1e9;
+document.querySelectorAll('label, th, td, span, div, b, strong, p').forEach(function(e){
+  if (!vis(e)) return; var t = N(txt(e)); if (!t || t.length > w2.length + 3) return;
+  if ((t === w2 || t.replace(/:$/, '') === w2) && t.length < bestLen) { best = e; bestLen = t.length; } });
+if (!best) return null;
+if (best.htmlFor) { var f = document.getElementById(best.htmlFor); if (f) return val(f); }
+// the field / value right after the label
+var nx = best.nextElementSibling;
+for (var j = 0; j < 3 && nx; j++, nx = nx.nextElementSibling) {
+  var inner = nx.matches('input,select,textarea') ? nx : nx.querySelector('input:not([type=hidden]),select,textarea');
+  if (inner) return val(inner); if (txt(nx)) return txt(nx); }
+var par = best.parentElement; if (par) { var f2 = par.querySelector('input:not([type=hidden]),select,textarea'); if (f2) return val(f2);
+  var rest = txt(par).replace(txt(best), '').trim(); if (rest) return rest; }
+return null;
+"""
+
 FILE_INPUT_JS = COMMON_JS + r"""
 // the file input: by CSS, or the one near a label / button text, or the only one on the page / in the pop-up
 var target = arguments[0] || '', scope = topPopup() || document;
@@ -243,6 +289,7 @@ return {el: el, count: all.length};
 
 
 START = "__start__"          # flow "after" value: before the first field
+AFTER_SAVE = "__after_save__"  # flow "after" value: after the record was saved (from the list page)
 
 
 class FlowError(AssertionError):
@@ -263,6 +310,68 @@ def resolve_value(value, variables=None):
     v = v.replace("{ts}", now.strftime("%Y%m%d%H%M%S")).replace("{date}", now.strftime("%Y%m%d"))
     v = v.replace("{rand}", str(random.randint(1000, 9999)))
     return expand_date_tokens(v)
+
+
+_NUM_AR = str.maketrans("٠١٢٣٤٥٦٧٨٩٫٬", "0123456789.,")
+
+
+def to_number(v):
+    t = str(v or "").translate(_NUM_AR).replace(",", "").strip()
+    m = re.search(r"-?\d+(?:\.\d+)?", t)
+    if not m:
+        raise ValueError(f"«{v}» مش رقم")
+    return float(m.group(0))
+
+
+def evaluate_check(expr, read_ref, tol=0.01):
+    """'{الضريبة} = {الصافي} * 0.15'  /  '{Status} ~ مرحل'  /  '{var:no} != '' '.
+    Operators: = == != > < >= <= ~ (contains). Returns (ok, explanation)."""
+    import ast
+    import operator as op
+    m = re.search(r"(==|!=|>=|<=|=|>|<|~)", re.sub(r"\{[^}]*\}", lambda x: "X" * len(x.group(0)), expr))
+    if not m:
+        raise FlowError("الحسبة لازم فيها = أو != أو > أو < أو ~")
+    left, sign, right = expr[:m.start()].strip(), m.group(1), expr[m.end():].strip()
+    shown = {}
+
+    def sub(side, numeric):
+        def rep(x):
+            val = read_ref(x.group(1))
+            shown[x.group(1)] = val
+            return repr(to_number(val)) if numeric else val
+        return re.sub(r"\{([^}]+)\}", rep, side)
+
+    if sign == "~":
+        a, b = sub(left, False), sub(right, False)
+        ok = b.strip() in a
+        return ok, f"«{a[:60]}» {'فيه' if ok else 'مش فيه'} «{b}»"
+
+    ops = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv, ast.USub: op.neg, ast.UAdd: op.pos}
+
+    def calc(text):
+        def ev(n):
+            if isinstance(n, ast.Expression):
+                return ev(n.body)
+            if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
+                return float(n.value)
+            if isinstance(n, ast.BinOp) and type(n.op) in ops:
+                return ops[type(n.op)](ev(n.left), ev(n.right))
+            if isinstance(n, ast.UnaryOp) and type(n.op) in ops:
+                return ops[type(n.op)](ev(n.operand))
+            raise FlowError(f"مش فاهم الحسبة: {text}")
+        return ev(ast.parse(text, mode="eval"))
+
+    try:
+        a, b = calc(sub(left, True)), calc(sub(right, True))
+    except ValueError as e:
+        # not numbers -> compare as text
+        a, b = sub(left, False).strip(), sub(right, False).strip()
+        ok = (a == b) if sign in ("=", "==") else (a != b) if sign == "!=" else False
+        return ok, f"«{a}» {sign} «{b}»"
+    cmp = {"=": abs(a - b) <= tol, "==": abs(a - b) <= tol, "!=": abs(a - b) > tol,
+           ">": a > b, "<": a < b, ">=": a >= b - tol, "<=": a <= b + tol}[sign]
+    vals = "، ".join(f"{k}={v}" for k, v in shown.items())
+    return cmp, f"{a:,.2f} {sign} {b:,.2f}  ({vals})"
 
 
 def sample_file(kind="pdf"):
@@ -307,7 +416,7 @@ def normalize_flows(raw, main_field_ids, normalize_field):
             continue
         name = str(fl.get("name") or f"إجراء {n}").strip()
         after = str(fl.get("after") or "").strip()
-        if after and after != START and after not in main_field_ids:
+        if after and after not in (START, AFTER_SAVE) and after not in main_field_ids:
             raise ValueError(f"الإجراء «{name}»: الحقل '{after}' اللي بيشتغل بعده مش في الحقول المختارة")
         steps, seen = [], set(main_field_ids)
         for i, st in enumerate(fl.get("steps") or [], 1):
@@ -349,6 +458,19 @@ def normalize_flows(raw, main_field_ids, normalize_field):
             if do == "upload":
                 s["target"] = str(st.get("target") or "").strip()
                 s["file"] = str(st.get("file") or "pdf").strip() or "pdf"
+            if do == "remember":
+                s["source"] = str(st.get("source") or "").strip()
+                s["var"] = re.sub(r"[^\w.]", "_", str(st.get("var") or "").strip())
+                if not s["source"] or not s["var"]:
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي مكان القيمة واسم المتغير")
+            if do == "assert":
+                s["expr"] = str(st.get("expr") or "").strip()
+                if not s["expr"]:
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي الحسبة، مثلاً {{الضريبة}} = {{الصافي}} * 0.15")
+                s["tol"] = float(st.get("tol", 0.01) or 0.01)
+            if do == "check_print":
+                s["target"] = str(st.get("target") or "").strip() or "طباعة"
+                s["match"] = str(st.get("match") or "").strip()
             s["timeout"] = float(st.get("timeout") or (25 if do in ("wait_rows", "wait_popup") else 12))
             s["wait_after"] = float(st.get("wait_after", 0.6) or 0)
             s["optional"] = bool(st.get("optional", False))
@@ -378,6 +500,12 @@ def describe(step):
         return f"{STEP_TYPES[do]} «{step['cell']}» = {step['value']}"
     if do == "upload":
         return f"{STEP_TYPES[do]} ({step.get('file')})"
+    if do == "remember":
+        return f"{STEP_TYPES[do]} {step['var']} ← «{step['source']}»"
+    if do == "assert":
+        return f"{STEP_TYPES[do]}: {step['expr']}"
+    if do == "check_print":
+        return f"{STEP_TYPES[do]} «{step['target']}»"
     return STEP_TYPES[do]
 
 
@@ -427,6 +555,7 @@ class FlowRunner:
 
     # ----- step kinds -----
     def _click(self, st):
+        st = {**st, "target": resolve_value(st["target"], self.vars)}
         el = self._find(st["target"], "click", st["timeout"])
         if el is None:
             where = "في النافذة ولا في الصفحة" if self._js(POPUP_JS) else "في الصفحة"
@@ -482,6 +611,7 @@ class FlowRunner:
         raise FlowError(msg + "\n   غالبًا مفيش مستندات بالفلاتر دي: غيّري التاريخ أو نوع المستند")
 
     def _check(self, st):
+        st = {**st, "target": resolve_value(st["target"], self.vars)}
         box = self._find(st["target"], "check", st["timeout"])
         if box is None:
             raise FlowError(f"مالقيتش علامة ✓ جنب «{st['target']}»")
@@ -513,12 +643,13 @@ class FlowRunner:
         return "اتقفلت"
 
     def _expect_text(self, st):
+        want = resolve_value(st["target"], self.vars)
         end = time.time() + st["timeout"]
         while time.time() < end:
-            if self._js(TEXT_PRESENT_JS, st["target"]):
+            if self._js(TEXT_PRESENT_JS, want):
                 return "ظاهر"
             time.sleep(0.5)
-        raise FlowError(f"النص «{st['target']}» مظهرش في الصفحة")
+        raise FlowError(f"النص «{want}» مظهرش في الصفحة")
 
     def _wait(self, st):
         time.sleep(st["seconds"])
@@ -571,6 +702,76 @@ class FlowRunner:
                 raise FlowError(f"خانة «{st['cell']}» مش حقل كتابة")
         time.sleep(0.8)                         # totals recalculate
         return f"{got}"
+
+    def _ref(self, ref):
+        ref = ref.strip()
+        if ref.startswith("var:"):
+            name = ref[4:]
+            if name not in self.vars:
+                raise FlowError(f"المتغير «{name}» لسه ما اتحفظش (المتاح: {', '.join(self.vars) or 'مفيش'})")
+            return str(self.vars[name])
+        v = self._js(READ_REF_JS, ref)
+        if v is None:
+            raise FlowError(f"مالقيتش «{ref}» في الصفحة (اكتبي الـ id أو الاسم اللي جنبه زي ما هو، أو sum:اسم العمود)")
+        return str(v)
+
+    def _remember(self, st):
+        v = self._ref(st["source"])
+        self.vars[st["var"]] = v
+        return f"{st['var']} = {v}"
+
+    def _assert(self, st):
+        ok, detail = evaluate_check(st["expr"], self._ref, st.get("tol", 0.01))
+        if not ok:
+            raise FlowError(f"الحسبة مش مظبوطة: {detail}")
+        return detail
+
+    def _check_print(self, st):
+        d = self.driver
+        before = set(d.window_handles)
+        url0 = d.current_url
+        if st.get("match"):
+            res = self._js(ROW_CLICK_JS, st["target"], resolve_value(st["match"], self.vars)) or {}
+            if not res.get("ok"):
+                raise FlowError(f"مالقيتش زرار «{st['target']}» في الصف اللي فيه «{st['match']}»")
+        else:
+            self._click({"target": st["target"], "timeout": st["timeout"]})
+        end = time.time() + max(15, st["timeout"])
+        new = None
+        while time.time() < end:
+            extra = [h for h in d.window_handles if h not in before]
+            if extra:
+                new = extra[-1]
+                break
+            if self._js("return !!document.querySelector('iframe[src*=\".pdf\"], embed[type*=pdf], object[type*=pdf], iframe[src*=Print], iframe[src*=Report]')"):
+                return "الطباعة ظهرت جوه الصفحة"
+            if d.current_url != url0 and ("print" in d.current_url.lower() or "report" in d.current_url.lower()):
+                break
+            time.sleep(0.5)
+        if new is None and d.current_url == url0:
+            raise FlowError("ما فتحتش صفحة طباعة ولا ملف PDF بعد الضغط")
+        main = d.current_window_handle
+        try:
+            if new:
+                d.switch_to.window(new)
+            time.sleep(3)
+            info = self._js("var t=(document.body&&document.body.innerText)||''; return {url: location.href, title: document.title,"
+                            " len: t.length, ct: document.contentType || '', err: /server error|exception|runtime error|404|500|خطأ في الخادم/i.test(t.slice(0,3000))};") or {}
+            self._shot("print_preview")
+            if info.get("err"):
+                raise FlowError(f"صفحة الطباعة فيها خطأ: {info.get('title') or info.get('url')}")
+            if "pdf" not in (info.get("ct") or "").lower() and info.get("len", 0) < 20 and ".pdf" not in (info.get("url") or "").lower():
+                raise FlowError("صفحة الطباعة فاضية")
+            return f"فتحت: {info.get('title') or info.get('url', '')[:80]}"
+        finally:
+            if new:
+                try:
+                    d.close()
+                except Exception:
+                    pass
+                d.switch_to.window(main if main != new else list(before)[0])
+            elif d.current_url != url0:
+                d.back()
 
     def _upload(self, st):
         path = sample_file(st.get("file") or "pdf")
@@ -644,6 +845,8 @@ def fill_with_flows(page, cfg, filler, screenshots=None):
     by_after = {}
     ids = {f["id"] for f in cfg["fields"]}
     for fl in flows:
+        if fl["after"] == AFTER_SAVE:
+            continue
         key = fl["after"] if (fl["after"] in ids or fl["after"] == START) else ""
         by_after.setdefault(key, []).append(fl)
     runner = FlowRunner(page, filler)
@@ -676,3 +879,21 @@ def fill_with_flows(page, cfg, filler, screenshots=None):
         filler.fill_all(seg)
     run_all(by_after.get("", []))
     return filler.steps
+
+
+def run_after_save(page, cfg, filler, screenshots=None):
+    """Steps marked «بعد الحفظ» (edit / print / checks on the saved record), run from the list page."""
+    flows = [fl for fl in (cfg.get("flows") or []) if fl["after"] == AFTER_SAVE]
+    if not flows:
+        return
+    runner = FlowRunner(page, filler)
+    for fl in flows:
+        try:
+            runner.run(fl, cfg.get("key", ""))
+        except FlowError as e:
+            if screenshots is not None and getattr(e, "screenshot", None):
+                screenshots.append(e.screenshot)
+            if fl.get("optional"):
+                logger.warning(f"⚠️ «{fl['name']}» بعد الحفظ فشل وهو اختياري — كملت: {e}")
+                continue
+            raise AssertionError(f"وقف بعد الحفظ في «{fl['name']}»: {e}") from None

@@ -195,7 +195,7 @@ class FormFiller:
             raise FieldFillError(field, "القوائم لازم يكون ليها id")
         self._find(field)
         strategy = field["strategy"]
-        wanted = field.get("value", "")
+        wanted = self.with_vars(field.get("value", ""))
 
         if strategy == "keep":
             cur = self.selected_text(sid)
@@ -254,18 +254,35 @@ class FormFiller:
         return actual
 
     # ---------- inputs ----------
+    def with_vars(self, v):
+        """{var:name} -> a value remembered earlier in the run (saved number, ...)."""
+        v = "" if v is None else str(v)
+        for k, val in (getattr(self, "vars", None) or {}).items():
+            v = v.replace("{var:" + k + "}", str(val))
+        return v
+
     def _value_for(self, field):
         s = field["strategy"]
-        v = field.get("value", "")
+        v = self.with_vars(field.get("value", ""))
         now = datetime.now()
         if s == "today":
             return now.strftime(_date_format(field))
+        if s == "smart":
+            from engine.smart_values import value_for
+            got = value_for(field)
+            if got:
+                return got
+            s = "unique"                       # the name says nothing -> a unique value
         if s == "unique":
             self._counter += 1
             return (v or "AUTO-{ts}").format(
                 ts=now.strftime("%Y%m%d%H%M%S"), date=now.strftime("%Y%m%d"),
                 n=self._counter, rand=random.randint(1000, 9999))
-        return expand_date_tokens(v, _date_format(field)) if "{" in v else v
+        if "{" not in v:
+            return v
+        v = v.replace("{ts}", now.strftime("%Y%m%d%H%M%S")).replace("{date}", now.strftime("%Y%m%d"))
+        v = v.replace("{rand}", str(random.randint(1000, 9999)))
+        return expand_date_tokens(v, _date_format(field))
 
     def fill_input(self, field):
         el = self._find(field)

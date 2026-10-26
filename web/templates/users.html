@@ -57,9 +57,11 @@
                                 <span class="badge bg-danger">
                                     <i class="bi bi-shield-fill"></i> Admin
                                 </span>
+                            {% elif user.role == 'viewer' %}
+                                <span class="badge bg-info text-dark"><i class="bi bi-eye"></i> مشاهد</span>
                             {% else %}
                                 <span class="badge bg-secondary">
-                                    <i class="bi bi-person"></i> User
+                                    <i class="bi bi-person"></i> مستخدم
                                 </span>
                             {% endif %}
                         </td>
@@ -143,8 +145,9 @@
                             {% if current_lang == 'ar' %}الصلاحية{% else %}Role{% endif %}
                         </label>
                         <select name="role" class="form-select">
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
+                            <option value="user">مستخدم — يشغّل ويعدّل الاختبارات</option>
+                            <option value="viewer">مشاهد — يشوف التقارير بس</option>
+                            <option value="admin">أدمن — كل حاجة (الإعدادات والمستخدمين)</option>
                         </select>
                     </div>
                 </div>

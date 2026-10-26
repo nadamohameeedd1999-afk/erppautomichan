@@ -74,6 +74,30 @@
         </div>
     </div>
 
+    <!-- why did it fail -->
+    {% if why or ai or (ai_on and report.exit_code not in (0, None)) %}
+    <div class="card border-0 shadow-sm mb-4" id="whyCard">
+        <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="fw-bold mb-0">🧠 ليه فشل؟</h5>
+            {% if ai_on %}<button class="btn btn-sm btn-outline-primary" id="btnAi" onclick="askAi()">✨ {% if ai %}اسأل الذكاء الاصطناعي تاني{% else %}اسأل الذكاء الاصطناعي{% endif %}</button>{% endif %}
+        </div>
+        <div class="card-body pt-2" id="whyBody">
+            {% for w in [why, ai] if w %}
+            <div class="p-3 rounded mb-2 border-start border-4 border-{{ w.color }}" style="background: rgba(127,127,127,.06)">
+                <div class="d-flex gap-2 align-items-center flex-wrap mb-1">
+                    <span class="badge bg-{{ w.color }}{% if w.color in ('warning', 'info') %} text-dark{% endif %}">{{ w.kind_label }}</span>
+                    <strong>{{ w.title }}</strong>
+                    <span class="text-muted small">{{ 'الذكاء الاصطناعي' if w.source == 'ai' else 'تحليل تلقائي' }}</span>
+                </div>
+                <div>{{ w.why }}</div>
+                {% if w.fix %}<div class="mt-1"><strong>الحل:</strong> {{ w.fix }}</div>{% endif %}
+            </div>
+            {% endfor %}
+            {% if not why and not ai %}<div class="text-muted small">مالقيتش سبب معروف — دوسي «اسأل الذكاء الاصطناعي».</div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Test Steps -->
     {% if report.tests %}
     <div class="card border-0 shadow-sm mb-4">
@@ -201,6 +225,16 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+async function askAi() {
+    const b = document.getElementById('btnAi'); b.disabled = true; b.textContent = '✨ بيفكّر…';
+    try {
+        const r = await fetch('/api/explain/{{ report.run_id }}', {method: 'POST'}).then(r => r.json());
+        if (!r.success) { alert('❌ ' + r.error); return; }
+        location.reload();
+    } finally { b.disabled = false; }
+}
+</script>
 <script>
 const SHOTS = {{ shots | tojson }};
 let shotIdx = 0;

@@ -20,7 +20,7 @@ def save_config(config):
     save_json(CONFIG_FILE, config)
 
 
-def send_test_notification(summary, test_name=""):
+def send_test_notification(summary, test_name="", changed=False):
     config = load_config()
     if not config or not config.get("enabled"):
         return False
@@ -38,6 +38,7 @@ def send_test_notification(summary, test_name=""):
 
     should_send = (
         notify_on == "always" or
+        (notify_on == "change" and changed) or
         (notify_on == "failure" and not is_success) or
         (notify_on == "success" and is_success)
     )

@@ -19,9 +19,9 @@ from config.storage import load_json  # noqa: E402
 
 def _read_active_profile():
     data = load_json(paths.settings_file("test_sites.json"), {}) or {}
-    active_id = data.get("active_profile")
+    active_id = os.getenv("SITE_PROFILE") or data.get("active_profile")
     for p in data.get("profiles", []):
-        if active_id and p.get("id") == active_id:
+        if active_id and active_id in (p.get("id"), p.get("name")):
             return p
     return None
 

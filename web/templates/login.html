@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style-dark.css') }}">
     {% if favicon %}
-    <link rel="icon" href="{{ url_for('static', filename='uploads/' + favicon) }}">
+    <link rel="icon" href="{{ url_for('media', filename=favicon) }}">
     {% endif %}
 
     <style>
@@ -154,7 +154,7 @@
     <!-- Logo -->
     <div class="login-logo">
         {% if logo %}
-            <img src="{{ url_for('static', filename='uploads/' + logo) }}" alt="Logo">
+            <img src="{{ url_for('media', filename=logo) }}" alt="Logo">
         {% else %}
             <i class="bi bi-cpu"></i>
         {% endif %}

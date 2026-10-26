@@ -29,6 +29,7 @@ STRATEGIES = {
     "random": "اختيار عشوائي كل مرة (من القيم اللي تكتبيها أو من الكل)",
     "today": "تاريخ النهارده",
     "unique": "قيمة فريدة (رقم/نص متسلسل)",
+    "smart": "قيمة ذكية حسب اسم الحقل (سجل تجاري، رقم ضريبي، جوال…)",
     "keep": "سيبه زي ما هو",
     "check": "علّم عليه (✓)",
     "uncheck": "شيل العلامة",
@@ -137,6 +138,12 @@ def normalize_field(f: dict, i: int, seen: set) -> dict:
     }
 
 
+def _keys_list(v):
+    if isinstance(v, str):
+        v = v.replace("،", ",").split(",")
+    return [str(x).strip() for x in (v or []) if str(x).strip()]
+
+
 def normalize(cfg: dict) -> dict:
     """Fill defaults and validate. Raises ConfigError with an Arabic message."""
     if not isinstance(cfg, dict):
@@ -201,6 +208,13 @@ def normalize(cfg: dict) -> dict:
             "timeout": int(verify.get("timeout", 60) or 60),
         },
         "save_timeout": int(cfg.get("save_timeout", 40) or 40),
+        # اختبار سلبي: المفروض الحفظ يترفض وتظهر الرسالة دي
+        "expect_error": str(cfg.get("expect_error") or "").strip(),
+        # سلسلة: شاشات/سيناريوهات تتشغل قبل وبعد (نفس المتصفح ونفس المتغيرات)
+        "run_before": _keys_list(cfg.get("run_before")),
+        "run_after": _keys_list(cfg.get("run_after")),
+        # بيانات من Excel/CSV: كل صف = تشغيلة بقيمه
+        "data_file": str(cfg.get("data_file") or "").strip(),
         "status": "complete",
         "notes": str(cfg.get("notes") or ""),
         "updated_at": cfg.get("updated_at") or "",

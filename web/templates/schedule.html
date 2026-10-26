@@ -33,6 +33,20 @@
         <button class="btn btn-primary" onclick="openForm()"><i class="bi bi-plus-lg"></i> جدولة جديدة</button>
     </div>
 
+    <div class="card sc-card mb-3 d-none" id="hookCard"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div><div class="fw-bold">🚀 شغّلي الاختبارات أوتوماتيك بعد كل تحديث للـ ERP</div>
+                <div class="muted">فريق التطوير يضيف السطر ده في آخر سكربت النشر على موقع الاختبار — أول ما النسخة الجديدة تتنشر، الجدولة اللي تختاريها تشتغل والنتيجة توصلك.</div></div>
+            <button class="btn btn-sm btn-outline-danger" onclick="newToken()" title="لو الرابط اتسرب">تغيير المفتاح</button>
+        </div>
+        <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+            <select class="form-select form-select-sm" id="hookSched" style="max-width:260px" onchange="renderHook()"></select>
+            <select class="form-select form-select-sm" id="hookSite" style="max-width:220px" onchange="renderHook()"></select>
+        </div>
+        <pre class="ltr small bg-body-tertiary p-2 rounded mt-2 mb-1" id="hookCmd" style="white-space:pre-wrap"></pre>
+        <button class="btn btn-sm btn-outline-primary" onclick="navigator.clipboard.writeText(document.getElementById('hookCmd').textContent)">نسخ</button>
+    </div></div>
+
     <div class="row g-3" id="schedList"><div class="text-muted">جاري التحميل…</div></div>
 </div>
 
@@ -67,6 +81,7 @@
                             <button class="btn btn-outline-primary" onclick="addTime()">إضافة</button>
                         </div>
                         <div id="timesBox" class="d-flex gap-2 flex-wrap"></div>
+                        <div class="muted mt-1">من غير ميعاد = بتشتغل يدوي أو بالرابط بس (بعد كل تحديث للـ ERP).</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">الأيام <span class="muted">(من غير اختيار = كل يوم)</span></label>
@@ -79,6 +94,11 @@
                     <div class="col-md-4">
                         <label class="form-label fw-bold">التكرار لكل اختبار</label>
                         <input type="number" class="form-control" id="fRepeat" min="1" max="50" value="1">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">على أنهي موقع؟</label>
+                        <select class="form-select" id="fSite"></select>
+                        <div class="muted mt-1">المواقع من الإعدادات ← مواقع الاختبار. تقدري تعملي نفس الجدولة على موقعين وتقارني.</div>
                     </div>
                 </div>
             </div>
@@ -110,6 +130,7 @@ function fmtNext(iso) {
 async function load() {
     DATA = await fetch('/api/schedules').then(r => r.json());
     document.getElementById('nowTxt').textContent = (DATA.now || '').slice(11, 16);
+    renderHookCard();
     const box = document.getElementById('schedList');
     if (!DATA.schedules.length) {
         box.innerHTML = `<div class="col-12"><div class="card sc-card"><div class="card-body text-center py-5">
@@ -132,7 +153,8 @@ async function load() {
                 <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ${s.enabled ? 'checked' : ''}
                     onchange="toggle('${s.id}', this.checked)" title="تشغيل/إيقاف الجدولة"></div>
             </div>
-            <div class="my-2"><i class="bi bi-clock"></i> <strong class="ltr">${s.times.join(' · ')}</strong> — ${esc(s.days_text)}</div>
+            <div class="my-2"><i class="bi bi-clock"></i> ${s.times.length ? `<strong class="ltr">${s.times.join(' · ')}</strong> — ${esc(s.days_text)}` : '<span class="muted">يدوي / بالرابط بس</span>'}
+                ${s.site ? `<span class="chip">🌐 ${esc((DATA.sites.find(x => x.id === s.site) || {}).name || s.site)}</span>` : ''}</div>
             <div class="sc-next mb-2">${fmtNext(s.next)}</div>
             <div class="mb-3">${last}</div>
             <div class="d-flex gap-2">
@@ -144,6 +166,33 @@ async function load() {
     }).join('');
 }
 
+// ---------- run link ----------
+function renderHookCard() {
+    if (!DATA.hook) return;
+    document.getElementById('hookCard').classList.remove('d-none');
+    const cur = document.getElementById('hookSched').value;
+    document.getElementById('hookSched').innerHTML = '<option value="__all">كل الاختبارات الكاملة</option>' +
+        DATA.schedules.map(s => `<option value="${esc(s.name)}" ${cur === s.name ? 'selected' : ''}>الجدولة: ${esc(s.name)}</option>`).join('');
+    const cs = document.getElementById('hookSite').value;
+    document.getElementById('hookSite').innerHTML = '<option value="">موقع الجدولة / النشط</option>' +
+        (DATA.sites || []).map(x => `<option value="${esc(x.name)}" ${cs === x.name ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    renderHook();
+}
+function renderHook() {
+    const h = DATA.hook, sch = document.getElementById('hookSched').value, site = document.getElementById('hookSite').value;
+    const q = new URLSearchParams({token: h.token});
+    if (sch === '__all') q.set('tests', 'all'); else q.set('schedule', sch);
+    if (site) q.set('site', site);
+    const url = `${h.url}?${q.toString()}`;
+    document.getElementById('hookCmd').textContent =
+        `# PowerShell\nInvoke-RestMethod -Method Post "${url}"\n\n# أو curl\ncurl -X POST "${url}"`;
+}
+async function newToken() {
+    if (!confirm('هتغيري المفتاح؟ الرابط القديم هيبطل يشتغل.')) return;
+    const r = await fetch('/api/hooks/token', {method: 'POST'}).then(r => r.json());
+    if (r.success) { DATA.hook.token = r.token; renderHook(); }
+}
+
 // ---------- form ----------
 function openForm(id) {
     const s = DATA.schedules.find(x => x.id === id);
@@ -152,6 +201,8 @@ function openForm(id) {
     document.getElementById('fId').value = s ? s.id : '';
     document.getElementById('fName').value = s ? s.name : '';
     document.getElementById('fRepeat').value = s ? s.repeat : 1;
+    document.getElementById('fSite').innerHTML = '<option value="">الموقع النشط في الإعدادات</option>' +
+        (DATA.sites || []).map(x => `<option value="${esc(x.id)}" ${s && s.site === x.id ? 'selected' : ''}>${esc(x.name)} — ${esc(x.url || '')}</option>`).join('');
     document.getElementById('formTitle').textContent = s ? 'تعديل الجدولة' : 'جدولة جديدة';
     document.getElementById('pickSearch').value = '';
     setMode(FORM.mode); renderTimes(); renderDays(); renderPicker();
@@ -203,6 +254,7 @@ async function saveForm() {
         name: document.getElementById('fName').value.trim(),
         mode: FORM.mode, times: FORM.times, days: FORM.days,
         repeat: parseInt(document.getElementById('fRepeat').value, 10) || 1,
+        site: document.getElementById('fSite').value,
         targets: FORM.targets.map(p => ({ path: p, name: cat[p] || p })),
         enabled: true,
     };

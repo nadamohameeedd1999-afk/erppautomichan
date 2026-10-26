@@ -1,0 +1,12 @@
+{
+  "name": "erp-mock",
+  "private": true,
+  "description": "Fake NQ ERP pages for the self-tests (selftest/)",
+  "dependencies": {
+    "bootstrap": "5.3.2",
+    "bootstrap-icons": "1.11.1",
+    "jquery": "3.7.1",
+    "select2": "4.1.0-rc.0",
+    "sweetalert2": "11.10.5"
+  }
+}

@@ -79,7 +79,19 @@ def _normalize(s):
     s["times"] = sorted({t.strip()[:5] for t in s["times"] if t and ":" in t})
     s["days"] = sorted({int(d) for d in s["days"] if str(d).isdigit() and 0 <= int(d) <= 6})
     s["repeat"] = max(1, min(50, int(s.get("repeat") or 1)))
+    s["site"] = str(s.get("site") or "")          # test-site profile id ("" = the active one)
     return s
+
+
+def site_name(site_id):
+    if not site_id:
+        return ""
+    try:
+        from web import test_sites_helper as ts
+        p = next((x for x in ts.load_all().get("profiles", []) if site_id in (x.get("id"), x.get("name"))), None)
+        return p.get("name", site_id) if p else site_id
+    except Exception:
+        return site_id
 
 
 def load():
@@ -99,8 +111,6 @@ def upsert(data):
         s = _normalize(data)
         if not s.get("name"):
             raise ValueError("اكتبي اسم للجدولة")
-        if not s["times"]:
-            raise ValueError("حددي ميعاد واحد على الأقل")
         if s["mode"] == "list" and not s["targets"]:
             raise ValueError("اختاري اختبار واحد على الأقل")
         old = next((x for x in items if x["id"] == s["id"]), None)
@@ -157,10 +167,14 @@ def describe_days(s):
 
 
 # ---------------- firing ----------------
+_OLD_SMOKE = "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke"
+
+
 def resolve_targets(s):
     """Which tests a schedule runs right now."""
     if s.get("mode") == "list":
-        return [t for t in s.get("targets", []) if t.get("path")]
+        from config.screens_catalog import SMOKE_TEST
+        return [{**t, "path": t["path"].replace(_OLD_SMOKE, SMOKE_TEST)} for t in s.get("targets", []) if t.get("path")]
     rows = _registry_rows()
     out = []
     if s.get("mode") == "all_full":
@@ -180,7 +194,7 @@ def resolve_targets(s):
     return out
 
 
-def fire(s, manual=False):
+def fire(s, manual=False, site=None, source=None):
     from web.queue_manager import get_manager
     qm = get_manager()
     batch = []
@@ -188,8 +202,10 @@ def fire(s, manual=False):
     for i, t in enumerate(resolve_targets(s)):
         task_id = f"run_{stamp}{i:02d}"
         rep = s.get("repeat", 1) if "[" not in t["path"] else 1
+        st = site if site is not None else s.get("site", "")
         qm.add(task_id, t["path"], f"⏰ {t['name']}", repeat=rep,
-               source="manual" if manual else "schedule", extra={"schedule_id": s["id"], "schedule_name": s["name"]})
+               source=source or ("manual" if manual else "schedule"),
+               extra={"schedule_id": s["id"], "schedule_name": s["name"], "site": st, "site_name": site_name(st)})
         batch.append(task_id)
     with _lock:
         items = load()
@@ -227,6 +243,11 @@ def _loop():
             _tick()
         except Exception as e:
             print(f"[scheduler] tick error: {e}", flush=True)
+        try:
+            from web import daily_report
+            daily_report.auto_tick(now())
+        except Exception as e:
+            print(f"[daily-report] tick error: {e}", flush=True)
         try:
             from web import backup
             backup.auto_tick(now())

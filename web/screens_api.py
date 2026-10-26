@@ -204,7 +204,7 @@ def _start_job(kind, args, extra=None):
         try:
             with open(log, "w", encoding="utf-8") as lf:
                 proc = subprocess.run(cmd, cwd=str(BASE_DIR), stdout=lf, stderr=subprocess.STDOUT,
-                                      env=env, timeout=900)
+                                      env=env, timeout=job.get("timeout", 900))
             job["exit_code"] = proc.returncode
         except subprocess.TimeoutExpired:
             job["exit_code"] = -1
@@ -321,3 +321,85 @@ def api_job(job_id):
             result["screenshot_names"] = [_shot_name(p) for p in result["screenshots"] if p]
         resp["result"] = result
     return jsonify(resp)
+
+
+# ======================= datasets (بيانات Excel / CSV) =======================
+def _dataset_dir():
+    from config import paths
+    d = paths.DATA_DIR / "datasets"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@bp.route("/api/datasets")
+@auth.login_required
+def api_datasets():
+    from engine.screen_runner import _read_dataset
+    out = []
+    for f in sorted(_dataset_dir().glob("*")):
+        if f.suffix.lower() in (".xlsx", ".csv"):
+            try:
+                n = len(_read_dataset(f.name))
+            except Exception:
+                n = "?"
+            out.append({"name": f.name, "rows": n})
+    return jsonify({"success": True, "files": out})
+
+
+@bp.route("/api/datasets", methods=["POST"])
+@auth.login_required
+def api_dataset_upload():
+    import re as _re
+    from engine.screen_runner import _read_dataset
+    up = request.files.get("file")
+    if not up or not up.filename:
+        return jsonify({"success": False, "error": "اختاري ملف"}), 400
+    name = Path(up.filename).name
+    if Path(name).suffix.lower() not in (".xlsx", ".csv"):
+        return jsonify({"success": False, "error": "الملف لازم يكون .xlsx أو .csv"}), 400
+    name = _re.sub(r"[^\w.\-\u0600-\u06FF ]", "_", name).strip() or "data.xlsx"
+    dest = _dataset_dir() / name
+    if dest.exists():
+        from config.storage import to_trash
+        to_trash(dest)
+    up.save(str(dest))
+    try:
+        rows = _read_dataset(name)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"مقدرتش أقرا الملف: {e}"}), 400
+    if not rows:
+        return jsonify({"success": False, "error": "الملف فاضي (لازم أول سطر فيه أسماء الأعمدة)"}), 400
+    return jsonify({"success": True, "name": name, "rows": len(rows), "columns": list(rows[0].keys())})
+
+
+@bp.route("/api/screens/discover", methods=["POST"])
+@auth.login_required
+def api_discover():
+    """Read the ERP side menu and add a «فتح الشاشة» test for every list screen found."""
+    job_id, err = _start_job("discover", ["discover"])
+    if err:
+        return jsonify({"success": False, "error": err}), 409
+    return jsonify({"success": True, "job_id": job_id})
+
+
+@bp.route("/api/screens/record", methods=["POST"])
+@auth.login_required
+def api_record():
+    """Open the add page in Chrome and record what the user does there (سجّلي خطواتك)."""
+    sc = _cfg()
+    d = request.get_json(silent=True) or {}
+    cfg = dict(d.get("config") or {})
+    cfg["flows"] = []
+    if not cfg.get("fields"):
+        cfg["fields"] = [{"id": "__none__", "strategy": "keep", "kind": "hidden"}]
+    try:
+        cfg = sc.normalize(cfg)
+    except sc.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = JOBS_DIR / f"record_{cfg['key']}_{uuid.uuid4().hex[:6]}.json"
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    job_id, err = _start_job("record", ["record", "--config-file", str(tmp)], extra={"timeout": 1500})
+    if err:
+        return jsonify({"success": False, "error": err}), 409
+    return jsonify({"success": True, "job_id": job_id})

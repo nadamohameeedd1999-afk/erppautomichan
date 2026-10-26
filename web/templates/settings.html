@@ -213,6 +213,32 @@ function editProfile(id, name, url, username, notes) {
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">س.ت (السجل التجاري)</label>
+                                <input type="text" name="company_cr" class="form-control" value="{{ site_config.company_cr or '' }}" dir="ltr">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">الرقم الضريبي</label>
+                                <input type="text" name="company_vat" class="form-control" value="{{ site_config.company_vat or '' }}" dir="ltr">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">📊 التقرير اليومي بالإيميل الساعة</label>
+                                <select name="daily_report_hour" class="form-select">
+                                    <option value="">مقفول</option>
+                                    {% for h in range(0, 24) %}<option value="{{ h }}" {% if (site_config.daily_report_hour or '')|string == h|string %}selected{% endif %}>{{ '%02d' % h }}:00</option>{% endfor %}
+                                </select>
+                                <div class="form-text">بيتبعت PDF بالتصميم المعتمد لإيميلات تبويب Email.</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">🧠 مفتاح Claude API <span class="text-muted small">(اختياري — لشرح أسباب الفشل بالذكاء الاصطناعي)</span></label>
+                            <input type="password" name="anthropic_api_key" class="form-control" dir="ltr" autocomplete="off"
+                                   value="{{ '••••••••' if site_config.anthropic_api_key else '' }}" placeholder="sk-ant-...">
+                            <div class="form-text">من غير مفتاح الشرح التلقائي شغال عادي. اكتبي <code>__clear__</code> عشان تمسحيه. بيتبعت لـ Claude رسالة الفشل وآخر اللوج وصورة الشاشة بس.</div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">
                                 <i class="bi bi-geo-alt"></i>
@@ -245,7 +271,7 @@ function editProfile(id, name, url, username, notes) {
 
                             {% if site_config.logo_filename %}
                             <div class="text-center mb-3 p-3 border rounded" style="background: var(--bg-primary);">
-                                <img src="{{ url_for('static', filename='uploads/' + site_config.logo_filename) }}"
+                                <img src="{{ url_for('media', filename=site_config.logo_filename) }}"
                                      alt="Logo" style="max-height: 100px; max-width: 100%;">
                             </div>
                             {% else %}
@@ -283,7 +309,7 @@ function editProfile(id, name, url, username, notes) {
 
                             {% if site_config.favicon_filename %}
                             <div class="text-center mb-3 p-3 border rounded" style="background: var(--bg-primary);">
-                                <img src="{{ url_for('static', filename='uploads/' + site_config.favicon_filename) }}"
+                                <img src="{{ url_for('media', filename=site_config.favicon_filename) }}"
                                      alt="Favicon" style="max-height: 60px; max-width: 100%;">
                             </div>
                             {% else %}
@@ -431,6 +457,7 @@ function editProfile(id, name, url, username, notes) {
                                 {% if current_lang == 'ar' %}متى يُرسل؟{% else %}Notify When{% endif %}
                             </label>
                             <select name="notify_on" class="form-select">
+                                <option value="change" {% if email_config.notify_on == 'change' %}selected{% endif %}>لما حالة الاختبار تتغير بس (موصى بيه)</option>
                                 <option value="always" {% if email_config.notify_on == 'always' %}selected{% endif %}>
                                     {% if current_lang == 'ar' %}دائماً{% else %}Always{% endif %}
                                 </option>
@@ -572,6 +599,7 @@ function editProfile(id, name, url, username, notes) {
                         <div class="mb-3">
                             <label class="form-label fw-bold">{% if current_lang == 'ar' %}متى يُرسل؟{% else %}Notify When{% endif %}</label>
                             <select name="slack_notify_on" class="form-select">
+                                <option value="change" {% if slack_config.notify_on == 'change' %}selected{% endif %}>لما حالة الاختبار تتغير بس (موصى بيه)</option>
                                 <option value="failure" {% if slack_config.notify_on == 'failure' %}selected{% endif %}>
                                     {% if current_lang == 'ar' %}عند الفشل فقط{% else %}On Failure Only{% endif %}
                                 </option>

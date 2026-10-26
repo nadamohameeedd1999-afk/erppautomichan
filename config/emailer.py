@@ -18,7 +18,7 @@ def load_config():
     return load_json(CONFIG_FILE, None)
 
 
-def send_test_notification(summary, test_name=""):
+def send_test_notification(summary, test_name="", changed=False):
     """
     Send email notification about a test run
     """
@@ -34,6 +34,7 @@ def send_test_notification(summary, test_name=""):
 
     should_send = (
         notify_on == "always" or
+        (notify_on == "change" and changed) or
         (notify_on == "failure" and not is_success) or
         (notify_on == "success" and is_success)
     )
@@ -128,3 +129,33 @@ def send_test_email(to_email):
         return False, 'Auth failed - check App Password'
     except Exception as e:
         return False, 'Error: ' + str(e)[:150]
+
+
+def send_file(subject, text, file_path):
+    """Email a file (the daily PDF report) to the recipients in Settings → Email."""
+    from email.mime.application import MIMEApplication
+    from pathlib import Path
+    config = load_config()
+    if not config or not config.get("enabled"):
+        return False
+    try:
+        sender, password, recipients = config["sender_email"], config["sender_password"], config["recipients"]
+        if not all([sender, password, recipients]):
+            return False
+        msg = MIMEMultipart()
+        msg["From"] = sender
+        msg["To"] = ", ".join(recipients)
+        msg["Subject"] = subject
+        msg.attach(MIMEText(f'<div dir="rtl" style="font-family:Tahoma,Arial">{text}</div>', "html"))
+        p = Path(file_path)
+        part = MIMEApplication(p.read_bytes(), Name=p.name)
+        part["Content-Disposition"] = f'attachment; filename="{p.name}"'
+        msg.attach(part)
+        with smtplib.SMTP(config["smtp_host"], config["smtp_port"]) as server:
+            server.starttls()
+            server.login(sender, password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False

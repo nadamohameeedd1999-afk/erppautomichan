@@ -17,7 +17,7 @@ class TestsRegistry:
             "name_ar": "قيود التسوية اليدوية",
             "name_en": "Manual Journal Entries",
             "icon": "📝",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[journal_entries]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[journal_entries]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -30,7 +30,7 @@ class TestsRegistry:
             "name_ar": "طلب صرف",
             "name_en": "Expense Request",
             "icon": "💸",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[expense_request]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[expense_request]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -43,7 +43,7 @@ class TestsRegistry:
             "name_ar": "سند الدفع",
             "name_en": "Cash Issue Voucher",
             "icon": "💰",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[cash_issue]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[cash_issue]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -56,7 +56,7 @@ class TestsRegistry:
             "name_ar": "التحويلات المالية",
             "name_en": "Cash Transfers",
             "icon": "🔄",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[cash_transfers]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[cash_transfers]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -69,7 +69,7 @@ class TestsRegistry:
             "name_ar": "جرد الصناديق",
             "name_en": "Inventory Boxes",
             "icon": "📦",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[inventory_boxes]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[inventory_boxes]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -82,7 +82,7 @@ class TestsRegistry:
             "name_ar": "الإشعارات",
             "name_en": "Notifications",
             "icon": "🔔",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[notifications]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[notifications]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -95,7 +95,7 @@ class TestsRegistry:
             "name_ar": "تمويل الصناديق",
             "name_en": "Treasury Financing",
             "icon": "🏦",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[treasury_financing]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[treasury_financing]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -108,7 +108,7 @@ class TestsRegistry:
             "name_ar": "فاتورة خدمية",
             "name_en": "Utility Bill",
             "icon": "🧾",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[utility_bill]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[utility_bill]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -121,7 +121,7 @@ class TestsRegistry:
             "name_ar": "طلب دفعة مقدمة",
             "name_en": "Advance Payment Request",
             "icon": "💳",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[advance_payment_request]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[advance_payment_request]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -134,7 +134,7 @@ class TestsRegistry:
             "name_ar": "فاتورة دفعة مقدمة",
             "name_en": "Advance Payment Invoice",
             "icon": "📄",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[advance_payment_invoice]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[advance_payment_invoice]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -147,7 +147,7 @@ class TestsRegistry:
             "name_ar": "تصفية العهد",
             "name_en": "Expenses Settlement",
             "icon": "💼",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[expenses]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[expenses]",
             "duration_estimate": 15,
             "tags": ["smoke", "accounting"],
             "available": True,
@@ -175,7 +175,7 @@ class TestsRegistry:
             "name_ar": "عرض سعر بيع",
             "name_en": "Sales Quotation",
             "icon": "📋",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[sales_quotation]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[sales_quotation]",
             "duration_estimate": 15,
             "tags": ["smoke", "sales"],
             "available": True,
@@ -188,7 +188,7 @@ class TestsRegistry:
             "name_ar": "أوامر البيع",
             "name_en": "Sales Orders",
             "icon": "📦",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[sales_order]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[sales_order]",
             "duration_estimate": 15,
             "tags": ["smoke", "sales"],
             "available": True,
@@ -201,7 +201,7 @@ class TestsRegistry:
             "name_ar": "مرتجع البيع",
             "name_en": "Sales Return",
             "icon": "↩️",
-            "test_path": "tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[sales_return]",
+            "test_path": "tests/smoke/test_screen_smoke.py::test_screen_opens[sales_return]",
             "duration_estimate": 15,
             "tags": ["smoke", "sales"],
             "available": True,
@@ -259,7 +259,7 @@ class TestsRegistry:
 
             # smoke_path = مسار Smoke
             page_key = t.get("page_key", "")
-            smoke_path = f"tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[{page_key}]"
+            smoke_path = f"tests/smoke/test_screen_smoke.py::test_screen_opens[{page_key}]"
 
             result.append({
                 **localized,
@@ -315,7 +315,15 @@ class TestsRegistry:
         result = []
         # كل الشاشات الممكنة (من المديولات)
         from config.modules_registry import ModulesRegistry
-        all_modules = ModulesRegistry.MODULES
+        all_modules = dict(ModulesRegistry.MODULES)
+        try:
+            from config.screens_catalog import all_pages
+            disc = {k: v for k, v in all_pages().items() if v["module_key"] == "discovered"}
+            if disc:
+                all_modules["discovered"] = {"name_ar": "🧭 شاشات مكتشفة", "name_en": "Discovered screens", "icon": "🧭",
+                                             "pages": disc}
+        except Exception:
+            pass
 
         # نبني set للاختبارات المعرّفة
         defined_tests = {t["page_key"]: t for t in cls.get_all()}
@@ -350,18 +358,18 @@ class TestsRegistry:
                     full_path = screen_config.test_path_for(page_key)
                     full_available = True
                     used_screens.add(page_key)
-                    smoke_path = f"tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[{page_key}]"
+                    smoke_path = f"tests/smoke/test_screen_smoke.py::test_screen_opens[{page_key}]"
                     smoke_available = True
                 elif defined:
                     if defined["type"] == "full":
                         full_path = defined["test_path"]
                         full_available = True
-                    # Smoke دايماً متاح (من test_09)
-                    smoke_path = f"tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[{page_key}]"
+                    # Smoke دايماً متاح (tests/smoke)
+                    smoke_path = f"tests/smoke/test_screen_smoke.py::test_screen_opens[{page_key}]"
                     smoke_available = True
                 else:
                     # مفيش اختبار معرّف — نديله smoke فقط
-                    smoke_path = f"tests/functional/test_09_general_accounting_smoke.py::test_individual_module_smoke[{page_key}]"
+                    smoke_path = f"tests/smoke/test_screen_smoke.py::test_screen_opens[{page_key}]"
                     smoke_available = True
 
                 # آخر نتيجة

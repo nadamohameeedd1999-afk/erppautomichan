@@ -163,6 +163,7 @@
                 <span class="small fw-normal">
                     <span id="fieldsCount" class="badge bg-primary">0</span> حقل متعلّم عليه
                     <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleShowAll()" id="btnShowAll">إظهار كل الحقول</button>
+                    <button class="btn btn-sm btn-danger ms-2" id="btnRecord" onclick="recordSteps()" title="يفتح الشاشة في Chrome، وإنتي تشتغلي عادي — كل اللي بتعمليه يتحول لخطوات هنا. «حفظ» مش بيحفظ: بيوقف التسجيل">⏺ سجّلي خطواتك</button>
                 </span>
             </div>
             <div class="card-body p-0">
@@ -198,6 +199,9 @@
                     <span class="ms-auto d-flex gap-1">
                         <button class="btn btn-sm btn-outline-success" onclick="addTemplate('item')" title="➕ → بحث → اختيار أول صنف → سعر في آخر سطر">➕ قالب: إضافة صنف</button>
                         <button class="btn btn-sm btn-outline-success" onclick="addTemplate('upload')" title="يرفع ملف PDF تجريبي في خانة المرفقات">📎 قالب: رفع مرفق</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('vat')" title="الإجمالي = مجموع السطور، الضريبة = 15%، الإجمالي = الصافي + الضريبة — عدّلي أسماء الخانات">🧮 قالب: تأكد من الحسابات</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('edit')" title="بعد الحفظ: يفتح السند الجديد من القايمة ويعدّله ويحفظ">✏️ قالب: تعديل بعد الحفظ</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('print')" title="بعد الحفظ: يضغط طباعة في صف السند الجديد ويتأكد إن الطباعة فتحت">🖨️ قالب: طباعة</button>
                     </span>
                     <div class="flow-hint w-100">🔘 <b>الزراير</b> (زي «ربط بمستند اخر») بتظهر في الجدول مع الحقول وبتتداس في مكانها في الترتيب. لو بتفتح نافذة دوسي «✨ اقرأ النافذة» في سطرها.
                         في التواريخ تقدري تكتبي <code>{today}</code> <code>{month_start}</code> <code>{month_end}</code> <code>{today-30}</code>.</div>
@@ -240,6 +244,36 @@
                         <input class="form-control form-control-sm ltr mt-1" id="vOpenSel" placeholder="(اختياري) CSS للينك الفتح في أول صف — مثلاً a.btn-edit">
                         <label class="form-label small mt-2">ملاحظات</label>
                         <input class="form-control" id="fNotes">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- step 4: advanced -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-bold"><span class="sb-step">4</span> اختبارات متقدمة <span class="small fw-normal text-muted">(اختياري)</span></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">🚫 اختبار سلبي — المفروض الحفظ يترفض برسالة فيها:</label>
+                        <input class="form-control" id="fExpectError" placeholder="مثلاً: يجب إضافة أصناف">
+                        <div class="flow-hint">لو كتبتي هنا: الاختبار ينجح لما الحفظ يترفض والرسالة تظهر، ويفشل لو اتحفظ.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">🔗 سلسلة — شغّل قبلها</label>
+                        <input class="form-control ltr" id="fRunBefore" list="chainList" placeholder="customer__new">
+                        <label class="form-label small fw-bold mt-2">وشغّل بعدها</label>
+                        <input class="form-control ltr" id="fRunAfter" list="chainList" placeholder="cash_receipt__customer">
+                        <datalist id="chainList"></datalist>
+                        <div class="flow-hint">نفس المتصفح ونفس المتغيرات: رقم السند اللي اتحفظ بيبقى <code>{var:saved_no}</code> و <code>{var:اسم_الشاشة.saved_no}</code>. افصلي بفاصلة لو أكتر من واحدة.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">📄 بيانات من Excel / CSV</label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" id="fDataFile"><option value="">— من غير ملف (تشغيلة واحدة) —</option></select>
+                            <label class="btn btn-outline-primary mb-0">رفع<input type="file" accept=".xlsx,.csv" hidden onchange="uploadDataset(this)"></label>
+                        </div>
+                        <div class="flow-hint">كل صف = تشغيلة. أسماء الأعمدة = اسم الحقل أو الـ id (زي «العميل» أو CustomerId)، وكل عمود يبقى متغير <code>{var:اسم_العمود}</code>.</div>
                     </div>
                 </div>
             </div>
@@ -312,10 +346,10 @@ const SEP = '__';
 const KIND_STRATEGIES = {
     select2: ['first', 'fixed', 'search', 'random', 'keep'],
     select:  ['first', 'fixed', 'search', 'random', 'keep'],
-    text:    ['fixed', 'unique', 'today', 'keep'],
-    number:  ['fixed', 'unique', 'keep'],
+    text:    ['fixed', 'smart', 'unique', 'today', 'keep'],
+    number:  ['fixed', 'smart', 'unique', 'keep'],
     date:    ['today', 'fixed', 'keep'],
-    textarea:['fixed', 'unique', 'keep'],
+    textarea:['fixed', 'smart', 'unique', 'keep'],
     checkbox:['check', 'uncheck', 'keep'],
     hidden:  ['keep', 'fixed'],
 };
@@ -450,6 +484,7 @@ async function copyFromScreen(silent) {
     $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = rowsFromConfig(c);
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
+    fillAdvanced(c);
     renderRows(); renderBeforeSave();
     $('saveState').textContent = `اتنسخت حقول "${c.name_ar}" — غيّري اللي يخص السيناريو ده واحفظي`;
 }
@@ -457,6 +492,7 @@ async function copyFromScreen(silent) {
 function newScreen(keepCatalog) {
     CURRENT_KEY = null;
     ROWS = []; BEFORE_SAVE = []; BUTTONS = [];
+    fillAdvanced({});
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
     if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
     $('fSave').value = 'button#save';
@@ -503,6 +539,7 @@ function fillEditor(c) {
     $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = rowsFromConfig(c);
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
+    fillAdvanced(c);
     $('catalogSelect').value = CATALOG.some(p => p.key === c.key) ? c.key : '';
     $('btnDelete').disabled = false;
     $('dryCard').classList.add('d-none');
@@ -710,6 +747,7 @@ const STEP_TYPES = {
     wait_rows: '📋 استنى صفوف الجدول', check: '☑️ علّم على', pick_rows: '🔢 اختار أول صفوف',
     close_popup: '✖️ اقفل النافذة', expect_text: '🔎 اتأكد إن النص ظاهر', wait: '⏱️ استنى ثواني',
     row_click: '🖱️ اضغط زرار جوه صف', fill_cell: '🔢 املى خانة في سطر', upload: '📎 ارفع ملف',
+    remember: '🔖 احفظ قيمة في متغير', assert: '🧮 اتأكد من حسبة/قيمة', check_print: '🖨️ اطبع واتأكد',
 };
 const START = '__start__';
 // ready-made buttons (قوالب)
@@ -722,6 +760,16 @@ const ACTION_TEMPLATES = {
         {do: 'fill_cell', cell: 'css:input.price', row: 'last', value: '100'}]}}),
     upload: () => newAction('رفع مرفق', '', true, {mode: 'steps', open: true, flow: {optional: false, steps: [
         {do: 'upload', target: '', file: 'pdf'}]}}),
+    vat: () => newAction('تأكد من الحسابات', '', true, {mode: 'steps', open: true, flow: {optional: false, steps: [
+        {do: 'assert', expr: '{sum:الإجمالي} = {الصافي}'},
+        {do: 'assert', expr: '{الضريبة} = {الصافي} * 0.15'},
+        {do: 'assert', expr: '{الإجمالي بعد الضريبة} = {الصافي} + {الضريبة}'}]}}),
+    edit: () => newAction('تعديل بعد الحفظ', '', true, {mode: 'steps', open: true, after_save: true, flow: {optional: false, steps: [
+        {do: 'row_click', target: 'تعديل', match: '{var:saved_no}'}, {do: 'wait', seconds: 2},
+        {do: 'fill', field: {id: 'Notes', label: 'ملاحظات', kind: 'textarea', strategy: 'fixed', value: 'تعديل اختبار {ts}'}},
+        {do: 'click', target: 'button#save'}, {do: 'wait', seconds: 3}]}}),
+    print: () => newAction('طباعة بعد الحفظ', '', true, {mode: 'steps', open: true, after_save: true, flow: {optional: false, steps: [
+        {do: 'check_print', target: 'طباعة', match: '{var:saved_no}'}]}}),
 };
 function addTemplate(k) { ROWS.push(ACTION_TEMPLATES[k]()); renderRows(); }
 let ACT_N = 0;
@@ -740,7 +788,8 @@ function rowsFromConfig(c) {
     const act = fl => {
         const steps = JSON.parse(JSON.stringify(fl.steps || []));
         const first = steps[0] && steps[0].do === 'click' ? steps[0].target : '';
-        const r = {...newAction(fl.name, first, true), flow: {optional: !!fl.optional, steps}, saved: true};
+        const r = {...newAction(fl.name, first, true), flow: {optional: !!fl.optional, steps}, saved: true,
+                   after_save: fl.after === '__after_save__'};
         if (!first) r.mode = 'steps';
         return r;
     };
@@ -750,6 +799,7 @@ function rowsFromConfig(c) {
         (by[f.id] || []).forEach(fl => rows.push(act(fl)));
     });
     (by['__end__'] || []).forEach(fl => rows.push(act(fl)));
+    (by['__after_save__'] || []).forEach(fl => rows.push(act(fl)));
     return rows;
 }
 
@@ -759,13 +809,14 @@ function buildFlows() {
     let last = START;
     ROWS.filter(r => r.include).forEach(r => {
         if (r.kind !== 'action') { last = r.id; return; }
+        const afterSave = !!r.after_save;
         let steps = JSON.parse(JSON.stringify(r.flow.steps));
         if (r.target) {
             if (steps[0] && steps[0].do === 'click') steps[0].target = r.target;
             else steps.unshift({do: 'click', target: r.target});
         } else if (steps[0] && steps[0].do === 'click' && !steps[0].target) steps = steps.slice(1);
         if (!steps.length) return;
-        out.push({name: r.label || r.target, after: last, optional: !!r.flow.optional, steps});
+        out.push({name: r.label || r.target, after: afterSave ? '__after_save__' : last, optional: !!r.flow.optional, steps});
     });
     return out;
 }
@@ -788,6 +839,7 @@ function actionRow(r, i, includedIds) {
         <td>
             <input class="form-control form-control-sm fw-bold mb-1" value="${esc(r.label)}" onchange="ROWS[${i}].label = this.value">
             <span class="badge bg-primary">🔘 زرار</span> ${summary} ${warn}
+            ${r.after_save ? '<span class="badge bg-success">بعد الحفظ</span>' : ''}
             ${r.detected ? '<span class="badge bg-light text-dark border" title="لقيته في الصفحة وقت قراءة الحقول">موجود في الصفحة</span>' : ''}
         </td>
         <td><span class="small text-muted">زرار</span></td>
@@ -799,6 +851,8 @@ function actionRow(r, i, includedIds) {
             </select>
             <label class="small text-muted mt-1 d-block"><input type="checkbox" ${r.flow.optional ? 'checked' : ''}
                 onchange="ROWS[${i}].flow.optional = this.checked"> لو فشل كمّل الاختبار</label>
+            <label class="small mt-1 d-block ${r.after_save ? 'fw-bold text-primary' : 'text-muted'}" title="يتنفذ بعد ما السند يتحفظ ويظهر في القايمة (تعديل، طباعة، مراجعة)">
+                <input type="checkbox" ${r.after_save ? 'checked' : ''} onchange="ROWS[${i}].after_save = this.checked; renderRows()"> بعد الحفظ</label>
         </td>
         <td>
             <input class="form-control form-control-sm ltr mb-1" value="${esc(r.target)}" placeholder="${mode === 'steps' ? 'من غير زرار (الخطوات بس)' : '#id أو الكلام اللي على الزرار'}"
@@ -878,6 +932,9 @@ function setStep(i, si, key, val) {
         if (val === 'row_click') { steps[si].target = old.target || ''; steps[si].match = ''; }
         if (val === 'fill_cell') { steps[si].cell = ''; steps[si].row = 'last'; steps[si].value = ''; }
         if (val === 'upload') { steps[si].target = ''; steps[si].file = 'pdf'; }
+        if (val === 'remember') { steps[si].source = ''; steps[si].var = ''; }
+        if (val === 'assert') { steps[si].expr = ''; }
+        if (val === 'check_print') { steps[si].target = 'طباعة'; steps[si].match = '{var:saved_no}'; }
         renderRows(); return;
     }
     st[key] = val;
@@ -940,6 +997,14 @@ function stepEditor(i, si, st) {
                  onchange="setStep${on}, 'target', this.value)">
             <select class="form-select form-select-sm mini" style="width:130px" onchange="setStep${on}, 'file', this.value)">
                 ${['pdf', 'png', 'jpg', 'xlsx', 'txt'].map(v => `<option value="${v}" ${(st.file || 'pdf') === v ? 'selected' : ''}>ملف ${v.toUpperCase()} تجريبي</option>`).join('')}</select>`;
+    if (st.do === 'remember') return `<input dir="auto" class="form-control form-control-sm grow" value="${esc(st.source || '')}" placeholder="منين: id زي NetTotal، أو الاسم اللي جنبه، أو sum:الإجمالي"
+                 onchange="setStep${on}, 'source', this.value)">
+            <input dir="auto" class="form-control form-control-sm mini" style="width:140px" value="${esc(st.var || '')}" placeholder="اسم المتغير" onchange="setStep${on}, 'var', this.value)">`;
+    if (st.do === 'assert') return `<input dir="auto" class="form-control form-control-sm grow" value="${esc(st.expr || '')}"
+                 placeholder="{الضريبة} = {الصافي} * 0.15   ·   {الإجمالي} = {الصافي} + {الضريبة}   ·   {الحالة} ~ مرحل"
+                 title="بين { } : id الحقل، أو الاسم اللي جنبه، أو sum:اسم العمود، أو var:متغير. العلامات: = != > < >= <= ~ (فيه)" onchange="setStep${on}, 'expr', this.value)">`;
+    if (st.do === 'check_print') return `<input dir="auto" class="form-control form-control-sm mini" style="width:150px" value="${esc(st.target || '')}" placeholder="زرار الطباعة" onchange="setStep${on}, 'target', this.value)">
+            <input dir="auto" class="form-control form-control-sm grow" value="${esc(st.match || '')}" placeholder="(في القايمة) الصف اللي فيه — زي {var:saved_no}" onchange="setStep${on}, 'match', this.value)">`;
     if (st.do === 'wait_rows') return `<span class="small">على الأقل</span><input type="number" min="1" class="form-control form-control-sm mini" value="${st.min || 1}" onchange="setStep${on}, 'min', +this.value)"><span class="small grow">صف</span>`;
     if (st.do === 'pick_rows') return `<input type="number" min="1" class="form-control form-control-sm mini" value="${st.count || 1}" onchange="setStep${on}, 'count', +this.value)"><span class="small grow">صف من فوق</span>`;
     if (st.do === 'wait') return `<input type="number" min="0.2" step="0.5" class="form-control form-control-sm mini" value="${st.seconds || 1}" onchange="setStep${on}, 'seconds', +this.value)"><span class="small grow">ثانية</span>`;
@@ -966,6 +1031,53 @@ function addDetectedButtons(buttons, saveSel, addSel) {
         if (opensPopup) row.flow.steps.push({do: 'wait_popup'});
         ROWS.push(row);
     });
+}
+
+// ==================== recorder (سجّلي خطواتك) ====================
+async function recordSteps() {
+    const cfg = buildScreenConfig();
+    if (!cfg.key) cfg.key = 'draft';
+    if (!cfg.list_url) { alert('اكتبي رابط الشاشة الأول (الخطوة 1)'); return; }
+    if (!confirm('هيفتح Chrome على صفحة الإضافة.\n\n• اشتغلي على الشاشة عادي (اختاري، اكتبي، دوسي الزراير والنوافذ)\n• لما تخلصي دوسي «⏹ خلصت» اللي تحت في الصفحة — أو دوسي «حفظ» (مش هيحفظ، هيوقف التسجيل بس)\n\nنبدأ؟')) return;
+    const r = await fetch('/api/screens/record', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                                  body: JSON.stringify({config: cfg})}).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    const res = await pollJob(r.job_id, '⏺ بسجّل… اشتغلي في نافذة Chrome ولما تخلصي دوسي «⏹ خلصت»');
+    if (!res) return;
+    if (!res.success) { $('jobTitle').textContent = '❌ ' + (res.error || 'فشل'); return; }
+    if (!res.items.length) { $('jobTitle').textContent = 'ما اتسجلش حاجة'; return; }
+    if (ROWS.some(r => r.include) && !confirm(`اتسجل ${res.items.length} خطوة. أحطها مكان الترتيب الحالي؟ (الحقول القديمة هتفضل في الجدول من غير علامة)`)) return;
+    applyRecording(res.items);
+    $('jobTitle').textContent = `✅ اتسجل ${res.items.length} خطوة — راجعيها وبعدين «جرّب التعبئة بدون حفظ»`;
+}
+
+function applyRecording(items) {
+    const picked = [];
+    items.forEach(it => {
+        if (it.type === 'field') {
+            const f = it.field;
+            let r = ROWS.find(x => x.id === f.id);
+            if (!r) {
+                r = {id: f.id, label: f.label, kind: f.kind, required: false, visible: true, options: [], manual: true};
+                ROWS.push(r);
+            }
+            r.include = true;
+            r.strategy = (KIND_STRATEGIES[r.kind] || [f.strategy]).includes(f.strategy) ? f.strategy : (KIND_STRATEGIES[r.kind] || ['fixed'])[0];
+            r.value = f.value;
+            picked.push(r);
+        } else {
+            const popup = it.steps.some(s => s.do === 'wait_popup');
+            const steps = it.steps.length ? it.steps : [{do: 'click', target: it.target}];
+            const label = /^[\p{L}\p{N}]/u.test(it.label || '') ? it.label : (it.target === 'css:span.Add-Button' || it.label === '➕' ? 'إضافة صنف' : (it.label || 'زرار'));
+            const r = newAction(label, it.target, true, {mode: popup ? 'popup' : (it.target && steps.length === 1 ? 'click' : 'steps')});
+            r.flow.steps = steps;
+            picked.push(r);
+        }
+    });
+    const rest = ROWS.filter(r => !picked.includes(r)).map(r => { r.include = false; return r; })
+                     .filter(r => r.kind !== 'action' || r.detected);
+    ROWS = [...picked, ...rest];
+    renderRows();
 }
 
 async function discoverRow(i) {
@@ -1038,7 +1150,33 @@ function buildScreenConfig() {
             open_selector: $('vOpenSel').value.trim(),
         },
         notes: $('fNotes').value.trim(),
+        expect_error: $('fExpectError').value.trim(),
+        run_before: $('fRunBefore').value.split(/[,،]/).map(x => x.trim()).filter(Boolean),
+        run_after: $('fRunAfter').value.split(/[,،]/).map(x => x.trim()).filter(Boolean),
+        data_file: $('fDataFile').value,
     };
+}
+
+async function loadDatasets(sel) {
+    const r = await fetch('/api/datasets').then(r => r.json()).catch(() => ({files: []}));
+    const cur = sel ?? $('fDataFile').value;
+    $('fDataFile').innerHTML = '<option value="">— من غير ملف (تشغيلة واحدة) —</option>' +
+        (r.files || []).map(f => `<option value="${esc(f.name)}" ${f.name === cur ? 'selected' : ''}>${esc(f.name)} (${f.rows} صف)</option>`).join('');
+    $('chainList').innerHTML = CREATE_OPTS.map(o => `<option value="${esc(o.key)}">${esc(o.name)}</option>`).join('');
+}
+async function uploadDataset(inp) {
+    const f = inp.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('file', f);
+    const r = await fetch('/api/datasets', {method: 'POST', body: fd}).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    await loadDatasets(r.name);
+    $('saveState').textContent = `اترفع «${r.name}»: ${r.rows} صف — الأعمدة: ${r.columns.join('، ')}`;
+}
+function fillAdvanced(c) {
+    $('fExpectError').value = c.expect_error || '';
+    $('fRunBefore').value = (c.run_before || []).join(', ');
+    $('fRunAfter').value = (c.run_after || []).join(', ');
+    loadDatasets(c.data_file || '');
 }
 
 async function saveConfig() {
@@ -1198,6 +1336,7 @@ async function dryRun() {
 // ==================== init ====================
 (async function () {
     await loadCatalog();
+    loadDatasets();
     const q = new URLSearchParams(location.search);
     if (IS_SCN) {
         if (q.get('screen') && q.get('scn')) await openScenario(q.get('screen'), q.get('scn'));

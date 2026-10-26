@@ -87,6 +87,49 @@ def cmd_inspect(a):
             pass
 
 
+def cmd_record(a):
+    from engine.form_inspector import FormInspector
+    from engine.recorder import record, convert
+    from engine.screen_runner import login
+    cfg = _load_cfg(a)
+    d = _driver()
+    try:
+        login(d, _credentials())
+        FormInspector(d).open_add_page(cfg["list_url"], cfg.get("add_url", ""), cfg.get("add_button", ""))
+        events = record(d, max_minutes=a.minutes)
+        items = convert(events)
+        return {"success": True, "items": items, "events": len(events)}
+    finally:
+        try:
+            d.quit()
+        except Exception:
+            pass
+
+
+def cmd_discover(a):
+    from engine.discover import discover
+    from engine.screen_runner import login
+    from config.screens_catalog import all_pages, discovered, save_discovered
+    d = _driver()
+    try:
+        login(d, _credentials())
+        known = [p["url"] for p in all_pages().values() if p["module_key"] != "discovered"]
+        res = discover(d, check=not a.no_check, limit=a.limit, known_urls=known)
+        # keep earlier discoveries, add the new ones (never removes)
+        cur = {x["key"]: x for x in discovered()}
+        new = [x for x in res["screens"] if not x["known"] and x["key"] not in cur]
+        for x in res["screens"]:
+            if not x["known"]:
+                cur[x["key"]] = {k: x[k] for k in ("key", "name", "group", "url")}
+        save_discovered(list(cur.values()))
+        return {"success": True, **res, "added": len(new)}
+    finally:
+        try:
+            d.quit()
+        except Exception:
+            pass
+
+
 def cmd_inspect_popup(a):
     from engine.form_inspector import inspect_popup
     from engine.screen_runner import login
@@ -118,8 +161,13 @@ def cmd_fill(a, save):
     d = _driver()
     result = {"key": cfg["key"], "steps": []}
     try:
+        if save and (cfg.get("run_before") or cfg.get("run_after") or cfg.get("data_file")):
+            from engine.screen_runner import _run_with_extras, RUN_VARS
+            _run_with_extras(d, _credentials(), cfg)
+            return {"success": True, "key": cfg["key"], "steps": [], "vars": dict(RUN_VARS)}
         result = run_screen(d, _credentials(), cfg, save=save)
-        return {"success": True, **result}
+        from engine.screen_runner import RUN_VARS
+        return {"success": True, **result, "vars": dict(RUN_VARS)}
     except (FieldFillError, AssertionError) as e:
         result = getattr(e, "partial_result", None) or result
         return {"success": False, **result, "error": str(e)}
@@ -140,6 +188,17 @@ def main(argv=None):
     i.add_argument("--add-button", default="")
     i.add_argument("--no-deps", action="store_true", help="don't detect dependent dropdowns")
     i.add_argument("--out", default="")
+
+    rc = sub.add_parser("record")
+    rc.add_argument("--config-file", required=True)
+    rc.add_argument("--minutes", type=int, default=20)
+    rc.add_argument("--out", default="")
+    rc.add_argument("key", nargs="?", default="")
+
+    dc = sub.add_parser("discover")
+    dc.add_argument("--no-check", action="store_true")
+    dc.add_argument("--limit", type=int, default=200)
+    dc.add_argument("--out", default="")
 
     ip = sub.add_parser("inspect-popup")
     ip.add_argument("--config-file", required=True)
@@ -162,6 +221,10 @@ def main(argv=None):
     try:
         if a.cmd == "inspect":
             data = _with_retry(lambda: cmd_inspect(a))
+        elif a.cmd == "record":
+            data = cmd_record(a)
+        elif a.cmd == "discover":
+            data = _with_retry(lambda: cmd_discover(a))
         elif a.cmd == "inspect-popup":
             data = _with_retry(lambda: cmd_inspect_popup(a))
         elif a.cmd in ("dry-run", "run"):

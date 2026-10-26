@@ -4,6 +4,7 @@ Generic screen flow, driven by config/screens/<key>.json:
 login -> list (remember first row) -> add page -> fill fields (strict)
       -> before-save buttons -> save -> alerts -> saved? -> new first row in list
 """
+import json
 import time
 
 import allure
@@ -20,7 +21,18 @@ from pages.login_page import LoginPage
 from utils.list_verify import first_row_text, wait_for_new_first_row
 from utils.logger import logger
 from engine import screen_config
-from engine.flows import fill_with_flows
+from engine.flows import fill_with_flows, run_after_save
+
+# values shared by everything that runs in one test (chain, data rows): {var:name}
+RUN_VARS = {}
+
+FIRST_CELL_JS = r"""
+var row = document.querySelector('table tbody tr');
+if (!row) return null;
+var tds = row.querySelectorAll('td');
+for (var i = 0; i < tds.length; i++) { var t = (tds[i].innerText || '').replace(/\s+/g, ' ').trim(); if (t) return t; }
+return null;
+"""
 from engine.form_filler import FormFiller, FieldFillError
 
 ERRORS_JS = r"""
@@ -56,6 +68,8 @@ class ScreenRunner(BasePage):
         super().__init__(driver)
         self.cfg = cfg
         self.filler = FormFiller(driver)
+        self.vars = RUN_VARS
+        self.filler.vars = RUN_VARS
         self.alerts = []          # every alert / SweetAlert text we saw
         self.error_alerts = []    # the ones that look like errors
 
@@ -405,6 +419,7 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
                                                               "value": f.get("value"), "ok": pre.get("saved")})
                 logger.success(f"✅ اتعمل بـ «{maker}» — هرجع أكمّل {cfg['name_ar']}")
                 r.filler = FormFiller(driver)
+                r.filler.vars = RUN_VARS
                 if save and cfg["verify"]["new_first_row"]:
                     r.open_list()
                     result["first_row_before"] = first_row_text(driver)
@@ -425,6 +440,22 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
     with allure.step("أزرار قبل الحفظ"):
         r.run_before_save()
 
+    if cfg.get("expect_error"):
+        with allure.step(f"اختبار سلبي: المفروض يرفض ويقول «{cfg['expect_error']}»"):
+            r.save()
+            ok = r.wait_saved()
+            result["screenshots"].append(_shot(r, f"{cfg['key']}_negative"))
+            seen = " | ".join(r.alerts + r.page_errors())
+            if ok:
+                raise AssertionError(f"اتحفظ — والمفروض كان يترفض برسالة «{cfg['expect_error']}»")
+            from engine.text_match import normalize as _n
+            if _n(cfg["expect_error"]) not in _n(seen + " " + r.failure_reason()):
+                raise AssertionError(f"اترفض صح بس الرسالة مختلفة.\n   المتوقع: «{cfg['expect_error']}»\n   اللي ظهر: {seen or r.failure_reason()}")
+            result["negative_ok"] = True
+            result["seconds"] = round(time.time() - start, 1)
+            logger.success(f"✅ {cfg['name_ar']}: اترفض صح بالرسالة «{cfg['expect_error']}»")
+            return result
+
     with allure.step("حفظ"):
         r.save()
         ok = r.wait_saved()
@@ -442,12 +473,26 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
             result["screenshots"].append(_shot(r, f"{cfg['key']}_list_after_save"))
             assert after is not None, (
                 f"مظهرش صف جديد في القايمة بعد الحفظ. أول صف كان: {str(result['first_row_before'])[:120]}")
+            no = driver.execute_script(FIRST_CELL_JS)
+            if no:
+                RUN_VARS["saved_no"] = no
+                RUN_VARS[f"{cfg['key']}.saved_no"] = no
+                logger.info(f"🔖 رقم السند الجديد: {no}  (تقدري تستخدميه بـ {{var:saved_no}})")
+            RUN_VARS["saved_row"] = after
             missing = [t for t in cfg["verify"]["row_contains"] if t not in after]
             if missing:
                 msg = f"الصف الجديد مش فيه: {missing} — الصف: {after[:150]}"
                 if cfg["verify"]["row_contains_strict"]:
                     raise AssertionError(msg)
                 logger.warning(msg)
+
+    if any(fl["after"] == "__after_save__" for fl in cfg.get("flows") or []):
+        with allure.step("خطوات بعد الحفظ"):
+            driver.get(_abs(cfg["list_url"]))
+            r.wait_for_preloader()
+            time.sleep(1)
+            run_after_save(r, cfg, r.filler, result["screenshots"])
+            result["steps"] = r.filler.steps
 
     if cfg["verify"].get("open_saved"):
         with allure.step("فتح السند المحفوظ ومراجعة القيم"):
@@ -466,6 +511,89 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
     return result
 
 
+def _read_dataset(name):
+    """rows of data/datasets/<name> (.xlsx / .csv) as dicts {header: value}"""
+    from config import paths
+    p = paths.DATA_DIR / "datasets" / name
+    if not p.exists():
+        raise AssertionError(f"ملف البيانات «{name}» مش موجود في data/datasets")
+    rows = []
+    if p.suffix.lower() in (".xlsx", ".xlsm"):
+        from openpyxl import load_workbook
+        ws = load_workbook(p, read_only=True, data_only=True).active
+        it = ws.iter_rows(values_only=True)
+        head = [str(h or "").strip() for h in next(it, [])]
+        for r in it:
+            if any(v not in (None, "") for v in r):
+                rows.append({head[i]: ("" if v is None else str(v).strip()) for i, v in enumerate(r) if i < len(head) and head[i]})
+    else:
+        import csv
+        with open(p, encoding="utf-8-sig", newline="") as f:
+            for r in csv.DictReader(f):
+                if any((v or "").strip() for v in r.values()):
+                    rows.append({(k or "").strip(): (v or "").strip() for k, v in r.items() if k})
+    return rows
+
+
+def _apply_row(cfg, row):
+    """a data row overrides the value of fields whose id or label matches a column, and becomes {var:column}"""
+    from engine.text_match import normalize as _n
+    c = json.loads(json.dumps(cfg))
+    cols = {_n(k): v for k, v in row.items()}
+    for f in c["fields"]:
+        for k in (f["id"], f["label"]):
+            if _n(k) in cols and cols[_n(k)] != "":
+                f["value"] = cols[_n(k)]
+                if f["strategy"] in ("first", "keep", "today", "unique", "random"):
+                    f["strategy"] = "fixed"
+                break
+    for k, v in row.items():
+        RUN_VARS[k] = v
+    return c
+
+
+def _run_with_extras(driver, credentials, cfg):
+    """chain before -> the screen (once, or once per data row) -> chain after. Same browser, same {var:...}."""
+    RUN_VARS.clear()
+    logged_in = False
+
+    def run_one(c, label):
+        nonlocal logged_in
+        logger.info(f"▶ {label}")
+        try:
+            out = run_screen(driver, credentials, c, save=True, do_login=not logged_in)
+        except FieldFillError as e:
+            raise AssertionError(f"وقف عند حقل ({label}): {e}") from None
+        logged_in = True
+        return out
+
+    for k in cfg.get("run_before") or []:
+        with allure.step(f"قبلها: {k}"):
+            run_one(_load_any(k), f"السلسلة — قبلها: {k}")
+
+    if cfg.get("data_file"):
+        rows = _read_dataset(cfg["data_file"])
+        logger.info(f"📄 بيانات من «{cfg['data_file']}»: {len(rows)} صف")
+        failed = []
+        for i, row in enumerate(rows, 1):
+            with allure.step(f"صف {i}/{len(rows)}"):
+                try:
+                    run_one(_apply_row(cfg, row), f"صف {i}/{len(rows)}: {', '.join(f'{k}={v}' for k, v in list(row.items())[:3])}")
+                    logger.success(f"✅ صف {i} نجح")
+                except AssertionError as e:
+                    failed.append(f"صف {i}: {str(e).splitlines()[0][:160]}")
+                    logger.error(f"❌ صف {i}: {e}")
+                    logged_in = True
+        if failed:
+            raise AssertionError(f"{len(failed)} من {len(rows)} صف فشلوا:\n   " + "\n   ".join(failed))
+    else:
+        run_one(cfg, cfg["name_ar"])
+
+    for k in cfg.get("run_after") or []:
+        with allure.step(f"بعدها: {k}"):
+            run_one(_load_any(k), f"السلسلة — بعدها: {k}")
+
+
 def run_screen_test(driver, credentials, key):
     """Entry used by the generated pytest files."""
     cfg = screen_config.load(key)
@@ -474,10 +602,7 @@ def run_screen_test(driver, credentials, key):
         allure.dynamic.title(cfg["name_ar"])
     except Exception:
         pass
-    try:
-        run_screen(driver, credentials, cfg, save=True)
-    except FieldFillError as e:
-        raise AssertionError(f"وقف عند حقل: {e}") from None
+    _run_with_extras(driver, credentials, cfg)
 
 
 def run_scenario_test(driver, credentials, screen_key, scenario_key):
@@ -489,7 +614,4 @@ def run_scenario_test(driver, credentials, screen_key, scenario_key):
         allure.dynamic.title(cfg["name_ar"])
     except Exception:
         pass
-    try:
-        run_screen(driver, credentials, cfg, save=True)
-    except FieldFillError as e:
-        raise AssertionError(f"وقف عند حقل: {e}") from None
+    _run_with_extras(driver, credentials, cfg)

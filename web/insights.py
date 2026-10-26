@@ -156,6 +156,20 @@ def compute_home(lang="ar"):
             slow.append({"key": key, "name": hs[0]["name"], "avg": round(sum(ds) / len(ds)), "runs": len(ds)})
     slow.sort(key=lambda x: x["avg"], reverse=True)
 
+    # ---------- got slower than usual (آخر تشغيلة أبطأ من المعتاد) ----------
+    slower = []
+    for key, hs in history.items():
+        ok = [h for h in hs if h["passed"] and h["duration"]]
+        if len(ok) < 4:
+            continue
+        last = ok[0]["duration"] / max(1, int(ok[0].get("repeat") or 1))
+        prev = sorted(h["duration"] / max(1, int(h.get("repeat") or 1)) for h in ok[1:])
+        med = prev[len(prev) // 2]
+        if last > med * 1.5 and last - med > 10:
+            slower.append({"key": key, "name": ok[0]["name"], "last": round(last), "usual": round(med),
+                           "pct": round(100 * (last - med) / med)})
+    slower.sort(key=lambda x: -x["pct"])
+
     # ---------- trend (14 days) ----------
     trend = {"labels": [], "passed": [], "failed": []}
     for i in range(13, -1, -1):
@@ -228,6 +242,7 @@ def compute_home(lang="ar"):
         "never_run": never_run[:12],
         "flaky": flaky[:6],
         "slow": slow[:6],
+        "slower": slower[:6],
         "recent": [{**r, "time": r["time"].isoformat(timespec="minutes")} for r in runs[:10]],
         "upcoming": upcoming[:5],
     }

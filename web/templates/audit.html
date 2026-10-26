@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}سجل النشاط - {{ site_name }}{% endblock %}
+{% block content %}
+<div class="animate-in">
+    <h1 class="fw-bold mb-1"><i class="bi bi-journal-text text-primary"></i> سجل النشاط</h1>
+    <div class="text-muted mb-3">مين عمل إيه وإمتى — أي حفظ أو تشغيل أو مسح أو تغيير إعدادات، والدخول. آخر 400 حركة.</div>
+    <div class="card border-0 shadow-sm"><div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0 align-middle">
+            <thead class="table-light"><tr><th>الوقت</th><th>المستخدم</th><th>الحركة</th><th>فين</th><th>التفاصيل</th><th>النتيجة</th></tr></thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td class="ltr small text-nowrap">{{ r.time }}</td>
+                <td class="fw-bold">{{ r.user }}</td>
+                <td>{{ {'POST': 'حفظ / تشغيل', 'DELETE': 'مسح', 'PUT': 'تعديل'}.get(r.event, r.event) }}</td>
+                <td>{{ r.area }}</td>
+                <td class="ltr small text-muted">{{ r.detail }}</td>
+                <td>{% if r.status in ('ok', '200', '201', '302') %}<span class="badge bg-success-subtle text-success">تمام</span>{% else %}<span class="badge bg-danger-subtle text-danger">{{ r.status }}</span>{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">لسه مفيش نشاط</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div></div>
+</div>
+{% endblock %}

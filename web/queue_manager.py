@@ -31,39 +31,62 @@ INFRA_PATTERNS = re.compile(
 
 
 class QueueManager:
+    """Runs queued tests. Several at the same time when «workers» > 1 (مركز التشغيل),
+    but never two tests of the same screen together (they would see each other's new rows)."""
+
     def __init__(self):
         self.lock = threading.Lock()
-        self.current_task = None
         self.queue = []
-        self.process = None
-        self.stopped = False
-        self.current_log_file = None
-        # ← جديد: تاريخ آخر 100 مهمة
+        self.running = {}          # task_id -> task (in start order)
+        self.procs = {}            # task_id -> Popen
+        self.stopped_ids = set()
         self.history = {}
+
+    # ----- settings -----
+    @staticmethod
+    def workers():
+        from config.storage import load_json
+        try:
+            n = int((load_json(paths.settings_file("runs.json"), {}) or {}).get("workers") or os.getenv("QUEUE_WORKERS", "1"))
+        except ValueError:
+            n = 1
+        return max(1, min(4, n))
+
+    @staticmethod
+    def set_workers(n):
+        from config.storage import save_json
+        n = max(1, min(4, int(n)))
+        save_json(paths.settings_file("runs.json"), {"workers": n})
+        return n
+
+    # ----- compatibility: «the» running task = the oldest one -----
+    @property
+    def current_task(self):
+        return next(iter(self.running.values()), None)
 
     def is_running(self):
         with self.lock:
-            return self.current_task is not None
+            return bool(self.running)
 
     def get_status(self):
         with self.lock:
+            run = [dict(t) for t in self.running.values()]
             return {
-                "running": self.current_task,
+                "running": run[0] if run else None,
+                "running_all": run,
+                "workers": self.workers(),
                 "queue": list(self.queue),
                 "queue_length": len(self.queue),
             }
 
     def get_task(self, task_id):
-        """يرجع مهمة من الحالي/الطابور/التاريخ"""
+        """يرجع مهمة من الشغال/الطابور/التاريخ"""
         with self.lock:
-            # الحالي
-            if self.current_task and self.current_task.get("task_id") == task_id:
-                return dict(self.current_task)
-            # الطابور
+            if task_id in self.running:
+                return dict(self.running[task_id])
             for t in self.queue:
                 if t.get("task_id") == task_id:
                     return dict(t)
-            # التاريخ
             if task_id in self.history:
                 return dict(self.history[task_id])
         return None
@@ -74,30 +97,49 @@ class QueueManager:
             "test_path": test_path,
             "test_name": test_name,
             "repeat": repeat,
-            "source": source,            # manual / schedule / retry / rerun
+            "source": source,            # manual / schedule / retry / rerun / hook
             "added_at": datetime.now().isoformat(),
             "status": "queued",
             **(extra or {}),
         }
-
         with self.lock:
-            if self.current_task is None:
-                self.current_task = task
-                self.stopped = False
-                should_start = True
+            if front:
+                self.queue.insert(0, task)
             else:
-                if front:
-                    self.queue.insert(0, task)
-                else:
-                    self.queue.append(task)
-                should_start = False
-
-        if should_start:
-            self._run_task(task)
+                self.queue.append(task)
+        started = self._pump()
+        if task_id in started:
             return {"queued": False, "position": 0}
-        else:
-            position = len(self.queue)
-            return {"queued": True, "position": position}
+        with self.lock:
+            pos = next((i + 1 for i, t in enumerate(self.queue) if t["task_id"] == task_id), len(self.queue))
+        return {"queued": True, "position": pos}
+
+    @staticmethod
+    def _screen(task):
+        try:
+            from web.insights import test_key
+            return test_key(task.get("test_path", ""))
+        except Exception:
+            return task.get("test_path", "")
+
+    def _pump(self):
+        """start queued tasks while there are free workers"""
+        started = []
+        with self.lock:
+            busy = {self._screen(t) for t in self.running.values()}
+            i = 0
+            while len(self.running) < self.workers() and i < len(self.queue):
+                t = self.queue[i]
+                if self._screen(t) in busy:          # same screen already running -> wait
+                    i += 1
+                    continue
+                self.queue.pop(i)
+                self.running[t["task_id"]] = t
+                busy.add(self._screen(t))
+                started.append(t)
+        for t in started:
+            threading.Thread(target=self._execute, args=(t,), daemon=True).start()
+        return [t["task_id"] for t in started]
 
     # ---------- queue editing ----------
     def remove(self, task_id):
@@ -136,31 +178,30 @@ class QueueManager:
         m = INFRA_PATTERNS.search(tail)
         return m.group(0) if m else None
 
-    def stop_current(self):
+    def stop_current(self, task_id=None):
+        """stop one running task (or all of them)"""
+        stopped = False
         with self.lock:
-            if self.process and self.process.poll() is None:
-                self.stopped = True
+            items = [(k, p) for k, p in self.procs.items() if task_id in (None, k)]
+        for k, p in items:
+            if p.poll() is None:
+                self.stopped_ids.add(k)
                 try:
-                    self.process.terminate()
+                    p.terminate()
                     try:
-                        self.process.wait(timeout=5)
+                        p.wait(timeout=5)
                     except Exception:
-                        self.process.kill()
-                    return True
+                        p.kill()
+                    stopped = True
                 except Exception as e:
-                    print(f"[stop_current] error: {e}")
-                    return False
-        return False
-
-    def _run_task(self, task):
-        thread = threading.Thread(target=self._execute, args=(task,), daemon=True)
-        thread.start()
+                    print(f"[stop] error: {e}")
+        return stopped
 
     def _execute(self, task):
         task_id = task["task_id"]
         log_file = LOGS_DIR / f"{task_id}.log"
-        self.current_log_file = log_file
         start_time = datetime.now()
+        end_time, duration, proc = start_time, 0.0, None
 
         try:
             cmd = [
@@ -187,10 +228,13 @@ class QueueManager:
                 env["PYTHONIOENCODING"] = "utf-8"
                 env["PYTHONUTF8"] = "1"
                 env["TEST_REPEAT"] = str(task.get("repeat", 1) or 1)
+                if task.get("site"):
+                    env["SITE_PROFILE"] = str(task["site"])      # run on another test site (Settings → المواقع)
+                    lf.write(f"SITE: {task.get('site_name') or task['site']}\n")
                 lf.write(f"TEST_REPEAT: {env['TEST_REPEAT']}\n")
                 lf.flush()
 
-                self.process = subprocess.Popen(
+                proc = subprocess.Popen(
                     cmd,
                     cwd=str(BASE_DIR),
                     stdout=subprocess.PIPE,
@@ -202,30 +246,32 @@ class QueueManager:
                     env=env,
                 )
 
-                task["pid"] = self.process.pid
+                with self.lock:
+                    self.procs[task_id] = proc
+                task["pid"] = proc.pid
                 task["status"] = "running"
                 task["started_at"] = start_time.isoformat()
-                lf.write(f"PID: {self.process.pid}\n\n")
+                lf.write(f"PID: {proc.pid}\n\n")
                 lf.flush()
 
-                for line in self.process.stdout:
+                for line in proc.stdout:
                     lf.write(line)
                     lf.flush()
                     print(f"[{task_id}] {line}", end="", flush=True)
 
-                self.process.wait()
+                proc.wait()
                 end_time = datetime.now()
                 duration = (end_time - start_time).total_seconds()
 
                 lf.write(f"\n===== END {end_time.isoformat()} =====\n")
-                lf.write(f"Exit code: {self.process.returncode}\n")
+                lf.write(f"Exit code: {proc.returncode}\n")
                 lf.write(f"Duration: {duration:.1f}s\n")
 
             # ===== تحديد الحالة النهائية =====
-            if self.stopped:
+            if task_id in self.stopped_ids:
                 final_status = "stopped"
-                self.stopped = False
-            elif self.process.returncode == 0:
+                self.stopped_ids.discard(task_id)
+            elif proc.returncode == 0:
                 final_status = "completed"
             else:
                 final_status = "failed"
@@ -235,12 +281,15 @@ class QueueManager:
                 task["auto_retry"] = f"{task_id}_r"
                 task["retry_reason"] = retry_reason
             try:
-                self._write_summary({**task, "status": final_status}, start_time, end_time, duration,
-                                    self.process.returncode)
+                summ = self._write_summary({**task, "status": final_status}, start_time, end_time, duration,
+                                           proc.returncode)
+                if final_status != "stopped":
+                    from web import notify
+                    notify.notify_async(summ)
             except Exception as e:
                 print(f"[{task_id}] summary error: {e}", flush=True)
             task["status"] = final_status
-            task["exit_code"] = self.process.returncode
+            task["exit_code"] = proc.returncode
             task["completed_at"] = end_time.isoformat()
             task["duration_seconds"] = round(duration, 1)
 
@@ -265,26 +314,18 @@ class QueueManager:
                 self.history[task_id] = dict(task)
 
         finally:
-            self.process = None
+            with self.lock:
+                self.procs.pop(task_id, None)
+                self.running.pop(task_id, None)
             if task.get("auto_retry"):
                 # إعادة مرة واحدة أول الطابور
                 self.add(task["auto_retry"], task["test_path"], f"{task.get('test_name', '')} (إعادة تلقائية)",
                          repeat=task.get("repeat", 1), source="retry", front=True,
                          extra={"retry_of": task_id, "retried": True})
-            self._next()
+            self._pump()
 
     def _next(self):
-        next_task = None
-        with self.lock:
-            if self.queue:
-                next_task = self.queue.pop(0)
-                self.current_task = next_task
-                self.stopped = False
-            else:
-                self.current_task = None
-
-        if next_task:
-            self._run_task(next_task)
+        self._pump()
 
     def read_log(self, task_id, max_lines=200):
         log_file = LOGS_DIR / f"{task_id}.log"
@@ -340,6 +381,9 @@ class QueueManager:
             "retry_of": task.get("retry_of"),
             "auto_retry": task.get("auto_retry"),
             "retry_reason": task.get("retry_reason"),
+            "site": task.get("site") or "",
+            "site_name": task.get("site_name") or "",
+            "schedule_id": task.get("schedule_id"),
             "duration_seconds": round(duration, 2),
             "total": s.get("total", 0),
             "passed": s.get("passed", 0),

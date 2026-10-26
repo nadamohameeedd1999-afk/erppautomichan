@@ -27,7 +27,7 @@ def _items(full=False):
     out = []
     for root, arc in ((paths.SETTINGS_DIR, "data/settings"), (paths.RESULTS_DIR, "data/runs/results"),
                       (paths.RUN_LOGS_DIR, "data/runs/logs"), (paths.SCREENS_DIR, "defs/screens"),
-                      (paths.SCENARIOS_DIR, "defs/scenarios")):
+                      (paths.SCENARIOS_DIR, "defs/scenarios"), (paths.DATA_DIR / "datasets", "data/datasets")):
         if root.exists():
             for f in root.rglob("*"):
                 if f.is_file() and not f.name.endswith(".tmp"):
@@ -93,7 +93,8 @@ def restore(zip_path):
     safety = create("before-restore")
     targets = {"data/settings/": paths.SETTINGS_DIR, "data/runs/results/": paths.RESULTS_DIR,
                "data/runs/logs/": paths.RUN_LOGS_DIR, "data/runs/screenshots/": paths.SCREENSHOTS_DIR,
-               "defs/screens/": paths.SCREENS_DIR, "defs/scenarios/": paths.SCENARIOS_DIR}
+               "defs/screens/": paths.SCREENS_DIR, "defs/scenarios/": paths.SCENARIOS_DIR,
+               "data/datasets/": paths.DATA_DIR / "datasets"}
     n = 0
     with zipfile.ZipFile(zip_path) as z:
         for member in z.namelist():

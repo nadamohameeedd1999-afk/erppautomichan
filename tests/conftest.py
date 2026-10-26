@@ -55,7 +55,8 @@ def _build_options():
         options.add_argument("--no-default-browser-check")
         options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees")
         options.add_argument("--disable-images")
-        options.add_argument("--js-flags=--max-old-space-size=256")
+        if os.getenv("CHROME_JS_HEAP_MB"):
+            options.add_argument(f"--js-flags=--max-old-space-size={os.getenv('CHROME_JS_HEAP_MB')}")
 
         # ❌ مش بنستخدم:
         # --single-process (بيكسر Chrome 155)

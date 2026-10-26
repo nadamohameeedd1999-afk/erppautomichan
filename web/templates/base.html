@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style-dark.css') }}">
 
     {% if favicon %}
-    <link rel="icon" href="{{ url_for('static', filename='uploads/' + favicon) }}">
+    <link rel="icon" href="{{ url_for('media', filename=favicon) }}">
     {% endif %}
 
     <script>
@@ -36,7 +36,7 @@
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('index') }}">
             {% if logo %}
-            <img src="{{ url_for('static', filename='uploads/' + logo) }}" alt="Logo" style="height: 32px;">
+            <img src="{{ url_for('media', filename=logo) }}" alt="Logo" style="height: 32px;">
             {% else %}
             <i class="bi bi-cpu fs-3"></i>
             {% endif %}
@@ -127,13 +127,18 @@
                         <li><h6 class="dropdown-header">
                             <i class="bi bi-person"></i> {{ current_user.username }}
                             <br>
-                            <small class="text-muted">{{ current_user.role }}</small>
+                            <small class="text-muted">{{ {'admin': 'أدمن', 'user': 'مستخدم', 'viewer': 'مشاهد'}.get(current_user.role, current_user.role) }}</small>
                         </h6></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{{ url_for('ops.backups_page') }}">
                             <i class="bi bi-shield-check"></i>
                             {% if current_lang == 'ar' %}النسخ الاحتياطي والمحذوفات{% else %}Backups{% endif %}
                         </a></li>
+                        {% if current_user.role == 'admin' %}
+                        <li><a class="dropdown-item" href="{{ url_for('audit_page') }}">
+                            <i class="bi bi-journal-text"></i> سجل النشاط
+                        </a></li>
+                        {% endif %}
                         <li><a class="dropdown-item" href="{{ url_for('users') }}">
                             <i class="bi bi-people"></i>
                             {% if current_lang == 'ar' %}إدارة المستخدمين{% else %}Users{% endif %}
