@@ -5,12 +5,12 @@
 {% block extra_css %}
 <style>
     .test-row { transition: background 0.15s; }
-    .test-row:hover { background: var(--bg-secondary, #f8f9fa); }
-    .test-row.selected { background: #e7f1ff; }
+    .test-row:hover { background: var(--bg-secondary, rgba(255,255,255,.05)); }
+    .test-row.selected { background: rgba(34,211,238,.12); }
     
-    .type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid #dee2e6; }
+    .type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
     .type-toggle button {
-        border: none; background: white; padding: 4px 10px;
+        border: none; background: rgba(255,255,255,.05); padding: 4px 10px;
         font-size: 12px; cursor: pointer; transition: all 0.15s;
     }
     .type-toggle button.active-full { background: #198754; color: white; }
@@ -30,13 +30,13 @@
     .module-body.open { max-height: 5000px; }
     
     .last-result-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
-    .last-result-badge.passed { background: #d1e7dd; color: #0a3622; }
-    .last-result-badge.failed { background: #f8d7da; color: #58151c; }
-    .last-result-badge.never { background: #e2e3e5; color: #41464b; }
+    .last-result-badge.passed { background: #d1e7dd; color: #a7f3d0; }
+    .last-result-badge.failed { background: #f8d7da; color: #fecdd3; }
+    .last-result-badge.never { background: #e2e3e5; color: var(--g-muted); }
     
     .sticky-toolbar {
         position: sticky; top: 70px; z-index: 100;
-        background: var(--bg-primary, white);
+        background: var(--bg-primary, rgba(255,255,255,.05));
         padding: 12px; border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         margin-bottom: 16px;

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}المقارنة - {{ site_name }}{% endblock %}
 
 {% block extra_css %}
@@ -6,17 +6,17 @@
     .cmp-card { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(30,40,90,.06); }
     .cmp-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; }
     .nav-pills .nav-link { border-radius: 10px; font-weight: 700; }
-    .side { border-radius: 12px; padding: 14px; border: 1px solid #e3e6ef; height: 100%; }
-    .side.ok { border-color: #b7e4c7; background: #f3fbf6; } .side.bad { border-color: #f5c2c7; background: #fdf3f4; }
+    .side { border-radius: 12px; padding: 14px; border: 1px solid rgba(255,255,255,.1); height: 100%; }
+    .side.ok { border-color: rgba(255,255,255,.1); background: rgba(52,211,153,.08); } .side.bad { border-color: rgba(255,255,255,.1); background: rgba(251,113,133,.08); }
     .side .tag { font-weight: 800; font-size: 13px; color: #6f42c1; }
-    .verdict { border-radius: 12px; padding: 12px 16px; background: #f5f0ff; border: 1px solid #e4dcff; font-weight: 700; }
-    .diff-row td { background: #fff8e1 !important; }
+    .verdict { border-radius: 12px; padding: 12px 16px; background: rgba(167,139,250,.1); border: 1px solid rgba(255,255,255,.1); font-weight: 700; }
+    .diff-row td { background: rgba(251,191,36,.12) !important; }
     .muted { color: #8a8fa3; font-size: 12px; }
     .fail-msg { font-size: 12px; color: #c0392b; white-space: pre-wrap; }
-    .shot-pair img { width: 100%; height: 170px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid #e3e6ef; cursor: zoom-in; }
-    .shot-none { height: 170px; border-radius: 8px; border: 1px dashed #d5d9e6; display: flex; align-items: center; justify-content: center; color: #aab; }
+    .shot-pair img { width: 100%; height: 170px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); cursor: zoom-in; }
+    .shot-none { height: 170px; border-radius: 8px; border: 1px dashed rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; color: #aab; }
     .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-    .chip.ok { background: #e6f6ee; color: #198754; } .chip.bad { background: #fdecec; color: #dc3545; }
+    .chip.ok { background: rgba(52,211,153,.14); color: #198754; } .chip.bad { background: rgba(251,113,133,.14); color: #dc3545; }
     .up { color: #198754; font-weight: 700; } .down { color: #dc3545; font-weight: 700; }
     .stat { text-align: center; } .stat .v { font-size: 26px; font-weight: 800; } .stat .l { font-size: 12px; color: #8a8fa3; }
     [data-theme="dark"] .cmp-card { background: #1f2330; } [data-theme="dark"] .side { background: transparent; }

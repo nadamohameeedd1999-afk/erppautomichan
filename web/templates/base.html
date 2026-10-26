@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="{{ current_lang }}" dir="{{ text_dir }}" data-theme="light">
+{% set ar = current_lang == 'ar' %}
+{% set ep = request.endpoint or '' %}
+{% set page_title = (self.title()|striptags).split(' - ')[0] %}
+<html lang="{{ current_lang }}" dir="{{ text_dir }}" data-theme="dark" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,222 +13,172 @@
     {% else %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     {% endif %}
-
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style-dark.css') }}">
-
-    {% if favicon %}
-    <link rel="icon" href="{{ url_for('media', filename=favicon) }}">
-    {% endif %}
-
-    <script>
-        (function() {
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        })();
-    </script>
-
-    <style id="nav-nowrap">
-    .navbar .navbar-nav .nav-link { white-space: nowrap; padding-left: .55rem; padding-right: .55rem; font-size: .95rem; }
-</style>
-{% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css') }}">
+    {% if favicon %}<link rel="icon" href="{{ url_for('media', filename=favicon) }}">{% endif %}
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-gradient-primary shadow-sm sticky-top">
-    <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('index') }}">
-            {% if logo %}
-            <img src="{{ url_for('media', filename=logo) }}" alt="Logo" style="height: 32px;">
-            {% else %}
-            <i class="bi bi-cpu fs-3"></i>
-            {% endif %}
-            <span>{{ site_name }}</span>
+{% macro item(endpoints, url, icon, label, extra='') -%}
+<a href="{{ url }}" class="{{ 'on' if ep in endpoints }}"><i class="bi {{ icon }}"></i><span>{{ label }}</span>{{ extra|safe }}</a>
+{%- endmacro %}
+
+<div class="g-app">
+    <aside class="g-side" id="gSide">
+        <a class="g-brand" href="{{ url_for('index') }}">
+            <span class="lg">{% if logo %}<img src="{{ url_for('media', filename=logo) }}" alt="">{% else %}<i class="bi bi-cpu"></i>{% endif %}</span>
+            <span><b>{{ site_name }}</b><small>{{ site_config.company_name_ar if (ar and site_config.company_name_ar) else ('ERP Test Automation' if not ar else 'أتمتة اختبارات ERP') }}</small></span>
         </a>
+        <nav class="g-nav">
+            <div class="sec">{{ 'العمل اليومي' if ar else 'Daily work' }}</div>
+            {{ item(('index',), url_for('index'), 'bi-grid-1x2', 'الرئيسية' if ar else 'Home') }}
+            {{ item(('tests',), url_for('tests'), 'bi-clipboard-check', t('tests')) }}
+            {{ item(('screens.screens_page', 'screens.scenarios_page'), url_for('screens.screens_page'), 'bi-tools', 'منشئ الاختبارات' if ar else 'Test Builder') }}
+            {{ item(('ops.run_center',), url_for('ops.run_center'), 'bi-play-circle', 'مركز التشغيل' if ar else 'Run Center', '<span class="cnt d-none" id="navRunBadge"></span>') }}
+            {{ item(('ops.schedule_page',), url_for('ops.schedule_page'), 'bi-calendar-week', t('schedule')) }}
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+            <div class="sec">{{ 'المتابعة' if ar else 'Monitoring' }}</div>
+            {{ item(('reports', 'report_detail', 'ops.daily_report_page', 'ops.discovery_report_page'), url_for('reports'), 'bi-bar-chart-line', t('reports')) }}
+            {{ item(('ops.compare_page',), url_for('ops.compare_page'), 'bi-arrow-left-right', 'المقارنة' if ar else 'Compare') }}
+            {{ item(('live_viewer',), url_for('live_viewer'), 'bi-broadcast', 'بث مباشر' if ar else 'Live', '<span class="live-dot d-none" id="navLiveDot"></span>') }}
 
-        <div class="collapse navbar-collapse" id="mainNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                {% set ep = request.endpoint or '' %}
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
-                        <i class="bi bi-speedometer2"></i> {% if current_lang == 'ar' %}الرئيسية{% else %}Home{% endif %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'tests' %}active{% endif %}" href="{{ url_for('tests') }}">
-                        <i class="bi bi-clipboard-check"></i> {{ t('tests') }}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep in ('screens.screens_page', 'screens.scenarios_page') %}active{% endif %}" href="{{ url_for('screens.screens_page') }}">
-                        <i class="bi bi-tools"></i> {% if current_lang == 'ar' %}منشئ الاختبارات{% else %}Test Builder{% endif %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'ops.run_center' %}active{% endif %}" href="{{ url_for('ops.run_center') }}">
-                        <i class="bi bi-cpu"></i> {% if current_lang == 'ar' %}مركز التشغيل{% else %}Run Center{% endif %}
-                        <span class="badge rounded-pill bg-danger ms-1 d-none" id="navRunBadge">●</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'ops.schedule_page' %}active{% endif %}" href="{{ url_for('ops.schedule_page') }}">
-                        <i class="bi bi-calendar-week"></i> {{ t('schedule') }}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if 'reports' in ep or ep == 'report_detail' %}active{% endif %}" href="{{ url_for('reports') }}">
-                        <i class="bi bi-bar-chart-line"></i> {{ t('reports') }}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'ops.compare_page' %}active{% endif %}" href="{{ url_for('ops.compare_page') }}">
-                        <i class="bi bi-arrow-left-right"></i> {% if current_lang == 'ar' %}المقارنة{% else %}Compare{% endif %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'live_viewer' %}active{% endif %}" href="{{ url_for('live_viewer') }}">
-                        <i class="bi bi-broadcast text-danger"></i> {% if current_lang == 'ar' %}بث مباشر{% else %}Live{% endif %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if ep == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
-                        <i class="bi bi-gear"></i> {{ t('settings') }}
-                    </a>
-                </li>
-            </ul>
-
-
-
-
-            <div class="d-flex align-items-center gap-2">
-                <div class="dropdown">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="bi bi-translate"></i>
-                        {% if current_lang == "ar" %}{{ t('arabic') }}{% else %}{{ t('english') }}{% endif %}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('set_lang', lang='ar') }}">{{ t('arabic') }}</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('set_lang', lang='en') }}">{{ t('english') }}</a></li>
-                    </ul>
-                </div>
-
-                <button class="theme-toggle" id="themeToggle" title="Dark Mode">
-                    <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
-                </button>
-
-                {% if current_user %}
-                <div class="dropdown">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle"></i>
-                        {{ current_user.full_name or current_user.username }}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><h6 class="dropdown-header">
-                            <i class="bi bi-person"></i> {{ current_user.username }}
-                            <br>
-                            <small class="text-muted">{{ {'admin': 'أدمن', 'user': 'مستخدم', 'viewer': 'مشاهد'}.get(current_user.role, current_user.role) }}</small>
-                        </h6></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('ops.backups_page') }}">
-                            <i class="bi bi-shield-check"></i>
-                            {% if current_lang == 'ar' %}النسخ الاحتياطي والمحذوفات{% else %}Backups{% endif %}
-                        </a></li>
-                        {% if current_user.role == 'admin' %}
-                        <li><a class="dropdown-item" href="{{ url_for('audit_page') }}">
-                            <i class="bi bi-journal-text"></i> سجل النشاط
-                        </a></li>
-                        {% endif %}
-                        <li><a class="dropdown-item" href="{{ url_for('users') }}">
-                            <i class="bi bi-people"></i>
-                            {% if current_lang == 'ar' %}إدارة المستخدمين{% else %}Users{% endif %}
-                        </a></li>
-                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
-                            <i class="bi bi-box-arrow-right"></i>
-                            {% if current_lang == 'ar' %}خروج{% else %}Logout{% endif %}
-                        </a></li>
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
+            <div class="sec">{{ 'الإدارة' if ar else 'Admin' }}</div>
+            {{ item(('settings',), url_for('settings'), 'bi-gear', t('settings')) }}
+            {{ item(('users',), url_for('users'), 'bi-people', 'المستخدمين' if ar else 'Users') }}
+            {{ item(('ops.backups_page',), url_for('ops.backups_page'), 'bi-shield-check', 'النسخ الاحتياطي' if ar else 'Backups') }}
+            {% if current_user and current_user.role == 'admin' %}
+            {{ item(('audit_page',), url_for('audit_page'), 'bi-journal-text', 'سجل النشاط' if ar else 'Activity log') }}
+            {% endif %}
+        </nav>
+        {% if current_user %}
+        <div class="g-foot">
+            <div class="g-av">{{ (current_user.full_name or current_user.username or '?')[:1] }}</div>
+            <div class="who"><b>{{ current_user.full_name or current_user.username }}</b>
+                <small>{{ {'admin': 'مدير النظام', 'user': 'مستخدم', 'viewer': 'مشاهد'}.get(current_user.role, current_user.role) if ar else current_user.role }}</small></div>
+            <a href="{{ url_for('set_lang', lang='en' if ar else 'ar') }}" title="{{ 'English' if ar else 'العربية' }}"><i class="bi bi-translate"></i></a>
+            <a href="{{ url_for('logout') }}" title="{{ 'خروج' if ar else 'Logout' }}"><i class="bi bi-box-arrow-{{ 'left' if ar else 'right' }}"></i></a>
         </div>
-    </div>
-</nav>
+        {% endif %}
+    </aside>
+    <div class="g-shade" id="gShade" onclick="gSide(false)"></div>
 
-<main class="container-fluid px-4 py-4">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, msg in messages %}
+    <div class="g-main">
+        <header class="g-top">
+            <button class="g-ib g-burger" onclick="gSide(true)" aria-label="menu"><i class="bi bi-list"></i></button>
+            <div class="ttl">
+                <div class="crumb">{{ site_name }}</div>
+                <h1>{{ page_title }}</h1>
+            </div>
+            <div class="g-search" onclick="gPal(true)"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
+            <a class="g-ib" href="{{ url_for('ops.run_center') }}" title="{{ 'مركز التشغيل' if ar else 'Run center' }}" id="gBell"><i class="bi bi-bell"></i><span class="dot d-none" id="gBellDot"></span></a>
+            <a class="btn btn-primary" href="{{ url_for('tests') }}"><i class="bi bi-play-fill"></i> {{ 'تشغيل اختبارات' if ar else 'Run tests' }}</a>
+        </header>
+
+        <main class="g-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, msg in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ msg }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    {% block content %}{% endblock %}
-</main>
-
-<footer class="mt-5 py-4">
-    <div class="container text-center small">
-        <i class="bi bi-cpu"></i>
-        {% if site_config.company_name_ar %}
-        {{ site_config.company_name_ar }}
-        {% else %}
-        ERP Test Automation v4.0
-        {% endif %}
+                {% endfor %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+            <div class="g-footer">{{ site_config.company_name_ar if (ar and site_config.company_name_ar) else 'ERP Test Automation v4.2' }}</div>
+        </main>
     </div>
-</footer>
+</div>
+
+<!-- Ctrl+K -->
+<div id="gPal" onclick="if (event.target === this) gPal(false)">
+    <div class="box">
+        <input id="gPalQ" placeholder="{{ 'اكتبي اسم شاشة أو صفحة أو أمر…' if ar else 'Type a screen, page or command…' }}" autocomplete="off">
+        <div class="res" id="gPalR"></div>
+        <div class="hint">↑ ↓ {{ 'للتنقل' if ar else 'navigate' }} · Enter {{ 'للفتح' if ar else 'open' }} · Esc {{ 'للخروج' if ar else 'close' }}</div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/runner.js') }}"></script>
-
 <script>
-(function() {
-    const html = document.documentElement;
-    const toggle = document.getElementById('themeToggle');
-    const icon = document.getElementById('themeIcon');
+// old pages read this; the glass theme is always dark
+try { localStorage.setItem('theme', 'dark'); } catch (e) {}
 
-    function updateIcon(theme) {
-        if (icon) {
-            icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
-        }
-    }
-
-    const currentTheme = html.getAttribute('data-theme') || 'light';
-    updateIcon(currentTheme);
-
-    if (toggle) {
-        toggle.addEventListener('click', function() {
-            const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateIcon(newTheme);
-            window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: newTheme } }));
-        });
-    }
-})();
-</script>
-
-<script>
+// pages that have their own big heading: keep one title only
 (function () {
-    const b = document.getElementById('navRunBadge');
-    if (!b) return;
+    const own = document.querySelector('.g-content h1, .g-content .display-5');
+    if (own) { const t = document.querySelector('.g-top h1'), c = document.querySelector('.g-top .crumb');
+               c.textContent = c.textContent + ' / ' + t.textContent; t.style.display = 'none'; }
+})();
+
+function gSide(open) {
+    document.getElementById('gSide').classList.toggle('open', open);
+    document.getElementById('gShade').classList.toggle('on', open);
+}
+
+// ---------- running badge / live dot ----------
+(function () {
+    const b = document.getElementById('navRunBadge'), dot = document.getElementById('navLiveDot'), bell = document.getElementById('gBellDot');
     async function p() {
-        try { const q = await fetch('/api/queue').then(r => r.json());
-              b.classList.toggle('d-none', !q.running);
-              b.textContent = q.running ? (q.queue_length ? q.queue_length + 1 : '●') : ''; } catch (e) {}
+        try {
+            const q = await fetch('/api/queue').then(r => r.json());
+            const n = (q.running_all || (q.running ? [q.running] : [])).length + (q.queue_length || 0);
+            b.textContent = n; b.classList.toggle('d-none', !n);
+            dot.classList.toggle('d-none', !q.running); bell.classList.toggle('d-none', !q.running);
+        } catch (e) {}
     }
     p(); setInterval(p, 5000);
+})();
+
+// ---------- command palette ----------
+(function () {
+    const AR = {{ 'true' if ar else 'false' }};
+    const BASE = [...document.querySelectorAll('.g-nav a')].map(a => ({icon: a.querySelector('i').className, name: a.querySelector('span').textContent, url: a.getAttribute('href'), kind: AR ? 'صفحة' : 'page'}));
+    const CMDS = [
+        {icon: 'bi bi-compass', name: AR ? 'اكتشف شاشات النظام' : 'Discover system screens', url: '/screens?discover=1'},
+        {icon: 'bi bi-diagram-3', name: AR ? 'سيناريو جديد' : 'New scenario', url: '/scenarios'},
+        {icon: 'bi bi-file-earmark-pdf', name: AR ? 'التقرير اليومي' : 'Daily report', url: '/reports/daily'},
+        {icon: 'bi bi-list-task', name: AR ? 'طابور التشغيل' : 'Run queue', url: '/queue'},
+    ].map(c => ({...c, kind: AR ? 'أمر' : 'action'}));
+    let ITEMS = BASE.concat(CMDS), loaded = false, sel = 0, shown = [];
+    async function loadScreens() {
+        if (loaded) return; loaded = true;
+        try {
+            const [s, c] = await Promise.all([fetch('/api/screens').then(r => r.json()).catch(() => ({})),
+                                              fetch('/api/scenarios').then(r => r.json()).catch(() => ({}))]);
+            (s.screens || []).forEach(x => ITEMS.push({icon: 'bi bi-ui-checks-grid', name: x.name_ar || x.key, url: '/screens?key=' + encodeURIComponent(x.key), kind: AR ? 'شاشة' : 'screen'}));
+            (c.scenarios || []).forEach(x => ITEMS.push({icon: 'bi bi-film', name: (x.screen_name || x.screen_key) + ' — ' + x.scenario_name,
+                url: `/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}`, kind: AR ? 'سيناريو' : 'scenario'}));
+            render();
+        } catch (e) {}
+    }
+    const N = t => String(t || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+    function render() {
+        const q = N(document.getElementById('gPalQ').value.trim());
+        shown = ITEMS.filter(i => !q || N(i.name).includes(q)).slice(0, 12);
+        sel = Math.min(sel, Math.max(0, shown.length - 1));
+        document.getElementById('gPalR').innerHTML = shown.map((i, k) =>
+            `<a class="r ${k === sel ? 'sel' : ''}" href="${esc(i.url)}"><i class="${esc(i.icon)}"></i>${esc(i.name)}<small>${esc(i.kind)}</small></a>`).join('')
+            || `<div class="r">${AR ? 'مفيش نتايج' : 'No results'}</div>`;
+    }
+    window.gPal = function (open) {
+        const p = document.getElementById('gPal'); p.classList.toggle('on', open);
+        if (open) { const q = document.getElementById('gPalQ'); q.value = ''; sel = 0; render(); q.focus(); loadScreens(); }
+    };
+    document.getElementById('gPalQ').addEventListener('input', () => { sel = 0; render(); });
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); gPal(true); return; }
+        if (!document.getElementById('gPal').classList.contains('on')) return;
+        if (e.key === 'Escape') gPal(false);
+        else if (e.key === 'ArrowDown') { sel = Math.min(sel + 1, shown.length - 1); render(); e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { sel = Math.max(sel - 1, 0); render(); e.preventDefault(); }
+        else if (e.key === 'Enter' && shown[sel]) { location.href = shown[sel].url; }
+    });
 })();
 </script>
 
 {% block extra_js %}{% endblock %}
 </body>
 </html>
-
-

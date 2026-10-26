@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}الجدولة - {{ site_name }}{% endblock %}
 
 {% block extra_css %}
@@ -8,16 +8,16 @@
     .sc-card .card-body { padding: 16px 18px; }
     .sc-next { font-size: 13px; color: #6f42c1; font-weight: 700; }
     .muted { color: #8a8fa3; font-size: 12px; }
-    .day-chip { border: 1px solid #d5d9e6; border-radius: 20px; padding: 4px 12px; cursor: pointer; user-select: none; font-size: 13px; }
+    .day-chip { border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 4px 12px; cursor: pointer; user-select: none; font-size: 13px; }
     .day-chip.on { background: #6f42c1; color: #fff; border-color: #6f42c1; }
-    .time-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef0f6; border-radius: 20px; padding: 3px 10px; font-weight: 700; direction: ltr; }
+    .time-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); border-radius: 20px; padding: 3px 10px; font-weight: 700; direction: ltr; }
     .time-chip button { border: 0; background: none; color: #dc3545; padding: 0; }
-    .mode-opt { border: 1px solid #e3e6ef; border-radius: 12px; padding: 10px 12px; cursor: pointer; flex: 1; min-width: 170px; }
-    .mode-opt.on { border-color: #6f42c1; background: #f5f0ff; }
-    .picker { max-height: 300px; overflow: auto; border: 1px solid #e3e6ef; border-radius: 10px; padding: 6px 10px; }
+    .mode-opt { border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 10px 12px; cursor: pointer; flex: 1; min-width: 170px; }
+    .mode-opt.on { border-color: #6f42c1; background: rgba(167,139,250,.1); }
+    .picker { max-height: 300px; overflow: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 6px 10px; }
     .picker .grp { font-weight: 800; font-size: 12px; color: #6f42c1; margin-top: 8px; }
     .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-    .chip.ok { background: #e6f6ee; color: #198754; } .chip.bad { background: #fdecec; color: #dc3545; } .chip.wait { background: #eef0f6; color: #555; }
+    .chip.ok { background: rgba(52,211,153,.14); color: #198754; } .chip.bad { background: rgba(251,113,133,.14); color: #dc3545; } .chip.wait { background: rgba(255,255,255,.08); color: var(--g-muted); }
     [data-theme="dark"] .sc-card { background: #1f2330; } [data-theme="dark"] .mode-opt.on { background: #2b2440; }
 </style>
 {% endblock %}

@@ -23,24 +23,24 @@
     .builder-tabs .nav-link { border-radius: 10px; font-weight: 700; }
     .scn-mini { font-size: 12px; }
     .scn-mini a { text-decoration: none; }
-    .flow-card { border: 1px solid #cfe2ff; border-radius: 12px; background: #f8fbff; margin-bottom: 12px; }
-    .flow-card .flow-head { padding: 10px 12px; border-bottom: 1px dashed #cfe2ff; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .flow-step { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #eef3fb; flex-wrap: wrap; }
+    .flow-card { border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: #f8fbff; margin-bottom: 12px; }
+    .flow-card .flow-head { padding: 10px 12px; border-bottom: 1px dashed rgba(255,255,255,.1); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow-step { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,.1); flex-wrap: wrap; }
     .flow-step:last-child { border-bottom: 0; }
     .flow-step .num { width: 24px; height: 24px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 12px;
                       display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
     .flow-step .do-sel { width: 172px; flex: 0 0 auto; }
     .flow-step .grow { flex: 1 1 200px; min-width: 160px; }
     .flow-step .mini { width: 90px; flex: 0 0 auto; }
-    .fields-table tr.act-row td { background: #f5f8ff; }
+    .fields-table tr.act-row td { background: rgba(255,255,255,.05); }
     .fields-table tr.act-row.excluded td { background: transparent; }
     .fields-table tr.act-row.act-open td { border-bottom: 0; }
-    .fields-table tr.act-sub td { background: #f5f8ff; padding: 0 12px 12px; }
-    .act-panel { border: 1px solid #dbe6ff; border-radius: 10px; background: #fff; padding: 10px; }
+    .fields-table tr.act-sub td { background: rgba(255,255,255,.05); padding: 0 12px 12px; }
+    .act-panel { border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.05); padding: 10px; }
     [data-theme="dark"] .fields-table tr.act-row td, [data-theme="dark"] .fields-table tr.act-sub td { background: #1d2433; }
     [data-theme="dark"] .act-panel { background: #161b26; border-color: #2c3a55; }
     .flow-step.popup-scope { border-inline-start: 3px solid #0dcaf0; background: #f3fdff; }
-    .flow-hint { font-size: 12px; color: #6c757d; }
+    .flow-hint { font-size: 12px; color: var(--g-muted); }
     [data-theme="dark"] .flow-card { background: #1d2433; border-color: #2c3b57; }
     [data-theme="dark"] .flow-step.popup-scope { background: #1a2a33; }
 </style>
