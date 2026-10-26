@@ -7,25 +7,25 @@
     .h-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
     .h-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: var(--g-radius); padding: 16px;
               backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--g-shadow); min-width: 0; }
-    .h-card h3 { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #fff; }
-    .h-card h3 .more { margin-inline-start: auto; font-size: 12px; font-weight: 500; color: #67e8f9; text-decoration: none; }
+    .h-card h3 { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--g-head); }
+    .h-card h3 .more { margin-inline-start: auto; font-size: 12px; font-weight: 500; color: var(--g-link); text-decoration: none; }
     .s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; }
     .s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s12 { grid-column: span 12; }
     .kpi .lbl { color: var(--g-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
     .kpi .val { font-size: 32px; font-weight: 800; margin: 6px 0 2px; line-height: 1.1;
-                background: linear-gradient(90deg, #c4b5fd, #67e8f9); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .kpi .val.bad { background: linear-gradient(90deg, #fda4af, #fb7185); -webkit-background-clip: text; background-clip: text; }
+                background: var(--g-val-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--g-num-font, inherit); }
+    .kpi .val.bad { background: linear-gradient(90deg, var(--g-bad), var(--g-bad)); -webkit-background-clip: text; background-clip: text; }
     .kpi .hint { font-size: 12px; color: var(--g-muted); }
     .up { color: var(--g-ok); font-weight: 700; } .down { color: var(--g-bad); font-weight: 700; }
     .spark { display: block; width: 100%; height: 36px; margin-top: 8px; }
-    .h-bar { height: 7px; border-radius: 9px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .h-bar { height: 7px; border-radius: 9px; background: var(--g-hover); overflow: hidden; }
     .h-bar > i { display: block; height: 100%; border-radius: 9px; background: var(--g-grad); transition: width .8s; }
     .hero { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
     .hero .hi { font-size: 15px; color: var(--g-muted); }
-    .hero .hi b { color: #fff; }
+    .hero .hi b { color: var(--g-head); }
     .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .chip.ok { color: var(--g-ok); background: rgba(52,211,153,.14); } .chip.bad { color: var(--g-bad); background: rgba(251,113,133,.14); }
-    .chip.run { color: #67e8f9; background: rgba(34,211,238,.14); }
+    .chip.run { color: var(--g-acc2); background: color-mix(in srgb, var(--g-acc2) 14%, transparent); }
     .chip.run:before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: g-pulse 1.2s infinite; }
     .legend { display: flex; gap: 14px; font-size: 12px; color: var(--g-muted); margin-inline-start: auto; font-weight: 400; }
     .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 5px; vertical-align: -1px; }
@@ -35,19 +35,19 @@
     .mods .m span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mods .m b { font-family: Consolas, monospace; font-size: 12px; text-align: end; }
     .runs td { padding: 10px 8px; }
-    .runs a { color: #fff; text-decoration: none; font-weight: 700; }
-    .runs a:hover { color: #67e8f9; }
+    .runs a { color: var(--g-head); text-decoration: none; font-weight: 700; }
+    .runs a:hover { color: var(--g-link); }
     .runs .why { font-size: 12px; color: var(--g-bad); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
     .mono { font-family: Consolas, monospace; }
     .live .it { padding: 10px 0; border-bottom: 1px dashed var(--g-line); }
     .live .it:last-child { border: 0; }
     .live .small { font-size: 12px; color: var(--g-muted); }
-    .indet { height: 6px; border-radius: 9px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 8px; position: relative; }
+    .indet { height: 6px; border-radius: 9px; background: var(--g-hover); overflow: hidden; margin-top: 8px; position: relative; }
     .indet:after { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 9px; background: var(--g-grad); animation: slide 1.4s ease-in-out infinite; }
     @keyframes slide { 0% { inset-inline-start: -35%; } 100% { inset-inline-start: 100%; } }
     .sched .it { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--g-line); }
     .sched .it:last-child { border: 0; }
-    .sched .tm { font-weight: 800; min-width: 62px; text-align: center; padding: 6px; border-radius: 12px; background: rgba(167,139,250,.16); color: #c4b5fd; font-family: Consolas, monospace; font-size: 13px; }
+    .sched .tm { font-weight: 800; min-width: 62px; text-align: center; padding: 6px; border-radius: 12px; background: var(--g-acc-soft); color: var(--g-acc-text); font-family: Consolas, monospace; font-size: 13px; }
     .att { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 13px;
            background: rgba(251,113,133,.08); border: 1px solid rgba(251,113,133,.28); }
     .att.w { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.28); }
@@ -252,40 +252,40 @@ function spark(id, arr, color) {
     const w = 120, h = 36, mx = Math.max(...arr, 1), mn = Math.min(...arr, 0);
     const pts = arr.map((v, i) => `${(i / Math.max(arr.length - 1, 1) * w).toFixed(1)},${(h - 3 - (v - mn) / ((mx - mn) || 1) * (h - 6)).toFixed(1)}`).join(' ');
     el.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    el.innerHTML = `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+    el.innerHTML = `<polyline points="${pts}" fill="none" style="stroke:${color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
 }
 const total = T.passed.map((p, i) => p + T.failed[i]);
-spark('spRuns', total, '#22d3ee');
-spark('spRate', total.map((t, i) => t ? 100 * T.passed[i] / t : null).map((v, i, a) => v ?? (a.slice(0, i).reverse().find(x => x != null) ?? 0)), '#34d399');
-spark('spFail', T.failed, '#fb7185');
+spark('spRuns', total, 'var(--g-acc2)');
+spark('spRate', total.map((t, i) => t ? 100 * T.passed[i] / t : null).map((v, i, a) => v ?? (a.slice(0, i).reverse().find(x => x != null) ?? 0)), 'var(--g-ok)');
+spark('spFail', T.failed, 'var(--g-bad)');
 
 (function trend() {
     const box = document.getElementById('trend'); const w = Math.max(box.clientWidth, 300), h = 210, pad = 22;
     const n = T.labels.length, bw = (w - 8) / n, mx = Math.max(...total, 1);
     let g = '';
-    for (let k = 0; k <= 4; k++) { const y = 6 + (h - pad - 12) * k / 4; g += `<line x1="0" x2="${w}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.07)"/>`; }
+    for (let k = 0; k <= 4; k++) { const y = 6 + (h - pad - 12) * k / 4; g += `<line x1="0" x2="${w}" y1="${y}" y2="${y}" style="stroke:var(--g-line)"/>`; }
     const bars = T.labels.map((lb, i) => {
         const x = 4 + i * bw + bw * .2, ww = bw * .6, base = h - pad, sc = (h - pad - 12) / mx;
         const hp = T.passed[i] * sc, hf = T.failed[i] * sc;
         return `<g><title>${lb}: ${T.passed[i]} نجح · ${T.failed[i]} فشل</title>
-            ${hp ? `<rect x="${x}" y="${base - hp}" width="${ww}" height="${hp}" rx="4" fill="url(#gOk)"/>` : ''}
-            ${hf ? `<rect x="${x}" y="${base - hp - hf - (hp ? 2 : 0)}" width="${ww}" height="${hf}" rx="4" fill="#fb7185"/>` : ''}
-            ${!hp && !hf ? `<rect x="${x}" y="${base - 2}" width="${ww}" height="2" rx="1" fill="rgba(255,255,255,.12)"/>` : ''}
-            <text x="${x + ww / 2}" y="${h - 5}" font-size="10" fill="#9aa0c3" text-anchor="middle">${lb.slice(0, 2)}</text></g>`;
+            ${hp ? `<rect x="${x}" y="${base - hp}" width="${ww}" height="${hp}" rx="4" style="fill:var(--g-ok)"/>` : ''}
+            ${hf ? `<rect x="${x}" y="${base - hp - hf - (hp ? 2 : 0)}" width="${ww}" height="${hf}" rx="4" style="fill:var(--g-bad)"/>` : ''}
+            ${!hp && !hf ? `<rect x="${x}" y="${base - 2}" width="${ww}" height="2" rx="1" style="fill:var(--g-line-strong)"/>` : ''}
+            <text x="${x + ww / 2}" y="${h - 5}" font-size="10" style="fill:var(--g-muted)" text-anchor="middle">${lb.slice(0, 2)}</text></g>`;
     }).join('');
     box.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="display:block;direction:ltr">
-        <defs><linearGradient id="gOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#0ea5a4"/></linearGradient></defs>${g}${bars}</svg>`;
+        ${g}${bars}</svg>`;
 })();
 
 (function donut() {
     const st = HOME.status_now, all = st.passed + st.failed + st.never, r = 46, c = 2 * Math.PI * r;
     const pct = (st.passed + st.failed) ? Math.round(100 * st.passed / (st.passed + st.failed)) : null;
-    const seg = (v, off, col) => v ? `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-dasharray="${c * v / all} ${c}" stroke-dashoffset="${-c * off / all}" transform="rotate(-90 60 60)"/>` : '';
+    const seg = (v, off, col) => v ? `<circle cx="60" cy="60" r="${r}" fill="none" style="stroke:${col}" stroke-width="12" stroke-dasharray="${c * v / all} ${c}" stroke-dashoffset="${-c * off / all}" transform="rotate(-90 60 60)"/>` : '';
     document.getElementById('donut').innerHTML = `<svg width="132" height="132" viewBox="0 0 120 120"><title>${st.passed} ناجح · ${st.failed} فاشل · ${st.never} لسه ما اشتغلش</title>
-        <circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>
-        ${all ? seg(st.passed, 0, '#34d399') + seg(st.failed, st.passed, '#fb7185') : ''}
-        <text x="60" y="58" text-anchor="middle" font-size="24" font-weight="800" fill="#fff">${pct == null ? '—' : pct + '%'}</text>
-        <text x="60" y="76" text-anchor="middle" font-size="10" fill="#9aa0c3">آخر نتيجة لكل شاشة</text></svg>`;
+        <circle cx="60" cy="60" r="${r}" fill="none" style="stroke:var(--g-hover)" stroke-width="12"/>
+        ${all ? seg(st.passed, 0, 'var(--g-ok)') + seg(st.failed, st.passed, 'var(--g-bad)') : ''}
+        <text x="60" y="58" text-anchor="middle" font-size="24" font-weight="800" style="fill:var(--g-head)">${pct == null ? '—' : pct + '%'}</text>
+        <text x="60" y="76" text-anchor="middle" font-size="10" style="fill:var(--g-muted)">آخر نتيجة لكل شاشة</text></svg>`;
 })();
 
 // ---------- running now ----------

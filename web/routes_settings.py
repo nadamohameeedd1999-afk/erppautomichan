@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import (flash, jsonify, redirect, render_template, request, url_for, session)
 
 from web import auth, settings_helper
+from web.i18n_helper import get_current_lang
 from web.config import Config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,7 +43,51 @@ def settings():
         users=users,
         test_sites_data=test_sites_data,
         tunnel_config=__import__("web.tunnel_helper", fromlist=["load_config"]).load_config(),
+        login_styles_list=LOGIN_STYLE_NAMES[get_current_lang()],
+        ui_themes_list=UI_THEME_NAMES[get_current_lang()],
+        login_style_saved=site_config.get("login_style") or "terminal",
+        ui_theme_saved=site_config.get("ui_theme") or "glass",
     )
+
+
+LOGIN_STYLE_NAMES = {
+    "ar": [("network", "شبكة متصلة + كارت مقسوم", "خلفية تيل غامق بنقط متوصلة بتتشد للماوس"),
+           ("aurora", "شفق ملوّن + إطار متحرك", "بقع ألوان بتمشي ورا الماوس"),
+           ("terminal", "تقني (Terminal)", "شبكة نقط خضرا بتنوّر حوالين الماوس"),
+           ("tilt", "فاتح + كارت 3D", "الكارت بيميل مع الماوس وكروت طايرة"),
+           ("teal", "ألوان الشركة (Teal)", "خطوط منسابة بتلف حوالين الماوس")],
+    "en": [("network", "Network + split card", "Dark teal, connected dots follow the mouse"),
+           ("aurora", "Aurora + animated border", "Color blobs follow the mouse"),
+           ("terminal", "Terminal", "Green dot matrix glows around the mouse"),
+           ("tilt", "Light + 3D card", "Card tilts with the mouse"),
+           ("teal", "Company teal", "Flowing lines swirl around the mouse")],
+}
+UI_THEME_NAMES = {
+    "ar": [("terminal", "تقني", "غامق بلون أخضر — زي شاشة الدخول التقنية"),
+           ("teal", "ألوان الشركة Teal", "فاتح، قايمة تيل غامق، جداول زي التقارير المعتمدة"),
+           ("glass", "زجاج وألوان", "غامق، قايمة زجاج عايمة وألوان متدرجة"),
+           ("minimal", "بسيط + قايمة فوق", "فاتح وهادي، القايمة فوق والمساحة كلها للمحتوى"),
+           ("rail", "أيقونات جانبية", "غامق، القايمة أيقونات بس والاسم بيظهر لما تقفي عليها")],
+    "en": [("terminal", "Terminal", "Dark with green accents"),
+           ("teal", "Company teal", "Light, dark-teal sidebar"),
+           ("glass", "Glass & colors", "Dark, floating glass sidebar"),
+           ("minimal", "Minimal + top menu", "Light and calm, menu on top"),
+           ("rail", "Icon rail", "Dark, icons-only sidebar")],
+}
+
+
+@route("/settings/appearance", methods=["POST"])
+@auth.login_required
+def settings_appearance_save():
+    config = settings_helper.load_site_config()
+    ls, ui = request.form.get("login_style", ""), request.form.get("ui_theme", "")
+    if ls in dict((k, 1) for k, _, _ in LOGIN_STYLE_NAMES["en"]):
+        config["login_style"] = ls
+    if ui in dict((k, 1) for k, _, _ in UI_THEME_NAMES["en"]):
+        config["ui_theme"] = ui
+    settings_helper.save_site_config(config)
+    flash("✅ اتحفظ المظهر" if get_current_lang() == "ar" else "✅ Appearance saved", "success")
+    return redirect(url_for("settings") + "#appearance")
 
 
 @route("/settings/site", methods=["POST"])

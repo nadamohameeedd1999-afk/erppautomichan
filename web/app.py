@@ -102,7 +102,22 @@ def inject_globals():
         "logo": site_config.get("logo_filename", ""),
         "favicon": site_config.get("favicon_filename", ""),
         "current_user": auth.current_user(),
+        # المظهر — Settings → المظهر; ?ui= / ?login= preview one look without saving
+        "ui_theme": _pick(request.args.get("ui"), site_config.get("ui_theme"), UI_THEMES, "glass"),
+        "now_year": datetime.now().year,
+        "login_style": _pick(request.args.get("login"), site_config.get("login_style"), LOGIN_STYLES, "terminal"),
     }
+
+
+UI_THEMES = ("terminal", "teal", "glass", "minimal", "rail")
+LOGIN_STYLES = ("network", "aurora", "terminal", "tilt", "teal")
+
+
+def _pick(preview, saved, allowed, default):
+    for v in (preview, saved):
+        if v in allowed:
+            return v
+    return default
 
 
 # ==================== Language ====================
@@ -123,7 +138,7 @@ def _safe_next(url):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if "user_id" in session:
+    if "user_id" in session and not request.args.get("login"):
         return redirect(url_for("index"))
 
     error = None

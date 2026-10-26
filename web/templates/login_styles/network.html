@@ -1,0 +1,74 @@
+{# 1) Connected network + split card (like the sample) #}
+<style>
+body{background:radial-gradient(1200px 800px at 50% 40%,#08302d 0%,#041c1a 55%,#020d0c 100%);color:#1C2B2A;
+  --in-bg:#fff;--in-border:#D5E2E1;--in-text:#1C2B2A;--in-label:#7a8584;--focus:#0F7C7A;--focus-ring:rgba(15,124,122,.12);--ic:#0F7C7A;
+  --link:#0F7C7A;--hint-bg:#f4f8f8;--btn-bg:#0F7C7A;--btn-radius:999px;--alert-text:#b42318}
+.wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
+.card{pointer-events:auto;width:100%;max-width:960px;display:grid;grid-template-columns:1fr 1fr;border-radius:22px;overflow:hidden;background:#fff;
+  box-shadow:0 40px 100px rgba(0,0,0,.55),0 0 0 1px rgba(94,234,212,.12)}
+.formside{padding:40px 42px;position:relative;display:flex;align-items:center}
+.formside .langs{position:absolute;top:18px;inset-inline-end:18px;background:#fff;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:4px;gap:2px}
+.langs a{color:#1C2B2A;padding:5px 12px;font-size:12px} .langs a.on{background:#0F7C7A;color:#fff}
+.logo{background:#0F7C7A;color:#fff;margin-top:24px}
+.btn:hover{box-shadow:0 12px 26px rgba(15,124,122,.35)}
+.alert{background:#fef3f2;border-color:#fecdca}
+.brandside{position:relative;background:linear-gradient(160deg,#0d3b8a 0%,#0e5f8f 50%,#0F7C7A 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:#fff;overflow:hidden;min-height:520px}
+.brandside:before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 65%);left:var(--lx,50%);top:var(--ly,40%);transform:translate(-50%,-50%)}
+.bigmark{position:relative;width:220px;height:150px;border-radius:26px;background:#fff;display:grid;place-items:center;box-shadow:0 0 0 12px rgba(255,255,255,.14),0 25px 50px rgba(0,0,0,.3);transition:transform .2s ease-out;overflow:hidden}
+.bigmark img{max-width:80%;max-height:80%}
+.bigmark b{font-size:56px;color:#0F7C7A;letter-spacing:-2px;font-family:"Arial Black",Arial,sans-serif}
+.bigmark small{position:absolute;bottom:18px;left:22px;font:900 22px "Arial Black",Arial;color:#111}
+.brandside h3{position:relative;margin-top:34px;font-size:20px}
+.brandside p{position:relative;opacity:.85;font-size:13px;margin-top:8px;text-align:center;line-height:1.8}
+.copy{position:absolute;bottom:18px;font-size:12px;opacity:.85;text-align:center;padding:0 16px}
+@media (max-width:820px){.card{grid-template-columns:1fr;max-width:420px}.brandside{display:none}body{overflow:auto}.wrap{position:relative;min-height:100vh}}
+</style>
+
+<canvas class="bg" id="net"></canvas>
+<div class="wrap"><div class="card">
+  <div class="formside">
+    {{ langs }}
+    <form method="POST" action="" class="login" autocomplete="on">
+      <div class="logo">{{ logo_html }}</div>
+      <h1>{{ site_name if ar else site_name_en }}</h1>
+      <p class="sub">{{ 'سجّلي دخولك على لوحة التحكم' if ar else 'Sign in to the dashboard' }}</p>
+      {{ fields }}
+    </form>
+  </div>
+  <div class="brandside" id="brandside">
+    <div class="bigmark" id="bigmark">{% if logo %}<img src="{{ url_for('media', filename=logo) }}" alt="">{% else %}<b>NQ</b><small>ERP</small>{% endif %}</div>
+    <h3>{{ 'أتمتة اختبارات ERP' if ar else 'ERP Test Automation' }}</h3>
+    <p>{{ 'كل شاشة بتتختبر لوحدها كل يوم' if ar else 'Every screen tested automatically, every day' }}<br>{{ 'وبيوصلك التقرير على طول' if ar else 'and the report lands in your inbox' }}</p>
+    <div class="copy">© {{ now_year }} {{ site_config.company_name_ar if (ar and site_config.company_name_ar) else (site_config.company_name_en or site_name_en) }}{{ '. جميع الحقوق محفوظة' if ar else '. All rights reserved' }}</div>
+  </div>
+</div></div>
+
+<script>
+(function () {
+  var c = document.getElementById('net'), g = LG.fit(c);
+  addEventListener('resize', function () { g = LG.fit(c); });
+  var P = []; for (var i = 0; i < 110; i++) P.push({x: Math.random(), y: Math.random(), vx: (Math.random() - .5) * .0006, vy: (Math.random() - .5) * .0006, r: Math.random() * 1.8 + .6});
+  var br = document.getElementById('brandside'), mk = document.getElementById('bigmark');
+  LG.loop(function () {
+    var x = g.x, w = g.w, h = g.h, mx = LG.M.x - g.ox, my = LG.M.y - g.oy; x.clearRect(0, 0, w, h);
+    var pts = P.map(function (p) {
+      p.x += p.vx; p.y += p.vy; if (p.x < 0 || p.x > 1) p.vx *= -1; if (p.y < 0 || p.y > 1) p.vy *= -1;
+      var px = p.x * w, py = p.y * h, dx = mx - px, dy = my - py, d = Math.hypot(dx, dy);
+      if (d < 180) { px += dx * (1 - d / 180) * .25; py += dy * (1 - d / 180) * .25; } return [px, py, p.r];
+    });
+    for (var i = 0; i < pts.length; i++) {
+      for (var j = i + 1; j < pts.length; j++) { var d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
+        if (d < 120) { x.strokeStyle = 'rgba(94,234,212,' + ((1 - d / 120) * .28) + ')'; x.lineWidth = 1; x.beginPath(); x.moveTo(pts[i][0], pts[i][1]); x.lineTo(pts[j][0], pts[j][1]); x.stroke(); } }
+      var dm = Math.hypot(pts[i][0] - mx, pts[i][1] - my);
+      if (dm < 200) { x.strokeStyle = 'rgba(94,234,212,' + ((1 - dm / 200) * .7) + ')'; x.beginPath(); x.moveTo(pts[i][0], pts[i][1]); x.lineTo(mx, my); x.stroke(); }
+      x.fillStyle = 'rgba(204,251,241,.85)'; x.beginPath(); x.arc(pts[i][0], pts[i][1], pts[i][2], 0, 7); x.fill();
+    }
+    var r = br.getBoundingClientRect();
+    if (r.width) {
+      if (LG.M.x > r.left && LG.M.x < r.right && LG.M.y > r.top && LG.M.y < r.bottom) { br.style.setProperty('--lx', (LG.M.x - r.left) + 'px'); br.style.setProperty('--ly', (LG.M.y - r.top) + 'px'); }
+      if (LG.M.x > -1000) { var nx = (LG.M.x - (r.left + r.width / 2)) / innerWidth, ny = (LG.M.y - (r.top + r.height / 2)) / innerHeight;
+        mk.style.transform = 'perspective(600px) rotateY(' + (nx * 18) + 'deg) rotateX(' + (-ny * 18) + 'deg)'; }
+    }
+  });
+})();
+</script>

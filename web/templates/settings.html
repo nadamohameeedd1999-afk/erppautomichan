@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ t('settings') }} - {{ site_name }}
 <!-- Add/Edit Profile Modal -->
@@ -90,6 +90,20 @@ function editProfile(id, name, url, username, notes) {
 </script>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.look { display: block; cursor: pointer; border: 2px solid var(--g-line); border-radius: 14px; overflow: hidden; background: var(--g-hover); transition: border-color .15s, transform .15s; }
+.look:hover { transform: translateY(-2px); border-color: var(--g-line-strong); }
+.look.on { border-color: var(--g-acc); box-shadow: 0 0 0 4px var(--g-acc-soft); }
+.look input { position: absolute; opacity: 0; pointer-events: none; }
+.look .frame { position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #000; }
+.look .frame iframe { position: absolute; top: 0; left: 0; width: 400%; height: 400%; border: 0; transform: scale(.25); transform-origin: 0 0; pointer-events: none; }
+[dir="rtl"] .look .frame iframe { left: auto; right: 0; transform-origin: 100% 0; }
+.look .meta { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 10px 12px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="animate-in">
     <div class="mb-4">
@@ -105,6 +119,12 @@ function editProfile(id, name, url, username, notes) {
             <button class="nav-link active" id="site-tab" data-bs-toggle="tab" data-bs-target="#site" type="button" role="tab">
                 <i class="bi bi-building"></i>
                 {% if current_lang == 'ar' %}الموقع والشركة{% else %}Site & Company{% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button" role="tab">
+                <i class="bi bi-palette"></i>
+                {% if current_lang == 'ar' %}المظهر{% else %}Appearance{% endif %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -564,6 +584,40 @@ function editProfile(id, name, url, username, notes) {
                 </div>
             </div>
         </div>
+        <!-- TAB: Appearance (المظهر) -->
+        <div class="tab-pane fade" id="appearance" role="tabpanel">
+            {% set ar = current_lang == 'ar' %}
+            <form method="POST" action="{{ url_for('settings_appearance_save') }}" id="appearanceForm">
+            {% for group in [
+                ('login_style', 'شكل شاشة تسجيل الدخول' if ar else 'Login screen look', '/login?login=', login_styles_list, login_style_saved),
+                ('ui_theme', 'شكل النظام من جوه' if ar else 'System look', '/?ui=', ui_themes_list, ui_theme_saved)] %}
+            <div class="card mb-4"><div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi {{ 'bi-box-arrow-in-right' if group[0] == 'login_style' else 'bi-window-sidebar' }}"></i> {{ group[1] }}</h5>
+                    <span class="small text-muted">{{ 'اختاري شكل — المعاينة الصغيرة حيّة، و«معاينة كاملة» بتفتحه في صفحة لوحده' if ar else 'Pick one — previews are live' }}</span>
+                </div>
+                <div class="look-grid">
+                    {% for key, name, hint in group[3] %}
+                    <label class="look {{ 'on' if key == group[4] }}">
+                        <input type="radio" name="{{ group[0] }}" value="{{ key }}" {{ 'checked' if key == group[4] }}>
+                        <div class="frame"><iframe data-src="{{ group[2] }}{{ key }}" tabindex="-1" loading="lazy" title="{{ name }}"></iframe></div>
+                        <div class="meta">
+                            <div><b>{{ loop.index }}. {{ name }}</b>{% if key == group[4] %} <span class="badge bg-primary">{{ 'الحالي' if ar else 'current' }}</span>{% endif %}
+                                <div class="small text-muted">{{ hint }}</div></div>
+                            <a href="{{ group[2] }}{{ key }}" target="_blank" class="small text-nowrap" onclick="event.stopPropagation()">{{ 'معاينة كاملة' if ar else 'Full preview' }} ↗</a>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div></div>
+            {% endfor %}
+            <div class="d-flex gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> {{ 'احفظي المظهر' if ar else 'Save appearance' }}</button>
+                <span class="small text-muted">{{ 'بيتطبّق على كل المستخدمين' if ar else 'Applies to all users' }}</span>
+            </div>
+            </form>
+        </div>
+
 <!-- TAB 5: Slack -->
         <div class="tab-pane fade" id="slack" role="tabpanel">
             <div class="card border-0 shadow-sm">
@@ -787,5 +841,17 @@ function editProfile(id, name, url, username, notes) {
     document.getElementById('modalTitleText').textContent = 'تعديل موقع';
     new bootstrap.Modal(document.getElementById('addProfileModal')).show();
 }
+</script>
+<script>
+// المظهر: live mini previews (loaded when the tab opens) + highlight the picked card + open the tab from #appearance
+document.addEventListener('DOMContentLoaded', function () {
+    function load() { document.querySelectorAll('#appearance iframe[data-src]').forEach(f => { f.src = f.dataset.src; f.removeAttribute('data-src'); }); }
+    const tab = document.getElementById('appearance-tab');
+    tab.addEventListener('shown.bs.tab', load);
+    document.querySelectorAll('#appearance .look input').forEach(r => r.addEventListener('change', () => {
+        document.querySelectorAll(`#appearance input[name="${r.name}"]`).forEach(x => x.closest('.look').classList.toggle('on', x.checked));
+    }));
+    if (location.hash === '#appearance') bootstrap.Tab.getOrCreateInstance(tab).show();
+});
 </script>
 {% endblock %}
