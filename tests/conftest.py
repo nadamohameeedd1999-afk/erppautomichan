@@ -53,10 +53,17 @@ def _build_options():
         options.add_argument("--mute-audio")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
-        options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees")
         options.add_argument("--disable-images")
-        if os.getenv("CHROME_JS_HEAP_MB"):
-            options.add_argument(f"--js-flags=--max-old-space-size={os.getenv('CHROME_JS_HEAP_MB')}")
+        if IS_DOCKER:
+            # server with little memory (Railway): one renderer process for the whole page instead of one per
+            # site/frame + a JavaScript memory cap -> far less RAM, fewer «tab crashed»
+            options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees,site-per-process,IsolateOrigins")
+            options.add_argument("--renderer-process-limit=2")
+            options.add_argument(f"--js-flags=--max-old-space-size={os.getenv('CHROME_JS_HEAP_MB', '384')}")
+        else:
+            options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees")
+            if os.getenv("CHROME_JS_HEAP_MB"):
+                options.add_argument(f"--js-flags=--max-old-space-size={os.getenv('CHROME_JS_HEAP_MB')}")
 
         # ❌ مش بنستخدم:
         # --single-process (بيكسر Chrome 155)

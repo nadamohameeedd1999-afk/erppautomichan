@@ -26,7 +26,8 @@ KIND = {
 RULES = [
     (r"(InvalidSessionId|chrome not reachable|disconnected|session deleted|tab crashed)", "env", "المتصفح وقع",
      "Chrome نفسه وقع أثناء الاختبار — مش مشكلة في الشاشة.",
-     "بيتعاد أوتوماتيك مرة. لو بيتكرر على السيرفر زوّدي الذاكرة أو قللي التشغيل في نفس الوقت."),
+     "بيتعاد أوتوماتيك مرة. لو بيتكرر على Railway: خلي «في نفس الوقت» = 1 في مركز التشغيل، "
+     "أو زوّدي ذاكرة الخدمة (Settings ← Resources)، أو شغّلي من جهازك."),
     (r"(TimeoutException|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|Read timed out|Max retries)", "env", "الموقع بطيء أو مش بيرد",
      "الصفحة أخدت وقت أكتر من المسموح أو الموقع ما ردش.",
      "اتأكدي إن موقع الاختبار شغال، وجربي تاني. لو بيتكرر على شاشة معينة يبقى الشاشة بطيئة (بلغي فريق التطوير)."),

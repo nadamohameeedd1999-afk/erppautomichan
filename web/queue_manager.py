@@ -25,7 +25,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 AUTO_RETRY = os.getenv("AUTO_RETRY", "1") not in ("0", "false", "False")
 INFRA_PATTERNS = re.compile(
     r"TimeoutException|WebDriverException|InvalidSessionIdException|SessionNotCreated|"
-    r"chrome not reachable|disconnected|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|"
+    r"chrome not reachable|disconnected|tab crashed|session deleted|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|"
     r"net::ERR_|Read timed out|Max retries exceeded|ConnectionResetError|RemoteDisconnected",
     re.I)
 

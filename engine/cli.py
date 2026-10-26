@@ -59,6 +59,13 @@ def _browser_died(e):
                                 "chrome not reachable", "session deleted", "tab crashed"))
 
 
+def _raise_crash(data):
+    """cmd_fill returns errors as data; turn a Chrome crash into an exception so _with_retry can retry"""
+    if not data.get("success") and _browser_died(Exception(str(data.get("error", "")))):
+        raise RuntimeError(data.get("error"))
+    return data
+
+
 def _with_retry(fn):
     """Read-only commands (inspect / inspect-popup): if Chrome itself crashes, start a new one and try once more."""
     try:
@@ -230,7 +237,10 @@ def main(argv=None):
         elif a.cmd in ("dry-run", "run"):
             if not a.key and not a.config_file:
                 p.error("اكتب اسم الشاشة أو --config-file")
-            data = cmd_fill(a, save=(a.cmd == "run"))
+            if a.cmd == "dry-run":                      # fills only -> safe to retry if Chrome crashes
+                data = _with_retry(lambda: _raise_crash(cmd_fill(a, save=False)))
+            else:
+                data = cmd_fill(a, save=True)
         else:
             from engine import screen_config
             data = {"success": True, "created": screen_config.sync_stubs()}
