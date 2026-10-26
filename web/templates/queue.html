@@ -207,6 +207,7 @@ function renderRecent() {
             <td class="muted">${Math.round(r.duration)} ث</td>
             <td class="text-nowrap">
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/${encodeURIComponent(r.run_id)}">التقرير</a>
+                ${!r.passed ? `<a class="btn btn-sm btn-outline-primary" href="/reports/${encodeURIComponent(r.run_id)}#whyCard" title="ليه فشل؟ + اسأل الذكاء الاصطناعي">✨ ليه؟</a>` : ''}
                 ${r.path ? `<button class="btn btn-sm btn-outline-primary" onclick='rerun(${JSON.stringify(r.path)}, ${JSON.stringify(r.name)})'>↻ تاني</button>` : ''}
             </td>
         </tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">مفيش تشغيلات</td></tr>';

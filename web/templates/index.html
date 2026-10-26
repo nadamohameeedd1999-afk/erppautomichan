@@ -171,7 +171,7 @@
         <div class="att"><span>⚠️</span><div class="tx"><b>{{ f.name }}</b> فشل <span class="ago" data-t="{{ f.when }}"></span>
             {% if f.message %}<div title="{{ f.message }}">{{ f.message }}</div>{% endif %}</div>
             {% if f.path %}<button class="btn btn-outline-danger" onclick='runOne({{ f.path|tojson }}, {{ f.name|tojson }})'>أعيدي</button>{% endif %}
-            <a class="btn btn-outline-secondary" href="/reports/{{ f.run_id }}">التقرير</a></div>
+            <a class="btn btn-outline-primary" href="/reports/{{ f.run_id }}#whyCard" title="ليه فشل؟ + اسأل الذكاء الاصطناعي">✨ ليه؟</a></div>
         {% endfor %}
         {% for s in home.slower[:2] %}{% set ns.n = ns.n + 1 %}
         <div class="att w"><span>🐢</span><div class="tx"><b>{{ s.name }}</b> بقى أبطأ من المعتاد

@@ -275,7 +275,8 @@ def report_detail(run_id):
         why = explain.for_run(insights.first_failure_message(report), texts)
         ai = explain.cached_ai(run_id)
     return render_template("report_detail.html", report=report, screenshots=screenshots,
-                           shots=shots, log_lines=log_lines, why=why, ai=ai, ai_on=explain.ai_available())
+                           shots=shots, log_lines=log_lines, why=why, ai=ai, ai_on=explain.ai_available(),
+                           failed=not insights.run_passed(report))
 
 
 @app.route("/api/explain/<run_id>", methods=["POST"])
