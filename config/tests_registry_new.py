@@ -10,6 +10,19 @@ class TestsRegistry:
     TESTS = [
         # ===== الحسابات العامة =====
         {
+            "id": "cash_receipt_full",
+            "module_key": "general_accounting",
+            "page_key": "cash_receipt",
+            "type": "full",
+            "name_ar": "سند القبض - كامل",
+            "name_en": "Cash Receipt - Full",
+            "icon": "💵",
+            "test_path": "tests/functional/test_04_cash_receipt_voucher.py::test_full_cash_receipt_voucher_flow",
+            "duration_estimate": 120,
+            "tags": ["full", "accounting"],
+            "available": True,
+        },
+        {
             "id": "journal_entries_smoke",
             "module_key": "general_accounting",
             "page_key": "journal_entries",
@@ -277,7 +290,7 @@ class TestsRegistry:
         - full_available: هل فيه اختبار كامل؟
         - smoke_available: هل فيه smoke؟
         - full_path / smoke_path
-        - last_result: آخر نتيجة (من data/runs/results)
+        - last_result: آخر نتيجة (من reports/results)
         """
         import json
         import re
@@ -285,8 +298,7 @@ class TestsRegistry:
         from datetime import datetime
 
         BASE_DIR = Path(__file__).resolve().parent.parent
-        from config import paths
-        RESULTS_DIR = paths.RESULTS_DIR
+        RESULTS_DIR = BASE_DIR / "reports" / "results"
 
         # نبني خريطة: page_key → آخر نتيجة
         last_results = {}
@@ -304,7 +316,7 @@ class TestsRegistry:
                         pk = m.group(1)
                         if pk not in last_results:
                             last_results[pk] = {
-                                "outcome": ("passed" if s.get("exit_code") == 0 else "failed") if "exit_code" in s else ("passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed"),
+                                "outcome": "passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed",
                                 "duration": s.get("duration_seconds", 0),
                                 "timestamp": s.get("timestamp", ""),
                                 "run_id": s.get("run_id", ""),
@@ -385,6 +397,44 @@ class TestsRegistry:
                     "builder": page_key in screen_cfgs,
                 })
 
+        # سيناريوهات (أنواع السيناريوهات) — كل سيناريو صف لوحده تحت مديول الشاشة بتاعته
+        try:
+            from engine import scenario_config
+            scenarios = [c for c in scenario_config.list_all() if not c.get("error")]
+        except Exception:
+            scenarios = []
+        page_module = {}
+        for mk, mi in all_modules.items():
+            for pk in mi["pages"]:
+                page_module.setdefault(pk, mk)
+        for c in scenarios:
+            sk = c["screen_key"]
+            mod_key = page_module.get(sk) or (screen_cfgs.get(sk) or {}).get("module_key") or "custom"
+            mod_info = all_modules.get(mod_key) or {
+                "name_ar": "شاشات منشئ الشاشات", "name_en": "Screen Builder", "icon": "🧩"}
+            if mod_key not in all_modules:
+                mod_key = "custom"
+            result.append({
+                "id": f"{mod_key}::{c['key']}",
+                "module_key": mod_key,
+                "module_name": mod_info.get(f"name_{lang}", mod_info["name_ar"]),
+                "module_icon": mod_info["icon"],
+                "page_key": c["key"],
+                "screen_key": sk,
+                "scenario_key": c["scenario_key"],
+                "name": c["name_ar"],
+                "icon": "🎬",
+                "url": c["list_url"],
+                "full_path": scenario_config.test_path_for(sk, c["scenario_key"]),
+                "smoke_path": None,
+                "full_available": True,
+                "smoke_available": False,
+                "last_result": last_results.get(c["key"]),
+                "duration_estimate": 120,
+                "builder": True,
+                "scenario": True,
+            })
+
         # شاشات اتعملت في منشئ الشاشات ومش موجودة في المديولات
         for key, c in screen_cfgs.items():
             if key in used_screens:
@@ -411,43 +461,6 @@ class TestsRegistry:
                 "duration_estimate": 120,
                 "builder": True,
             })
-
-        # السيناريوهات بتتعرض جوه صف الشاشة بتاعتها (قايمة "السيناريو" في صفحة الاختبارات)
-        try:
-            from engine import scenario_config
-            scenarios = [c for c in scenario_config.list_all() if not c.get("error")]
-        except Exception:
-            scenarios = []
-        by_screen = {}
-        for c in scenarios:
-            by_screen.setdefault(c["screen_key"], []).append({
-                "key": c["scenario_key"],
-                "name": c.get("scenario_name") or c["scenario_key"],
-                "full_path": scenario_config.test_path_for(c["screen_key"], c["scenario_key"]),
-                "last_result": last_results.get(c["key"]),
-            })
-        rows_by_page = {r["page_key"]: r for r in result}
-        for sk, items in by_screen.items():
-            row = rows_by_page.get(sk)
-            if row is None:
-                first = next(c for c in scenarios if c["screen_key"] == sk)
-                row = {
-                    "id": f"custom::{sk}", "module_key": "custom",
-                    "module_name": "شاشات منشئ الشاشات" if lang != "en" else "Screen Builder",
-                    "module_icon": "🧩", "page_key": sk,
-                    "name": first.get("screen_name") or sk, "icon": "🧩", "url": first.get("list_url", ""),
-                    "full_path": None, "smoke_path": None, "full_available": False, "smoke_available": False,
-                    "last_result": None, "duration_estimate": 120, "builder": True,
-                }
-                result.append(row)
-            row["scenarios"] = items
-            row["full_available"] = True
-            # آخر نتيجة للصف = الأحدث بين الأساسي وكل السيناريوهات
-            cands = [x for x in [row.get("last_result")] + [i.get("last_result") for i in items] if x]
-            if cands:
-                row["last_result"] = max(cands, key=lambda x: str(x.get("timestamp") or x.get("run_id") or ""))
-        for r in result:
-            r.setdefault("scenarios", [])
 
         return result
 

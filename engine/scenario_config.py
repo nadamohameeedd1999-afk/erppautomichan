@@ -15,9 +15,7 @@ from pathlib import Path
 from engine import screen_config as sc
 
 BASE_DIR = sc.BASE_DIR
-from config import paths  # noqa: E402
-from config.storage import save_json, load_json, to_trash  # noqa: E402
-SCENARIOS_DIR = paths.SCENARIOS_DIR
+SCENARIOS_DIR = BASE_DIR / "config" / "scenarios"
 TESTS_DIR = BASE_DIR / "tests" / "scenarios"
 
 PART_RE = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
@@ -72,7 +70,8 @@ def load(screen_key: str, scenario_key: str) -> dict:
     p = _path(screen_key, scenario_key)
     if not p.exists():
         raise ScenarioError(f"مفيش سيناريو '{scenario_key}' للشاشة '{screen_key}'")
-    return normalize(load_json(p, {}))
+    with open(p, "r", encoding="utf-8-sig") as fp:
+        return normalize(json.load(fp))
 
 
 def load_by_full_key(key: str) -> dict:
@@ -88,7 +87,8 @@ def list_all(screen_key: str = None) -> list:
         return out
     for p in sorted(SCENARIOS_DIR.glob("*.json")):
         try:
-            c = normalize(load_json(p, {}))
+            with open(p, "r", encoding="utf-8-sig") as fp:
+                c = normalize(json.load(fp))
         except Exception as e:
             sk = p.stem.split(SEP, 1)
             c = {"key": p.stem, "screen_key": sk[0], "scenario_key": sk[-1], "scenario_name": p.stem,
@@ -132,17 +132,21 @@ def write_stub(cfg: dict) -> Path:
 def save(cfg: dict) -> dict:
     cfg = normalize(cfg)
     cfg["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    save_json(_path(cfg["screen_key"], cfg["scenario_key"]), cfg)
+    SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
+    p = _path(cfg["screen_key"], cfg["scenario_key"])
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(p)
     write_stub(cfg)
     return cfg
 
 
 def delete(screen_key: str, scenario_key: str) -> bool:
-    found = to_trash(_path(screen_key, scenario_key))
-    st = stub_path(screen_key, scenario_key)
-    if st.exists():
-        st.unlink()
-        found = True
+    found = False
+    for p in (_path(screen_key, scenario_key), stub_path(screen_key, scenario_key)):
+        if p.exists():
+            p.unlink()
+            found = True
     return found
 
 

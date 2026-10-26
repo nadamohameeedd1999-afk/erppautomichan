@@ -5,8 +5,9 @@ STRICT RULE: if a fixed / search value is not in the list, it STOPS with a clear
 message that lists the options that do exist. It never picks another value silently.
 """
 import random
+import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -87,6 +88,32 @@ def _date_format(field):
     if fmt:
         return fmt
     return "%Y-%m-%d"
+
+
+_DATE_TOKEN = re.compile(r"\{(today|month_start|month_end|year_start)\s*(?:([+-])\s*(\d+))?\}")
+
+
+def expand_date_tokens(value, fmt="%Y-%m-%d", now=None):
+    """{today} {today-30} {month_start} {month_end} {year_start}  -> dates in fmt.
+    Handy for "from / to" filters that must cover the current documents."""
+    now = now or datetime.now()
+
+    def rep(m):
+        name, sign, n = m.group(1), m.group(2), int(m.group(3) or 0)
+        if name == "month_start":
+            d = now.replace(day=1)
+        elif name == "month_end":
+            nxt = (now.replace(day=28) + timedelta(days=4)).replace(day=1)
+            d = nxt - timedelta(days=1)
+        elif name == "year_start":
+            d = now.replace(month=1, day=1)
+        else:
+            d = now
+        if n:
+            d = d + timedelta(days=n if sign == "+" else -n)
+        return d.strftime(fmt)
+
+    return _DATE_TOKEN.sub(rep, value)
 
 
 class FormFiller:
@@ -181,7 +208,18 @@ class FormFiller:
         pairs = self._option_pairs(sid)
         texts = [t for t, _ in pairs]
 
-        if strategy == "first":
+        if strategy == "random":
+            # كل تشغيل يختار حاجة مختلفة: من القيم المكتوبة (مفصولة بفاصلة) أو من كل الاختيارات
+            real = [i for i, (t, v) in enumerate(pairs) if not text_match.is_placeholder(t)]
+            pool = [w.strip() for w in str(wanted or "").replace("،", ",").split(",") if w.strip()]
+            if pool:
+                real = [i for i in real if any(text_match.find_exact([pairs[i][0]], w) == 0 for w in pool)]
+            if not real:
+                raise FieldFillError(field, "مفيش ولا اختيار ينفع للاختيار العشوائي"
+                                     + (f" من: {', '.join(pool)}" if pool else ""), texts, missing=bool(pool))
+            idx = random.choice(real)
+            logger.info(f"🎲 {field.get('label') or sid}: اختيار عشوائي → {pairs[idx][0]}")
+        elif strategy == "first":
             if not has_options:
                 parent = field.get("depends_on")
                 why = f" بعد اختيار {parent}" if parent else ""
@@ -227,7 +265,7 @@ class FormFiller:
             return (v or "AUTO-{ts}").format(
                 ts=now.strftime("%Y%m%d%H%M%S"), date=now.strftime("%Y%m%d"),
                 n=self._counter, rand=random.randint(1000, 9999))
-        return v
+        return expand_date_tokens(v, _date_format(field)) if "{" in v else v
 
     def fill_input(self, field):
         el = self._find(field)
@@ -245,8 +283,17 @@ class FormFiller:
         if s in ("first", "check", "uncheck"):
             raise FieldFillError(field, f"الطريقة '{s}' مش مناسبة لحقل كتابة")
 
+        itype = (el.get_attribute("type") or "").lower()
+        if itype in ("date", "datetime-local", "month") and not field.get("format"):
+            # native date pickers only accept ISO values, whatever the screen shows (10/01/2026)
+            field = {**field, "format": {"date": "%Y-%m-%d", "month": "%Y-%m"}.get(itype, "%Y-%m-%dT%H:%M")}
         value = self._value_for(field)
         self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+        if itype in ("date", "datetime-local", "month"):
+            actual = self.driver.execute_script(SET_VALUE_JS, el, value) or ""
+            if actual != value:
+                raise FieldFillError(field, f"التاريخ '{value}' متقبلش (الحقل فيه '{actual}')")
+            return actual
         try:
             if el.get_attribute("readonly") is None and el.is_enabled() and el.is_displayed():
                 el.clear()

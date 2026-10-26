@@ -20,18 +20,10 @@
     .step-ok { color: #198754; } .step-bad { color: #dc3545; }
     .ltr { direction: ltr; text-align: left; }
     .sticky-actions { position: sticky; bottom: 0; z-index: 5; }
-    .builder-tabs .nav-link { border-radius: 10px; font-weight: 700; }
-    .scn-mini { font-size: 12px; }
-    .scn-mini a { text-decoration: none; }
 </style>
 {% endblock %}
 
 {% block content %}
-<ul class="nav nav-pills mb-3 gap-2 builder-tabs">
-    <li class="nav-item"><a class="nav-link {{ 'active' if mode != 'scenario' }}" href="/screens"><i class="bi bi-ui-checks-grid"></i> الشاشات <span class="badge bg-light text-dark ms-1" id="tabCountScreens"></span></a></li>
-    <li class="nav-item"><a class="nav-link {{ 'active' if mode == 'scenario' }}" href="/scenarios"><i class="bi bi-diagram-3"></i> السيناريوهات <span class="badge bg-light text-dark ms-1" id="tabCountScn"></span></a></li>
-    <li class="nav-item ms-auto small text-muted align-self-center">الشاشة = الإعداد الأساسي لكل شاشة · السيناريو = طريقة تانية لنفس الشاشة باسم مختلف</li>
-</ul>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
         {% if mode == 'scenario' %}
@@ -44,8 +36,10 @@
     </div>
     <div class="d-flex gap-2">
         {% if mode == 'scenario' %}
+        <a class="btn btn-outline-secondary" href="/screens"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> سيناريو جديد</button>
         {% else %}
+        <a class="btn btn-outline-secondary" href="/scenarios"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
         {% endif %}
     </div>
@@ -205,11 +199,6 @@
                             <input class="form-check-input" type="checkbox" id="vStrict">
                             <label class="form-check-label small" for="vStrict">لو النص مش موجود الاختبار يفشل (غير كده تحذير بس)</label>
                         </div>
-                        <div class="form-check mt-2">
-                            <input class="form-check-input" type="checkbox" id="vOpenSaved">
-                            <label class="form-check-label fw-bold" for="vOpenSaved">افتح السند بعد الحفظ واتأكد إن كل القيم اتسجلت صح</label>
-                        </div>
-                        <input class="form-control form-control-sm ltr mt-1" id="vOpenSel" placeholder="(اختياري) CSS للينك الفتح في أول صف — مثلاً a.btn-edit">
                         <label class="form-label small mt-2">ملاحظات</label>
                         <input class="form-control" id="fNotes">
                     </div>
@@ -304,26 +293,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const $ = id => document.getElementById(id);
 
 // ==================== load ====================
-let SCN_BY_SCREEN = {};
-let CREATE_OPTS = [];       // screens + scenarios that can create missing data
-async function loadCounts() {
-    const [a, b] = await Promise.all([
-        fetch('/api/screens').then(r => r.json()).catch(() => ({})),
-        fetch('/api/scenarios').then(r => r.json()).catch(() => ({})),
-    ]);
-    SCN_BY_SCREEN = {};
-    (b.scenarios || []).forEach(x => (SCN_BY_SCREEN[x.screen_key] = SCN_BY_SCREEN[x.screen_key] || []).push(x));
-    CREATE_OPTS = [
-        ...(a.screens || []).filter(x => !x.error).map(x => ({key: x.key, name: '🧩 ' + x.name_ar})),
-        ...(b.scenarios || []).filter(x => !x.error).map(x => ({key: x.key, name: '🎬 ' + (x.screen_name || x.screen_key) + ' — ' + x.scenario_name})),
-    ];
-    $('tabCountScreens').textContent = (a.screens || []).length || '';
-    if (ROWS.length) renderRows();
-    $('tabCountScn').textContent = (b.scenarios || []).length || '';
-}
-
 async function loadScreens(selectKey) {
-    await loadCounts();
     if (IS_SCN) return loadScenarios();
     const r = await fetch('/api/screens').then(r => r.json()).catch(() => ({success: false}));
     const box = $('screensList');
@@ -337,10 +307,6 @@ async function loadScreens(selectKey) {
             <div class="small text-muted ltr">${esc(s.list_url || s.key)}</div>
             ${s.error ? `<div class="small text-danger">${esc(s.error)}</div>` :
               `<div class="small text-muted">${s.fields} حقل · ${esc((s.updated_at || '').replace('T', ' '))}</div>`}
-            <div class="scn-mini mt-1" onclick="event.stopPropagation()">
-                ${(SCN_BY_SCREEN[s.key] || []).map(x => `<a class="badge bg-info-subtle text-dark me-1" href="/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}">🎬 ${esc(x.scenario_name)}</a>`).join('')}
-                <a href="/scenarios?screen=${encodeURIComponent(s.key)}">＋ سيناريو</a>
-            </div>
         </div>`).join('');
 }
 
@@ -416,7 +382,6 @@ async function copyFromScreen(silent) {
     $('fSave').value = c.save_button;
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
-    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     renderRows(); renderBeforeSave();
@@ -429,7 +394,7 @@ function newScreen(keepCatalog) {
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
     if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
     $('fSave').value = 'button#save';
-    $('vNewRow').checked = true; $('vStrict').checked = false; $('vOpenSaved').checked = false; $('vOpenSel').value = '';
+    $('vNewRow').checked = true; $('vStrict').checked = false;
     if (!keepCatalog) $('catalogSelect').value = '';
     $('btnDelete').disabled = true;
     $('dryCard').classList.add('d-none');
@@ -469,7 +434,6 @@ function fillEditor(c) {
     $('fAddButton').value = c.add_button; $('fSave').value = c.save_button; $('fNotes').value = c.notes || '';
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
-    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
     ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     $('catalogSelect').value = CATALOG.some(p => p.key === c.key) ? c.key : '';
@@ -537,13 +501,7 @@ function renderRows() {
                     ${strategies.map(s => `<option value="${s}" ${r.strategy === s ? 'selected' : ''}>${esc(STRATEGIES[s])}</option>`).join('')}
                 </select>
             </td>
-            <td>${valueCell}
-                ${['fixed', 'search'].includes(r.strategy) ? `
-                <select class="form-select form-select-sm mt-1" title="لو القيمة دي مش موجودة في القايمة، شغّل الشاشة/السيناريو ده الأول يعملها وبعدين كمّل"
-                        onchange="setRow(${i}, 'create_with', this.value)">
-                    <option value="">لو مش موجودة: يوقف ويقولّي</option>
-                    ${CREATE_OPTS.map(o => `<option value="${esc(o.key)}" ${r.create_with === o.key ? 'selected' : ''}>لو مش موجودة: اعملها بـ ${esc(o.name)}</option>`).join('')}
-                </select>` : ''}</td>
+            <td>${valueCell}</td>
             <td>
                 <select class="form-select form-select-sm" onchange="setRow(${i}, 'depends_on', this.value || null)">
                     <option value="">—</option>${depOptions}
@@ -676,7 +634,6 @@ function buildScreenConfig() {
         fields: ROWS.filter(r => r.include).map(r => ({
             id: r.id, label: r.label, kind: r.kind, strategy: r.strategy, value: r.value || '',
             format: r.format || '', depends_on: r.depends_on || null, required: !!r.required,
-            create_with: (['fixed', 'search'].includes(r.strategy) && r.create_with) || '',
             wait_after: r.wait_after ?? 0.5, timeout: r.timeout ?? 15,
         })),
         before_save: BEFORE_SAVE,
@@ -684,8 +641,6 @@ function buildScreenConfig() {
             new_first_row: $('vNewRow').checked,
             row_contains: $('vRowContains').value.split(',').map(s => s.trim()).filter(Boolean),
             row_contains_strict: $('vStrict').checked,
-            open_saved: $('vOpenSaved').checked,
-            open_selector: $('vOpenSel').value.trim(),
         },
         notes: $('fNotes').value.trim(),
     };

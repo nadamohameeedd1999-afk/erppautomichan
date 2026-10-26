@@ -5,6 +5,7 @@ Screen Builder command line.
   python -m engine.cli dry-run  cash_receipt            # fill only, NO save
   python -m engine.cli dry-run  --config-file my.json   # same, from an unsaved config
   python -m engine.cli run      cash_receipt            # full flow with save
+  python -m engine.cli inspect-popup --config-file draft.json --open "ربط بمستند اخر" [--after CustomerId]
   python -m engine.cli sync                             # re-create missing tests/screens stubs
 
 The dashboard calls the same commands in the background and reads --out.
@@ -52,6 +53,24 @@ def _write(out, data):
     print(text)
 
 
+def _browser_died(e):
+    t = f"{type(e).__name__} {e}".lower()
+    return any(w in t for w in ("invalidsessionid", "disconnected", "unable to receive message from renderer",
+                                "chrome not reachable", "session deleted", "tab crashed"))
+
+
+def _with_retry(fn):
+    """Read-only commands (inspect / inspect-popup): if Chrome itself crashes, start a new one and try once more."""
+    try:
+        return fn()
+    except Exception as e:
+        if not _browser_died(e):
+            raise
+        from utils.logger import logger
+        logger.warning("⚠️ المتصفح وقع (مش غلط في الشاشة) — بفتح متصفح جديد وبعيد مرة كمان")
+        return fn()
+
+
 def cmd_inspect(a):
     from engine.form_inspector import FormInspector
     from engine.screen_runner import login
@@ -61,6 +80,22 @@ def cmd_inspect(a):
         data = FormInspector(d).inspect(a.list_url, a.add_url or "", a.add_button or "",
                                         find_dependencies=not a.no_deps)
         return {"success": True, **data}
+    finally:
+        try:
+            d.quit()
+        except Exception:
+            pass
+
+
+def cmd_inspect_popup(a):
+    from engine.form_inspector import inspect_popup
+    from engine.screen_runner import login
+    cfg = _load_cfg(a)
+    d = _driver()
+    try:
+        login(d, _credentials())
+        choose = [c for c in (a.choose or "").split("|") if c.strip()]
+        return {"success": True, **inspect_popup(d, cfg, a.open, a.after or "", choose)}
     finally:
         try:
             d.quit()
@@ -106,6 +141,14 @@ def main(argv=None):
     i.add_argument("--no-deps", action="store_true", help="don't detect dependent dropdowns")
     i.add_argument("--out", default="")
 
+    ip = sub.add_parser("inspect-popup")
+    ip.add_argument("--config-file", required=True)
+    ip.add_argument("--open", required=True, help="text / css of the button that opens the pop-up")
+    ip.add_argument("--after", default="")
+    ip.add_argument("--choose", default="", help="values to pick in the pop-up first, separated by |")
+    ip.add_argument("--out", default="")
+    ip.add_argument("key", nargs="?", default="")
+
     for name in ("dry-run", "run"):
         r = sub.add_parser(name)
         r.add_argument("key", nargs="?", default="")
@@ -118,7 +161,9 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         if a.cmd == "inspect":
-            data = cmd_inspect(a)
+            data = _with_retry(lambda: cmd_inspect(a))
+        elif a.cmd == "inspect-popup":
+            data = _with_retry(lambda: cmd_inspect_popup(a))
         elif a.cmd in ("dry-run", "run"):
             if not a.key and not a.config_file:
                 p.error("اكتب اسم الشاشة أو --config-file")

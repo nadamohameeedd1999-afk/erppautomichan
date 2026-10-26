@@ -33,10 +33,20 @@ function labelFor(el){
     if (l) t = txt(l);
   }
   if (!t) {
+    // label without for="": the closest label BEFORE the field (not simply the first label of the row,
+    // e.g. «الفرع | [..]  نوع المستند | [DocType]» -> DocType gets «نوع المستند»)
     var p = el.parentElement, depth = 0;
     while (p && depth < 4 && !t) {
-      var l2 = p.querySelector('label');
-      if (l2 && !l2.contains(el)) t = txt(l2);
+      var ls = p.querySelectorAll('label'), best = null, after = null;
+      for (var k = 0; k < ls.length; k++) {
+        var l2 = ls[k];
+        if (l2.contains(el) || (l2.htmlFor && l2.htmlFor !== el.id)) continue;
+        var pos = l2.compareDocumentPosition(el);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) best = l2;          // label is before the field
+        else if (!after) after = l2;                                     // first label after it
+      }
+      var pick = best || after;
+      if (pick) t = txt(pick);
       p = p.parentElement; depth++;
     }
   }
@@ -199,8 +209,14 @@ class FormInspector(BasePage):
                 els = []
             if els:
                 logger.info(f"زرار الإضافة: {sel}")
-                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", els[0])
-                self.driver.execute_script("arguments[0].click();", els[0])
+                href = (els[0].get_attribute("href") or "").strip()
+                if href and not href.lower().startswith("javascript") and not href.endswith("#"):
+                    # a real link: open it like the test runner does (a JS click on a link
+                    # right after restoring a saved session can crash Chrome's page)
+                    self.open(href)
+                else:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", els[0])
+                    self.driver.execute_script("arguments[0].click();", els[0])
                 self.wait_for_preloader(timeout=20)
                 time.sleep(1.5)
                 return self.driver.current_url, sel
@@ -320,3 +336,234 @@ class FormInspector(BasePage):
             "warnings": warnings,
             "screenshot": shot,
         }
+
+
+# ======================================================================
+#  Pop-up discovery (اكتشاف النافذة) — for flows like «ربط بمستند آخر»
+# ======================================================================
+POPUP_BUTTONS_JS = r"""
+var root = arguments[0];
+function txt(e){ return (e.innerText || e.textContent || e.value || '').replace(/\s+/g,' ').trim(); }
+function vis(e){ var r=e.getBoundingClientRect(), s=getComputedStyle(e);
+  return r.width>0 && r.height>0 && s.visibility!=='hidden' && s.display!=='none'; }
+var out = [], seen = {};
+root.querySelectorAll('button, a.btn, input[type=button], input[type=submit], [role=button]').forEach(function(b){
+  if (!vis(b) || b.closest('.select2-container')) return;
+  var t = txt(b) || b.getAttribute('title') || b.getAttribute('aria-label') || '';
+  var cls = (b.className || '').toString();
+  if (!t && /close/.test(cls)) t = '×';
+  if (!t || seen[t]) return; seen[t] = 1;
+  out.push({text: t.slice(0, 50), id: b.id || '', close: /close|dismiss/.test(cls) || b.hasAttribute('data-dismiss') || b.hasAttribute('data-bs-dismiss')});
+});
+var selectAll = '';
+root.querySelectorAll('label, th, span, div').forEach(function(e){
+  if (selectAll || !vis(e)) return;
+  var t = txt(e);
+  if (t.length < 25 && /(تحديد|اختيار)\s*(ال)?كل|select all/i.test(t) && (e.querySelector('input[type=checkbox]') ||
+      (e.parentElement && e.parentElement.querySelector('input[type=checkbox]')))) selectAll = t;
+});
+var headBox = !selectAll && root.querySelector('thead input[type=checkbox]');
+return {buttons: out, select_all: selectAll, head_checkbox: !!headBox};
+"""
+
+_FILTER_WORDS = ("المصفي", "مصفي", "تصفيه", "فلتر", "بحث", "عرض", "filter", "search", "show")
+_ADD_WORDS = ("اضافه", "إضافة", "اضافة", "add", "اختيار", "تاكيد", "تأكيد", "موافق", "ok", "select", "ادراج")
+_SKIP_WORDS = ("مسح", "clear", "reset", "الغاء", "إلغاء", "cancel", "اغلاق", "إغلاق", "close")
+
+
+def _classify(text):
+    n = text_match.normalize(text)
+    if any(text_match.normalize(w) in n for w in _SKIP_WORDS):
+        return "skip"
+    if any(text_match.normalize(w) == n or text_match.normalize(w) in n for w in _FILTER_WORDS):
+        return "filter"
+    if any(text_match.normalize(w) in n for w in _ADD_WORDS):
+        return "add"
+    return ""
+
+
+def _date_token(label):
+    n = text_match.normalize(label)
+    if any(w in n for w in ("الي", "to", "نهايه", "end")):
+        return "{month_end}"
+    if any(w in n for w in ("من", "from", "بدايه", "start")):
+        return "{month_start}"
+    return "{today}"
+
+
+def inspect_popup(driver, cfg, open_target, after="", choose=None):
+    """Open the add page, fill the fields that come before `after`, click `open_target`,
+    read the pop-up (fields + buttons), press its filter button to see the table, and
+    return a ready-to-use flow. It never presses add / save."""
+    from engine import flows as F
+    from engine.form_filler import FormFiller
+
+    page = FormInspector(driver)
+    used_url, _ = page.open_add_page(cfg["list_url"], cfg.get("add_url", ""), cfg.get("add_button", ""))
+    warnings, filler = [], FormFiller(driver)
+
+    before = []
+    if after:
+        for f in cfg.get("fields", []):
+            before.append(f)
+            if f["id"] == after:
+                break
+    if before:
+        logger.info(f"بملى {len(before)} حقل قبل الزرار (لحد {after})")
+        try:
+            filler.fill_all(before)
+        except Exception as e:
+            warnings.append(f"ملء الحقول اللي قبل الزرار وقف: {str(e)[:200]}")
+
+    runner = F.FlowRunner(page, filler)
+    open_step = {"do": "click", "target": open_target, "timeout": 12, "wait_after": 0.6}
+    runner._click(open_step)
+    runner._wait_popup({"timeout": 20})
+    popup = driver.execute_script(F.COMMON_JS + "return topPopup();")
+    title = (driver.execute_script(F.POPUP_JS) or {}).get("title", "")
+
+    def scan():
+        pf = driver.execute_script(SCAN_JS, popup) or []
+        pf = [f for f in pf if f["visible"] and not f["disabled"] and f["kind"] != "hidden"]
+        for f in pf:
+            f["options"] = text_match.real_options(f.get("options"))[:40]
+        inf = driver.execute_script(POPUP_BUTTONS_JS, popup) or {}
+        flt = next((b["text"] for b in inf.get("buttons", []) if _classify(b["text"]) == "filter"), "")
+        return pf, inf, flt
+
+    def same(a, b):
+        a, b = text_match.normalize(a), text_match.normalize(b)
+        return a == b or (len(b) > 2 and b in a)
+
+    def pick(f, wanted=""):
+        val = filler.fill_field({**f, "label": f["label"] or f["id"], "strategy": "fixed" if wanted else "first",
+                                 "value": wanted, "timeout": 8, "required": False, "wait_after": 0.3})
+        picked[f["id"]] = val
+        time.sleep(1.5)                     # sections / lists that depend on this choice
+        return val
+
+    pfields, info, filt = scan()
+    picked = {}
+
+    # 1) the values she asked for (e.g. نوع المستند = سندات صرف المخازن)
+    for want in [c.strip() for c in (choose or []) if c and c.strip()]:
+        f = next((x for x in pfields if x["kind"] in ("select", "select2") and x["id"] not in picked
+                  and any(same(o, want) for o in x["options"])), None)
+        if not f:
+            warnings.append(f"«{want}» مش موجودة في أي قايمة في النافذة")
+            continue
+        try:
+            exact = next(o for o in f["options"] if same(o, want))
+            pick(f, exact)
+        except Exception as e:
+            warnings.append(f"مقدرتش أختار «{want}» في «{f['label']}»: {str(e)[:120]}")
+        pfields, info, filt = scan()
+
+    def try_filter(flt):
+        try:
+            runner._click({"target": flt, "timeout": 8})
+            res = runner._wait_rows({"min": 1, "timeout": 12})
+            return (int(res.split()[1]) if res.split()[1].isdigit() else 1), ""
+        except Exception as e:
+            return 0, str(e).splitlines()[0][:160]
+
+    rows, last_err = 0, ""
+    if filt:
+        rows, last_err = try_filter(filt)
+
+    # 2) auto: a list like «نوع المستند» opens the filter section and decides the data ->
+    #    try its options one by one until the filter shows rows (never presses add / save)
+    auto_pick = None
+    if not rows and not choose:
+        cands = [x for x in pfields if x["kind"] in ("select", "select2") and x["options"]
+                 and text_match.is_placeholder(x["value"])
+                 and not any(w in text_match.normalize(x["label"]) for w in ("رقم", "no", "number", "كود"))]
+        first_with_filter = None
+        for f in cands[:2]:
+            for opt in f["options"][:12]:
+                try:
+                    pick(f, opt)
+                except Exception:
+                    continue
+                pfields, info, flt2 = scan()
+                if not flt2:
+                    continue
+                first_with_filter = first_with_filter or (f, opt)
+                n, err = try_filter(flt2)
+                if n:
+                    rows, filt, auto_pick, last_err = n, flt2, (f, opt), ""
+                    break
+                last_err = err
+            if rows:
+                break
+        if not rows and first_with_filter:
+            f, opt = first_with_filter
+            try:
+                pick(f, opt)
+                pfields, info, filt = scan()
+                auto_pick = first_with_filter
+            except Exception:
+                pass
+    if auto_pick:
+        f, opt = auto_pick
+        warnings.append(f"اخترت «{f['label'] or f['id']}» = «{opt}» "
+                        + ("لأنه أول اختيار ظهر فيه مستندات" if rows else "عشان زرار المصفي يظهر")
+                        + " — لو عايزة نوع تاني غيّري القيمة في الخطوات، أو اعملي سيناريو لكل نوع")
+    if filt:
+        info = driver.execute_script(POPUP_BUTTONS_JS, popup) or info   # buttons that appear with the table
+        if not rows:
+            warnings.append(f"بعد «{filt}»: {last_err or 'مظهرش صفوف'} — غالبًا مفيش مستندات بالفلاتر دي")
+    else:
+        warnings.append("مالقيتش زرار بحث/مصفي في النافذة حتى بعد ما جربت الاختيارات — ضيفيه بنفسك لو موجود")
+    buttons = info.get("buttons", [])
+
+    add = next((b["text"] for b in buttons if _classify(b["text"]) == "add"), "")
+    shot = page.take_screenshot("inspect_popup")
+
+    # ---- the suggested flow ----
+    steps = [{"do": "click", "target": open_target}, {"do": "wait_popup"}]
+    for f in pfields:
+        if f["kind"] in ("select", "select2"):
+            if f["value"] and not text_match.is_placeholder(f["value"]):
+                step = {"do": "fill", "field": {"id": f["id"], "label": f["label"] or f["id"], "kind": f["kind"],
+                                                "strategy": "fixed", "value": f["value"]}}
+                if f["id"] in picked:
+                    step["field"]["wait_after"] = 1.5      # it opens more fields / the filter button
+                steps.append(step)
+            elif f["required"]:
+                steps.append({"do": "fill", "field": {"id": f["id"], "label": f["label"] or f["id"], "kind": f["kind"],
+                                                      "strategy": "first", "value": ""}})
+        elif f["kind"] == "date":
+            steps.append({"do": "fill", "field": {"id": f["id"], "label": f["label"] or f["id"], "kind": "date",
+                                                  "strategy": "fixed", "value": _date_token(f["label"])}})
+        elif f["kind"] in ("text", "number", "textarea") and f["required"] and not f["value"]:
+            steps.append({"do": "fill", "field": {"id": f["id"], "label": f["label"] or f["id"], "kind": f["kind"],
+                                                  "strategy": "fixed", "value": "1" if f["kind"] == "number" else "test"}})
+    if filt:
+        steps += [{"do": "click", "target": filt}, {"do": "wait_rows", "min": 1}]
+    if info.get("select_all"):
+        steps.append({"do": "check", "target": info["select_all"]})
+    elif info.get("head_checkbox"):
+        steps.append({"do": "check", "target": "css:thead input[type=checkbox]"})
+    else:
+        steps.append({"do": "pick_rows", "count": 1})
+    if add:
+        steps.append({"do": "click", "target": add})
+    else:
+        warnings.append("مالقيتش زرار «إضافة» في النافذة — ضيفي خطوة الضغط عليه بنفسك")
+    steps.append({"do": "close_popup", "optional": True})
+
+    try:
+        F.FlowRunner(page, filler)._close_popup({})
+    except Exception:
+        pass
+    return {
+        "add_url": _path_only(used_url).split("#")[0],
+        "popup_title": title,
+        "popup_fields": pfields,
+        "buttons": buttons,
+        "rows": rows,
+        "flow": {"name": title or open_target, "after": after, "optional": False, "steps": steps},
+        "warnings": warnings,
+        "screenshot": shot,
+    }

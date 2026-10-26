@@ -11,9 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-from config import paths  # noqa: E402
-from config.storage import save_json, load_json, to_trash  # noqa: E402
-SCREENS_DIR = paths.SCREENS_DIR
+SCREENS_DIR = BASE_DIR / "config" / "screens"
 TESTS_DIR = BASE_DIR / "tests" / "screens"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,90}$")
@@ -145,8 +143,6 @@ def normalize(cfg: dict) -> dict:
             "depends_on": dep,
             "required": bool(f.get("required", False)),
             "wait_after": float(f.get("wait_after", 0.5) or 0),
-            # لو القيمة مش موجودة: شغّل الشاشة/السيناريو ده الأول يعملها (مثلاً customer أو customer__new)
-            "create_with": str(f.get("create_with") or "").strip(),
             "timeout": float(f.get("timeout", 15) or 15),
         })
 
@@ -180,9 +176,6 @@ def normalize(cfg: dict) -> dict:
             "new_first_row": bool(verify.get("new_first_row", True)),
             "row_contains": [str(x) for x in (verify.get("row_contains") or []) if str(x).strip()],
             "row_contains_strict": bool(verify.get("row_contains_strict", False)),
-            # بعد الحفظ: افتح السند الجديد واتأكد إن كل حقل اتسجل بنفس القيمة
-            "open_saved": bool(verify.get("open_saved", False)),
-            "open_selector": str(verify.get("open_selector") or "").strip(),
             "timeout": int(verify.get("timeout", 60) or 60),
         },
         "save_timeout": int(cfg.get("save_timeout", 40) or 40),
@@ -197,7 +190,8 @@ def load(key: str) -> dict:
     path = SCREENS_DIR / f"{key}.json"
     if not path.exists():
         raise ConfigError(f"مفيش إعداد للشاشة '{key}' ({path})")
-    return normalize(load_json(path, {}))
+    with open(path, "r", encoding="utf-8-sig") as fp:
+        return normalize(json.load(fp))
 
 
 def list_all() -> list:
@@ -207,7 +201,8 @@ def list_all() -> list:
         return out
     for p in sorted(SCREENS_DIR.glob("*.json")):
         try:
-            out.append(normalize(load_json(p, {})))
+            with open(p, "r", encoding="utf-8-sig") as fp:
+                out.append(normalize(json.load(fp)))
         except Exception as e:
             out.append({"key": p.stem, "name_ar": p.stem, "error": str(e)[:300], "status": "broken"})
     return out
@@ -249,17 +244,21 @@ def write_stub(cfg: dict) -> Path:
 def save(cfg: dict) -> dict:
     cfg = normalize(cfg)
     cfg["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    save_json(SCREENS_DIR / f"{cfg['key']}.json", cfg)     # keeps older versions in data/history
+    SCREENS_DIR.mkdir(parents=True, exist_ok=True)
+    path = SCREENS_DIR / f"{cfg['key']}.json"
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
     write_stub(cfg)
     return cfg
 
 
 def delete(key: str) -> bool:
-    """Moves the config to data/trash (recoverable) and removes its generated test."""
-    found = to_trash(SCREENS_DIR / f"{key}.json")
-    if stub_path(key).exists():
-        stub_path(key).unlink()
-        found = True
+    found = False
+    for p in (SCREENS_DIR / f"{key}.json", stub_path(key)):
+        if p.exists():
+            p.unlink()
+            found = True
     return found
 
 
