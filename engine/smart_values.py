@@ -45,7 +45,8 @@ RULES = [
 
 def guess(label="", field_id=""):
     """the rule that fits this field, or None"""
-    hay = f" {normalize(label)} {normalize(re.sub(r'([a-z])([A-Z])', r'\1 \2', field_id or ''))} {(field_id or '').lower()} "
+    split_id = re.sub(r"([a-z])([A-Z])", r"\1 \2", field_id or "")      # CustomerName -> Customer Name
+    hay = f" {normalize(label)} {normalize(split_id)} {(field_id or '').lower()} "
     tokens = set(re.split(r"[\s_\-:./]+", hay))
     for words, gen in RULES:
         for w in words:
