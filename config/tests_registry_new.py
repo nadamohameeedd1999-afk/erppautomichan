@@ -10,19 +10,6 @@ class TestsRegistry:
     TESTS = [
         # ===== الحسابات العامة =====
         {
-            "id": "cash_receipt_full",
-            "module_key": "general_accounting",
-            "page_key": "cash_receipt",
-            "type": "full",
-            "name_ar": "سند القبض - كامل",
-            "name_en": "Cash Receipt - Full",
-            "icon": "💵",
-            "test_path": "tests/functional/test_04_cash_receipt_voucher.py::test_full_cash_receipt_voucher_flow",
-            "duration_estimate": 120,
-            "tags": ["full", "accounting"],
-            "available": True,
-        },
-        {
             "id": "journal_entries_smoke",
             "module_key": "general_accounting",
             "page_key": "journal_entries",
@@ -290,7 +277,7 @@ class TestsRegistry:
         - full_available: هل فيه اختبار كامل؟
         - smoke_available: هل فيه smoke؟
         - full_path / smoke_path
-        - last_result: آخر نتيجة (من reports/results)
+        - last_result: آخر نتيجة (من data/runs/results)
         """
         import json
         import re
@@ -298,7 +285,8 @@ class TestsRegistry:
         from datetime import datetime
 
         BASE_DIR = Path(__file__).resolve().parent.parent
-        RESULTS_DIR = BASE_DIR / "reports" / "results"
+        from config import paths
+        RESULTS_DIR = paths.RESULTS_DIR
 
         # نبني خريطة: page_key → آخر نتيجة
         last_results = {}
@@ -316,7 +304,7 @@ class TestsRegistry:
                         pk = m.group(1)
                         if pk not in last_results:
                             last_results[pk] = {
-                                "outcome": "passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed",
+                                "outcome": ("passed" if s.get("exit_code") == 0 else "failed") if "exit_code" in s else ("passed" if s.get("failed", 0) == 0 and s.get("errors", 0) == 0 else "failed"),
                                 "duration": s.get("duration_seconds", 0),
                                 "timestamp": s.get("timestamp", ""),
                                 "run_id": s.get("run_id", ""),
@@ -454,6 +442,10 @@ class TestsRegistry:
                 result.append(row)
             row["scenarios"] = items
             row["full_available"] = True
+            # آخر نتيجة للصف = الأحدث بين الأساسي وكل السيناريوهات
+            cands = [x for x in [row.get("last_result")] + [i.get("last_result") for i in items] if x]
+            if cands:
+                row["last_result"] = max(cands, key=lambda x: str(x.get("timestamp") or x.get("run_id") or ""))
         for r in result:
             r.setdefault("scenarios", [])
 

@@ -161,6 +161,9 @@ document.body.classList.remove('modal-open'); return 'forced';
 TEXT_PRESENT_JS = COMMON_JS + "return N(document.body.innerText).indexOf(N(arguments[0])) !== -1;"
 
 
+START = "__start__"          # flow "after" value: before the first field
+
+
 class FlowError(AssertionError):
     pass
 
@@ -174,7 +177,7 @@ def normalize_flows(raw, main_field_ids, normalize_field):
             continue
         name = str(fl.get("name") or f"إجراء {n}").strip()
         after = str(fl.get("after") or "").strip()
-        if after and after not in main_field_ids:
+        if after and after != START and after not in main_field_ids:
             raise ValueError(f"الإجراء «{name}»: الحقل '{after}' اللي بيشتغل بعده مش في الحقول المختارة")
         steps, seen = [], set(main_field_ids)
         for i, st in enumerate(fl.get("steps") or [], 1):
@@ -418,7 +421,8 @@ def fill_with_flows(page, cfg, filler, screenshots=None):
     by_after = {}
     ids = {f["id"] for f in cfg["fields"]}
     for fl in flows:
-        by_after.setdefault(fl["after"] if fl["after"] in ids else "", []).append(fl)
+        key = fl["after"] if (fl["after"] in ids or fl["after"] == START) else ""
+        by_after.setdefault(key, []).append(fl)
     runner = FlowRunner(page, filler)
 
     def run_all(lst):
@@ -437,6 +441,7 @@ def fill_with_flows(page, cfg, filler, screenshots=None):
                 if s:
                     screenshots.append(s)
 
+    run_all(by_after.get(START, []))
     seg = []
     for f in cfg["fields"]:
         seg.append(f)

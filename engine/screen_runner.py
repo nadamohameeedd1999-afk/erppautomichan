@@ -20,6 +20,7 @@ from pages.login_page import LoginPage
 from utils.list_verify import first_row_text, wait_for_new_first_row
 from utils.logger import logger
 from engine import screen_config
+from engine.flows import fill_with_flows
 from engine.form_filler import FormFiller, FieldFillError
 
 ERRORS_JS = r"""
@@ -259,12 +260,97 @@ class ScreenRunner(BasePage):
 
 
 def login(driver, credentials):
+    from engine import session_cache
+    if session_cache.restore(driver):
+        logger.success("♻️ استخدمت جلسة الدخول المحفوظة (من غير شاشة الدخول)")
+        return
     page = LoginPage(driver)
     page.load()
-    page.login(credentials["username"], credentials["password"])
+    page.login(credentials["username"], credentials["password"])   # saves the session itself
 
 
-def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True):
+def _load_any(key):
+    """'cash_receipt' (screen) or 'customer__new' (scenario) -> config."""
+    from engine import scenario_config
+    if scenario_config.SEP in key:
+        return scenario_config.load_by_full_key(key)
+    return screen_config.load(key)
+
+
+READ_VALUES_JS = r"""
+var out = {};
+arguments[0].forEach(function (id) {
+  var el = id.indexOf('css:') === 0 ? document.querySelector(id.slice(4)) : document.getElementById(id);
+  if (!el) { out[id] = null; return; }
+  if (el.tagName === 'SELECT') {
+    var o = el.options[el.selectedIndex]; out[id] = o ? o.text.replace(/\s+/g, ' ').trim() : '';
+  } else if (el.type === 'checkbox') { out[id] = el.checked ? 'true' : 'false'; }
+  else { out[id] = (el.value || '').trim(); }
+});
+return out;
+"""
+
+OPEN_ROW_JS = r"""
+var sel = arguments[0];
+var row = document.querySelector('table tbody tr');
+if (!row) return null;
+var cands = sel ? row.querySelectorAll(sel) : row.querySelectorAll(
+  "a[href*='AddEdit'], a[href*='Edit'], a[href*='Details'], a[href*='View'], a[href*='Show'], a[title*='تعديل'], a[title*='عرض']");
+for (var i = 0; i < cands.length; i++) {
+  var h = cands[i].getAttribute('href') || '';
+  if (h && h !== '#' && h.indexOf('javascript') !== 0 && h.indexOf('Delete') === -1) return {href: cands[i].href};
+}
+var b = row.querySelector("[onclick*='Edit'], [onclick*='edit'], .btn-edit, .fa-edit, .fa-pencil, .bi-pencil");
+if (b) { (b.closest('a,button') || b).click(); return {clicked: true}; }
+return null;
+"""
+
+
+def _same(a, b):
+    from engine.text_match import normalize
+    a, b = normalize(a), normalize(b)
+    if a == b:
+        return True
+    try:
+        return float(a.replace(",", "")) == float(b.replace(",", ""))
+    except ValueError:
+        return bool(a) and bool(b) and (a in b or b in a)
+
+
+def check_saved_values(r, cfg, steps):
+    """Open the newly saved record and compare each filled field with what we filled."""
+    driver = r.driver
+    driver.get(_abs(cfg["list_url"]))
+    r.wait_for_preloader()
+    time.sleep(1.5)
+    hit = driver.execute_script(OPEN_ROW_JS, cfg["verify"].get("open_selector") or "")
+    if not hit:
+        logger.warning("مالقيتش لينك فتح/تعديل في أول صف — مش هقدر أراجع القيم (حددي selector في الإعداد)")
+        return {"checked": False, "reason": "مفيش لينك فتح في أول صف"}
+    if hit.get("href"):
+        driver.get(hit["href"])
+    r.wait_for_preloader(timeout=20)
+    time.sleep(2.5)
+    want = {s["id"]: s for s in steps if s.get("ok") and s.get("result") not in (None, "")}
+    if not want:
+        return {"checked": False, "reason": "مفيش قيم أقارنها"}
+    got = driver.execute_script(READ_VALUES_JS, list(want.keys())) or {}
+    bad = [k for k in want if got.get(k) is not None and not _same(want[k]["result"], got.get(k))]
+    if bad:                                   # Select2 lists on edit pages sometimes load late
+        time.sleep(2.5)
+        got = driver.execute_script(READ_VALUES_JS, list(want.keys())) or {}
+    rows, mismatches = [], []
+    for k, s in want.items():
+        v = got.get(k)
+        ok = v is None or _same(s["result"], v)
+        rows.append({"label": s["label"], "filled": s["result"], "saved": v, "ok": ok})
+        if not ok:
+            mismatches.append(f"{s['label']}: اتملى '{s['result']}' بس اتسجل '{v}'")
+    _shot(r, f"{cfg['key']}_saved_record")
+    return {"checked": True, "rows": rows, "mismatches": mismatches}
+
+
+def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth=0):
     """Runs the flow. Returns a result dict; raises AssertionError on failure."""
     cfg = key_or_cfg if isinstance(key_or_cfg, dict) else screen_config.load(key_or_cfg)
     cfg = screen_config.normalize(cfg)
@@ -289,15 +375,47 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True):
         assert r._on_add_page(), f"مش في صفحة الإضافة: {driver.current_url}"
 
     with allure.step("ملء الحقول"):
-        try:
-            r.filler.fill_all(cfg["fields"])
-        except Exception as e:
-            result["steps"] = r.filler.steps
-            e.partial_result = result      # so the dashboard can still show which fields passed
-            raise
-        finally:
-            result["steps"] = r.filler.steps
-            result["screenshots"].append(_shot(r, f"{cfg['key']}_before_save"))
+        created = []
+        while True:
+            try:
+                fill_with_flows(r, cfg, r.filler, result["screenshots"])
+                break
+            except FieldFillError as e:
+                f = e.field or {}
+                maker = f.get("create_with")
+                if e.missing and maker and not save:
+                    result["steps"] = r.filler.steps
+                    e.partial_result = result
+                    raise AssertionError(f"{e}\n   (في التجربة بدون حفظ مش بنعمل بيانات — في التشغيل الكامل هتتعمل بـ «{maker}»)") from None
+                if not (e.missing and maker and maker not in created and _depth < 2):
+                    result["steps"] = r.filler.steps
+                    result["screenshots"].append(_shot(r, f"{cfg['key']}_before_save"))
+                    e.partial_result = result      # so the dashboard can still show which fields passed
+                    raise
+                # البيانات المطلوبة مش موجودة -> نعملها بالشاشة/السيناريو المحدد وبعدين نرجع
+                logger.warning(f"🧩 {f.get('label')}: '{f.get('value')}' مش موجود — هعمله الأول بـ «{maker}»")
+                with allure.step(f"تجهيز البيانات: {maker}"):
+                    try:
+                        pre = run_screen(driver, credentials, _load_any(maker), save=True,
+                                         do_login=False, _depth=_depth + 1)
+                    except Exception as pe:
+                        raise AssertionError(f"كنت محتاج أعمل '{f.get('value')}' بـ «{maker}» وده فشل:\n   {pe}") from None
+                created.append(maker)
+                result.setdefault("created_data", []).append({"field": f.get("label"), "with": maker,
+                                                              "value": f.get("value"), "ok": pre.get("saved")})
+                logger.success(f"✅ اتعمل بـ «{maker}» — هرجع أكمّل {cfg['name_ar']}")
+                r.filler = FormFiller(driver)
+                if save and cfg["verify"]["new_first_row"]:
+                    r.open_list()
+                    result["first_row_before"] = first_row_text(driver)
+                r.open_add()
+                assert r._on_add_page(), f"مش في صفحة الإضافة: {driver.current_url}"
+            except Exception as e:
+                result["steps"] = r.filler.steps
+                e.partial_result = result
+                raise
+        result["steps"] = r.filler.steps
+        result["screenshots"].append(_shot(r, f"{cfg['key']}_before_save"))
 
     if not save:
         logger.success("تمت التعبئة (تجربة بدون حفظ)")
@@ -330,6 +448,18 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True):
                 if cfg["verify"]["row_contains_strict"]:
                     raise AssertionError(msg)
                 logger.warning(msg)
+
+    if cfg["verify"].get("open_saved"):
+        with allure.step("فتح السند المحفوظ ومراجعة القيم"):
+            chk = check_saved_values(r, cfg, result["steps"])
+            result["saved_check"] = chk
+            if chk.get("checked"):
+                for row in chk["rows"]:
+                    mark = "✅" if row["ok"] else "❌"
+                    logger.info(f"{mark} مراجعة {row['label']}: اتملى '{row['filled']}' — اتسجل '{row['saved']}'")
+                if chk["mismatches"]:
+                    raise AssertionError("القيم اللي اتسجلت مختلفة عن اللي اتملت:\n   " + "\n   ".join(chk["mismatches"]))
+                logger.success("✅ كل القيم اتسجلت صح")
 
     result["seconds"] = round(time.time() - start, 1)
     logger.success(f"✅ {cfg['name_ar']}: اتحفظ وظهر في القايمة ({result['seconds']} ثانية)")

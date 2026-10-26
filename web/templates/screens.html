@@ -20,10 +20,38 @@
     .step-ok { color: #198754; } .step-bad { color: #dc3545; }
     .ltr { direction: ltr; text-align: left; }
     .sticky-actions { position: sticky; bottom: 0; z-index: 5; }
+    .builder-tabs .nav-link { border-radius: 10px; font-weight: 700; }
+    .scn-mini { font-size: 12px; }
+    .scn-mini a { text-decoration: none; }
+    .flow-card { border: 1px solid #cfe2ff; border-radius: 12px; background: #f8fbff; margin-bottom: 12px; }
+    .flow-card .flow-head { padding: 10px 12px; border-bottom: 1px dashed #cfe2ff; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow-step { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #eef3fb; flex-wrap: wrap; }
+    .flow-step:last-child { border-bottom: 0; }
+    .flow-step .num { width: 24px; height: 24px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 12px;
+                      display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .flow-step .do-sel { width: 172px; flex: 0 0 auto; }
+    .flow-step .grow { flex: 1 1 200px; min-width: 160px; }
+    .flow-step .mini { width: 90px; flex: 0 0 auto; }
+    .fields-table tr.act-row td { background: #f5f8ff; }
+    .fields-table tr.act-row.excluded td { background: transparent; }
+    .fields-table tr.act-row.act-open td { border-bottom: 0; }
+    .fields-table tr.act-sub td { background: #f5f8ff; padding: 0 12px 12px; }
+    .act-panel { border: 1px solid #dbe6ff; border-radius: 10px; background: #fff; padding: 10px; }
+    [data-theme="dark"] .fields-table tr.act-row td, [data-theme="dark"] .fields-table tr.act-sub td { background: #1d2433; }
+    [data-theme="dark"] .act-panel { background: #161b26; border-color: #2c3a55; }
+    .flow-step.popup-scope { border-inline-start: 3px solid #0dcaf0; background: #f3fdff; }
+    .flow-hint { font-size: 12px; color: #6c757d; }
+    [data-theme="dark"] .flow-card { background: #1d2433; border-color: #2c3b57; }
+    [data-theme="dark"] .flow-step.popup-scope { background: #1a2a33; }
 </style>
 {% endblock %}
 
 {% block content %}
+<ul class="nav nav-pills mb-3 gap-2 builder-tabs">
+    <li class="nav-item"><a class="nav-link {{ 'active' if mode != 'scenario' }}" href="/screens"><i class="bi bi-ui-checks-grid"></i> الشاشات <span class="badge bg-light text-dark ms-1" id="tabCountScreens"></span></a></li>
+    <li class="nav-item"><a class="nav-link {{ 'active' if mode == 'scenario' }}" href="/scenarios"><i class="bi bi-diagram-3"></i> السيناريوهات <span class="badge bg-light text-dark ms-1" id="tabCountScn"></span></a></li>
+    <li class="nav-item ms-auto small text-muted align-self-center">الشاشة = الإعداد الأساسي لكل شاشة · السيناريو = طريقة تانية لنفس الشاشة باسم مختلف</li>
+</ul>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
         {% if mode == 'scenario' %}
@@ -36,10 +64,8 @@
     </div>
     <div class="d-flex gap-2">
         {% if mode == 'scenario' %}
-        <a class="btn btn-outline-secondary" href="/screens"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> سيناريو جديد</button>
         {% else %}
-        <a class="btn btn-outline-secondary" href="/scenarios"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</a>
         <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
         {% endif %}
     </div>
@@ -165,14 +191,18 @@
                         <input class="form-control form-control-sm" id="manLabel" placeholder="المبلغ"></div>
                     <div><label class="form-label small mb-0">النوع</label>
                         <select class="form-select form-select-sm" id="manKind">
-                            {% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+                            <option value="action">🔘 زرار (بيتداس)</option>
+                            {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == 'select2' }}>{{ k }}</option>{% endfor %}
                         </select></div>
                     <button class="btn btn-sm btn-outline-primary" onclick="addManual()"><i class="bi bi-plus"></i> إضافة</button>
+                    <div class="flow-hint w-100">🔘 <b>الزراير</b> (زي «ربط بمستند اخر») بتظهر في الجدول مع الحقول وبتتداس في مكانها في الترتيب. لو بتفتح نافذة دوسي «✨ اقرأ النافذة» في سطرها.
+                        في التواريخ تقدري تكتبي <code>{today}</code> <code>{month_start}</code> <code>{month_end}</code> <code>{today-30}</code>.</div>
+                    <datalist id="popTargets"></datalist><datalist id="popFieldIds"></datalist><div id="popOptLists" hidden></div>
                 </div>
             </div>
         </div>
 
-        <!-- step 3 -->
+        <!-- step 4 -->
         <div class="card shadow-sm mb-3">
             <div class="card-header fw-bold"><span class="sb-step">3</span> الحفظ والتأكيد</div>
             <div class="card-body">
@@ -199,6 +229,11 @@
                             <input class="form-check-input" type="checkbox" id="vStrict">
                             <label class="form-check-label small" for="vStrict">لو النص مش موجود الاختبار يفشل (غير كده تحذير بس)</label>
                         </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="vOpenSaved">
+                            <label class="form-check-label fw-bold" for="vOpenSaved">افتح السند بعد الحفظ واتأكد إن كل القيم اتسجلت صح</label>
+                        </div>
+                        <input class="form-control form-control-sm ltr mt-1" id="vOpenSel" placeholder="(اختياري) CSS للينك الفتح في أول صف — مثلاً a.btn-edit">
                         <label class="form-label small mt-2">ملاحظات</label>
                         <input class="form-control" id="fNotes">
                     </div>
@@ -266,12 +301,13 @@
 {% block extra_js %}
 <script>
 const STRATEGIES = {{ strategies | tojson }};
+STRATEGIES.flow = 'إجراء';
 const MODE = '{{ mode }}';             // 'screen' | 'scenario'
 const IS_SCN = MODE === 'scenario';
 const SEP = '__';
 const KIND_STRATEGIES = {
-    select2: ['first', 'fixed', 'search', 'keep'],
-    select:  ['first', 'fixed', 'search', 'keep'],
+    select2: ['first', 'fixed', 'search', 'random', 'keep'],
+    select:  ['first', 'fixed', 'search', 'random', 'keep'],
     text:    ['fixed', 'unique', 'today', 'keep'],
     number:  ['fixed', 'unique', 'keep'],
     date:    ['today', 'fixed', 'keep'],
@@ -284,6 +320,8 @@ const KIND_LABEL = { select2: 'قايمة Select2', select: 'قايمة', text: 
 
 let ROWS = [];          // [{id,label,kind,required,visible,include,strategy,value,format,depends_on,options,missing,...}]
 let BEFORE_SAVE = [];
+// a button row in ROWS: {kind:'action', id:'act_..', label, target, include, flow:{optional, steps:[...]}, open, choose, disc}
+let POP_HINTS = {targets: [], fields: []};
 let BUTTONS = [];
 let CATALOG = [];
 let CURRENT_KEY = null; // key of the loaded saved config
@@ -293,7 +331,26 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const $ = id => document.getElementById(id);
 
 // ==================== load ====================
+let SCN_BY_SCREEN = {};
+let CREATE_OPTS = [];       // screens + scenarios that can create missing data
+async function loadCounts() {
+    const [a, b] = await Promise.all([
+        fetch('/api/screens').then(r => r.json()).catch(() => ({})),
+        fetch('/api/scenarios').then(r => r.json()).catch(() => ({})),
+    ]);
+    SCN_BY_SCREEN = {};
+    (b.scenarios || []).forEach(x => (SCN_BY_SCREEN[x.screen_key] = SCN_BY_SCREEN[x.screen_key] || []).push(x));
+    CREATE_OPTS = [
+        ...(a.screens || []).filter(x => !x.error).map(x => ({key: x.key, name: '🧩 ' + x.name_ar})),
+        ...(b.scenarios || []).filter(x => !x.error).map(x => ({key: x.key, name: '🎬 ' + (x.screen_name || x.screen_key) + ' — ' + x.scenario_name})),
+    ];
+    $('tabCountScreens').textContent = (a.screens || []).length || '';
+    if (ROWS.length) renderRows();
+    $('tabCountScn').textContent = (b.scenarios || []).length || '';
+}
+
 async function loadScreens(selectKey) {
+    await loadCounts();
     if (IS_SCN) return loadScenarios();
     const r = await fetch('/api/screens').then(r => r.json()).catch(() => ({success: false}));
     const box = $('screensList');
@@ -307,6 +364,10 @@ async function loadScreens(selectKey) {
             <div class="small text-muted ltr">${esc(s.list_url || s.key)}</div>
             ${s.error ? `<div class="small text-danger">${esc(s.error)}</div>` :
               `<div class="small text-muted">${s.fields} حقل · ${esc((s.updated_at || '').replace('T', ' '))}</div>`}
+            <div class="scn-mini mt-1" onclick="event.stopPropagation()">
+                ${(SCN_BY_SCREEN[s.key] || []).map(x => `<a class="badge bg-info-subtle text-dark me-1" href="/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}">🎬 ${esc(x.scenario_name)}</a>`).join('')}
+                <a href="/scenarios?screen=${encodeURIComponent(s.key)}">＋ سيناريو</a>
+            </div>
         </div>`).join('');
 }
 
@@ -382,7 +443,8 @@ async function copyFromScreen(silent) {
     $('fSave').value = c.save_button;
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
-    ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
+    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
+    ROWS = rowsFromConfig(c);
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     renderRows(); renderBeforeSave();
     $('saveState').textContent = `اتنسخت حقول "${c.name_ar}" — غيّري اللي يخص السيناريو ده واحفظي`;
@@ -394,7 +456,7 @@ function newScreen(keepCatalog) {
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
     if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
     $('fSave').value = 'button#save';
-    $('vNewRow').checked = true; $('vStrict').checked = false;
+    $('vNewRow').checked = true; $('vStrict').checked = false; $('vOpenSaved').checked = false; $('vOpenSel').value = '';
     if (!keepCatalog) $('catalogSelect').value = '';
     $('btnDelete').disabled = true;
     $('dryCard').classList.add('d-none');
@@ -434,7 +496,8 @@ function fillEditor(c) {
     $('fAddButton').value = c.add_button; $('fSave').value = c.save_button; $('fNotes').value = c.notes || '';
     $('vNewRow').checked = c.verify.new_first_row; $('vStrict').checked = c.verify.row_contains_strict;
     $('vRowContains').value = (c.verify.row_contains || []).join(', ');
-    ROWS = c.fields.map(f => ({...f, include: true, visible: true, options: [], saved: true}));
+    $('vOpenSaved').checked = !!c.verify.open_saved; $('vOpenSel').value = c.verify.open_selector || '';
+    ROWS = rowsFromConfig(c);
     BEFORE_SAVE = c.before_save.map(a => ({...a}));
     $('catalogSelect').value = CATALOG.some(p => p.key === c.key) ? c.key : '';
     $('btnDelete').disabled = false;
@@ -445,27 +508,31 @@ function fillEditor(c) {
 
 // ==================== fields table ====================
 function renderRows() {
+    setTimeout(renderHints, 0);
     ROWS = [...ROWS.filter(r => r.include), ...ROWS.filter(r => !r.include)];
     const body = $('fieldsBody');
-    const visibleRows = ROWS.map((r, i) => ({r, i})).filter(x => SHOW_ALL || x.r.include || x.r.required || x.r.depends_on || x.r.saved);
-    $('fieldsCount').textContent = ROWS.filter(r => r.include).length;
+    const visibleRows = ROWS.map((r, i) => ({r, i})).filter(x => SHOW_ALL || x.r.include || x.r.required || x.r.depends_on || x.r.saved || x.r.kind === 'action');
+    $('fieldsCount').textContent = ROWS.filter(r => r.include && r.kind !== 'action').length;
     $('btnShowAll').textContent = SHOW_ALL ? 'إظهار المهم بس' : `إظهار كل الحقول (${ROWS.length})`;
     if (!ROWS.length) {
         body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">اختار شاشة واضغط "اقرأ الحقول"</td></tr>';
         return;
     }
     const includedIds = ROWS.filter(r => r.include).map(r => r.id);
+    const fieldIds = ROWS.filter(r => r.include && r.kind !== 'action').map(r => r.id);
     body.innerHTML = visibleRows.map(({r, i}) => {
+        if (r.kind === 'action') return actionRow(r, i, includedIds);
         const strategies = KIND_STRATEGIES[r.kind] || Object.keys(STRATEGIES);
-        const needsValue = ['fixed', 'search', 'unique'].includes(r.strategy);
+        const needsValue = ['fixed', 'search', 'unique', 'random'].includes(r.strategy);
         const dl = r.options && r.options.length ? `list="opts_${i}"` : '';
-        const placeholder = r.strategy === 'unique' ? 'AUTO-{ts}' : (r.strategy === 'today' ? 'الصيغة: %Y-%m-%d' : '');
+        const placeholder = r.strategy === 'unique' ? 'AUTO-{ts}' : (r.strategy === 'today' ? 'الصيغة: %Y-%m-%d'
+            : (r.strategy === 'random' ? 'فاضي = من الكل · أو: قيمة1, قيمة2' : ''));
         const valueCell = r.strategy === 'today'
             ? `<input class="form-control form-control-sm ltr" value="${esc(r.format || '')}" placeholder="%Y-%m-%d" title="صيغة التاريخ (%d/%m/%Y مثلاً)" onchange="setRow(${i}, 'format', this.value)">`
             : (needsValue ? `<input class="form-control form-control-sm" ${dl} value="${esc(r.value || '')}" placeholder="${esc(placeholder)}" onchange="setRow(${i}, 'value', this.value)">
                  ${dl ? `<datalist id="opts_${i}">${r.options.map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : ''}`
                : `<span class="text-muted small">${esc(r.current_value || r.value || '—')}</span>`);
-        const depOptions = includedIds.filter(id => id !== r.id).map(id => {
+        const depOptions = fieldIds.filter(id => id !== r.id).map(id => {
             const lbl = (ROWS.find(x => x.id === id) || {}).label || id;
             return `<option value="${esc(id)}" ${r.depends_on === id ? 'selected' : ''}>${esc(lbl)}</option>`;
         }).join('');
@@ -501,7 +568,13 @@ function renderRows() {
                     ${strategies.map(s => `<option value="${s}" ${r.strategy === s ? 'selected' : ''}>${esc(STRATEGIES[s])}</option>`).join('')}
                 </select>
             </td>
-            <td>${valueCell}</td>
+            <td>${valueCell}
+                ${['fixed', 'search'].includes(r.strategy) ? `
+                <select class="form-select form-select-sm mt-1" title="لو القيمة دي مش موجودة في القايمة، شغّل الشاشة/السيناريو ده الأول يعملها وبعدين كمّل"
+                        onchange="setRow(${i}, 'create_with', this.value)">
+                    <option value="">لو مش موجودة: يوقف ويقولّي</option>
+                    ${CREATE_OPTS.map(o => `<option value="${esc(o.key)}" ${r.create_with === o.key ? 'selected' : ''}>لو مش موجودة: اعملها بـ ${esc(o.name)}</option>`).join('')}
+                </select>` : ''}</td>
             <td>
                 <select class="form-select form-select-sm" onchange="setRow(${i}, 'depends_on', this.value || null)">
                     <option value="">—</option>${depOptions}
@@ -518,6 +591,11 @@ function setRow(i, key, val) {
         row.include = true;
         let last = -1;
         ROWS.forEach((r, k) => { if (r.include) last = k; });
+        if (row.kind === 'action' && row.after_field !== undefined) {
+            // a button found on the page goes right after the field before it on the screen
+            const at = row.after_field ? ROWS.findIndex(r => r.include && r.id === row.after_field) : -1;
+            if (row.after_field === '' || at !== -1) last = at;
+        }
         ROWS.splice(last + 1, 0, row);
         renderRows();
         return;
@@ -566,6 +644,16 @@ function cleanId(raw) {
 }
 
 function addManual() {
+    if ($('manKind').value === 'action') {
+        const raw = $('manId').value.trim(), label = $('manLabel').value.trim();
+        let target = raw.includes('<') || /^[A-Za-z][\w-]*$/.test(raw) ? cleanId(raw) : raw;
+        if (target && /^[A-Za-z][\w-]*$/.test(target)) target = '#' + target;     // an id -> css
+        target = target || label;
+        if (!target) { alert('اكتبي الـ id بتاع الزرار أو الاسم اللي مكتوب عليه'); return; }
+        ROWS.push(newAction(label || raw, target, true));
+        $('manId').value = ''; $('manLabel').value = '';
+        renderRows(); return;
+    }
     const id = cleanId($('manId').value);
     if (!id) { alert('مش لاقي id — اكتبي الـ id بس (زي CustomerId)'); return; }
     if (ROWS.some(r => r.id === id)) { alert('الحقل ده موجود بالفعل'); return; }
@@ -611,6 +699,264 @@ function addBeforeSave() {
     renderBeforeSave();
 }
 
+
+// ==================== buttons in the fields table (زراير بتتداس في مكانها) ====================
+const STEP_TYPES = {
+    click: '👆 اضغط على زرار', wait_popup: '🪟 استنى النافذة تفتح', fill: '✏️ املى حقل',
+    wait_rows: '📋 استنى صفوف الجدول', check: '☑️ علّم على', pick_rows: '🔢 اختار أول صفوف',
+    close_popup: '✖️ اقفل النافذة', expect_text: '🔎 اتأكد إن النص ظاهر', wait: '⏱️ استنى ثواني',
+};
+const START = '__start__';
+let ACT_N = 0;
+
+function newAction(label, target, include, extra) {
+    return {kind: 'action', id: 'act_' + (++ACT_N) + '_' + Date.now().toString(36), label: label || target, target,
+            include: !!include, visible: true, options: [], flow: {optional: false, steps: [{do: 'click', target}]}, ...(extra || {})};
+}
+function isPopup(r) { return r.flow.steps.some(s => s.do === 'wait_popup'); }
+
+// saved config -> one ordered list: fields + buttons where they run
+function rowsFromConfig(c) {
+    const by = {};
+    (c.flows || []).forEach(fl => (by[fl.after || '__end__'] = by[fl.after || '__end__'] || []).push(fl));
+    const act = fl => {
+        const steps = JSON.parse(JSON.stringify(fl.steps || []));
+        const first = steps[0] && steps[0].do === 'click' ? steps[0].target : '';
+        return {...newAction(fl.name, first || fl.name, true), flow: {optional: !!fl.optional, steps}, saved: true};
+    };
+    const rows = [...(by[START] || []).map(act)];
+    c.fields.forEach(f => {
+        rows.push({...f, include: true, visible: true, options: [], saved: true});
+        (by[f.id] || []).forEach(fl => rows.push(act(fl)));
+    });
+    (by['__end__'] || []).forEach(fl => rows.push(act(fl)));
+    return rows;
+}
+
+// ordered rows -> flows with "after" = the field right before the button
+function buildFlows() {
+    const out = [];
+    let last = START;
+    ROWS.filter(r => r.include).forEach(r => {
+        if (r.kind !== 'action') { last = r.id; return; }
+        const steps = JSON.parse(JSON.stringify(r.flow.steps));
+        if (steps[0] && steps[0].do === 'click') steps[0].target = r.target;
+        else steps.unshift({do: 'click', target: r.target});
+        out.push({name: r.label || r.target, after: last, optional: !!r.flow.optional, steps});
+    });
+    return out;
+}
+
+function actionRow(r, i, includedIds) {
+    const n = r.flow.steps.length, popup = isPopup(r);
+    const ord = r.include
+        ? `<input type="number" class="form-control form-control-sm text-center fw-bold ord-num" min="1" max="${includedIds.length}"
+                  value="${includedIds.indexOf(r.id) + 1}" title="اكتبي رقم الترتيب — الزرار بيتداس في مكانه"
+                  onchange="setOrder(${i}, this.value)" onkeydown="if (event.key === 'Enter') this.blur()">`
+        : `<span class="text-muted small">—</span>`;
+    const summary = popup
+        ? `<span class="badge bg-info-subtle text-dark border">🪟 نافذة · ${n} خطوة</span>`
+        : `<span class="badge bg-light text-dark border">ضغطة بس</span>`;
+    const warn = (r.disc && r.disc.warnings || []).length ? `<span class="badge bg-warning text-dark" title="${esc(r.disc.warnings.join('\n'))}">⚠️ ${r.disc.warnings.length}</span>` : '';
+    let html = `
+    <tr class="act-row ${r.include ? '' : 'excluded'} ${r.open ? 'act-open' : ''}">
+        <td class="text-nowrap">${ord}</td>
+        <td><input class="form-check-input" type="checkbox" ${r.include ? 'checked' : ''} onchange="setRow(${i}, 'include', this.checked)"></td>
+        <td>
+            <input class="form-control form-control-sm fw-bold mb-1" value="${esc(r.label)}" onchange="ROWS[${i}].label = this.value">
+            <span class="badge bg-primary">🔘 زرار</span> ${summary} ${warn}
+            ${r.detected ? '<span class="badge bg-light text-dark border" title="لقيته في الصفحة وقت قراءة الحقول">موجود في الصفحة</span>' : ''}
+        </td>
+        <td><span class="small text-muted">زرار</span></td>
+        <td>
+            <select class="form-select form-select-sm" onchange="setActMode(${i}, this.value)">
+                <option value="click" ${popup ? '' : 'selected'}>اضغط عليه بس</option>
+                <option value="popup" ${popup ? 'selected' : ''}>اضغط — وبيفتح نافذة</option>
+            </select>
+            <label class="small text-muted mt-1 d-block"><input type="checkbox" ${r.flow.optional ? 'checked' : ''}
+                onchange="ROWS[${i}].flow.optional = this.checked"> لو فشل كمّل الاختبار</label>
+        </td>
+        <td>
+            <input class="form-control form-control-sm ltr mb-1" value="${esc(r.target)}" title="الـ id بـ # (زي #btnOpenLinkWithOtherDocModal) أو الكلام المكتوب على الزرار"
+                   onchange="ROWS[${i}].target = this.value.trim()">
+            ${popup ? `<div class="d-flex gap-1">
+                <button class="btn btn-sm btn-primary flex-grow-1" onclick="discoverRow(${i})" title="يفتح الشاشة، يدوس الزرار، يقرأ النافذة ويجرب المصفي — من غير إضافة ولا حفظ"><i class="bi bi-magic"></i> اقرأ النافذة</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="ROWS[${i}].open = !ROWS[${i}].open; renderRows()">${r.open ? 'اقفل الخطوات ▲' : `الخطوات (${n}) ▼`}</button>
+            </div>` : ''}
+        </td>
+        <td></td>
+    </tr>`;
+    if (popup && r.open) html += `<tr class="act-sub"><td colspan="7">${actionPanel(r, i)}</td></tr>`;
+    return html;
+}
+
+function actionPanel(r, i) {
+    const d = r.disc || {};
+    let inPopup = false;
+    const steps = r.flow.steps.map((st, si) => {
+        if (si === 0 && st.do === 'click') return '';            // = the button of this row
+        if (st.do === 'wait_popup') inPopup = true;
+        const scoped = inPopup && st.do !== 'wait_popup';
+        if (st.do === 'close_popup') inPopup = false;
+        return `<div class="flow-step ${scoped ? 'popup-scope' : ''}">
+            <span class="num">${si}</span>
+            <select class="form-select form-select-sm do-sel" onchange="setStep(${i}, ${si}, 'do', this.value)">
+                ${Object.entries(STEP_TYPES).map(([k, v]) => `<option value="${k}" ${k === st.do ? 'selected' : ''}>${v}</option>`).join('')}</select>
+            ${stepEditor(i, si, st)}
+            <label class="small text-muted" title="لو الخطوة دي فشلت كمّل عادي"><input type="checkbox" ${st.optional ? 'checked' : ''}
+                onchange="setStep(${i}, ${si}, 'optional', this.checked)"> اختياري</label>
+            <button class="btn btn-sm btn-light ord-btn" onclick="moveStep(${i}, ${si}, -1)" title="لفوق">▲</button>
+            <button class="btn btn-sm btn-light ord-btn" onclick="moveStep(${i}, ${si}, 1)" title="لتحت">▼</button>
+            <button class="btn btn-sm btn-link text-danger p-0" onclick="ROWS[${i}].flow.steps.splice(${si}, 1); renderRows()" title="شيل">✕</button>
+        </div>`;
+    }).join('');
+    return `<div class="act-panel">
+        <div class="d-flex gap-2 align-items-end flex-wrap mb-2">
+            <div style="min-width:260px"><label class="form-label small mb-0">أختار في النافذة قبل المصفي (اختياري)</label>
+                <input class="form-control form-control-sm" value="${esc(r.choose || '')}" placeholder="مثلاً: سندات صرف المخازن"
+                       title="لو فاضية: بيجرب الأنواع لحد ما يلاقي واحد فيه مستندات" onchange="ROWS[${i}].choose = this.value"></div>
+            <span class="small text-muted flex-grow-1">«اقرأ النافذة» بيملى الحقول اللي قبل الزرار، يدوسه، يقرأ النافذة ويجرّب المصفي — ويكتب الخطوات تحت لوحده.</span>
+            <button class="btn btn-sm btn-outline-primary" onclick="addStep(${i})"><i class="bi bi-plus"></i> خطوة</button>
+        </div>
+        ${(d.warnings || []).map(w => `<div class="alert alert-warning py-1 small mb-1">⚠️ ${esc(w)}</div>`).join('')}
+        ${d.fields ? `<div class="small mb-2">حقول النافذة: ${d.fields.map(f => `<span class="badge bg-light text-dark border me-1">${esc(f.label || f.id)} <code class="ltr">${esc(f.id)}</code></span>`).join('') || '—'}
+            ${d.shot ? ` · <a target="_blank" href="/screenshots/${encodeURIComponent(d.shot)}">📸 لقطة النافذة</a>` : ''}</div>` : ''}
+        <div class="flow-card">${steps || '<div class="text-muted small p-2">مفيش خطوات — دوسي «اقرأ النافذة»</div>'}</div>
+    </div>`;
+}
+
+function setActMode(i, mode) {
+    const r = ROWS[i];
+    if (mode === 'popup' && !isPopup(r)) {
+        r.flow.steps = [r.flow.steps[0] || {do: 'click', target: r.target}, {do: 'wait_popup'}];
+        r.open = true;
+    } else if (mode === 'click') {
+        if (r.flow.steps.length > 1 && !confirm('هتشيلي خطوات النافذة؟')) { renderRows(); return; }
+        r.flow.steps = [{do: 'click', target: r.target}];
+        r.open = false;
+    }
+    renderRows();
+}
+
+function setStep(i, si, key, val) {
+    const steps = ROWS[i].flow.steps, st = steps[si];
+    if (key === 'do') {
+        const old = st; steps[si] = {do: val};
+        if (val === 'fill') steps[si].field = {id: '', label: '', kind: 'select2', strategy: 'fixed', value: ''};
+        if (['click', 'check', 'expect_text'].includes(val)) steps[si].target = old.target || '';
+        if (val === 'wait_rows') steps[si].min = 1;
+        if (val === 'pick_rows') steps[si].count = 1;
+        if (val === 'wait') steps[si].seconds = 1;
+        renderRows(); return;
+    }
+    st[key] = val;
+}
+function setStepField(i, si, key, val) {
+    const f = ROWS[i].flow.steps[si].field;
+    f[key] = val;
+    if (key === 'id') {
+        const h = POP_HINTS.fields.find(x => x.id === val);
+        if (h) { f.label = f.label || h.label; f.kind = h.kind; }
+        renderRows();
+    }
+    if (key === 'kind' || key === 'strategy') renderRows();
+}
+function moveStep(i, si, d) {
+    const a = ROWS[i].flow.steps, j = si + d;
+    if (j < 1 || j >= a.length) return;                  // step 0 = the button itself
+    [a[si], a[j]] = [a[j], a[si]]; renderRows();
+}
+function addStep(i, kind) {
+    const st = {do: kind || 'click'};
+    if (st.do === 'click') st.target = '';
+    ROWS[i].flow.steps.push(st); renderRows();
+}
+
+function stepEditor(i, si, st) {
+    const on = `(${i}, ${si}`;
+    if (['click', 'check', 'expect_text'].includes(st.do)) {
+        const ph = st.do === 'check' ? 'تحديد الكل' : (st.do === 'expect_text' ? 'نص لازم يظهر' : 'اسم الزرار — زي المصفي أو إضافة');
+        return `<input class="form-control form-control-sm grow" list="popTargets" value="${esc(st.target || '')}" placeholder="${ph}"
+                 title="النص المكتوب على الزرار، أو الـ id بـ # زي #btnFilterStockReceipts" onchange="setStep${on}, 'target', this.value)">`;
+    }
+    if (st.do === 'fill') {
+        const f = st.field || {};
+        const kinds = Object.keys(KIND_LABEL).filter(k => k !== 'hidden');
+        const strategies = KIND_STRATEGIES[f.kind] || ['fixed'];
+        const needsVal = ['fixed', 'search', 'unique', 'random'].includes(f.strategy);
+        const hasOpts = (POP_HINTS.fields.find(x => x.id === f.id) || {}).options;
+        return `<input class="form-control form-control-sm ltr mini" style="width:115px" list="popFieldIds" value="${esc(f.id || '')}" placeholder="id"
+                    title="id الحقل جوه النافذة" onchange="setStepField${on}, 'id', this.value)">
+            <input class="form-control form-control-sm mini" style="width:100px" value="${esc(f.label || '')}" placeholder="الاسم" onchange="setStepField${on}, 'label', this.value)">
+            <select class="form-select form-select-sm mini" style="width:125px" onchange="setStepField${on}, 'kind', this.value)">
+                ${kinds.map(k => `<option value="${k}" ${k === f.kind ? 'selected' : ''}>${KIND_LABEL[k]}</option>`).join('')}</select>
+            <select class="form-select form-select-sm mini" style="width:125px" onchange="setStepField${on}, 'strategy', this.value)">
+                ${strategies.map(k => `<option value="${k}" ${k === f.strategy ? 'selected' : ''}>${esc(STRATEGIES[k] || k)}</option>`).join('')}</select>
+            ${needsVal ? `<input class="form-control form-control-sm grow" style="min-width:110px;flex-basis:110px" ${hasOpts && hasOpts.length ? `list="popopts_${esc(f.id)}"` : ''} value="${esc(f.value || '')}" placeholder="${f.kind === 'date' ? '{month_start}' : (f.strategy === 'random' ? 'فاضي = من الكل · أو: قيمة1, قيمة2' : 'القيمة')}"
+                    onchange="setStepField${on}, 'value', this.value)">` : '<span class="grow"></span>'}`;
+    }
+    if (st.do === 'wait_rows') return `<span class="small">على الأقل</span><input type="number" min="1" class="form-control form-control-sm mini" value="${st.min || 1}" onchange="setStep${on}, 'min', +this.value)"><span class="small grow">صف</span>`;
+    if (st.do === 'pick_rows') return `<input type="number" min="1" class="form-control form-control-sm mini" value="${st.count || 1}" onchange="setStep${on}, 'count', +this.value)"><span class="small grow">صف من فوق</span>`;
+    if (st.do === 'wait') return `<input type="number" min="0.2" step="0.5" class="form-control form-control-sm mini" value="${st.seconds || 1}" onchange="setStep${on}, 'seconds', +this.value)"><span class="small grow">ثانية</span>`;
+    return '<span class="grow"></span>';
+}
+
+function renderHints() {
+    $('popTargets').innerHTML = POP_HINTS.targets.map(t => `<option value="${esc(t)}">`).join('');
+    $('popFieldIds').innerHTML = POP_HINTS.fields.map(f => `<option value="${esc(f.id)}">${esc(f.label)}</option>`).join('');
+    $('popOptLists').innerHTML = POP_HINTS.fields.filter(f => (f.options || []).length).map(f =>
+        `<datalist id="popopts_${esc(f.id)}">${f.options.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`).join('');
+}
+
+// buttons found on the page while reading the fields -> rows (not ticked) at their place
+const _SKIP_BTN = /حفظ|save|رجوع|back|طباعه|طباعة|print|حذف|delete|الغاء|إلغاء|cancel|اغلاق|إغلاق|close|بحث|search|تصدير|export|مسح|clear/i;
+function addDetectedButtons(buttons, saveSel, addSel) {
+    (buttons || []).forEach(b => {
+        if (!b.visible || b.in_modal || b.in_table || !b.text || b.text.length > 40) return;
+        if (b.selector === saveSel || b.selector === addSel || _SKIP_BTN.test(b.text)) return;
+        const target = b.id ? '#' + b.id : b.text;
+        if (ROWS.some(r => r.kind === 'action' && (r.target === target || r.target === b.text || r.label === b.text))) return;
+        const opensPopup = /modal|popup|dialog/i.test((b.id || '') + ' ' + (b.onclick || ''));
+        const row = newAction(b.text, target, false, {detected: true, after_field: b.after_field || ''});
+        if (opensPopup) row.flow.steps.push({do: 'wait_popup'});
+        ROWS.push(row);
+    });
+}
+
+async function discoverRow(i) {
+    const row = ROWS[i];
+    if (!row.target) { alert('اكتبي الـ id بتاع الزرار أو الكلام المكتوب عليه'); return; }
+    const cfg = buildScreenConfig();
+    if (!cfg.key) cfg.key = 'draft';
+    if (!cfg.list_url) { alert('اكتبي رابط الشاشة الأول (الخطوة 1)'); return; }
+    // the fields that come before this button get filled first
+    const inc = ROWS.filter(r => r.include || r === row);
+    const before = inc.slice(0, inc.indexOf(row)).filter(r => r.kind !== 'action');
+    const after = before.length ? before[before.length - 1].id : '';
+    const r = await fetch('/api/screens/inspect-popup', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({config: cfg, open: row.target, after, choose: row.choose || ''}),
+    }).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    const res = await pollJob(r.job_id, `بدوس «${row.label}» وبقرأ النافذة...`);
+    if (!res) return;
+    if (!res.success) {
+        $('jobTitle').textContent = '❌ ' + (res.error || 'فشل');
+        row.disc = {warnings: [res.error || 'فشل']}; row.open = true; renderRows();
+        return;
+    }
+    $('jobTitle').textContent = `✅ قريت النافذة «${res.popup_title || row.label}»: ${res.popup_fields.length} حقل · ${res.rows} صف بعد المصفي`;
+    POP_HINTS = {targets: [...new Set([...POP_HINTS.targets, ...(res.buttons || []).map(b => b.text).filter(t => t !== '×'), 'تحديد الكل'])],
+                 fields: [...POP_HINTS.fields.filter(f => !res.popup_fields.some(x => x.id === f.id)),
+                          ...res.popup_fields.map(f => ({id: f.id, label: f.label, kind: f.kind, options: f.options || []}))]};
+    row.flow.steps = res.flow.steps;
+    row.flow.steps[0] = {do: 'click', target: row.target};
+    row.disc = {warnings: res.warnings || [], fields: res.popup_fields, shot: res.screenshot_name};
+    if (!row.include) setRow(i, 'include', true);
+    row.open = true;
+    renderRows();
+}
+
 // ==================== config build ====================
 function buildConfig() {
     const cfg = buildScreenConfig();
@@ -631,16 +977,20 @@ function buildScreenConfig() {
         add_url: $('fAddUrl').value.trim(),
         add_button: $('fAddButton').value.trim(),
         save_button: $('fSave').value.trim() || 'button#save',
-        fields: ROWS.filter(r => r.include).map(r => ({
+        fields: ROWS.filter(r => r.include && r.kind !== 'action').map(r => ({
             id: r.id, label: r.label, kind: r.kind, strategy: r.strategy, value: r.value || '',
             format: r.format || '', depends_on: r.depends_on || null, required: !!r.required,
+            create_with: (['fixed', 'search'].includes(r.strategy) && r.create_with) || '',
             wait_after: r.wait_after ?? 0.5, timeout: r.timeout ?? 15,
         })),
+        flows: buildFlows(),
         before_save: BEFORE_SAVE,
         verify: {
             new_first_row: $('vNewRow').checked,
             row_contains: $('vRowContains').value.split(',').map(s => s.trim()).filter(Boolean),
             row_contains_strict: $('vStrict').checked,
+            open_saved: $('vOpenSaved').checked,
+            open_selector: $('vOpenSel').value.trim(),
         },
         notes: $('fNotes').value.trim(),
     };
@@ -759,7 +1109,8 @@ function applyInspection(res) {
                 value: f.kind === 'number' && f.suggested_strategy === 'fixed' ? (f.value || '100') : ''};
     });
     // saved/manual fields the page doesn't have anymore
-    ROWS.filter(r => !res.fields.some(f => f.id === r.id)).forEach(r => fresh.push({...r, missing: !r.manual}));
+    ROWS.filter(r => r.kind !== 'action' && !res.fields.some(f => f.id === r.id)).forEach(r => fresh.push({...r, missing: !r.manual}));
+    ROWS.filter(r => r.kind === 'action').forEach(r => fresh.push(r));          // buttons keep their place
     // keep saved order first
     if (CURRENT_KEY) {
         const order = ROWS.map(r => r.id);
@@ -769,6 +1120,7 @@ function applyInspection(res) {
         });
     }
     ROWS = fresh;
+    addDetectedButtons(BUTTONS, $('fSave').value, $('fAddButton').value);
     $('inspectWarnings').innerHTML = (res.warnings || []).map(w => `<div class="alert alert-warning py-1 small mb-1">⚠️ ${esc(w)}</div>`).join('') +
         (res.screenshot_name ? `<a class="small" target="_blank" href="/screenshots/${encodeURIComponent(res.screenshot_name)}">📸 لقطة الفورم</a>` : '');
     renderRows(); renderButtons(); renderBeforeSave();

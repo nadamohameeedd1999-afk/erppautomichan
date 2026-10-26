@@ -24,7 +24,8 @@ from flask import Blueprint, jsonify, render_template, request
 from web import auth
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-JOBS_DIR = BASE_DIR / "reports" / "screen_jobs"
+from config import paths  # noqa: E402
+JOBS_DIR = paths.JOBS_DIR
 
 bp = Blueprint("screens", __name__)
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
@@ -251,6 +252,40 @@ def api_dry_run():
     tmp = JOBS_DIR / f"draft_{cfg['key']}_{uuid.uuid4().hex[:6]}.json"
     tmp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
     job_id, err = _start_job("dryrun", ["dry-run", "--config-file", str(tmp)])
+    if err:
+        return jsonify({"success": False, "error": err}), 409
+    return jsonify({"success": True, "job_id": job_id})
+
+
+@bp.route("/api/screens/inspect-popup", methods=["POST"])
+@auth.login_required
+def api_inspect_popup():
+    """Click a button on the add page, read the pop-up it opens and suggest a flow."""
+    sc = _cfg()
+    d = request.get_json(silent=True) or {}
+    open_target = (d.get("open") or "").strip()
+    if not open_target:
+        return jsonify({"success": False, "error": "اكتبي اسم الزرار اللي بيفتح النافذة"}), 400
+    cfg = dict(d.get("config") or {})
+    cfg["flows"] = []                                 # discovering a new one
+    if not cfg.get("fields"):
+        cfg["fields"] = [{"id": "__none__", "strategy": "keep", "kind": "hidden"}]
+    try:
+        cfg = sc.normalize(cfg)
+    except sc.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    if cfg["fields"] and cfg["fields"][0]["id"] == "__none__":
+        cfg["fields"] = []
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = JOBS_DIR / f"popup_{cfg['key']}_{uuid.uuid4().hex[:6]}.json"
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    args = ["inspect-popup", "--config-file", str(tmp), "--open", open_target]
+    if d.get("after"):
+        args += ["--after", str(d["after"])]
+    choose = [c.strip() for c in str(d.get("choose") or "").replace("،", ",").replace("\n", ",").split(",") if c.strip()]
+    if choose:
+        args += ["--choose", "|".join(choose)]
+    job_id, err = _start_job("popup", args)
     if err:
         return jsonify({"success": False, "error": err}), 409
     return jsonify({"success": True, "job_id": job_id})

@@ -11,7 +11,10 @@ from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SCREENS_DIR = BASE_DIR / "config" / "screens"
+from config import paths  # noqa: E402
+from engine import flows as _flows  # noqa: E402
+from config.storage import save_json, load_json, to_trash  # noqa: E402
+SCREENS_DIR = paths.SCREENS_DIR
 TESTS_DIR = BASE_DIR / "tests" / "screens"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,90}$")
@@ -23,13 +26,14 @@ STRATEGIES = {
     "fixed": "قيمة ثابتة (لازم تتطابق بالظبط)",
     "search": "بحث بنص (أول خيار فيه النص ده)",
     "first": "أول خيار حقيقي",
+    "random": "اختيار عشوائي كل مرة (من القيم اللي تكتبيها أو من الكل)",
     "today": "تاريخ النهارده",
     "unique": "قيمة فريدة (رقم/نص متسلسل)",
     "keep": "سيبه زي ما هو",
     "check": "علّم عليه (✓)",
     "uncheck": "شيل العلامة",
 }
-SELECT_ONLY = {"first"}
+SELECT_ONLY = {"first", "random"}
 NEEDS_VALUE = {"fixed", "search"}
 
 DEFAULT_SAVE_BUTTON = "button#save"
@@ -85,6 +89,54 @@ def _norm_url(u: str) -> str:
     return u
 
 
+def normalize_field(f: dict, i: int, seen: set) -> dict:
+    """One field (main form or inside a flow). Adds its id to seen."""
+    if not isinstance(f, dict):
+        raise ConfigError(f"الحقل رقم {i}: شكل غلط")
+    raw_id = str(f.get("id", "")).strip()
+    fid = clean_field_id(raw_id)
+    if not fid:
+        raise ConfigError(f"الحقل رقم {i}: مفيش id")
+    if not fid.startswith("css:") and not _SAFE_ID.match(fid):
+        raise ConfigError(f"الحقل رقم {i}: الـ id '{raw_id[:60]}' مش صالح — اكتبي الـ id بس (زي CustomerId)")
+    if fid in seen:
+        raise ConfigError(f"الحقل {fid} متكرر")
+    seen.add(fid)
+
+    kind = f.get("kind") or "text"
+    if kind not in KINDS:
+        raise ConfigError(f"{fid}: نوع غير معروف '{kind}'")
+    strategy = f.get("strategy") or ("first" if kind in ("select", "select2") else "fixed")
+    if strategy not in STRATEGIES:
+        raise ConfigError(f"{fid}: طريقة تعبئة غير معروفة '{strategy}'")
+    if strategy in SELECT_ONLY and kind not in ("select", "select2"):
+        raise ConfigError(f"{fid}: 'أول خيار' للقوائم بس")
+    value = "" if f.get("value") is None else str(f.get("value"))
+    if strategy in NEEDS_VALUE and not value.strip():
+        raise ConfigError(f"{fid} ({f.get('label') or ''}): الطريقة '{strategy}' محتاجة قيمة")
+    if strategy == "unique" and not value.strip():
+        value = "AUTO-{ts}"
+
+    dep = clean_field_id(f.get("depends_on") or "") or None
+    if dep and dep not in seen:
+        raise ConfigError(f"{fid}: بيعتمد على {dep} لازم {dep} ييجي قبله في الترتيب")
+
+    return {
+        "id": fid,
+        "label": clean_label(f.get("label")) or fid,
+        "kind": kind,
+        "strategy": strategy,
+        "value": value,
+        "format": str(f.get("format") or ""),
+        "depends_on": dep,
+        "required": bool(f.get("required", False)),
+        "wait_after": float(f.get("wait_after", 0.5) or 0),
+        # لو القيمة مش موجودة: شغّل الشاشة/السيناريو ده الأول يعملها (مثلاً customer أو customer__new)
+        "create_with": str(f.get("create_with") or "").strip(),
+        "timeout": float(f.get("timeout", 15) or 15),
+    }
+
+
 def normalize(cfg: dict) -> dict:
     """Fill defaults and validate. Raises ConfigError with an Arabic message."""
     if not isinstance(cfg, dict):
@@ -105,46 +157,12 @@ def normalize(cfg: dict) -> dict:
 
     fields, seen = [], set()
     for i, f in enumerate(fields_in, 1):
-        raw_id = str(f.get("id", "")).strip()
-        fid = clean_field_id(raw_id)
-        if not fid:
-            raise ConfigError(f"الحقل رقم {i}: مفيش id")
-        if not fid.startswith("css:") and not _SAFE_ID.match(fid):
-            raise ConfigError(f"الحقل رقم {i}: الـ id '{raw_id[:60]}' مش صالح — اكتبي الـ id بس (زي CustomerId)")
-        if fid in seen:
-            raise ConfigError(f"الحقل {fid} متكرر")
-        seen.add(fid)
+        fields.append(normalize_field(f, i, seen))
 
-        kind = f.get("kind") or "text"
-        if kind not in KINDS:
-            raise ConfigError(f"{fid}: نوع غير معروف '{kind}'")
-        strategy = f.get("strategy") or ("first" if kind in ("select", "select2") else "fixed")
-        if strategy not in STRATEGIES:
-            raise ConfigError(f"{fid}: طريقة تعبئة غير معروفة '{strategy}'")
-        if strategy in SELECT_ONLY and kind not in ("select", "select2"):
-            raise ConfigError(f"{fid}: 'أول خيار' للقوائم بس")
-        value = "" if f.get("value") is None else str(f.get("value"))
-        if strategy in NEEDS_VALUE and not value.strip():
-            raise ConfigError(f"{fid} ({f.get('label') or ''}): الطريقة '{strategy}' محتاجة قيمة")
-        if strategy == "unique" and not value.strip():
-            value = "AUTO-{ts}"
-
-        dep = clean_field_id(f.get("depends_on") or "") or None
-        if dep and dep not in seen:
-            raise ConfigError(f"{fid}: بيعتمد على {dep} لازم {dep} ييجي قبله في الترتيب")
-
-        fields.append({
-            "id": fid,
-            "label": clean_label(f.get("label")) or fid,
-            "kind": kind,
-            "strategy": strategy,
-            "value": value,
-            "format": str(f.get("format") or ""),
-            "depends_on": dep,
-            "required": bool(f.get("required", False)),
-            "wait_after": float(f.get("wait_after", 0.5) or 0),
-            "timeout": float(f.get("timeout", 15) or 15),
-        })
+    try:
+        flows = _flows.normalize_flows(cfg.get("flows"), [f["id"] for f in fields], normalize_field)
+    except ValueError as e:
+        raise ConfigError(str(e))
 
     before_save = []
     for a in cfg.get("before_save") or []:
@@ -171,11 +189,15 @@ def normalize(cfg: dict) -> dict:
         "add_button": str(cfg.get("add_button") or "").strip(),
         "save_button": str(cfg.get("save_button") or DEFAULT_SAVE_BUTTON).strip(),
         "fields": fields,
+        "flows": flows,
         "before_save": before_save,
         "verify": {
             "new_first_row": bool(verify.get("new_first_row", True)),
             "row_contains": [str(x) for x in (verify.get("row_contains") or []) if str(x).strip()],
             "row_contains_strict": bool(verify.get("row_contains_strict", False)),
+            # بعد الحفظ: افتح السند الجديد واتأكد إن كل حقل اتسجل بنفس القيمة
+            "open_saved": bool(verify.get("open_saved", False)),
+            "open_selector": str(verify.get("open_selector") or "").strip(),
             "timeout": int(verify.get("timeout", 60) or 60),
         },
         "save_timeout": int(cfg.get("save_timeout", 40) or 40),
@@ -190,8 +212,7 @@ def load(key: str) -> dict:
     path = SCREENS_DIR / f"{key}.json"
     if not path.exists():
         raise ConfigError(f"مفيش إعداد للشاشة '{key}' ({path})")
-    with open(path, "r", encoding="utf-8-sig") as fp:
-        return normalize(json.load(fp))
+    return normalize(load_json(path, {}))
 
 
 def list_all() -> list:
@@ -201,8 +222,7 @@ def list_all() -> list:
         return out
     for p in sorted(SCREENS_DIR.glob("*.json")):
         try:
-            with open(p, "r", encoding="utf-8-sig") as fp:
-                out.append(normalize(json.load(fp)))
+            out.append(normalize(load_json(p, {})))
         except Exception as e:
             out.append({"key": p.stem, "name_ar": p.stem, "error": str(e)[:300], "status": "broken"})
     return out
@@ -244,21 +264,17 @@ def write_stub(cfg: dict) -> Path:
 def save(cfg: dict) -> dict:
     cfg = normalize(cfg)
     cfg["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    SCREENS_DIR.mkdir(parents=True, exist_ok=True)
-    path = SCREENS_DIR / f"{cfg['key']}.json"
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    save_json(SCREENS_DIR / f"{cfg['key']}.json", cfg)     # keeps older versions in data/history
     write_stub(cfg)
     return cfg
 
 
 def delete(key: str) -> bool:
-    found = False
-    for p in (SCREENS_DIR / f"{key}.json", stub_path(key)):
-        if p.exists():
-            p.unlink()
-            found = True
+    """Moves the config to data/trash (recoverable) and removes its generated test."""
+    found = to_trash(SCREENS_DIR / f"{key}.json")
+    if stub_path(key).exists():
+        stub_path(key).unlink()
+        found = True
     return found
 
 

@@ -54,6 +54,9 @@ function labelFor(el){
   return t;
 }
 var out = [];
+// reading the page: fields inside a pop-up window belong to that window (its button reads them), not to the form
+var POPUP_SEL = '.modal, [role=dialog], .ui-dialog';
+var scanningPopup = root !== document && root.closest && !!root.closest(POPUP_SEL);
 var els = root.querySelectorAll('input, select, textarea');
 for (var i = 0; i < els.length; i++) {
   var el = els[i];
@@ -61,6 +64,7 @@ for (var i = 0; i < els.length; i++) {
   var type = (el.getAttribute('type') || '').toLowerCase();
   if (el.classList.contains('select2-search__field')) continue;
   if (el.closest('.select2-container, .dataTables_filter, .dataTables_length, nav, .navbar, header')) continue;
+  if (!scanningPopup && el.closest(POPUP_SEL)) continue;
   if (['submit','button','reset','image','file','search'].indexOf(type) !== -1) continue;
   if (el.name === '__RequestVerificationToken') continue;
   var isS2 = tag === 'select' && (el.classList.contains('select2-hidden-accessible') ||
@@ -110,6 +114,8 @@ BUTTONS_JS = r"""
 var root = arguments[0] || document;
 function txt(e){ return (e && (e.innerText || e.textContent || e.value) || '').replace(/\s+/g,' ').trim(); }
 var out = [], seen = {};
+var fieldsInOrder = Array.prototype.filter.call(document.querySelectorAll('input[id], select[id], textarea[id]'), function(e){
+  return !e.closest('.modal, [role=dialog], .select2-container, nav, .navbar, header') && e.type !== 'hidden'; });
 var els = root.querySelectorAll('button, input[type=submit], input[type=button], a.btn');
 for (var i = 0; i < els.length; i++) {
   var b = els[i];
@@ -118,8 +124,16 @@ for (var i = 0; i < els.length; i++) {
   if (!sel) continue;
   if (seen[sel]) continue; seen[sel] = 1;
   var r = b.getBoundingClientRect();
+  // the last field before the button on the page -> where it belongs in the order
+  var after = '';
+  for (var k = 0; k < fieldsInOrder.length; k++) {
+    if (fieldsInOrder[k].compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) after = fieldsInOrder[k].id;
+    else break;
+  }
   out.push({ selector: sel, id: b.id, text: txt(b).slice(0, 60),
-             visible: r.width > 0 && r.height > 0, type: (b.getAttribute('type') || '').toLowerCase() });
+             visible: r.width > 0 && r.height > 0, type: (b.getAttribute('type') || '').toLowerCase(),
+             in_modal: !!b.closest('.modal, [role=dialog], .ui-dialog'), in_table: !!b.closest('table'),
+             after_field: after, onclick: (b.getAttribute('onclick') || '').slice(0, 80) });
 }
 return out;
 """
@@ -131,7 +145,7 @@ var best = null, bestScore = 0, total = 0;
 function score(root){
   var n = 0;
   root.querySelectorAll('input:not([type=hidden]):not([type=search]), select, textarea').forEach(function(e){
-    if (e.closest('nav, .navbar, header, .select2-container, .dataTables_wrapper')) return;
+    if (e.closest('nav, .navbar, header, .select2-container, .dataTables_wrapper, .modal, [role=dialog], .ui-dialog')) return;
     n += (e.tagName === 'SELECT' ? 2 : 1);
   });
   return n;
