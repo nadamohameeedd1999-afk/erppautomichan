@@ -71,7 +71,7 @@ stdout_logfile=/var/log/xvfb.log
 stderr_logfile=/var/log/xvfb.log
 
 [program:x11vnc]
-; listens on localhost only â€” the dashboard proxies it behind its own login (/live)
+; listens on localhost only — the dashboard proxies it behind its own login (/live)
 ; password comes from the VNC_PASSWORD variable (default: erp)
 command=/bin/sh -c 'x11vnc -storepasswd "${VNC_PASSWORD:-erp}" /root/.vnc/passwd >/dev/null 2>&1; exec /usr/bin/x11vnc -display :99 -forever -shared -localhost -rfbauth /root/.vnc/passwd -rfbport 5900' 
 autorestart=true

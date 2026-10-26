@@ -195,6 +195,10 @@
                             {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == 'select2' }}>{{ k }}</option>{% endfor %}
                         </select></div>
                     <button class="btn btn-sm btn-outline-primary" onclick="addManual()"><i class="bi bi-plus"></i> إضافة</button>
+                    <span class="ms-auto d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('item')" title="➕ → بحث → اختيار أول صنف → سعر في آخر سطر">➕ قالب: إضافة صنف</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('upload')" title="يرفع ملف PDF تجريبي في خانة المرفقات">📎 قالب: رفع مرفق</button>
+                    </span>
                     <div class="flow-hint w-100">🔘 <b>الزراير</b> (زي «ربط بمستند اخر») بتظهر في الجدول مع الحقول وبتتداس في مكانها في الترتيب. لو بتفتح نافذة دوسي «✨ اقرأ النافذة» في سطرها.
                         في التواريخ تقدري تكتبي <code>{today}</code> <code>{month_start}</code> <code>{month_end}</code> <code>{today-30}</code>.</div>
                     <datalist id="popTargets"></datalist><datalist id="popFieldIds"></datalist><div id="popOptLists" hidden></div>
@@ -705,8 +709,21 @@ const STEP_TYPES = {
     click: '👆 اضغط على زرار', wait_popup: '🪟 استنى النافذة تفتح', fill: '✏️ املى حقل',
     wait_rows: '📋 استنى صفوف الجدول', check: '☑️ علّم على', pick_rows: '🔢 اختار أول صفوف',
     close_popup: '✖️ اقفل النافذة', expect_text: '🔎 اتأكد إن النص ظاهر', wait: '⏱️ استنى ثواني',
+    row_click: '🖱️ اضغط زرار جوه صف', fill_cell: '🔢 املى خانة في سطر', upload: '📎 ارفع ملف',
 };
 const START = '__start__';
+// ready-made buttons (قوالب)
+const ACTION_TEMPLATES = {
+    item: () => newAction('إضافة صنف', 'css:span.Add-Button', true, {mode: 'popup', open: true, flow: {optional: false, steps: [
+        {do: 'click', target: 'css:span.Add-Button'}, {do: 'wait_popup'},
+        {do: 'click', target: '#submitSearch'}, {do: 'wait_rows', min: 1},
+        {do: 'row_click', target: "css:button[onclick='chooseItem(this)']", match: ''},
+        {do: 'close_popup', optional: true},
+        {do: 'fill_cell', cell: 'css:input.price', row: 'last', value: '100'}]}}),
+    upload: () => newAction('رفع مرفق', '', true, {mode: 'steps', open: true, flow: {optional: false, steps: [
+        {do: 'upload', target: '', file: 'pdf'}]}}),
+};
+function addTemplate(k) { ROWS.push(ACTION_TEMPLATES[k]()); renderRows(); }
 let ACT_N = 0;
 
 function newAction(label, target, include, extra) {
@@ -714,6 +731,7 @@ function newAction(label, target, include, extra) {
             include: !!include, visible: true, options: [], flow: {optional: false, steps: [{do: 'click', target}]}, ...(extra || {})};
 }
 function isPopup(r) { return r.flow.steps.some(s => s.do === 'wait_popup'); }
+function actMode(r) { return r.mode || (isPopup(r) ? 'popup' : (r.flow.steps.length > 1 || !r.target ? 'steps' : 'click')); }
 
 // saved config -> one ordered list: fields + buttons where they run
 function rowsFromConfig(c) {
@@ -722,7 +740,9 @@ function rowsFromConfig(c) {
     const act = fl => {
         const steps = JSON.parse(JSON.stringify(fl.steps || []));
         const first = steps[0] && steps[0].do === 'click' ? steps[0].target : '';
-        return {...newAction(fl.name, first || fl.name, true), flow: {optional: !!fl.optional, steps}, saved: true};
+        const r = {...newAction(fl.name, first, true), flow: {optional: !!fl.optional, steps}, saved: true};
+        if (!first) r.mode = 'steps';
+        return r;
     };
     const rows = [...(by[START] || []).map(act)];
     c.fields.forEach(f => {
@@ -739,24 +759,27 @@ function buildFlows() {
     let last = START;
     ROWS.filter(r => r.include).forEach(r => {
         if (r.kind !== 'action') { last = r.id; return; }
-        const steps = JSON.parse(JSON.stringify(r.flow.steps));
-        if (steps[0] && steps[0].do === 'click') steps[0].target = r.target;
-        else steps.unshift({do: 'click', target: r.target});
+        let steps = JSON.parse(JSON.stringify(r.flow.steps));
+        if (r.target) {
+            if (steps[0] && steps[0].do === 'click') steps[0].target = r.target;
+            else steps.unshift({do: 'click', target: r.target});
+        } else if (steps[0] && steps[0].do === 'click' && !steps[0].target) steps = steps.slice(1);
+        if (!steps.length) return;
         out.push({name: r.label || r.target, after: last, optional: !!r.flow.optional, steps});
     });
     return out;
 }
 
 function actionRow(r, i, includedIds) {
-    const n = r.flow.steps.length, popup = isPopup(r);
+    const n = r.flow.steps.length, mode = actMode(r), popup = mode !== 'click';
     const ord = r.include
         ? `<input type="number" class="form-control form-control-sm text-center fw-bold ord-num" min="1" max="${includedIds.length}"
                   value="${includedIds.indexOf(r.id) + 1}" title="اكتبي رقم الترتيب — الزرار بيتداس في مكانه"
                   onchange="setOrder(${i}, this.value)" onkeydown="if (event.key === 'Enter') this.blur()">`
         : `<span class="text-muted small">—</span>`;
-    const summary = popup
-        ? `<span class="badge bg-info-subtle text-dark border">🪟 نافذة · ${n} خطوة</span>`
-        : `<span class="badge bg-light text-dark border">ضغطة بس</span>`;
+    const summary = mode === 'popup' ? `<span class="badge bg-info-subtle text-dark border">🪟 نافذة · ${n} خطوة</span>`
+        : (mode === 'steps' ? `<span class="badge bg-info-subtle text-dark border">🧩 ${n} خطوة</span>`
+        : `<span class="badge bg-light text-dark border">ضغطة بس</span>`);
     const warn = (r.disc && r.disc.warnings || []).length ? `<span class="badge bg-warning text-dark" title="${esc(r.disc.warnings.join('\n'))}">⚠️ ${r.disc.warnings.length}</span>` : '';
     let html = `
     <tr class="act-row ${r.include ? '' : 'excluded'} ${r.open ? 'act-open' : ''}">
@@ -770,17 +793,18 @@ function actionRow(r, i, includedIds) {
         <td><span class="small text-muted">زرار</span></td>
         <td>
             <select class="form-select form-select-sm" onchange="setActMode(${i}, this.value)">
-                <option value="click" ${popup ? '' : 'selected'}>اضغط عليه بس</option>
-                <option value="popup" ${popup ? 'selected' : ''}>اضغط — وبيفتح نافذة</option>
+                <option value="click" ${mode === 'click' ? 'selected' : ''}>اضغط عليه بس</option>
+                <option value="popup" ${mode === 'popup' ? 'selected' : ''}>اضغط — وبيفتح نافذة</option>
+                <option value="steps" ${mode === 'steps' ? 'selected' : ''}>خطوات (سطور أصناف، مرفقات…)</option>
             </select>
             <label class="small text-muted mt-1 d-block"><input type="checkbox" ${r.flow.optional ? 'checked' : ''}
                 onchange="ROWS[${i}].flow.optional = this.checked"> لو فشل كمّل الاختبار</label>
         </td>
         <td>
-            <input class="form-control form-control-sm ltr mb-1" value="${esc(r.target)}" title="الـ id بـ # (زي #btnOpenLinkWithOtherDocModal) أو الكلام المكتوب على الزرار"
-                   onchange="ROWS[${i}].target = this.value.trim()">
+            <input class="form-control form-control-sm ltr mb-1" value="${esc(r.target)}" placeholder="${mode === 'steps' ? 'من غير زرار (الخطوات بس)' : '#id أو الكلام اللي على الزرار'}"
+                   title="الـ id بـ # (زي #btnOpenLinkWithOtherDocModal) أو الكلام المكتوب على الزرار" onchange="ROWS[${i}].target = this.value.trim()">
             ${popup ? `<div class="d-flex gap-1">
-                <button class="btn btn-sm btn-primary flex-grow-1" onclick="discoverRow(${i})" title="يفتح الشاشة، يدوس الزرار، يقرأ النافذة ويجرب المصفي — من غير إضافة ولا حفظ"><i class="bi bi-magic"></i> اقرأ النافذة</button>
+                ${mode === 'popup' ? `<button class="btn btn-sm btn-primary flex-grow-1" onclick="discoverRow(${i})" title="يفتح الشاشة، يدوس الزرار، يقرأ النافذة ويجرب المصفي — من غير إضافة ولا حفظ"><i class="bi bi-magic"></i> اقرأ النافذة</button>` : ''}
                 <button class="btn btn-sm btn-outline-secondary" onclick="ROWS[${i}].open = !ROWS[${i}].open; renderRows()">${r.open ? 'اقفل الخطوات ▲' : `الخطوات (${n}) ▼`}</button>
             </div>` : ''}
         </td>
@@ -799,7 +823,7 @@ function actionPanel(r, i) {
         const scoped = inPopup && st.do !== 'wait_popup';
         if (st.do === 'close_popup') inPopup = false;
         return `<div class="flow-step ${scoped ? 'popup-scope' : ''}">
-            <span class="num">${si}</span>
+            <span class="num">${r.flow.steps[0] && r.flow.steps[0].do === 'click' ? si : si + 1}</span>
             <select class="form-select form-select-sm do-sel" onchange="setStep(${i}, ${si}, 'do', this.value)">
                 ${Object.entries(STEP_TYPES).map(([k, v]) => `<option value="${k}" ${k === st.do ? 'selected' : ''}>${v}</option>`).join('')}</select>
             ${stepEditor(i, si, st)}
@@ -810,12 +834,14 @@ function actionPanel(r, i) {
             <button class="btn btn-sm btn-link text-danger p-0" onclick="ROWS[${i}].flow.steps.splice(${si}, 1); renderRows()" title="شيل">✕</button>
         </div>`;
     }).join('');
+    const isPop = actMode(r) === 'popup';
     return `<div class="act-panel">
         <div class="d-flex gap-2 align-items-end flex-wrap mb-2">
-            <div style="min-width:260px"><label class="form-label small mb-0">أختار في النافذة قبل المصفي (اختياري)</label>
+            ${isPop ? '' : `<span class="small text-muted flex-grow-1">الخطوات دي بتتنفذ بالترتيب في مكان السطر ده. «🔢 املى خانة في سطر» بيملى خانة في سطور الأصناف (آخر سطر = الصنف اللي لسه متضاف).</span>`}
+            <div style="min-width:260px" ${isPop ? '' : 'hidden'}><label class="form-label small mb-0">أختار في النافذة قبل المصفي (اختياري)</label>
                 <input class="form-control form-control-sm" value="${esc(r.choose || '')}" placeholder="مثلاً: سندات صرف المخازن"
                        title="لو فاضية: بيجرب الأنواع لحد ما يلاقي واحد فيه مستندات" onchange="ROWS[${i}].choose = this.value"></div>
-            <span class="small text-muted flex-grow-1">«اقرأ النافذة» بيملى الحقول اللي قبل الزرار، يدوسه، يقرأ النافذة ويجرّب المصفي — ويكتب الخطوات تحت لوحده.</span>
+            ${isPop ? `<span class="small text-muted flex-grow-1">«اقرأ النافذة» بيملى الحقول اللي قبل الزرار، يدوسه، يقرأ النافذة ويجرّب المصفي — ويكتب الخطوات تحت لوحده.</span>` : ''}
             <button class="btn btn-sm btn-outline-primary" onclick="addStep(${i})"><i class="bi bi-plus"></i> خطوة</button>
         </div>
         ${(d.warnings || []).map(w => `<div class="alert alert-warning py-1 small mb-1">⚠️ ${esc(w)}</div>`).join('')}
@@ -827,6 +853,8 @@ function actionPanel(r, i) {
 
 function setActMode(i, mode) {
     const r = ROWS[i];
+    r.mode = mode;
+    if (mode === 'steps') { r.open = true; renderRows(); return; }
     if (mode === 'popup' && !isPopup(r)) {
         r.flow.steps = [r.flow.steps[0] || {do: 'click', target: r.target}, {do: 'wait_popup'}];
         r.open = true;
@@ -847,6 +875,9 @@ function setStep(i, si, key, val) {
         if (val === 'wait_rows') steps[si].min = 1;
         if (val === 'pick_rows') steps[si].count = 1;
         if (val === 'wait') steps[si].seconds = 1;
+        if (val === 'row_click') { steps[si].target = old.target || ''; steps[si].match = ''; }
+        if (val === 'fill_cell') { steps[si].cell = ''; steps[si].row = 'last'; steps[si].value = ''; }
+        if (val === 'upload') { steps[si].target = ''; steps[si].file = 'pdf'; }
         renderRows(); return;
     }
     st[key] = val;
@@ -876,7 +907,7 @@ function stepEditor(i, si, st) {
     const on = `(${i}, ${si}`;
     if (['click', 'check', 'expect_text'].includes(st.do)) {
         const ph = st.do === 'check' ? 'تحديد الكل' : (st.do === 'expect_text' ? 'نص لازم يظهر' : 'اسم الزرار — زي المصفي أو إضافة');
-        return `<input class="form-control form-control-sm grow" list="popTargets" value="${esc(st.target || '')}" placeholder="${ph}"
+        return `<input dir="auto" class="form-control form-control-sm grow" list="popTargets" value="${esc(st.target || '')}" placeholder="${ph}"
                  title="النص المكتوب على الزرار، أو الـ id بـ # زي #btnFilterStockReceipts" onchange="setStep${on}, 'target', this.value)">`;
     }
     if (st.do === 'fill') {
@@ -892,9 +923,23 @@ function stepEditor(i, si, st) {
                 ${kinds.map(k => `<option value="${k}" ${k === f.kind ? 'selected' : ''}>${KIND_LABEL[k]}</option>`).join('')}</select>
             <select class="form-select form-select-sm mini" style="width:125px" onchange="setStepField${on}, 'strategy', this.value)">
                 ${strategies.map(k => `<option value="${k}" ${k === f.strategy ? 'selected' : ''}>${esc(STRATEGIES[k] || k)}</option>`).join('')}</select>
-            ${needsVal ? `<input class="form-control form-control-sm grow" style="min-width:110px;flex-basis:110px" ${hasOpts && hasOpts.length ? `list="popopts_${esc(f.id)}"` : ''} value="${esc(f.value || '')}" placeholder="${f.kind === 'date' ? '{month_start}' : (f.strategy === 'random' ? 'فاضي = من الكل · أو: قيمة1, قيمة2' : 'القيمة')}"
+            ${needsVal ? `<input dir="auto" class="form-control form-control-sm grow" style="min-width:110px;flex-basis:110px" ${hasOpts && hasOpts.length ? `list="popopts_${esc(f.id)}"` : ''} value="${esc(f.value || '')}" placeholder="${f.kind === 'date' ? '{month_start}' : (f.strategy === 'random' ? 'فاضي = من الكل · أو: قيمة1, قيمة2' : 'القيمة')}"
                     onchange="setStepField${on}, 'value', this.value)">` : '<span class="grow"></span>'}`;
     }
+    if (st.do === 'row_click') return `<input dir="auto" class="form-control form-control-sm grow" list="popTargets" value="${esc(st.target || '')}" placeholder="الزرار جوه الصف — زي اختيار أو css:button.choose"
+                 onchange="setStep${on}, 'target', this.value)">
+            <input class="form-control form-control-sm mini" style="width:170px" value="${esc(st.match || '')}" placeholder="الصف اللي فيه (اختياري)"
+                 title="نص موجود في الصف (اسم الصنف مثلاً). فاضي = أول صف" onchange="setStep${on}, 'match', this.value)">`;
+    if (st.do === 'fill_cell') return `<input dir="auto" class="form-control form-control-sm mini" style="width:150px" value="${esc(st.cell || '')}" placeholder="العمود: السعر أو css:input.price"
+                 title="اسم العمود زي ما هو في رأس الجدول، أو CSS للخانة" onchange="setStep${on}, 'cell', this.value)">
+            <select class="form-select form-select-sm mini" style="width:110px" onchange="setStep${on}, 'row', this.value)">
+                ${['last', 'first', '1', '2', '3', '4', '5'].map(v => `<option value="${v}" ${String(st.row || 'last') === v ? 'selected' : ''}>${v === 'last' ? 'آخر سطر' : (v === 'first' ? 'أول سطر' : 'سطر ' + v)}</option>`).join('')}</select>
+            <input dir="auto" class="form-control form-control-sm grow" style="min-width:110px" value="${esc(st.value || '')}" placeholder="القيمة — زي 100 أو {rand}"
+                 onchange="setStep${on}, 'value', this.value)">`;
+    if (st.do === 'upload') return `<input dir="auto" class="form-control form-control-sm grow" value="${esc(st.target || '')}" placeholder="مكان الرفع (اختياري): css:#Files أو الكلام اللي جنبه"
+                 onchange="setStep${on}, 'target', this.value)">
+            <select class="form-select form-select-sm mini" style="width:130px" onchange="setStep${on}, 'file', this.value)">
+                ${['pdf', 'png', 'jpg', 'xlsx', 'txt'].map(v => `<option value="${v}" ${(st.file || 'pdf') === v ? 'selected' : ''}>ملف ${v.toUpperCase()} تجريبي</option>`).join('')}</select>`;
     if (st.do === 'wait_rows') return `<span class="small">على الأقل</span><input type="number" min="1" class="form-control form-control-sm mini" value="${st.min || 1}" onchange="setStep${on}, 'min', +this.value)"><span class="small grow">صف</span>`;
     if (st.do === 'pick_rows') return `<input type="number" min="1" class="form-control form-control-sm mini" value="${st.count || 1}" onchange="setStep${on}, 'count', +this.value)"><span class="small grow">صف من فوق</span>`;
     if (st.do === 'wait') return `<input type="number" min="0.2" step="0.5" class="form-control form-control-sm mini" value="${st.seconds || 1}" onchange="setStep${on}, 'seconds', +this.value)"><span class="small grow">ثانية</span>`;

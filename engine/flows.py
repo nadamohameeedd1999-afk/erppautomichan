@@ -44,8 +44,12 @@ STEP_TYPES = {
     "close_popup": "اقفل النافذة",
     "expect_text": "اتأكد إن النص ظاهر",
     "wait": "استنى ثواني",
+    "row_click": "اضغط زرار جوه صف",
+    "fill_cell": "املى خانة في سطر",
+    "upload": "ارفع ملف",
 }
 NEEDS_TARGET = {"click", "check", "expect_text"}
+SAMPLE_FILES = ("pdf", "png", "jpg", "xlsx", "txt")
 
 _CSS_LIKE = re.compile(r"^(css:|[#.\[]|[a-z][a-z0-9-]*[#.\[:])", re.I)
 
@@ -160,12 +164,138 @@ document.body.classList.remove('modal-open'); return 'forced';
 
 TEXT_PRESENT_JS = COMMON_JS + "return N(document.body.innerText).indexOf(N(arguments[0])) !== -1;"
 
+ROW_CLICK_JS = COMMON_JS + r"""
+// click a button inside a table row: the row that contains `match` (or the first row that has the button)
+var target = arguments[0] || '', match = arguments[1] || '', scope = topPopup() || document;
+var isCss = /^css:/i.test(target) || /^[#.\[]/.test(target) || /^[a-z][a-z0-9-]*[#.\[:]/i.test(target);
+var sel = isCss ? target.replace(/^css:/i, '') : null, w = N(target), m = N(match);
+function btnIn(tr){
+  if (sel) { var b = tr.querySelector(sel); return b && vis(b) ? b : null; }
+  var cands = tr.querySelectorAll('button, a, input[type=button], input[type=checkbox], .btn, [onclick]');
+  for (var i=0;i<cands.length;i++){ var c=cands[i]; if (!vis(c) && c.type!=='checkbox') continue;
+    var t = N(txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || '');
+    if (!w || (t && (t===w || t.indexOf(w)!==-1))) return c; }
+  return null; }
+var rows = Array.prototype.filter.call(scope.querySelectorAll('tbody tr'), function(tr){ return vis(tr) && tr.querySelector('td'); });
+var picked = null, btn = null;
+for (var i=0;i<rows.length;i++){
+  if (m && N(txt(rows[i])).indexOf(m) === -1) continue;
+  var b = btnIn(rows[i]); if (b) { picked = rows[i]; btn = b; break; }
+}
+if (!btn) return {ok:false, rows: rows.length, matched: m ? rows.filter(function(r){ return N(txt(r)).indexOf(m)!==-1; }).length : rows.length};
+btn.scrollIntoView({block:'center'});
+if (btn.type === 'checkbox') { if (!btn.checked) btn.click(); } else btn.click();
+return {ok:true, row: txt(picked).slice(0, 120), rows: rows.length};
+"""
+
+CELL_JS = COMMON_JS + r"""
+// the input of a grid cell: by CSS (input.price) or by column header text (السعر), in row 'last' / 'first' / N
+var cell = arguments[0], which = String(arguments[1] || 'last'), scope = topPopup() || document;
+var isCss = /^css:/i.test(cell) || /^[#.\[]/.test(cell) || /^[a-z][a-z0-9-]*[#.\[:]/i.test(cell);
+var FIELD = 'input:not([type=hidden]):not([type=checkbox]):not([type=button]), select, textarea';
+function pick(list){
+  if (!list.length) return null;
+  if (which === 'first') return list[0];
+  if (which === 'last') return list[list.length-1];
+  var n = parseInt(which, 10); return (n >= 1 && n <= list.length) ? list[n-1] : null;
+}
+if (isCss) {
+  var els = Array.prototype.filter.call(scope.querySelectorAll(cell.replace(/^css:/i, '')), function(e){ return vis(e) || e.tagName==='SELECT'; });
+  return {el: pick(els), count: els.length};
+}
+var w = N(cell), tables = scope.querySelectorAll('table');
+for (var t=0;t<tables.length;t++){
+  var tb = tables[t]; if (!vis(tb)) continue;
+  var ths = tb.querySelectorAll('thead th, thead td'); if (!ths.length) continue;
+  var col = -1, idx = 0;
+  for (var h=0;h<ths.length;h++){ var tx = N(txt(ths[h]));
+    if (col===-1 && tx && (tx===w || tx.indexOf(w)!==-1)) col = idx; idx += (ths[h].colSpan || 1); }
+  if (col === -1) continue;
+  var rows = Array.prototype.filter.call(tb.querySelectorAll('tbody tr'), function(tr){ return vis(tr) && tr.querySelector(FIELD); });
+  var tr = pick(rows); if (!tr) return {el:null, count: rows.length, header: true};
+  var k = 0, tds = tr.children;
+  for (var c=0;c<tds.length;c++){ if (k === col || (k < col && k + (tds[c].colSpan||1) > col)) {
+      var f = tds[c].querySelector(FIELD); return {el: f, count: rows.length, header: true}; }
+    k += (tds[c].colSpan || 1); }
+  return {el:null, count: rows.length, header: true};
+}
+return {el:null, count:0, header:false};
+"""
+
+FILE_INPUT_JS = COMMON_JS + r"""
+// the file input: by CSS, or the one near a label / button text, or the only one on the page / in the pop-up
+var target = arguments[0] || '', scope = topPopup() || document;
+var isCss = /^css:/i.test(target) || /^[#.\[]/.test(target) || /^[a-z][a-z0-9-]*[#.\[:]/i.test(target);
+var all = Array.prototype.slice.call(scope.querySelectorAll('input[type=file]'));
+if (!all.length && scope !== document) all = Array.prototype.slice.call(document.querySelectorAll('input[type=file]'));
+var el = null;
+if (isCss) { var x = document.querySelector(target.replace(/^css:/i, '')); el = x && x.tagName==='INPUT' ? x : (x && x.querySelector('input[type=file]')); }
+else if (target) {
+  var w = N(target);
+  for (var i=0;i<all.length && !el;i++){ var p = all[i].parentElement, d = 0;
+    while (p && d < 4) { if (N(txt(p)).indexOf(w) !== -1) { el = all[i]; break; } p = p.parentElement; d++; } }
+}
+if (!el) el = all[0] || null;
+if (el) { el.style.display='block'; el.style.visibility='visible'; el.style.opacity='1'; el.style.width='200px'; el.style.height='30px';
+          el.removeAttribute('hidden'); }
+return {el: el, count: all.length};
+"""
+
 
 START = "__start__"          # flow "after" value: before the first field
 
 
 class FlowError(AssertionError):
     pass
+
+
+def resolve_value(value, variables=None):
+    """{var:name} + {ts} {date} {rand} + date tokens ({today} {month_start} ...)."""
+    import random
+    from datetime import datetime
+    from engine.form_filler import expand_date_tokens
+    v = str(value or "")
+    if "{" not in v:
+        return v
+    for k, val in (variables or {}).items():
+        v = v.replace("{var:" + k + "}", str(val))
+    now = datetime.now()
+    v = v.replace("{ts}", now.strftime("%Y%m%d%H%M%S")).replace("{date}", now.strftime("%Y%m%d"))
+    v = v.replace("{rand}", str(random.randint(1000, 9999)))
+    return expand_date_tokens(v)
+
+
+def sample_file(kind="pdf"):
+    """A small test file to upload (made once in data/state/samples)."""
+    from config import paths
+    raw = str(kind or "pdf").strip()
+    if "/" in raw or "\\" in raw:                # a real path on the machine
+        from pathlib import Path
+        p = Path(raw)
+        if not p.exists():
+            raise FlowError(f"الملف مش موجود: {kind}")
+        return p.resolve()
+    kind = raw.lower().lstrip(".")
+    d = paths.STATE_DIR / "samples"
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"sample_test.{kind}"
+    if p.exists():
+        return p.resolve()
+    if kind == "pdf":
+        p.write_bytes(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+                      b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
+    elif kind in ("png", "jpg", "jpeg"):
+        import base64
+        p.write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="))
+    elif kind == "xlsx":
+        try:
+            from openpyxl import Workbook
+            wb = Workbook(); wb.active.append(["test", 1]); wb.save(p)
+        except Exception:
+            p.write_text("test,1\n", encoding="utf-8")
+    else:
+        p.write_text("ERP automation test file\n", encoding="utf-8")
+    return p.resolve()
 
 
 # ---------------------------------------------------------------- config
@@ -203,6 +333,22 @@ def normalize_flows(raw, main_field_ids, normalize_field):
                 s["count"] = max(1, int(st.get("count") or 1))
             if do == "wait":
                 s["seconds"] = min(60.0, max(0.2, float(st.get("seconds") or 1)))
+            if do == "row_click":
+                s["target"] = str(st.get("target") or "").strip()
+                s["match"] = str(st.get("match") or "").strip()
+                if not s["target"] and not s["match"]:
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي الزرار اللي جوه الصف (زي اختيار) أو نص من الصف")
+            if do == "fill_cell":
+                s["cell"] = str(st.get("cell") or "").strip()
+                if not s["cell"]:
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي اسم العمود (زي السعر) أو CSS (زي input.price)")
+                s["row"] = str(st.get("row") or "last").strip() or "last"
+                s["value"] = "" if st.get("value") is None else str(st.get("value"))
+                if not s["value"].strip():
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي القيمة")
+            if do == "upload":
+                s["target"] = str(st.get("target") or "").strip()
+                s["file"] = str(st.get("file") or "pdf").strip() or "pdf"
             s["timeout"] = float(st.get("timeout") or (25 if do in ("wait_rows", "wait_popup") else 12))
             s["wait_after"] = float(st.get("wait_after", 0.6) or 0)
             s["optional"] = bool(st.get("optional", False))
@@ -226,6 +372,12 @@ def describe(step):
         return f"{STEP_TYPES[do]} {step['count']}"
     if do == "wait":
         return f"{STEP_TYPES[do]} {step['seconds']}"
+    if do == "row_click":
+        return f"{STEP_TYPES[do]} «{step.get('target') or 'أول زرار'}»" + (f" (الصف اللي فيه «{step['match']}»)" if step.get("match") else "")
+    if do == "fill_cell":
+        return f"{STEP_TYPES[do]} «{step['cell']}» = {step['value']}"
+    if do == "upload":
+        return f"{STEP_TYPES[do]} ({step.get('file')})"
     return STEP_TYPES[do]
 
 
@@ -235,6 +387,13 @@ class FlowRunner:
         self.page = page            # ScreenRunner (BasePage): driver, handle_swals, accept_js_alert, take_screenshot
         self.driver = page.driver
         self.filler = filler
+        # values shared by the steps of a run (saved numbers, etc.) — {var:name} in any value
+        if not hasattr(page, "vars"):
+            try:
+                page.vars = {}
+            except Exception:
+                pass
+        self.vars = getattr(page, "vars", {})
 
     def _js(self, script, *args):
         return self.driver.execute_script(script, *args)
@@ -364,6 +523,70 @@ class FlowRunner:
     def _wait(self, st):
         time.sleep(st["seconds"])
         return "تمام"
+
+    def _row_click(self, st):
+        end = time.time() + st["timeout"]
+        res = {}
+        while time.time() < end:
+            res = self._js(ROW_CLICK_JS, st.get("target", ""), resolve_value(st.get("match", ""), self.vars)) or {}
+            if res.get("ok"):
+                time.sleep(0.5)
+                self._settle()
+                return f"اتضغط في الصف: {res.get('row', '')[:70]}"
+            time.sleep(0.5)
+        if not res.get("rows"):
+            raise FlowError("مفيش صفوف في الجدول")
+        if st.get("match") and not res.get("matched"):
+            raise FlowError(f"مفيش صف فيه «{st['match']}» (فيه {res.get('rows')} صف)")
+        raise FlowError(f"مالقيتش زرار «{st.get('target')}» جوه الصفوف")
+
+    def _fill_cell(self, st):
+        value = resolve_value(st["value"], self.vars)
+        end = time.time() + st["timeout"]
+        res = {}
+        while time.time() < end:
+            res = self._js(CELL_JS, st["cell"], st.get("row", "last")) or {}
+            if res.get("el") is not None:
+                break
+            time.sleep(0.5)
+        el = res.get("el")
+        if el is None:
+            if res.get("header") is False:
+                raise FlowError(f"مالقيتش عمود «{st['cell']}» في أي جدول")
+            raise FlowError(f"مالقيتش خانة «{st['cell']}» في السطر {st.get('row')} (السطور: {res.get('count', 0)})")
+        tag = el.tag_name.lower()
+        if tag == "select":
+            got = self._js("var s=arguments[0], w=arguments[1].trim();"
+                           "for (var i=0;i<s.options.length;i++){ if (s.options[i].text.trim()===w || s.options[i].value===w){"
+                           " s.selectedIndex=i; s.dispatchEvent(new Event('change',{bubbles:true}));"
+                           " if (window.jQuery) jQuery(s).trigger('change'); return s.options[i].text.trim(); } } return null;",
+                           el, value)
+            if got is None:
+                raise FlowError(f"القيمة «{value}» مش في قايمة «{st['cell']}»")
+        else:
+            from engine.form_filler import SET_VALUE_JS
+            self._js("arguments[0].scrollIntoView({block:'center'});", el)
+            got = self._js(SET_VALUE_JS, el, value)
+            if str(got).startswith("__NOT_INPUT__"):
+                raise FlowError(f"خانة «{st['cell']}» مش حقل كتابة")
+        time.sleep(0.8)                         # totals recalculate
+        return f"{got}"
+
+    def _upload(self, st):
+        path = sample_file(st.get("file") or "pdf")
+        res = self._js(FILE_INPUT_JS, st.get("target", "")) or {}
+        el = res.get("el")
+        if el is None:
+            raise FlowError("مفيش خانة رفع ملفات (input type=file) في الصفحة")
+        el.send_keys(str(path))
+        self._js("arguments[0].dispatchEvent(new Event('change',{bubbles:true}));"
+                 "if (window.jQuery) jQuery(arguments[0]).trigger('change');", el)
+        time.sleep(1)
+        self._settle()
+        name = self._js("return arguments[0].files && arguments[0].files.length ? arguments[0].files[0].name : '';", el)
+        if not name:
+            raise FlowError("الملف ما اتحطش في الخانة")
+        return f"اترفع {name}"
 
     # ----- one flow -----
     def run(self, flow, key=""):
