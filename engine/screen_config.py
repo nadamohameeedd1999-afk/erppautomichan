@@ -35,6 +35,7 @@ STRATEGIES = {
     "uncheck": "شيل العلامة",
 }
 SELECT_ONLY = {"first", "random"}
+OPERATIONS = {"add": "إضافة جديد", "edit": "تعديل", "delete": "حذف", "print": "طباعة"}
 NEEDS_VALUE = {"fixed", "search"}
 
 DEFAULT_SAVE_BUTTON = "button#save"
@@ -158,9 +159,14 @@ def normalize(cfg: dict) -> dict:
         raise ConfigError("لازم تحدد رابط شاشة القايمة (list_url)")
     add_url = _norm_url(cfg.get("add_url")) or (list_url.split("?")[0].rstrip("/") + "/AddEdit")
 
+    operation = str(cfg.get("operation") or "add").strip().lower()
+    if operation not in OPERATIONS:
+        raise ConfigError(f"نوع العملية '{operation}' مش معروف — إضافة / تعديل / حذف / طباعة")
     fields_in = cfg.get("fields") or []
-    if not isinstance(fields_in, list) or not fields_in:
+    if not isinstance(fields_in, list) or (not fields_in and operation in ("add", "edit")):
         raise ConfigError("لازم يكون فيه حقل واحد على الأقل")
+    if operation == "edit" and not any((f.get("strategy") or "") != "keep" for f in fields_in if isinstance(f, dict)):
+        raise ConfigError("في التعديل: غيّري طريقة حقل واحد على الأقل (مش «سيبه زي ما هو») عشان يبقى فيه تعديل فعلاً")
 
     fields, seen = [], set()
     for i, f in enumerate(fields_in, 1):
@@ -187,6 +193,12 @@ def normalize(cfg: dict) -> dict:
     verify = cfg.get("verify") or {}
     out = {
         "key": key,
+        # نوع العملية: add = إضافة جديد، edit = تعديل سجل موجود، delete = حذف، print = طباعة
+        "operation": operation,
+        # السجل اللي هنشتغل عليه في التعديل/الحذف/الطباعة: نص في الصف (رقم السند مثلاً أو {var:saved_no})، فاضي = أول صف
+        "target_row": str(cfg.get("target_row") or "").strip(),
+        # زرار العملية جوه الصف (selector أو النص/التلميح بتاعه) — فاضي = يدوّر عليه لوحده
+        "op_button": str(cfg.get("op_button") or "").strip(),
         "name_ar": str(cfg.get("name_ar") or key),
         "name_en": str(cfg.get("name_en") or cfg.get("name_ar") or key),
         "module_key": str(cfg.get("module_key") or "custom"),

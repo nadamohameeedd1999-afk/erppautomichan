@@ -56,7 +56,7 @@
             </h1>
             <p class="text-muted fs-5 mb-0">{{ t('tests_list_subtitle') }}</p>
         </div>
-        <button class="btn btn-outline-success" id="btnDiscover" onclick="discoverScreens()" title="يقرأ القايمة الجانبية في الـ ERP، يفتح كل شاشة، والشاشات اللي فيها جدول تتضاف هنا باختبار «فتح الشاشة»">🧭 اكتشف شاشات النظام</button>
+        <a class="btn btn-outline-success" id="btnDiscover" href="/screens?discover=1" title="يفتح نافذة الاكتشاف في منشئ الشاشات: تتابعي الخطوات وتختاري الشاشات اللي تتضاف">🧭 اكتشف شاشات النظام</a>
         <a href="/allure" class="btn btn-outline-primary">
             <i class="bi bi-graph-up-arrow"></i>
             {% if current_lang == 'ar' %}تقرير Allure{% else %}Allure Report{% endif %}
@@ -277,27 +277,6 @@
 
 {% block extra_js %}
 <script>
-async function discoverScreens() {
-    if (!confirm('هيفتح متصفح، يدخل الـ ERP، ويلف على كل شاشة في القايمة (بيفتحها بس — مش بيضيف ولا يحفظ). ممكن ياخد كام دقيقة. نبدأ؟')) return;
-    const b = document.getElementById('btnDiscover'); b.disabled = true; b.textContent = '🧭 بيدوّر… (شوفي البث المباشر)';
-    try {
-        const r = await fetch('/api/screens/discover', {method: 'POST'}).then(r => r.json());
-        if (!r.success) { alert('❌ ' + r.error); return; }
-        for (let n = 0; n < 900; n++) {
-            await new Promise(res => setTimeout(res, 3000));
-            const j = await fetch('/api/screens/jobs/' + r.job_id).then(r => r.json()).catch(() => null);
-            if (!j) continue;
-            if (j.log && j.log.length) b.textContent = '🧭 ' + (j.log[j.log.length - 1].split('|').pop() || '').trim().slice(0, 50);
-            if (j.status === 'done') {
-                const res = j.result || {};
-                if (!res.success) { alert('❌ ' + (res.error || 'فشل')); return; }
-                alert(`✅ لفّيت على ${res.total_links} رابط: ${res.screens.length} شاشة فيها جدول — اتضاف ${res.added} شاشة جديدة.\n` +
-                      `(${(res.other || []).length} صفحة تانية زي التقارير اتسابت)`);
-                location.reload(); return;
-            }
-        }
-    } finally { b.disabled = false; b.textContent = '🧭 اكتشف شاشات النظام'; }
-}
 // ==================== Global ====================
 const LANG = '{{ current_lang }}';
 let ALL_TESTS = [];

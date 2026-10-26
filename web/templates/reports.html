@@ -31,6 +31,17 @@
         </div>
     </div>
 
+    <div class="card mb-4 d-none" id="discovery">
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>🧭 تقارير اكتشاف شاشات النظام</span>
+            <a href="/screens?discover=1" class="btn btn-sm btn-outline-success">اكتشاف جديد</a>
+        </div>
+        <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>التاريخ</th><th>الحالة</th><th class="text-center">روابط</th><th class="text-center">شاشات بجدول</th>
+                <th class="text-center">جديدة</th><th class="text-center">اتضاف</th><th></th></tr></thead>
+            <tbody id="discRows"></tbody></table></div>
+    </div>
+
     {% if chart_data and chart_data.total_runs > 0 %}
     <!-- Charts Row: Smaller height -->
     <div class="row g-3 mb-4">
@@ -164,6 +175,19 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+fetch('/api/reports/discovery').then(r => r.json()).then(j => {
+    if (!j.success || !j.runs.length) return;
+    const e = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+    document.getElementById('discRows').innerHTML = j.runs.map(r => `<tr>
+        <td dir="ltr" class="text-end">${e(r.started_at.replace('T', ' '))}</td><td>${e(r.phase)}</td>
+        <td class="text-center">${r.done}/${r.total}</td><td class="text-center">${r.screens}</td>
+        <td class="text-center">${r.new}</td><td class="text-center">${r.added}</td>
+        <td class="text-end text-nowrap"><a class="btn btn-sm text-white" style="background:#0F7C7A" href="/reports/discovery/${e(r.id)}">📄 التقرير</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/reports/discovery/${e(r.id)}.pdf">PDF</a></td></tr>`).join('');
+    document.getElementById('discovery').classList.remove('d-none');
+}).catch(() => {});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 console.log('[Charts] Script loaded');

@@ -64,7 +64,8 @@ logfile=/var/log/supervisord.log
 pidfile=/var/run/supervisord.pid
 
 [program:xvfb]
-command=/usr/bin/Xvfb :99 -screen 0 1920x1080x24
+; the screen Chrome draws on (the live view shows it)
+command=/usr/bin/Xvfb :99 -screen 0 1600x900x24 -nolisten tcp
 autorestart=true
 priority=10
 stdout_logfile=/var/log/xvfb.log
@@ -76,16 +77,20 @@ stderr_logfile=/var/log/xvfb.log
 command=/bin/sh -c 'x11vnc -storepasswd "${VNC_PASSWORD:-erp}" /root/.vnc/passwd >/dev/null 2>&1; exec /usr/bin/x11vnc -display :99 -forever -shared -localhost -rfbauth /root/.vnc/passwd -rfbport 5900' 
 autorestart=true
 priority=20
+startsecs=3
 stdout_logfile=/var/log/x11vnc.log
 stderr_logfile=/var/log/x11vnc.log
 
 [program:flask]
+; uses Railway's PORT; its output goes to the Deploy Logs
 command=python web/app.py
+directory=/app
 autorestart=true
 priority=40
-stdout_logfile=/var/log/flask.log
-stderr_logfile=/var/log/flask.log
-environment=DISPLAY=":99",PORT="5000"
+redirect_stderr=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+environment=DISPLAY=":99"
 EOF
 
 # ===== ENV =====

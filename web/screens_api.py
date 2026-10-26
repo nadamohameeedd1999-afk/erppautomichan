@@ -72,6 +72,7 @@ def api_scn_list():
             "key": c["key"], "screen_key": c.get("screen_key"), "scenario_key": c.get("scenario_key"),
             "scenario_name": c.get("scenario_name"), "screen_name": c.get("screen_name", c.get("screen_key")),
             "fields": len(c.get("fields", [])), "updated_at": c.get("updated_at", ""), "error": c.get("error"),
+            "operation": c.get("operation", "add"),
             "test_path": S.test_path_for(c.get("screen_key", ""), c.get("scenario_key", "")),
         })
     return jsonify({"success": True, "scenarios": items})
@@ -203,16 +204,19 @@ def _start_job(kind, args, extra=None):
         env["PYTHONUTF8"] = "1"
         try:
             with open(log, "w", encoding="utf-8") as lf:
-                proc = subprocess.run(cmd, cwd=str(BASE_DIR), stdout=lf, stderr=subprocess.STDOUT,
-                                      env=env, timeout=job.get("timeout", 900))
+                proc = subprocess.Popen(cmd, cwd=str(BASE_DIR), stdout=lf, stderr=subprocess.STDOUT, env=env)
+                job["proc"] = proc
+                proc.wait(timeout=job.get("timeout", 900))
             job["exit_code"] = proc.returncode
         except subprocess.TimeoutExpired:
+            proc.kill()
             job["exit_code"] = -1
-            job["error"] = "العملية أخدت أكتر من 15 دقيقة واتوقفت"
+            job["error"] = "العملية أخدت وقت أكتر من المسموح واتوقفت"
         except Exception as e:
             job["exit_code"] = -1
             job["error"] = str(e)[:300]
-        job["status"] = "done"
+        job.pop("proc", None)
+        job["status"] = "stopped" if job.get("stop_requested") else "done"
         job["finished_at"] = datetime.now().isoformat()
 
     threading.Thread(target=work, daemon=True).start()
@@ -310,7 +314,7 @@ def api_job(job_id):
     except Exception:
         pass
     resp = {"success": True, "status": job["status"], "kind": job["kind"], "log": log_tail}
-    if job["status"] == "done":
+    if job["status"] in ("done", "stopped"):
         try:
             result = json.loads(Path(job["out"]).read_text(encoding="utf-8"))
         except Exception:
@@ -375,11 +379,129 @@ def api_dataset_upload():
 @bp.route("/api/screens/discover", methods=["POST"])
 @auth.login_required
 def api_discover():
-    """Read the ERP side menu and add a «فتح الشاشة» test for every list screen found."""
-    job_id, err = _start_job("discover", ["discover"])
+    """Read the ERP side menu, open every link and report what's there (اكتشاف شاشات النظام).
+    Nothing is added to the tests until the user picks screens (/api/screens/discovered/add)."""
+    d = request.get_json(silent=True) or {}
+    limit = max(1, min(400, int(d.get("limit") or 200)))
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    busy = _running["job"] and _jobs.get(_running["job"], {}).get("status") == "running"
+    if not busy:
+        (JOBS_DIR / "discover_progress.json").unlink(missing_ok=True)      # a fresh start
+    job_id, err = _start_job("discover", ["discover", "--limit", str(limit), "--no-save",
+                                          "--progress", str(JOBS_DIR / "discover_progress.json")],
+                             extra={"timeout": 3600})
     if err:
         return jsonify({"success": False, "error": err}), 409
+    _jobs[job_id]["progress"] = str(JOBS_DIR / "discover_progress.json")
     return jsonify({"success": True, "job_id": job_id})
+
+
+@bp.route("/api/screens/discover/<job_id>")
+@auth.login_required
+def api_discover_progress(job_id):
+    job = _jobs.get(job_id)
+    if not job:
+        return jsonify({"success": False, "error": "العملية مش موجودة (ممكن السيرفر اتعمله restart)"}), 404
+    prog = {}
+    try:
+        prog = json.loads(Path(job["progress"]).read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    from config.screens_catalog import discovered
+    have = {x["key"] for x in discovered()}
+    for it in prog.get("items", []):
+        it["added"] = it["key"] in have
+    err = job.get("error")
+    if job["status"] == "done" and not err:
+        try:
+            res = json.loads(Path(job["out"]).read_text(encoding="utf-8"))
+            if not res.get("success"):
+                err = res.get("error")
+        except Exception:
+            pass
+    return jsonify({"success": True, "status": job["status"], "error": err, **prog})
+
+
+@bp.route("/api/screens/jobs/<job_id>/stop", methods=["POST"])
+@auth.login_required
+def api_job_stop(job_id):
+    job = _jobs.get(job_id)
+    if not job or job.get("status") != "running":
+        return jsonify({"success": False, "error": "مفيش عملية شغالة"}), 404
+    job["stop_requested"] = True
+    p = job.get("proc")
+    if p and p.poll() is None:
+        p.terminate()
+        try:
+            p.wait(timeout=8)
+        except Exception:
+            p.kill()
+    if job.get("progress"):                       # keep what was found so far + mark the report
+        try:
+            from datetime import datetime as _dt
+            pf = Path(job["progress"])
+            prog = json.loads(pf.read_text(encoding="utf-8"))
+            prog.update({"phase": "stopped", "message": f"⏹️ اتوقف — اتفحص {prog.get('done', 0)} من {prog.get('total', 0)}",
+                         "finished_at": _dt.now().isoformat(timespec="seconds")})
+            prog.setdefault("steps", []).append({"t": _dt.now().strftime("%H:%M:%S"), "msg": prog["message"]})
+            txt = json.dumps(prog, ensure_ascii=False)
+            pf.write_text(txt, encoding="utf-8")
+            if prog.get("report_id"):
+                (paths.RUNS_DIR / "discovery" / f"{prog['report_id']}.json").write_text(txt, encoding="utf-8")
+        except Exception:
+            pass
+    return jsonify({"success": True})
+
+
+@bp.route("/api/screens/discovered")
+@auth.login_required
+def api_discovered_list():
+    from config.screens_catalog import discovered
+    return jsonify({"success": True, "screens": discovered()})
+
+
+@bp.route("/api/screens/discovered/add", methods=["POST"])
+@auth.login_required
+def api_discovered_add():
+    """add the screens the user picked to the tests page (each gets a «فتح الشاشة» test)"""
+    from config.screens_catalog import discovered, save_discovered
+    items = (request.get_json(silent=True) or {}).get("items") or []
+    cur = {x["key"]: x for x in discovered()}
+    added = 0
+    for it in items:
+        key = str(it.get("key") or "").strip()
+        if not key or not str(it.get("url") or "").startswith("/"):
+            continue
+        added += key not in cur
+        cur[key] = {"key": key, "name": str(it.get("name") or key)[:80], "name_en": str(it.get("name_en") or "")[:80],
+                    "group": str(it.get("group") or "")[:60], "url": it["url"]}
+    save_discovered(list(cur.values()))
+    rid = re.sub(r"[^a-zA-Z0-9_]", "", str((request.get_json(silent=True) or {}).get("report_id") or ""))
+    if rid:                                       # the discovery report says what was added
+        try:
+            from datetime import datetime as _dt
+            rf = paths.RUNS_DIR / "discovery" / f"{rid}.json"
+            rep = json.loads(rf.read_text(encoding="utf-8"))
+            keys = {str(it.get("key")) for it in items}
+            for it in rep.get("items", []):
+                if it["key"] in keys:
+                    it["added_at"] = _dt.now().isoformat(timespec="seconds")
+            rep.setdefault("steps", []).append({"t": _dt.now().strftime("%H:%M:%S"),
+                                                "msg": f"➕ اتضاف {len(keys)} شاشة لصفحة الاختبارات"})
+            rf.write_text(json.dumps(rep, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+    return jsonify({"success": True, "added": added, "total": len(cur)})
+
+
+@bp.route("/api/screens/discovered/remove", methods=["POST"])
+@auth.login_required
+def api_discovered_remove():
+    from config.screens_catalog import discovered, save_discovered
+    keys = set((request.get_json(silent=True) or {}).get("keys") or [])
+    left = [x for x in discovered() if x["key"] not in keys]
+    save_discovered(left)
+    return jsonify({"success": True, "total": len(left)})
 
 
 @bp.route("/api/screens/record", methods=["POST"])

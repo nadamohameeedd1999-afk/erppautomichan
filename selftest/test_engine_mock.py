@@ -53,8 +53,27 @@ def test_negative_and_chain(run_cli):
 
 
 def test_discover(run_cli):
-    r = run_cli("discover")
+    r = run_cli("discover", None, "--no-save")
     assert r.get("success"), r.get("error")
     names = [s["name"] for s in r["screens"]]
     assert "العملاء" in names
     assert all(o["name"] != "فواتير البيع" for o in r["other"])
+    assert r.get("report_id") and all(s.get("name_en") for s in r["screens"])
+
+
+def test_edit_print_delete(run_cli):
+    """the operations beside «إضافة جديد»: chain add -> edit -> print -> delete on the same new invoice"""
+    add = invoice("st_op_add", [item(), UPLOAD])
+    edit = {**invoice("st_op_edit", []), "operation": "edit", "target_row": "{var:saved_no}",
+            "fields": [{"id": "Notes", "label": "ملاحظات", "kind": "textarea", "strategy": "fixed", "value": "معدل {var:saved_no}"}],
+            "verify": {"open_saved": True}}
+    prn = {**invoice("st_op_print", []), "operation": "print", "target_row": "{var:saved_no}", "fields": []}
+    dele = {**invoice("st_op_del", []), "operation": "delete", "target_row": "{var:saved_no}", "fields": [],
+            "run_before": ["st_op_add", "st_op_edit", "st_op_print"]}
+    r = run_cli("run", dele, defs=[add, edit, prn])
+    assert r.get("success"), r.get("error")
+    # negative: a posted invoice can't be deleted
+    neg = {**invoice("st_op_neg", []), "operation": "delete", "target_row": "500", "fields": [],
+           "expect_error": "لا يمكن حذف فاتورة مرحلة"}
+    r = run_cli("run", neg)
+    assert r.get("success"), r.get("error")

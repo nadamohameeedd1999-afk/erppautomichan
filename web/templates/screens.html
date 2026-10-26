@@ -50,6 +50,7 @@
 <ul class="nav nav-pills mb-3 gap-2 builder-tabs">
     <li class="nav-item"><a class="nav-link {{ 'active' if mode != 'scenario' }}" href="/screens"><i class="bi bi-ui-checks-grid"></i> الشاشات <span class="badge bg-light text-dark ms-1" id="tabCountScreens"></span></a></li>
     <li class="nav-item"><a class="nav-link {{ 'active' if mode == 'scenario' }}" href="/scenarios"><i class="bi bi-diagram-3"></i> السيناريوهات <span class="badge bg-light text-dark ms-1" id="tabCountScn"></span></a></li>
+    <li class="nav-item"><button type="button" class="nav-link border border-success text-success" onclick="openDiscover()" title="يقرأ القايمة الجانبية في الـ ERP ويفتح كل شاشة — وإنتي تختاري اللي يتضاف للاختبارات"><i class="bi bi-compass"></i> اكتشاف شاشات النظام</button></li>
     <li class="nav-item ms-auto small text-muted align-self-center">الشاشة = الإعداد الأساسي لكل شاشة · السيناريو = طريقة تانية لنفس الشاشة باسم مختلف</li>
 </ul>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -103,6 +104,24 @@
                             <i class="bi bi-files"></i> ابدأ من حقول إعداد الشاشة
                         </button>
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">نوع الاختبار</label>
+                        <select class="form-select fw-bold" id="scnOp" onchange="opChanged(true)">
+                            <option value="add">➕ إضافة جديد</option>
+                            <option value="edit">✏️ تعديل سجل موجود</option>
+                            <option value="delete">🗑️ حذف سجل</option>
+                            <option value="print">🖨️ طباعة سجل</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5 op-only">
+                        <label class="form-label small">السجل اللي هنشتغل عليه</label>
+                        <input class="form-control" id="scnTargetRow" placeholder="فاضي = أول صف في القايمة · أو رقم السند · أو {var:saved_no}">
+                    </div>
+                    <div class="col-md-4 op-only">
+                        <label class="form-label small">زرار العملية في الصف (اختياري)</label>
+                        <input class="form-control" id="scnOpButton" placeholder="فاضي = يدوّر لوحده · أو اسمه/selector">
+                    </div>
+                    <div class="col-12 small text-muted" id="scnOpHint"></div>
                 </div>
                 {% endif %}
                 <div class="row g-2">
@@ -334,6 +353,59 @@
         </div>
     </div>
 </div>
+
+<!-- discovery modal (اكتشاف شاشات النظام) -->
+<div class="modal fade" id="discModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">🧭 اكتشاف شاشات النظام</h5>
+        <button type="button" class="btn-close" onclick="discClose()"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-3" id="discStartBar">
+          <span class="text-muted small">بيدخل الـ ERP، يقرأ القايمة الجانبية ويفتح كل شاشة <b>(فتح بس — مش بيضيف ولا يحفظ ولا يمسح)</b>.</span>
+          <label class="small ms-auto">أقصى عدد روابط</label>
+          <input type="number" id="discLimit" class="form-control form-control-sm" style="width:90px" value="200" min="1" max="400">
+          <button class="btn btn-success btn-sm" id="discStartBtn" onclick="discStart()">▶️ ابدأ</button>
+        </div>
+        <div id="discRun" class="d-none">
+          <div class="d-flex justify-content-between small mb-1">
+            <span id="discMsg" class="fw-bold">—</span><span><span id="discCount">0/0</span> · <span id="discTime">00:00</span></span>
+          </div>
+          <div class="progress mb-2" style="height:12px"><div class="progress-bar bg-success progress-bar-striped progress-bar-animated" id="discBar" style="width:0%"></div></div>
+          <div class="small text-muted mb-2">بيفحص دلوقتي: <span id="discCur" dir="auto">—</span> · <a href="/live" target="_blank">📺 شوفي البث المباشر</a></div>
+          <details class="mb-3"><summary class="small">خطوات التنفيذ</summary>
+            <div id="discSteps" class="border rounded p-2 small" style="max-height:140px;overflow:auto"></div></details>
+        </div>
+        <div id="discResults" class="d-none">
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <select id="discFilter" class="form-select form-select-sm" style="width:auto" onchange="discRender()">
+              <option value="new">الشاشات الجديدة بس</option><option value="screen">كل الشاشات اللي فيها جدول</option><option value="all">كل الروابط</option>
+            </select>
+            <input id="discSearch" class="form-control form-control-sm" style="width:200px" placeholder="🔍 بحث بالاسم أو الرابط" oninput="discRender()">
+            <button class="btn btn-sm btn-outline-secondary" onclick="discSelect(true)">تحديد الكل</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="discSelect(false)">إلغاء التحديد</button>
+            <span class="small text-muted ms-auto" id="discSelCount"></span>
+          </div>
+          <div class="table-responsive border rounded" style="max-height:48vh">
+            <table class="table table-sm table-hover mb-0 align-middle">
+              <thead class="table-light" style="position:sticky;top:0"><tr><th style="width:30px"></th><th>اسم الشاشة</th><th>English name</th><th>القسم</th><th>الرابط</th><th class="text-center">النوع</th><th class="text-center">الحالة</th></tr></thead>
+              <tbody id="discRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary btn-sm d-none" id="discReport" target="_blank">📄 التقرير</a>
+        <button class="btn btn-outline-warning btn-sm d-none" id="discStopBtn" onclick="discStop(false)">⏹️ إيقاف (أحتفظ باللي اتلقى)</button>
+        <button class="btn btn-outline-danger btn-sm d-none" id="discCancelBtn" onclick="discStop(true)">✖ إلغاء</button>
+        <button class="btn btn-primary btn-sm" id="discAddBtn" disabled onclick="discAdd()">➕ أضيف المختار لشاشة الاختبارات</button>
+        <button class="btn btn-secondary btn-sm" onclick="discClose()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -405,6 +477,7 @@ async function loadScreens(selectKey) {
             <div class="scn-mini mt-1" onclick="event.stopPropagation()">
                 ${(SCN_BY_SCREEN[s.key] || []).map(x => `<a class="badge bg-info-subtle text-dark me-1" href="/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}">🎬 ${esc(x.scenario_name)}</a>`).join('')}
                 <a href="/scenarios?screen=${encodeURIComponent(s.key)}">＋ سيناريو</a>
+                <span class="ms-1">· ${['edit', 'delete', 'print'].map(o => `<a class="me-1" href="/scenarios?screen=${encodeURIComponent(s.key)}&op=${o}" title="اختبار ${OP_NAME[o]}">${OP_ICON[o]} ${OP_NAME[o]}</a>`).join('')}</span>
             </div>
         </div>`).join('');
 }
@@ -422,9 +495,9 @@ async function loadScenarios() {
         <div class="list-group-item bg-light small fw-bold">🧩 ${esc(items[0].screen_name || sk)}</div>` +
         items.map(x => `
         <div class="list-group-item ${x.key === CURRENT_KEY ? 'active-screen' : ''}" onclick="openScenario('${esc(x.screen_key)}', '${esc(x.scenario_key)}')">
-            <div class="fw-bold">${x.error ? '⚠️' : '🎬'} ${esc(x.scenario_name)}</div>
+            <div class="fw-bold">${x.error ? '⚠️' : (OP_ICON[x.operation] || '🎬')} ${esc(x.scenario_name)}</div>
             ${x.error ? `<div class="small text-danger">${esc(x.error)}</div>` :
-              `<div class="small text-muted">${x.fields} حقل · ${esc((x.updated_at || '').replace('T', ' '))}</div>`}
+              `<div class="small text-muted">${OP_NAME[x.operation] || ''}${x.operation === 'add' || !x.operation ? ' · ' + x.fields + ' حقل' : ''} · ${esc((x.updated_at || '').replace('T', ' '))}</div>`}
         </div>`).join('')).join('');
 }
 
@@ -494,7 +567,7 @@ function newScreen(keepCatalog) {
     ROWS = []; BEFORE_SAVE = []; BUTTONS = [];
     fillAdvanced({});
     ['fKey', 'fNameAr', 'fNameEn', 'fModuleKey', 'fListUrl', 'fAddUrl', 'fAddButton', 'vRowContains', 'fNotes'].forEach(i => $(i).value = '');
-    if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; }
+    if (IS_SCN) { $('scnName').value = ''; $('scnKey').value = ''; $('scnOp').value = 'add'; $('scnTargetRow').value = ''; $('scnOpButton').value = ''; opChanged(); }
     $('fSave').value = 'button#save';
     $('vNewRow').checked = true; $('vStrict').checked = false; $('vOpenSaved').checked = false; $('vOpenSel').value = '';
     if (!keepCatalog) $('catalogSelect').value = '';
@@ -513,6 +586,9 @@ async function openScenario(screen, scn) {
     $('fNameAr').value = r.config.screen_name;
     $('scnName').value = r.config.scenario_name;
     $('scnKey').value = r.config.scenario_key;
+    $('scnOp').value = r.config.operation || 'add';
+    $('scnTargetRow').value = r.config.target_row || ''; $('scnOpButton').value = r.config.op_button || '';
+    opChanged();
     $('catalogSelect').value = CATALOG.some(p => p.key === r.config.screen_key) ? r.config.screen_key : '';
     $('saveState').textContent = `محفوظ · آخر تعديل ${(r.config.updated_at || '').replace('T', ' ')} · الاختبار: tests/scenarios/test_scn_${r.config.key}.py`;
     loadScenarios();
@@ -1119,9 +1195,12 @@ function buildConfig() {
     const cfg = buildScreenConfig();
     if (!IS_SCN) return cfg;
     const scnKey = $('scnKey').value.trim().toLowerCase();
+    const op = $('scnOp').value;
     return {...cfg, key: cfg.key && scnKey ? cfg.key + SEP + scnKey : (cfg.key || 'draft'),
             screen_key: cfg.key, scenario_key: scnKey, scenario_name: $('scnName').value.trim(),
-            screen_name: cfg.name_ar};
+            screen_name: cfg.name_ar, operation: op,
+            fields: ['delete', 'print'].includes(op) ? [] : cfg.fields, flows: ['delete', 'print'].includes(op) ? [] : cfg.flows,
+            target_row: op === 'add' ? '' : $('scnTargetRow').value.trim(), op_button: op === 'add' ? '' : $('scnOpButton').value.trim()};
 }
 
 function buildScreenConfig() {
@@ -1333,17 +1412,145 @@ async function dryRun() {
     $('dryCard').scrollIntoView({behavior: 'smooth'});
 }
 
+// ==================== operations (إضافة / تعديل / حذف / طباعة) ====================
+const OP_ICON = {add: '➕', edit: '✏️', delete: '🗑️', print: '🖨️'};
+const OP_NAME = {add: 'إضافة جديد', edit: 'تعديل', delete: 'حذف', print: 'طباعة'};
+const OP_HINT = {
+    add: '',
+    edit: '✏️ يفتح القايمة → يلاقي السجل → يدوس تعديل → يغيّر الحقول اللي طريقتها مش «سيبه زي ما هو» → يحفظ. علّمي «افتح السند بعد الحفظ» عشان يراجع إن التعديل اتسجل.',
+    delete: '🗑️ يفتح القايمة → يلاقي السجل → يدوس حذف → يأكد → يتأكد إن السجل اتشال من القايمة. نصيحة: خليه في سلسلة بعد اختبار إضافة واكتبي السجل {var:saved_no} عشان يحذف اللي اتعمل بس. لو المفروض الحذف يترفض اكتبي الرسالة في «اختبار سلبي».',
+    print: '🖨️ يفتح القايمة → يلاقي السجل → يدوس طباعة → يتأكد إن صفحة الطباعة / PDF فتحت ومش فاضية ومفيهاش خطأ.',
+};
+function opChanged(user) {
+    if (!IS_SCN) return;
+    const op = $('scnOp').value;
+    document.querySelectorAll('.op-only').forEach(e => e.classList.toggle('d-none', op === 'add'));
+    $('scnOpHint').textContent = OP_HINT[op];
+    const noFields = ['delete', 'print'].includes(op);
+    document.querySelectorAll('.card').forEach(c => {
+        const h = c.querySelector('.card-header .sb-step');
+        if (h && ['2', '3'].includes(h.textContent.trim())) c.classList.toggle('d-none', noFields);
+    });
+    if (user && op === 'edit' && ROWS.some(r => r.include) && confirm('أخلي كل الحقول «سيبه زي ما هو» وإنتي تغيري بس اللي عايزة تعدليه؟')) {
+        ROWS.forEach(r => { if (r.kind !== 'action') r.strategy = 'keep'; }); renderRows();
+    }
+    if (user && op !== 'add' && !$('scnName').value.trim()) $('scnName').value = OP_NAME[op] + ' ' + ($('fNameAr').value || '');
+    if (user && op !== 'add' && !$('scnKey').value.trim()) $('scnKey').value = op;
+    if (op !== 'add') { $('vNewRow').checked = false; }
+}
+
+// ==================== discovery modal ====================
+const DISC = {job: null, items: [], sel: new Set(), timer: null, t0: 0, report: null, running: false};
+const DISC_KIND = {screen: '<span class="badge bg-success">شاشة بجدول</span>', page: '<span class="badge bg-secondary">صفحة</span>', error: '<span class="badge bg-danger">خطأ</span>'};
+function discModal() { return bootstrap.Modal.getOrCreateInstance(document.getElementById('discModal')); }
+function openDiscover() {
+    discModal().show();
+    try { const j = localStorage.getItem('disc_job'); if (j && !DISC.job) { DISC.job = j; discPoll(); } } catch (e) {}
+}
+function discUI(running) {
+    DISC.running = running;
+    $('discStartBtn').disabled = running; $('discLimit').disabled = running;
+    $('discStopBtn').classList.toggle('d-none', !running); $('discCancelBtn').classList.toggle('d-none', !running);
+    $('discBar').classList.toggle('progress-bar-animated', running);
+}
+async function discStart() {
+    const r = await fetch('/api/screens/discover', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({limit: +$('discLimit').value || 200})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    if (!r.success) { alert('❌ ' + (r.error || 'مقدرتش أبدأ')); return; }
+    DISC.job = r.job_id; DISC.items = []; DISC.sel = new Set(); DISC.t0 = Date.now(); DISC.report = null;
+    try { localStorage.setItem('disc_job', r.job_id); } catch (e) {}
+    $('discSteps').innerHTML = ''; $('discRows').innerHTML = ''; $('discReport').classList.add('d-none');
+    discPoll();
+}
+async function discPoll() {
+    clearTimeout(DISC.timer);
+    $('discRun').classList.remove('d-none'); $('discResults').classList.remove('d-none');
+    const j = await fetch('/api/screens/discover/' + DISC.job).then(r => r.json()).catch(() => null);
+    if (!j || !j.success) {
+        if (j && !j.success) { try { localStorage.removeItem('disc_job'); } catch (e) {} DISC.job = null; discUI(false); $('discMsg').textContent = j.error; return; }
+        DISC.timer = setTimeout(discPoll, 2000); return;
+    }
+    const running = j.status === 'running';
+    discUI(running);
+    if (j.started_at && !DISC.t0) DISC.t0 = new Date(j.started_at).getTime();
+    const sec = Math.max(0, Math.round(((j.finished_at ? new Date(j.finished_at).getTime() : Date.now()) - (DISC.t0 || Date.now())) / 1000));
+    $('discTime').textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+    $('discCount').textContent = (j.done || 0) + '/' + (j.total || 0);
+    $('discBar').style.width = (j.total ? Math.round(100 * (j.done || 0) / j.total) : (running ? 3 : 100)) + '%';
+    let msg = j.message || (running ? 'بيبدأ…' : '');
+    if (!running && j.status === 'error') msg = '❌ ' + (j.error || 'فشل').split('\n')[0].slice(0, 200);
+    if (!running && j.status === 'stopped') msg = '⏹️ اتوقف — ' + (j.done || 0) + ' من ' + (j.total || 0);
+    $('discMsg').textContent = msg;
+    $('discCur').textContent = running ? (j.current || '—') : '—';
+    $('discSteps').innerHTML = (j.steps || []).map(s => `<div><span class="text-muted" dir="ltr">${esc(s.t)}</span> ${esc(s.msg)}</div>`).join('');
+    $('discSteps').scrollTop = 1e6;
+    const fresh = j.items || [];
+    fresh.forEach(it => { if (!DISC.items.find(x => x.key === it.key) && it.kind === 'screen' && !it.known && !it.added) DISC.sel.add(it.key); });
+    DISC.items = fresh;
+    if (j.report_id) { DISC.report = j.report_id; $('discReport').href = '/reports/discovery/' + j.report_id; $('discReport').classList.remove('d-none'); }
+    discRender();
+    if (running) DISC.timer = setTimeout(discPoll, 2000);
+    else { try { localStorage.removeItem('disc_job'); } catch (e) {} }
+}
+function discRender() {
+    const f = $('discFilter').value, q = ($('discSearch').value || '').toLowerCase();
+    const rows = DISC.items.filter(x => (f === 'all' || x.kind === 'screen') && (f !== 'new' || (!x.known && !x.added))
+        && (!q || (x.name + ' ' + (x.name_en || '') + ' ' + x.url + ' ' + (x.group || '')).toLowerCase().includes(q)));
+    $('discRows').innerHTML = rows.map(x => {
+        const can = x.kind === 'screen' && !x.added;
+        const st = x.added ? '<span class="text-success">✅ مضافة</span>' : (x.known ? '<span class="text-muted">موجودة في المنشئ</span>' : '<span class="text-primary">جديدة</span>');
+        return `<tr><td><input type="checkbox" class="form-check-input" ${can ? '' : 'disabled'} ${DISC.sel.has(x.key) && can ? 'checked' : ''}
+                    onchange="discToggle('${esc(x.key)}', this.checked)"></td>
+            <td class="fw-bold">${esc(x.name)}</td><td dir="ltr" class="text-start">${esc(x.name_en || '')}</td><td class="small">${esc(x.group || '')}</td>
+            <td dir="ltr" class="text-start small"><a href="${esc(x.full_url || x.url)}" target="_blank">${esc(x.url)}</a></td>
+            <td class="text-center">${DISC_KIND[x.kind] || ''}${x.tables ? ` <span class="small text-muted">${x.tables} جدول</span>` : ''}</td>
+            <td class="text-center small">${st}</td></tr>`;
+    }).join('') || `<tr><td colspan="7" class="text-center text-muted py-3">${DISC.running ? '⏳ لسه بيدوّر…' : 'مفيش حاجة هنا — جربي «كل الروابط»'}</td></tr>`;
+    const n = DISC.items.filter(x => DISC.sel.has(x.key) && x.kind === 'screen' && !x.added).length;
+    $('discSelCount').textContent = `مختار ${n} · لقى ${DISC.items.filter(x => x.kind === 'screen').length} شاشة بجدول من ${DISC.items.length} رابط`;
+    $('discAddBtn').disabled = !n;
+}
+function discToggle(k, on) { on ? DISC.sel.add(k) : DISC.sel.delete(k); discRender(); }
+function discSelect(on) {
+    const f = $('discFilter').value;
+    DISC.items.forEach(x => { if (x.kind === 'screen' && !x.added && (f !== 'new' || !x.known)) on ? DISC.sel.add(x.key) : DISC.sel.delete(x.key); });
+    discRender();
+}
+async function discStop(cancel) {
+    if (cancel && !confirm('ألغي الاكتشاف وأقفل النافذة؟ (اللي اتلقى هيفضل في التقرير)')) return;
+    if (DISC.job) await fetch('/api/screens/jobs/' + DISC.job + '/stop', {method: 'POST'}).catch(() => {});
+    await discPoll();
+    if (cancel) discClose(true);
+}
+function discClose(force) {
+    if (DISC.running && !force && !confirm('الاكتشاف لسه شغال في الخلفية — تقفلي النافذة؟ (تقدري تفتحيها تاني وتكملي متابعة)')) return;
+    clearTimeout(DISC.timer); discModal().hide();
+}
+async function discAdd() {
+    const items = DISC.items.filter(x => DISC.sel.has(x.key) && x.kind === 'screen' && !x.added)
+        .map(x => ({key: x.key, name: x.name, name_en: x.name_en, group: x.group, url: x.url}));
+    if (!items.length) return;
+    const r = await fetch('/api/screens/discovered/add', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({items, report_id: DISC.report})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    if (!r.success) { alert('❌ ' + (r.error || 'فشل')); return; }
+    items.forEach(it => { const x = DISC.items.find(y => y.key === it.key); if (x) x.added = true; DISC.sel.delete(it.key); });
+    discRender();
+    alert(`✅ اتضاف ${items.length} شاشة لصفحة الاختبارات (كل واحدة باختبار «فتح الشاشة»).`);
+}
+
 // ==================== init ====================
 (async function () {
     await loadCatalog();
     loadDatasets();
     const q = new URLSearchParams(location.search);
+    if (q.get('discover')) openDiscover();
     if (IS_SCN) {
         if (q.get('screen') && q.get('scn')) await openScenario(q.get('screen'), q.get('scn'));
         else {
             newScreen();
             const p = CATALOG.find(x => x.key === q.get('screen'));
             if (p) await pickScreenForScenario(p);
+            if (OP_NAME[q.get('op')]) { $('scnOp').value = q.get('op'); opChanged(true); }
         }
         return;
     }

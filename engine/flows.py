@@ -736,7 +736,12 @@ class FlowRunner:
                 raise FlowError(f"مالقيتش زرار «{st['target']}» في الصف اللي فيه «{st['match']}»")
         else:
             self._click({"target": st["target"], "timeout": st["timeout"]})
-        end = time.time() + max(15, st["timeout"])
+        return self.verify_print(before, url0, st["timeout"])
+
+    def verify_print(self, before, url0, timeout=15):
+        """after a print button was clicked: a new tab / print page / embedded PDF must show up, not empty, no error"""
+        d = self.driver
+        end = time.time() + max(15, timeout)
         new = None
         while time.time() < end:
             extra = [h for h in d.window_handles if h not in before]

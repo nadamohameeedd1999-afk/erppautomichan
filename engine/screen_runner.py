@@ -161,7 +161,7 @@ class ScreenRunner(BasePage):
         time.sleep(1.5)
 
     def _add_path(self):
-        return self.cfg["add_url"].split("?")[0].lower()
+        return getattr(self, "form_path", None) or self.cfg["add_url"].split("?")[0].lower()
 
     def _on_add_page(self):
         try:
@@ -213,6 +213,10 @@ class ScreenRunner(BasePage):
                 return False
             if not self._on_add_page() and "/login" not in self.driver.current_url.lower():
                 logger.success(f"🎯 الصفحة اتنقلت بعد الحفظ: {self.driver.current_url}")
+                return True
+            # edit pages often stay put and show a success message
+            if getattr(self, "form_path", None) and self.alerts and time.time() > end - timeout + 3 and not self.page_errors():
+                logger.success(f"🎯 رسالة بعد الحفظ: {self.alerts[-1][:120]}")
                 return True
             # page stayed: a validation message means the form was rejected
             if self.page_errors() and time.time() > end - timeout + 6:
@@ -377,6 +381,11 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
     with allure.step("تسجيل الدخول"):
         if do_login:
             login(driver, credentials)
+
+    if cfg.get("operation", "add") != "add":          # تعديل / حذف / طباعة لسجل موجود
+        from engine.operations import run_operation
+        r.filler.vars = RUN_VARS
+        return run_operation(r, cfg, result, save, start)
 
     if save and cfg["verify"]["new_first_row"]:
         with allure.step("قراءة أول صف قبل الإضافة"):

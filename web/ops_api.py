@@ -347,6 +347,41 @@ def daily_report_pdf():
                     headers={"Content-Disposition": f'inline; filename="daily_report_{to:%Y%m%d}.pdf"'})
 
 
+@bp.route("/reports/discovery/<rid>")
+@auth.login_required
+def discovery_report_page(rid):
+    from flask import abort
+    from web import discovery_report as dr
+    d = dr.load(rid)
+    if not d:
+        abort(404)
+    page = dr.html_report(d, (auth.current_user() or {}).get("full_name", ""))
+    bar = (f'<div class="noprint" style="font-family:Tahoma;text-align:center;margin:10px">'
+           f'<a href="/reports/discovery/{rid}.pdf" style="background:#0F7C7A;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none">⬇️ PDF</a> '
+           f'<a href="javascript:print()" style="margin-inline-start:8px">🖨️ طباعة</a> '
+           f'<a href="/reports#discovery" style="margin-inline-start:8px">↩ التقارير</a></div>')
+    return page.replace("<body>", "<body>" + bar, 1)
+
+
+@bp.route("/reports/discovery/<rid>.pdf")
+@auth.login_required
+def discovery_report_pdf(rid):
+    from flask import Response, abort
+    from web import discovery_report as dr, daily_report
+    d = dr.load(rid)
+    if not d:
+        abort(404)
+    pdf = daily_report.html_to_pdf(dr.html_report(d, (auth.current_user() or {}).get("full_name", ""), for_pdf=True))
+    return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f'inline; filename="{rid}.pdf"'})
+
+
+@bp.route("/api/reports/discovery")
+@auth.login_required
+def discovery_report_list():
+    from web import discovery_report as dr
+    return jsonify({"success": True, "runs": dr.list_runs()})
+
+
 @bp.route("/api/reports/daily/send", methods=["POST"])
 @auth.login_required
 def daily_report_send():

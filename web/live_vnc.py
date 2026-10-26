@@ -50,8 +50,39 @@ def vnc_port_open(timeout=0.6):
         return False
 
 
+def ensure_display():
+    """On the server: if the display (Xvfb :99) or the VNC server isn't running — e.g. the app was started
+    directly instead of through supervisord — start them, so Chrome has a screen and the live view works."""
+    import shutil
+    import subprocess
+    import time
+    on_server = os.path.exists("/.dockerenv") or os.getenv("RAILWAY_ENVIRONMENT")
+    if not on_server or os.name == "nt" or vnc_port_open(0.3):
+        return
+    disp = os.getenv("DISPLAY", ":99")
+    num = disp.split(":")[-1].split(".")[0] or "99"
+    try:
+        if not os.path.exists(f"/tmp/.X11-unix/X{num}") and shutil.which("Xvfb"):
+            subprocess.Popen(["Xvfb", f":{num}", "-screen", "0", "1600x900x24", "-nolisten", "tcp"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            os.environ["DISPLAY"] = f":{num}"
+            time.sleep(1.5)
+            print(f"[live] 🖥️ شغّلت شاشة العرض Xvfb :{num}", flush=True)
+        if shutil.which("x11vnc"):
+            pw = "/root/.vnc/passwd"
+            os.makedirs(os.path.dirname(pw), exist_ok=True)
+            subprocess.run(["x11vnc", "-storepasswd", VNC_PASSWORD, pw], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(["x11vnc", "-display", f":{num}", "-forever", "-shared", "-localhost",
+                              "-rfbauth", pw, "-rfbport", str(VNC_PORT)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            print("[live] 📺 شغّلت سيرفر البث (x11vnc)", flush=True)
+    except Exception as e:
+        print(f"[live] مقدرتش أشغّل شاشة العرض: {e}", flush=True)
+
+
 def init_app(app):
     app.register_blueprint(bp)
+    threading.Thread(target=ensure_display, daemon=True).start()
     if HAS_SOCK:
         _sock.init_app(app)
         _sock.route("/novnc-ws")(_ws_bridge)

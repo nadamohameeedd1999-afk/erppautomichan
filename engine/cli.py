@@ -114,22 +114,27 @@ def cmd_record(a):
 
 
 def cmd_discover(a):
-    from engine.discover import discover
+    from engine.discover import discover, Progress
     from engine.screen_runner import login
     from config.screens_catalog import all_pages, discovered, save_discovered
+    prog = Progress(a.progress or None)
     d = _driver()
     try:
         login(d, _credentials())
         known = [p["url"] for p in all_pages().values() if p["module_key"] != "discovered"]
-        res = discover(d, check=not a.no_check, limit=a.limit, known_urls=known)
-        # keep earlier discoveries, add the new ones (never removes)
-        cur = {x["key"]: x for x in discovered()}
-        new = [x for x in res["screens"] if not x["known"] and x["key"] not in cur]
-        for x in res["screens"]:
-            if not x["known"]:
-                cur[x["key"]] = {k: x[k] for k in ("key", "name", "group", "url")}
-        save_discovered(list(cur.values()))
-        return {"success": True, **res, "added": len(new)}
+        res = discover(d, check=not a.no_check, limit=a.limit, known_urls=known, progress=prog)
+        added = 0
+        if not a.no_save:                          # command line: add every new screen
+            cur = {x["key"]: x for x in discovered()}
+            for x in res["screens"]:
+                if not x["known"] and x["key"] not in cur:
+                    cur[x["key"]] = {k: x[k] for k in ("key", "name", "name_en", "group", "url")}
+                    added += 1
+            save_discovered(list(cur.values()))
+        return {"success": True, **res, "added": added}
+    except Exception as e:
+        prog.step(f"❌ {str(e).splitlines()[0][:150]}", phase="error")
+        raise
     finally:
         try:
             d.quit()
@@ -205,6 +210,8 @@ def main(argv=None):
     dc = sub.add_parser("discover")
     dc.add_argument("--no-check", action="store_true")
     dc.add_argument("--limit", type=int, default=200)
+    dc.add_argument("--no-save", action="store_true", help="only report; the dashboard adds the screens the user picks")
+    dc.add_argument("--progress", default="")
     dc.add_argument("--out", default="")
 
     ip = sub.add_parser("inspect-popup")

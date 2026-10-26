@@ -194,9 +194,26 @@ def si_list():
         return redirect("/Login")
     rows = "".join(f"<tr><td>{v['no']}</td><td>{v['customer']}</td><td>{v['lines']} سطر</td><td>{v.get('notes','')}</td>"
                    f"<td><a class='btn' title='تعديل' href='/SalesInvoice/Edit/{v['no']}'>تعديل</a> "
-                   f"<a class='btn' href='/SalesInvoice/Print/{v['no']}' target='_blank'>طباعة</a></td></tr>" for v in reversed(INVOICES))
-    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8></head><body>
-    <a class="btn" href="/SalesInvoice/AddEdit">إضافة</a><table><tbody>{rows}</tbody></table></body></html>"""
+                   f"<a class='btn' href='/SalesInvoice/Print/{v['no']}' target='_blank'>طباعة</a> "
+                   f"<button type=button class='btn' title='حذف' onclick='delInv({v['no']})'><i class='fa fa-trash'></i></button></td></tr>"
+                   for v in reversed(INVOICES))
+    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
+    <a class="btn" href="/SalesInvoice/AddEdit">إضافة</a><table><tbody>{rows}</tbody></table>
+    <script>function delInv(no){{ Swal.fire({{title: 'هل أنت متأكد من الحذف؟', icon: 'warning', showCancelButton: true}}).then(function(r){{
+      if (!r.isConfirmed) return;
+      $.post('/SalesInvoice/Delete/' + no, function(j){{
+        Swal.fire({{title: j.ok ? 'تم الحذف' : j.error, icon: j.ok ? 'success' : 'error'}}).then(function(){{ location.reload(); }}); }}); }}); }}</script>
+    </body></html>"""
+
+
+@app.route("/SalesInvoice/Delete/<int:no>", methods=["POST"])
+def si_delete(no):
+    if not guard():
+        return jsonify({"ok": False, "error": "login"})
+    if no == 500:
+        return jsonify({"ok": False, "error": "لا يمكن حذف فاتورة مرحلة"})
+    INVOICES[:] = [x for x in INVOICES if x["no"] != no]
+    return jsonify({"ok": True})
 
 
 @app.route("/SalesInvoice/Print/<int:no>")

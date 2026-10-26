@@ -133,8 +133,11 @@ def html_report(date_from=None, date_to=None, user="", for_pdf=False):
 
 def pdf_report(date_from=None, date_to=None, user=""):
     """PDF bytes via Chrome (same browser the tests use). Footer: صفحة X من Y."""
+    return html_to_pdf(html_report(date_from, date_to, user, for_pdf=True))
+
+
+def html_to_pdf(page):
     from tests.conftest import _build_options, _create_driver
-    page = html_report(date_from, date_to, user, for_pdf=True)
     tmp = Path(tempfile.mkdtemp(prefix="daily_report_")) / "report.html"
     tmp.write_text(page, encoding="utf-8")
     opts = _build_options()
