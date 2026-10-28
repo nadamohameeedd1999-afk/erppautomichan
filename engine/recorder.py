@@ -219,8 +219,9 @@ def convert(events):
     return items
 
 
-def record(driver, max_minutes=20, poll=0.7):
-    """inject, collect until «خلصت» / save / timeout. Returns all events."""
+def record(driver, max_minutes=20, poll=0.7, stop_file=None):
+    """inject, collect until «خلصت» (in the page or the dashboard) / save / timeout. Returns all events."""
+    import os
     events, end = [], time.time() + max_minutes * 60
     driver.execute_script(REC_JS)
     logger.info("⏺ بسجّل — اشتغلي على الشاشة في نافذة Chrome، ولما تخلصي دوسي «⏹ خلصت» (أو زرار الحفظ)")
@@ -255,7 +256,7 @@ def record(driver, max_minutes=20, poll=0.7):
                     return events
             else:
                 logger.info(f"   🪟 {'نافذة اتفتحت' if ev['type'] == 'popup_open' else 'النافذة اتقفلت'}")
-        if res.get("stop"):
+        if res.get("stop") or (stop_file and os.path.exists(stop_file)):
             logger.info("⏹ خلصتي التسجيل")
             break
         time.sleep(poll)

@@ -229,12 +229,25 @@ def compare_page():
            "tests": sorted(tests.values(), key=lambda t: -t["count"])}
     if tab == "runs":
         a, b = request.args.get("a"), request.args.get("b")
-        if not (a and b) and runs:
-            # default: the last two runs of the most recent test
-            same = [r for r in runs if r["key"] == runs[0]["key"]]
-            if len(same) >= 2:
-                b, a = same[0]["run_id"], same[1]["run_id"]
-        ctx.update({"a": a, "b": b, "cmp": insights.compare_runs(a, b) if a and b else None})
+        by_id = {r["run_id"]: r for r in runs}
+        test = request.args.get("test") or (by_id[b]["key"] if b in by_id else (runs[0]["key"] if runs else None))
+        same = [r for r in runs if r["key"] == test]                      # newest first
+        preset = request.args.get("preset", "")
+        last_pass = next((r for r in same if r["passed"]), None)
+        last_fail = next((r for r in same if not r["passed"]), None)
+        if preset == "pass_fail" or (not (a and b) and same):
+            # the useful default: what changed between the last time it passed and now
+            if b not in by_id:
+                b = (last_fail if preset == "pass_fail" and last_fail else same[0])["run_id"] if same else None
+            older_pass = next((r for r in same if r["passed"] and by_id.get(b) and r["time"] < by_id[b]["time"]), None)
+            if not a or preset == "pass_fail":
+                a = (older_pass or (same[1] if len(same) > 1 else None) or {}).get("run_id")
+        elif preset == "last2" and len(same) >= 2:
+            b, a = same[0]["run_id"], same[1]["run_id"]
+        ctx.update({"a": a, "b": b, "test": test, "cmp": insights.compare_runs(a, b) if a and b else None,
+                    "test_runs": [{"run_id": r["run_id"], "passed": r["passed"], "label": r["time"].strftime("%d/%m %H:%M"),
+                                   "duration": round(r["duration"])} for r in same[:200]],
+                    "has_pass": bool(last_pass), "has_fail": bool(last_fail)})
     elif tab == "test":
         key = request.args.get("key") or (ctx["tests"][0]["key"] if ctx["tests"] else None)
         ctx.update({"key": key, "hist": insights.test_history(key) if key else None})

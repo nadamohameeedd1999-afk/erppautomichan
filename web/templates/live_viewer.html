@@ -9,7 +9,6 @@
     .live-switch .form-check-input { width: 3.2em; height: 1.6em; cursor: pointer; margin: 0; }
     .live-frame { position: relative; background: #0b0d12; border-radius: 12px; overflow: hidden; height: 72vh; min-height: 420px; }
     .live-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
-    .live-frame #liveImg { width: 100%; height: 100%; object-fit: contain; display: block; background: #0b0d12; }
     .mode-bar { position: absolute; bottom: 10px; inset-inline-start: 10px; display: flex; gap: 8px; align-items: center;
                 background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 10px; z-index: 5; }
     .live-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
@@ -48,7 +47,7 @@
                 <label class="form-check-label small" for="autoLive">يشتغل لوحده لما اختبار يبدأ ويقف لما يخلص</label>
             </div>
             <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="viewOnly" checked onchange="saveOpt('viewOnly', this.checked); if (LIVE) reconnect()">
+                <input class="form-check-input" type="checkbox" id="viewOnly" checked onchange="saveOpt('viewOnly', this.checked); if (LIVE && MODE === 'pics' && LS) { LS.setControl(!this.checked && !!STATUS.control); modeBar(WS_OK === false); } else if (LIVE) reconnect()">
                 <label class="form-check-label small" for="viewOnly">مشاهدة بس (من غير ماوس وكيبورد)</label>
             </div>
             <div class="ms-auto d-flex gap-2">
@@ -61,7 +60,6 @@
 
     <div class="live-frame shadow-sm" id="liveFrame">
         <iframe id="vncFrame" allow="clipboard-read; clipboard-write; fullscreen" style="display:none"></iframe>
-        <img id="liveImg" alt="" style="display:none">
         <div class="mode-bar" id="modeBar" style="display:none">
             <span id="modeTxt"></span>
             <button class="btn btn-sm btn-outline-light" id="modeBtn" onclick="switchMode()"></button>
@@ -76,6 +74,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/livescreen.js') }}"></script>
 <script>
 const EXTERNAL_URL = {{ vnc_full_url | tojson }};     // من إعدادات النفق (لو موجود)
 const VNC_PASSWORD = {{ vnc_password | tojson }};
@@ -101,7 +100,7 @@ function vncUrl() {
 }
 
 // MODE: 'vnc' = noVNC (full, needs websockets) · 'pics' = a picture of the screen every half second (works everywhere)
-let MODE = null, WS_OK = null, picTimer = null, watchTimer = null, lastUrl = null;
+let MODE = null, WS_OK = null, LS = null, watchTimer = null, lastUrl = null;
 
 function wsWorks() {
     if (WS_OK !== null) return Promise.resolve(WS_OK);
@@ -147,7 +146,7 @@ async function setLive(on, auto) {
 
 function start(mode, fellBack) {
     MODE = mode;
-    const frame = document.getElementById('vncFrame'), img = document.getElementById('liveImg');
+    const frame = document.getElementById('vncFrame');
     document.getElementById('liveOff').style.display = 'none';
     if (mode === 'vnc') {
         const url = vncUrl(); lastUrl = url;
@@ -155,9 +154,13 @@ function start(mode, fellBack) {
         document.getElementById('openTab').href = url;
         watchTimer = setTimeout(checkVnc, 8000);           // noVNC couldn't connect -> pictures
     } else {
-        frame.src = 'about:blank'; frame.style.display = 'none'; img.style.display = 'block';
+        frame.src = 'about:blank'; frame.style.display = 'none';
+        if (!LS) LS = new LiveScreen(document.getElementById('liveFrame'), {onError: m => showOff('مقدرتش آخد صورة الشاشة', m),
+                                                                            onFrame: () => { document.getElementById('liveOff').style.display = 'none'; }});
+        LS.img.style.display = 'block';
+        LS.setControl(!document.getElementById('viewOnly').checked && !!STATUS.control);
+        LS.start();
         document.getElementById('openTab').href = '/api/live/frame.jpg';
-        picLoop();
     }
     modeBar(fellBack);
 }
@@ -176,29 +179,12 @@ function checkVnc() {
     else if (LIVE && MODE === 'vnc') watchTimer = setTimeout(checkVnc, 5000);
 }
 
-async function picLoop() {
-    const img = document.getElementById('liveImg');
-    while (LIVE && MODE === 'pics') {
-        const t0 = Date.now();
-        try {
-            const r = await fetch('/api/live/frame.jpg?t=' + t0, {cache: 'no-store'});
-            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
-            const url = URL.createObjectURL(await r.blob());
-            const old = img.src; img.src = url; if (old.startsWith('blob:')) URL.revokeObjectURL(old);
-        } catch (e) {
-            showOff('مقدرتش آخد صورة الشاشة', String(e.message || e)); await new Promise(r => setTimeout(r, 3000));
-            if (LIVE && MODE === 'pics') document.getElementById('liveOff').style.display = 'none';
-        }
-        await new Promise(r => setTimeout(r, Math.max(150, 500 - (Date.now() - t0))));
-    }
-}
-
 function stopAll() {
     clearTimeout(watchTimer);
     MODE = null;
     const frame = document.getElementById('vncFrame');
     frame.src = 'about:blank'; frame.style.display = 'none';
-    document.getElementById('liveImg').style.display = 'none';
+    if (LS) { LS.stop(); LS.img.style.display = 'none'; }
     document.getElementById('modeBar').style.display = 'none';
 }
 
@@ -207,7 +193,8 @@ function modeBar(fellBack) {
     if (MODE === 'pics') {
         document.getElementById('modeTxt').textContent = fellBack
             ? '📷 وضع الصور — الاتصال المباشر (WebSocket) مش شغال على السيرفر، فبعرض صورة الشاشة كل نص ثانية'
-            : '📷 وضع الصور (مشاهدة بس)';
+            : '📷 وضع الصور';
+        if (LS && LS.control) document.getElementById('modeTxt').textContent += ' · 🖱️ التحكم شغال: دوسي على الصورة واكتبي';
         document.getElementById('modeBtn').textContent = 'جربي التحكم الكامل';
         document.getElementById('modeBtn').style.display = (STATUS.proxy || EXTERNAL_URL) ? '' : 'none';
     } else {

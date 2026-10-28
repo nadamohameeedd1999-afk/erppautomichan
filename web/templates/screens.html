@@ -23,7 +23,7 @@
     .builder-tabs .nav-link { border-radius: 10px; font-weight: 700; }
     .scn-mini { font-size: 12px; }
     .scn-mini a { text-decoration: none; }
-    .flow-card { border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: #f8fbff; margin-bottom: 12px; }
+    .flow-card { border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: var(--g-hover); margin-bottom: 12px; }
     .flow-card .flow-head { padding: 10px 12px; border-bottom: 1px dashed rgba(255,255,255,.1); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .flow-step { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,.1); flex-wrap: wrap; }
     .flow-step:last-child { border-bottom: 0; }
@@ -39,8 +39,24 @@
     .act-panel { border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.05); padding: 10px; }
     [data-theme="dark"] .fields-table tr.act-row td, [data-theme="dark"] .fields-table tr.act-sub td { background: #1d2433; }
     [data-theme="dark"] .act-panel { background: #161b26; border-color: #2c3a55; }
-    .flow-step.popup-scope { border-inline-start: 3px solid #0dcaf0; background: #f3fdff; }
+    .flow-step.popup-scope { border-inline-start: 3px solid #0dcaf0; background: color-mix(in srgb, var(--g-acc2) 8%, transparent); }
     .flow-hint { font-size: 12px; color: var(--g-muted); }
+    .stepper { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: 0; z-index: 6; padding: 6px; border-radius: 14px;
+               background: var(--g-panel-solid, #fff); border: 1px solid var(--g-line, #ddd); }
+    .stepper .st { flex: 1 1 150px; border: 0; background: transparent; color: var(--g-muted); padding: 9px 10px; border-radius: 10px; font-weight: 700; text-align: start; }
+    .stepper .st b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; margin-inline-end: 6px;
+                     background: var(--g-hover); color: var(--g-text); font-size: 12px; }
+    .stepper .st.on { background: var(--g-acc-soft); color: var(--g-head); }
+    .stepper .st.on b { background: var(--g-grad); color: #fff; }
+    .stepper .st.done b { background: var(--g-ok); color: #fff; }
+    .step-pane { display: none; }
+    .step-pane.on { display: block; }
+    .step-nav { display: flex; justify-content: space-between; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--g-line); }
+    .how-title { font-weight: 700; margin-bottom: 8px; }
+    .how-card { border: 1px dashed var(--g-line-strong, #ccc); border-radius: 12px; padding: 12px; height: 100%; }
+    #recModal .rec-screen { position: relative; background: #0b0d12; border-radius: 12px; overflow: hidden; height: 66vh; }
+    #recModal .rec-steps { height: 66vh; overflow: auto; font-size: 13px; }
+    #recModal .rec-steps div { padding: 6px 8px; border-bottom: 1px dashed var(--g-line); }
     [data-theme="dark"] .flow-card { background: #1d2433; border-color: #2c3b57; }
     [data-theme="dark"] .flow-step.popup-scope { background: #1a2a33; }
 </style>
@@ -51,32 +67,16 @@
     <li class="nav-item"><a class="nav-link {{ 'active' if mode != 'scenario' }}" href="/screens"><i class="bi bi-ui-checks-grid"></i> الشاشات <span class="badge bg-light text-dark ms-1" id="tabCountScreens"></span></a></li>
     <li class="nav-item"><a class="nav-link {{ 'active' if mode == 'scenario' }}" href="/scenarios"><i class="bi bi-diagram-3"></i> السيناريوهات <span class="badge bg-light text-dark ms-1" id="tabCountScn"></span></a></li>
     <li class="nav-item"><button type="button" class="nav-link border border-success text-success" onclick="openDiscover()" title="يقرأ القايمة الجانبية في الـ ERP ويفتح كل شاشة — وإنتي تختاري اللي يتضاف للاختبارات"><i class="bi bi-compass"></i> اكتشاف شاشات النظام</button></li>
-    <li class="nav-item ms-auto small text-muted align-self-center">الشاشة = الإعداد الأساسي لكل شاشة · السيناريو = طريقة تانية لنفس الشاشة باسم مختلف</li>
+    <li class="nav-item ms-auto">
+        <button class="btn btn-primary" onclick="newScreen(); goStep(1)"><i class="bi bi-plus-lg"></i> {% if mode == 'scenario' %}سيناريو جديد{% else %}شاشة جديدة{% endif %}</button>
+    </li>
 </ul>
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div>
-        {% if mode == 'scenario' %}
-        <h3 class="fw-bold mb-0"><i class="bi bi-diagram-3"></i> أنواع السيناريوهات</h3>
-        <small class="text-muted">لكل شاشة أكتر من سيناريو (مثلاً سند قبض من عميل إلى عميل، من مورد…). كل سيناريو بيتحفظ باسمه ويظهر في الاختبارات لوحده.</small>
-        {% else %}
-        <h3 class="fw-bold mb-0"><i class="bi bi-ui-checks-grid"></i> منشئ الشاشات</h3>
-        <small class="text-muted">اختار شاشة ← اقرأ حقولها ← حدد هتتملى إزاي ← جرّب ← احفظ. أي شاشة ليها إعداد بتظهر في الاختبارات كـ "اختبار كامل".</small>
-        {% endif %}
-    </div>
-    <div class="d-flex gap-2">
-        {% if mode == 'scenario' %}
-        <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> سيناريو جديد</button>
-        {% else %}
-        <button class="btn btn-primary" onclick="newScreen()"><i class="bi bi-plus-lg"></i> شاشة جديدة</button>
-        {% endif %}
-    </div>
-</div>
-
 <div class="row g-3">
     <!-- ============ saved screens ============ -->
     <div class="col-lg-3">
         <div class="card shadow-sm">
-            <div class="card-header fw-bold">{% if mode == 'scenario' %}السيناريوهات المحفوظة{% else %}الشاشات اللي ليها إعداد{% endif %}</div>
+            <div class="card-header fw-bold">{% if mode == 'scenario' %}السيناريوهات المحفوظة{% else %}الشاشات اللي ليها إعداد{% endif %}
+                <input class="form-control form-control-sm mt-2 fw-normal" id="listSearch" placeholder="🔍 دوّري…" oninput="filterList(this.value)"></div>
             <div class="list-group list-group-flush sb-list" id="screensList">
                 <div class="list-group-item text-muted small">جاري التحميل...</div>
             </div>
@@ -85,8 +85,22 @@
 
     <!-- ============ editor ============ -->
     <div class="col-lg-9">
+        <div class="stepper mb-3" id="stepper">
+            <button class="st on" data-step="1" onclick="goStep(1)"><b>1</b> {% if mode == 'scenario' %}الشاشة والسيناريو{% else %}الشاشة{% endif %}</button>
+            <button class="st" data-step="2" onclick="goStep(2)"><b>2</b> الحقول والخطوات <span class="badge bg-primary ms-1" id="stepFieldsBadge">0</span></button>
+            <button class="st" data-step="3" onclick="goStep(3)"><b>3</b> الحفظ والتأكيد</button>
+            <button class="st" data-step="4" onclick="goStep(4)"><b>4</b> متقدم <small class="opacity-75">(اختياري)</small></button>
+        </div>
+        <div id="jobBox" class="card mb-3 d-none"><div class="card-body py-2">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <div class="spinner-border spinner-border-sm text-primary" id="jobSpinner"></div>
+                <strong id="jobTitle">...</strong>
+                <button class="btn btn-sm btn-link ms-auto p-0" onclick="this.closest('.card').querySelector('.job-log').classList.toggle('d-none')">اللوج</button>
+            </div>
+            <div class="job-log d-none" id="jobLog"></div>
+        </div></div>
         <!-- step 1 -->
-        <div class="card shadow-sm mb-3">
+        <div class="card shadow-sm mb-3 step-pane" data-step="1">
             <div class="card-header fw-bold"><span class="sb-step">1</span> {% if mode == 'scenario' %}الشاشة والسيناريو{% else %}الشاشة{% endif %}</div>
             <div class="card-body">
                 {% if mode == 'scenario' %}
@@ -154,35 +168,46 @@
                     <input type="hidden" id="fModuleKey">
                     <input type="hidden" id="fNameEn">
                 </div>
-                <div class="d-flex gap-2 mt-3 flex-wrap align-items-center">
-                    <button class="btn btn-info text-white" id="btnInspect" onclick="inspect()">
-                        <i class="bi bi-search"></i> اقرأ الحقول
-                    </button>
-                    <div class="form-check ms-2">
-                        <input class="form-check-input" type="checkbox" id="fDetectDeps" checked>
-                        <label class="form-check-label small" for="fDetectDeps">اكتشف الحقول المعتمدة على بعض (زي المشروع بعد العميل)</label>
+                <div class="how mt-3">
+                    <div class="how-title">هاتي الحقول بطريقة من الاتنين:</div>
+                    <div class="row g-2">
+                        <div class="col-md-6"><div class="how-card">
+                            <button class="btn btn-info text-white w-100" id="btnInspect" onclick="inspect()"><i class="bi bi-search"></i> اقرأ الحقول تلقائي</button>
+                            <div class="small text-muted mt-2">بيفتح فورم الإضافة ويقرأ كل الحقول والأزرار لوحده. <b>مش بيحفظ حاجة.</b></div>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" id="fDetectDeps" checked>
+                                <label class="form-check-label small" for="fDetectDeps">اكتشف الحقول المعتمدة على بعض (زي المشروع بعد العميل)</label>
+                            </div>
+                        </div></div>
+                        <div class="col-md-6"><div class="how-card">
+                            <button class="btn btn-danger w-100" id="btnRecord" onclick="recordSteps()">⏺ سجّلي خطواتك</button>
+                            <div class="small text-muted mt-2">بيفتحلك الشاشة هنا جوه الصفحة، وإنتي تشتغلي عليها عادي — كل حاجة بتعمليها بتتحول لخطوات. أحسن لما الشاشة فيها نوافذ وأصناف.</div>
+                        </div></div>
                     </div>
-                    <small class="text-muted ms-auto">القراءة بتفتح فورم الإضافة بس — مش بتحفظ أي حاجة.</small>
-                </div>
-                <div id="jobBox" class="mt-3 d-none">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <div class="spinner-border spinner-border-sm text-primary" id="jobSpinner"></div>
-                        <strong id="jobTitle">...</strong>
-                    </div>
-                    <div class="job-log" id="jobLog"></div>
                 </div>
                 <div id="inspectWarnings" class="mt-2"></div>
             </div>
         </div>
 
         <!-- step 2 -->
-        <div class="card shadow-sm mb-3">
+        <div class="card shadow-sm mb-3 step-pane" data-step="2">
             <div class="card-header fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span><span class="sb-step">2</span> الحقول وطريقة تعبئتها</span>
-                <span class="small fw-normal">
-                    <span id="fieldsCount" class="badge bg-primary">0</span> حقل متعلّم عليه
-                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleShowAll()" id="btnShowAll">إظهار كل الحقول</button>
-                    <button class="btn btn-sm btn-danger ms-2" id="btnRecord" onclick="recordSteps()" title="يفتح الشاشة في Chrome، وإنتي تشتغلي عادي — كل اللي بتعمليه يتحول لخطوات هنا. «حفظ» مش بيحفظ: بيوقف التسجيل">⏺ سجّلي خطواتك</button>
+                <span class="small fw-normal d-flex gap-2 align-items-center flex-wrap">
+                    <span><span id="fieldsCount" class="badge bg-primary">0</span> حقل متعلّم عليه</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleShowAll()" id="btnShowAll">إظهار كل الحقول</button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown">➕ قوالب جاهزة</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('item');return false">➕ إضافة صنف (بحث ← اختيار ← سعر)</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('upload');return false">📎 رفع مرفق PDF</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('vat');return false">🧮 تأكد من الحسابات (ضريبة 15%)</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('edit');return false">✏️ تعديل بعد الحفظ</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('print');return false">🖨️ طباعة بعد الحفظ</a></li>
+                        </ul>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('manualBox').classList.toggle('d-none')">✍️ حقل يدوي</button>
                 </span>
             </div>
             <div class="card-body p-0">
@@ -204,7 +229,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="p-2 border-top d-flex gap-2 flex-wrap align-items-end">
+                <div class="p-2 border-top d-flex gap-2 flex-wrap align-items-end d-none" id="manualBox">
                     <div><label class="form-label small mb-0">إضافة حقل يدوي — الـ id بس (أو الصقي العنصر وهو هيطلّع الـ id)</label>
                         <input class="form-control form-control-sm ltr" id="manId" placeholder="MoneyAmount"></div>
                     <div><label class="form-label small mb-0">الاسم</label>
@@ -215,13 +240,9 @@
                             {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == 'select2' }}>{{ k }}</option>{% endfor %}
                         </select></div>
                     <button class="btn btn-sm btn-outline-primary" onclick="addManual()"><i class="bi bi-plus"></i> إضافة</button>
-                    <span class="ms-auto d-flex gap-1">
-                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('item')" title="➕ → بحث → اختيار أول صنف → سعر في آخر سطر">➕ قالب: إضافة صنف</button>
-                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('upload')" title="يرفع ملف PDF تجريبي في خانة المرفقات">📎 قالب: رفع مرفق</button>
-                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('vat')" title="الإجمالي = مجموع السطور، الضريبة = 15%، الإجمالي = الصافي + الضريبة — عدّلي أسماء الخانات">🧮 قالب: تأكد من الحسابات</button>
-                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('edit')" title="بعد الحفظ: يفتح السند الجديد من القايمة ويعدّله ويحفظ">✏️ قالب: تعديل بعد الحفظ</button>
-                        <button class="btn btn-sm btn-outline-success" onclick="addTemplate('print')" title="بعد الحفظ: يضغط طباعة في صف السند الجديد ويتأكد إن الطباعة فتحت">🖨️ قالب: طباعة</button>
-                    </span>
+
+                </div>
+                <div class="p-2 border-top">
                     <div class="flow-hint w-100">🔘 <b>الزراير</b> (زي «ربط بمستند اخر») بتظهر في الجدول مع الحقول وبتتداس في مكانها في الترتيب. لو بتفتح نافذة دوسي «✨ اقرأ النافذة» في سطرها.
                         في التواريخ تقدري تكتبي <code>{today}</code> <code>{month_start}</code> <code>{month_end}</code> <code>{today-30}</code>.</div>
                     <datalist id="popTargets"></datalist><datalist id="popFieldIds"></datalist><div id="popOptLists" hidden></div>
@@ -229,8 +250,8 @@
             </div>
         </div>
 
-        <!-- step 4 -->
-        <div class="card shadow-sm mb-3">
+        <!-- step 3 -->
+        <div class="card shadow-sm mb-3 step-pane" data-step="3">
             <div class="card-header fw-bold"><span class="sb-step">3</span> الحفظ والتأكيد</div>
             <div class="card-body">
                 <div class="row g-3">
@@ -269,7 +290,7 @@
         </div>
 
         <!-- step 4: advanced -->
-        <div class="card shadow-sm mb-3">
+        <div class="card shadow-sm mb-3 step-pane" data-step="4">
             <div class="card-header fw-bold"><span class="sb-step">4</span> اختبارات متقدمة <span class="small fw-normal text-muted">(اختياري)</span></div>
             <div class="card-body">
                 <div class="row g-3">
@@ -406,9 +427,44 @@
     </div>
   </div>
 </div>
+
+<!-- recorder modal (سجّلي خطواتك) -->
+<div class="modal fade" id="recModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-fullscreen-lg-down" style="max-width:96vw">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title">⏺ سجّلي خطواتك <span class="badge bg-danger ms-2" id="recState">بيبدأ…</span></h5>
+        <span class="small text-muted ms-3" id="recHelp"></span>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-lg-9">
+            <div class="rec-screen" id="recScreen">
+              <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center p-4 text-light" id="recLocal" style="display:none !important">
+                <div class="fs-1">🖥️</div>
+                <div class="fw-bold fs-5 mt-2">Chrome اتفتح على جهازك</div>
+                <div class="small opacity-75 mt-1">اشتغلي على الشاشة في نافذة Chrome — الخطوات بتظهر هنا على الجنب. لما تخلصي دوسي «⏹ خلصت».</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3">
+            <div class="fw-bold mb-2">الخطوات اللي اتسجلت <span class="badge bg-primary" id="recCount">0</span></div>
+            <div class="rec-steps border rounded" id="recSteps"><div class="text-muted">لسه مفيش — ابدئي اشتغلي على الشاشة</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="small text-muted me-auto">💡 دوسي على الصورة الأول وبعدين اكتبي. «حفظ» في الشاشة مش هيحفظ — بيوقف التسجيل بس.</span>
+        <button class="btn btn-outline-secondary" onclick="recCancel()">إلغاء</button>
+        <button class="btn btn-danger" id="recFinishBtn" onclick="recFinish()">⏹ خلصت — هاتي الخطوات</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/livescreen.js') }}"></script>
 <script>
 const STRATEGIES = {{ strategies | tojson }};
 STRATEGIES.flow = 'إجراء';
@@ -1110,21 +1166,104 @@ function addDetectedButtons(buttons, saveSel, addSel) {
 }
 
 // ==================== recorder (سجّلي خطواتك) ====================
+let REC = {job: null, screen: null, timer: null};
 async function recordSteps() {
     const cfg = buildScreenConfig();
     if (!cfg.key) cfg.key = 'draft';
-    if (!cfg.list_url) { alert('اكتبي رابط الشاشة الأول (الخطوة 1)'); return; }
-    if (!confirm('هيفتح Chrome على صفحة الإضافة.\n\n• اشتغلي على الشاشة عادي (اختاري، اكتبي، دوسي الزراير والنوافذ)\n• لما تخلصي دوسي «⏹ خلصت» اللي تحت في الصفحة — أو دوسي «حفظ» (مش هيحفظ، هيوقف التسجيل بس)\n\nنبدأ؟')) return;
+    if (!cfg.list_url) { goStep(1); alert('اختاري الشاشة أو اكتبي رابط القايمة الأول'); $('fListUrl').focus(); return; }
+    $('btnRecord').disabled = true;
     const r = await fetch('/api/screens/record', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                                  body: JSON.stringify({config: cfg})}).then(r => r.json());
+                                                  body: JSON.stringify({config: cfg})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    $('btnRecord').disabled = false;
     if (!r.success) { alert('❌ ' + r.error); return; }
-    const res = await pollJob(r.job_id, '⏺ بسجّل… اشتغلي في نافذة Chrome ولما تخلصي دوسي «⏹ خلصت»');
-    if (!res) return;
-    if (!res.success) { $('jobTitle').textContent = '❌ ' + (res.error || 'فشل'); return; }
-    if (!res.items.length) { $('jobTitle').textContent = 'ما اتسجلش حاجة'; return; }
+    REC.job = r.job_id;
+    $('recSteps').innerHTML = '<div class="text-muted">⏳ بيسجّل دخول ويفتح صفحة الإضافة…</div>';
+    $('recCount').textContent = '0'; $('recState').textContent = 'بيفتح الشاشة…';
+    if (r.on_server) {
+        $('recLocal').style.setProperty('display', 'none', 'important');
+        if (!REC.screen) REC.screen = new LiveScreen($('recScreen'), {control: r.control, onError: m => { $('recHelp').textContent = '⚠️ ' + m; }});
+        REC.screen.setControl(r.control);
+        REC.screen.start();
+        $('recHelp').textContent = r.control ? 'دي شاشة المتصفح اللي على السيرفر — دوسي واكتبي فيها عادي' : 'مشاهدة بس (xdotool مش متثبت على السيرفر)';
+    } else {
+        $('recLocal').style.removeProperty('display');
+        $('recHelp').textContent = '';
+    }
+    bootstrap.Modal.getOrCreateInstance($('recModal')).show();
+    recPoll();
+}
+async function recPoll() {
+    clearTimeout(REC.timer);
+    if (!REC.job) return;
+    const j = await fetch('/api/screens/jobs/' + REC.job).then(r => r.json()).catch(() => null);
+    if (j && j.success) {
+        const steps = (j.log || []).map(l => l.split('|').pop().trim()).filter(l => /^(✏️|📎|👆|🪟)/.test(l));
+        if (steps.length) { $('recSteps').innerHTML = steps.map((t, i) => `<div>${i + 1}. ${esc(t)}</div>`).join(''); $('recSteps').scrollTop = 1e6; }
+        $('recCount').textContent = steps.length;
+        if ((j.log || []).some(l => l.includes('بسجّل'))) $('recState').textContent = '● بيسجّل';
+        if (j.status !== 'running') return recDone(j.result || {success: false, error: j.error || 'وقف'});
+    }
+    REC.timer = setTimeout(recPoll, 1500);
+}
+async function recFinish() {
+    if (!REC.job) return;
+    $('recFinishBtn').disabled = true; $('recState').textContent = 'بيجمع الخطوات…';
+    await fetch(`/api/screens/record/${REC.job}/finish`, {method: 'POST'}).catch(() => {});
+    recPoll();
+}
+async function recCancel() {
+    if (REC.job && !confirm('ألغي التسجيل؟ الخطوات اللي اتسجلت مش هتتحط.')) return;
+    if (REC.job) await fetch(`/api/screens/jobs/${REC.job}/stop`, {method: 'POST'}).catch(() => {});
+    recClose();
+}
+function recClose() {
+    clearTimeout(REC.timer); REC.job = null;
+    if (REC.screen) REC.screen.stop();
+    $('recFinishBtn').disabled = false;
+    bootstrap.Modal.getOrCreateInstance($('recModal')).hide();
+}
+function recDone(res) {
+    recClose();
+    if (!res.success) { alert('❌ التسجيل وقف: ' + (res.error || 'فشل')); return; }
+    if (!res.items || !res.items.length) { alert('ما اتسجلش أي خطوة'); return; }
     if (ROWS.some(r => r.include) && !confirm(`اتسجل ${res.items.length} خطوة. أحطها مكان الترتيب الحالي؟ (الحقول القديمة هتفضل في الجدول من غير علامة)`)) return;
     applyRecording(res.items);
+    goStep(2);
+    $('jobBox').classList.remove('d-none'); $('jobSpinner').classList.add('d-none');
     $('jobTitle').textContent = `✅ اتسجل ${res.items.length} خطوة — راجعيها وبعدين «جرّب التعبئة بدون حفظ»`;
+}
+
+// ==================== stepper ====================
+function goStep(n) {
+    document.querySelectorAll('.step-pane').forEach(p => p.classList.toggle('on', +p.dataset.step === n));
+    document.querySelectorAll('#stepper .st').forEach(b => {
+        b.classList.toggle('on', +b.dataset.step === n);
+    });
+    try { sessionStorage.setItem('sb_step', n); } catch (e) {}
+    const st = document.getElementById('stepper'); if (st && st.getBoundingClientRect().top < 0) st.scrollIntoView({behavior: 'smooth'});
+}
+function stepMarks() {
+    const has1 = !!$('fListUrl').value.trim(), n = ROWS.filter(r => r.include).length;
+    document.querySelector('#stepper .st[data-step="1"]').classList.toggle('done', has1);
+    document.querySelector('#stepper .st[data-step="2"]').classList.toggle('done', n > 0);
+    $('stepFieldsBadge').textContent = n;
+}
+(function stepNav() {
+    const names = {1: 'الشاشة', 2: 'الحقول والخطوات', 3: 'الحفظ والتأكيد', 4: 'متقدم'};
+    document.querySelectorAll('.step-pane').forEach(p => {
+        const n = +p.dataset.step, nav = document.createElement('div');
+        nav.className = 'step-nav';
+        nav.innerHTML = (n > 1 ? `<button class="btn btn-sm btn-outline-secondary" onclick="goStep(${n - 1})">→ ${names[n - 1]}</button>` : '<span></span>')
+                      + (n < 4 ? `<button class="btn btn-sm btn-primary" onclick="goStep(${n + 1})">${names[n + 1]} ←</button>` : '<span></span>');
+        p.appendChild(nav);
+    });
+    setInterval(stepMarks, 1500);
+})();
+function filterList(q) {
+    q = (q || '').trim().toLowerCase();
+    document.querySelectorAll('#screensList .list-group-item').forEach(it => {
+        it.style.display = !q || it.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
 }
 
 function applyRecording(items) {
@@ -1325,7 +1464,7 @@ async function pollJob(jobId, title) {
             if (!r.success) { $('jobTitle').textContent = '❌ ' + r.error; return null; }
             $('jobLog').textContent = (r.log || []).join('\n');
             $('jobLog').scrollTop = $('jobLog').scrollHeight;
-            if (r.status === 'done') return r.result;
+            if (r.status !== 'running') return r.result || {success: false, error: r.error || 'وقف'};
         }
     } finally {
         $('jobSpinner').classList.add('d-none');
@@ -1346,8 +1485,9 @@ async function inspect() {
     const res = await pollJob(r.job_id, 'بقرأ حقول الشاشة... (بيفتح المتصفح ويسجل دخول)');
     if (!res) return;
     if (!res.success) { $('jobTitle').textContent = '❌ ' + (res.error || 'فشل'); return; }
-    $('jobTitle').textContent = `✅ لقيت ${res.fields.length} حقل و ${res.buttons.length} زرار`;
+    $('jobTitle').textContent = `✅ لقيت ${res.fields.length} حقل و ${res.buttons.length} زرار — حددي هتتملى إزاي`;
     applyInspection(res);
+    goStep(2);
 }
 
 function applyInspection(res) {
@@ -1543,6 +1683,7 @@ async function discAdd() {
     await loadCatalog();
     loadDatasets();
     const q = new URLSearchParams(location.search);
+    goStep(q.get('key') || q.get('scn') ? (+(sessionStorage.getItem('sb_step') || 2) || 2) : 1);
     if (q.get('discover')) openDiscover();
     if (IS_SCN) {
         if (q.get('screen') && q.get('scn')) await openScenario(q.get('screen'), q.get('scn'));

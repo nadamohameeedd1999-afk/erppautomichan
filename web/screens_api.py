@@ -521,7 +521,22 @@ def api_record():
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     tmp = JOBS_DIR / f"record_{cfg['key']}_{uuid.uuid4().hex[:6]}.json"
     tmp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
-    job_id, err = _start_job("record", ["record", "--config-file", str(tmp)], extra={"timeout": 1500})
+    stop = JOBS_DIR / f"{tmp.stem}.stop"
+    job_id, err = _start_job("record", ["record", "--config-file", str(tmp), "--stop-file", str(stop)], extra={"timeout": 1500})
     if err:
         return jsonify({"success": False, "error": err}), 409
-    return jsonify({"success": True, "job_id": job_id})
+    _jobs[job_id]["stop_file"] = str(stop)
+    from web import live_vnc
+    return jsonify({"success": True, "job_id": job_id, "on_server": live_vnc.frames_available(),
+                    "control": live_vnc.control_available()})
+
+
+@bp.route("/api/screens/record/<job_id>/finish", methods=["POST"])
+@auth.login_required
+def api_record_finish(job_id):
+    """«⏹ خلصت» from the dashboard: the recorder stops and returns what it caught (nothing is lost)"""
+    job = _jobs.get(job_id)
+    if not job or not job.get("stop_file"):
+        return jsonify({"success": False, "error": "مفيش تسجيل شغال"}), 404
+    Path(job["stop_file"]).write_text("stop", encoding="utf-8")
+    return jsonify({"success": True})

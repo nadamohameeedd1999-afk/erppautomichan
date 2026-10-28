@@ -30,9 +30,9 @@
     .module-body.open { max-height: 5000px; }
     
     .last-result-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
-    .last-result-badge.passed { background: #d1e7dd; color: #a7f3d0; }
-    .last-result-badge.failed { background: #f8d7da; color: #fecdd3; }
-    .last-result-badge.never { background: #e2e3e5; color: var(--g-muted); }
+    .last-result-badge.passed { background: color-mix(in srgb, var(--g-ok) 16%, transparent); color: var(--g-ok); font-weight: 700; }
+    .last-result-badge.failed { background: color-mix(in srgb, var(--g-bad) 16%, transparent); color: var(--g-bad); font-weight: 700; }
+    .last-result-badge.never { background: var(--g-hover); color: var(--g-muted); }
     
     .sticky-toolbar {
         position: sticky; top: 70px; z-index: 100;

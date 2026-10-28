@@ -141,6 +141,73 @@ def frames_available():
         return False
 
 
+_screen = {"w": 0, "h": 0}
+_input_lock = threading.Lock()
+
+_KEYS = {"Enter": "Return", "Backspace": "BackSpace", "Tab": "Tab", "Escape": "Escape", "Delete": "Delete",
+         "ArrowLeft": "Left", "ArrowRight": "Right", "ArrowUp": "Up", "ArrowDown": "Down", "Home": "Home", "End": "End",
+         "PageUp": "Prior", "PageDown": "Next", " ": "space"}
+
+
+def control_available():
+    import shutil
+    return frames_available() and bool(shutil.which("xdotool"))
+
+
+@bp.route("/api/live/input", methods=["POST"])
+@auth.login_required
+def live_input():
+    """picture mode with control: clicks / keys from the dashboard go to the test browser's screen (xdotool)"""
+    import shutil
+    import subprocess
+    from flask import request
+    if not shutil.which("xdotool"):
+        return jsonify({"success": False, "error": "xdotool مش متثبت على السيرفر"}), 501
+    d = request.get_json(silent=True) or {}
+    # UTF-8 locale: without it xdotool can't type Arabic ("Invalid multi-byte sequence")
+    env = {**os.environ, "DISPLAY": os.getenv("DISPLAY", ":99"), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+    if not _screen["w"]:
+        try:
+            out = subprocess.run(["xdotool", "getdisplaygeometry"], env=env, capture_output=True, text=True, timeout=3).stdout.split()
+            _screen.update(w=int(out[0]), h=int(out[1]))
+        except Exception:
+            _screen.update(w=1600, h=900)
+    kind = d.get("type")
+    cmd = None
+    if kind in ("click", "dblclick", "rclick", "move"):
+        x = max(0, min(_screen["w"] - 1, round(float(d.get("fx", 0)) * _screen["w"])))
+        y = max(0, min(_screen["h"] - 1, round(float(d.get("fy", 0)) * _screen["h"])))
+        cmd = ["xdotool", "mousemove", str(x), str(y)]
+        if kind == "click":
+            cmd += ["click", "1"]
+        elif kind == "dblclick":
+            cmd += ["click", "--repeat", "2", "--delay", "60", "1"]
+        elif kind == "rclick":
+            cmd += ["click", "3"]
+    elif kind == "scroll":
+        cmd = ["xdotool", "click", "--repeat", str(min(10, max(1, int(abs(float(d.get("dy", 1))) // 60) or 1))), "5" if float(d.get("dy", 1)) > 0 else "4"]
+    elif kind == "key":
+        k = str(d.get("key") or "")
+        mods = [m for m, on in (("ctrl", d.get("ctrl")), ("shift", d.get("shift")), ("alt", d.get("alt"))) if on]
+        if k in _KEYS:
+            cmd = ["xdotool", "key", "--clearmodifiers", "+".join(mods + [_KEYS[k]])]
+        elif len(k) == 1 and mods and mods != ["shift"]:
+            cmd = ["xdotool", "key", "--clearmodifiers", "+".join(mods + [k.lower()])]
+        elif len(k) == 1:
+            cmd = ["xdotool", "type", "--delay", "0", "--", k]
+    elif kind == "text":
+        cmd = ["xdotool", "type", "--delay", "8", "--", str(d.get("text") or "")[:2000]]
+    if not cmd:
+        return jsonify({"success": False, "error": "حركة مش معروفة"}), 400
+    try:
+        with _input_lock:                 # one xdotool at a time (Arabic typing remaps a key — parallel calls garble it)
+            subprocess.run(cmd, env=env, timeout=20, capture_output=True)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    _frame["t"] = 0                       # next picture shows the result right away
+    return jsonify({"success": True})
+
+
 @bp.route("/api/live/frame.jpg")
 @auth.login_required
 def live_frame():
@@ -179,6 +246,7 @@ def live_status():
         "novnc": novnc_dir() is not None,
         "vnc_up": vnc_port_open(),
         "frames": frames_available(),
+        "control": control_available(),
         "test_running": running,
         "test_name": running_name,
     })

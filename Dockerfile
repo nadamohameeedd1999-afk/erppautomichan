@@ -14,7 +14,7 @@ WORKDIR /app
 # ===== System deps =====
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg unzip curl ca-certificates \
-    xvfb x11vnc novnc websockify \
+    xvfb x11vnc novnc websockify xdotool fonts-noto-core \
     supervisor \
     fonts-liberation \
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \

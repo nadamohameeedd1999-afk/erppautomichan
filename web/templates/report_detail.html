@@ -79,6 +79,7 @@
     <div class="card border-0 shadow-sm mb-4" id="whyCard">
         <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="fw-bold mb-0">🧠 ليه فشل؟</h5>
+            <a class="btn btn-sm btn-outline-secondary ms-auto" href="/compare?tab=runs&preset=pass_fail&b={{ report.run_id|urlencode }}" title="يحط المرة دي جنب آخر مرة نفس الاختبار نجح فيها">⚖️ قارني بآخر نجاح</a>
             <button class="btn btn-sm btn-primary" id="btnAi" onclick="askAi()">✨ {% if ai %}اسأل الذكاء الاصطناعي تاني{% else %}اسأل الذكاء الاصطناعي{% endif %}</button>
         </div>
         <div class="card-body pt-2" id="whyBody">

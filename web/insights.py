@@ -322,12 +322,15 @@ def compare_runs(a_id, b_id):
         rx = (x or {}).get("result") if (x or {}).get("ok") else ("❌ " + (x or {}).get("error", "")[:80] if x else "—")
         ry = (y or {}).get("result") if (y or {}).get("ok") else ("❌ " + (y or {}).get("error", "")[:80] if y else "—")
         fields.append({"label": lb, "a": rx or "—", "b": ry or "—", "same": (rx or "") == (ry or "")})
-    shot_pairs = []
-    blabels = {s["label"]: s for s in b["shots"]}
+    # pair the screenshots by what they show, in order (the same label can appear more than once)
+    shot_pairs, left = [], list(b["shots"])
     for s in a["shots"]:
-        shot_pairs.append({"label": s["label"], "a": s["file"], "b": (blabels.pop(s["label"], None) or {}).get("file")})
-    for lb, s in blabels.items():
-        shot_pairs.append({"label": lb, "a": None, "b": s["file"]})
+        m = next((x for x in left if x["label"] == s["label"]), None)
+        if m:
+            left.remove(m)
+        shot_pairs.append({"label": s["label"], "a": s["file"], "b": m["file"] if m else None})
+    for s in left:
+        shot_pairs.append({"label": s["label"], "a": None, "b": s["file"]})
     verdict = []
     if a["passed"] != b["passed"]:
         verdict.append(f"التشغيلة {'أ' if a['passed'] else 'ب'} نجحت والتانية فشلت")
@@ -335,6 +338,9 @@ def compare_runs(a_id, b_id):
     if abs(d) >= 5:
         verdict.append(f"ب {'أبطأ' if d > 0 else 'أسرع'} بـ {abs(d)} ثانية ({round(100 * abs(d) / max(1, a['duration']))}%)")
     diff_fields = [f["label"] for f in fields if not f["same"]]
+    first_bad = next((s for s in b["steps"] if not s.get("ok")), None)
+    if first_bad and not b["passed"]:
+        verdict.append(f"ب وقفت عند «{first_bad['label']}»" + (f": {first_bad.get('error', '')[:90]}" if first_bad.get("error") else ""))
     if diff_fields:
         verdict.append("اختلاف في: " + "، ".join(diff_fields[:6]))
     if not verdict:

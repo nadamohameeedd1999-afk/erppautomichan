@@ -28,11 +28,20 @@ def _driver():
     """Own temporary Chrome profile, so it never clashes with a test that is running from the queue."""
     import tempfile
     from tests.conftest import _build_options, _create_driver
-    opts = _build_options()
-    prof = tempfile.mkdtemp(prefix="screen_builder_chrome_")
-    _PROFILE_DIRS.append(prof)
-    opts.add_argument(f"--user-data-dir={prof}")
-    d = _create_driver(opts)
+    import time
+    for attempt in range(3):                   # Chrome sometimes fails to start on a busy server — try again
+        opts = _build_options()
+        prof = tempfile.mkdtemp(prefix="screen_builder_chrome_")
+        _PROFILE_DIRS.append(prof)
+        opts.add_argument(f"--user-data-dir={prof}")
+        try:
+            d = _create_driver(opts)
+            break
+        except Exception as e:
+            if attempt == 2 or "session not created" not in str(e).lower():
+                raise
+            print(f"Chrome ما فتحش ({str(e).splitlines()[0][:80]}) — بجرب تاني", flush=True)
+            time.sleep(2)
     d.set_page_load_timeout(60)
     d.set_script_timeout(60)
     d.implicitly_wait(1)
@@ -99,11 +108,22 @@ def cmd_record(a):
     from engine.recorder import record, convert
     from engine.screen_runner import login
     cfg = _load_cfg(a)
-    d = _driver()
+
+    def opened():                       # Chrome crashing while opening is retried (nothing was recorded yet)
+        d = _driver()
+        try:
+            login(d, _credentials())
+            FormInspector(d).open_add_page(cfg["list_url"], cfg.get("add_url", ""), cfg.get("add_button", ""))
+            return d
+        except Exception:
+            try:
+                d.quit()
+            except Exception:
+                pass
+            raise
+    d = _with_retry(opened)
     try:
-        login(d, _credentials())
-        FormInspector(d).open_add_page(cfg["list_url"], cfg.get("add_url", ""), cfg.get("add_button", ""))
-        events = record(d, max_minutes=a.minutes)
+        events = record(d, max_minutes=a.minutes, stop_file=a.stop_file or None)
         items = convert(events)
         return {"success": True, "items": items, "events": len(events)}
     finally:
@@ -204,6 +224,7 @@ def main(argv=None):
     rc = sub.add_parser("record")
     rc.add_argument("--config-file", required=True)
     rc.add_argument("--minutes", type=int, default=20)
+    rc.add_argument("--stop-file", default="", help="recording ends when this file appears (the dashboard's «⏹ خلصت»)")
     rc.add_argument("--out", default="")
     rc.add_argument("key", nargs="?", default="")
 
