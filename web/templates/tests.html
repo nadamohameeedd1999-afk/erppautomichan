@@ -192,6 +192,10 @@
                 </span>
             </div>
             <div>
+                <div class="input-group d-inline-flex w-auto align-middle me-2 d-none" id="siteBox" title="على أنهي موقع/عميل يتشغل الاختبار (من الإعدادات ← مواقع الاختبار)">
+                    <span class="input-group-text">🌐 على</span>
+                    <select id="runSites" class="form-select" style="max-width:220px"></select>
+                </div>
                 <div class="input-group d-inline-flex w-auto align-middle me-2" title="كام مرة يتكرر كل اختبار كامل (من 1 لـ 50)">
                     <span class="input-group-text">🔁 التكرار</span>
                     <input type="number" id="globalRepeat" class="form-control" style="max-width:80px" min="1" max="50" value="1">
@@ -870,6 +874,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (viewLogBtn) viewLogBtn.addEventListener('click', () => window.currentTaskId && loadLog(window.currentTaskId));
     if (refreshLogBtn) refreshLogBtn.addEventListener('click', () => window.currentTaskId && loadLog(window.currentTaskId));
 });
+
+// ==================== Sites (أكتر من عميل) ====================
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+window.getRunSites = () => (document.getElementById('runSites') || {}).value || '';
+fetch('/api/sites').then(r => r.json()).then(j => {
+    const list = (j && j.sites) || [];
+    if (list.length < 2) return;                       // one site: nothing to choose
+    const sel = document.getElementById('runSites');
+    sel.innerHTML = `<option value="">الموقع النشط (${esc(list.find(x => x.active)?.name || '—')})</option>` +
+        list.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') +
+        `<option value="all">🌐 كل المواقع (${list.length})</option>`;
+    document.getElementById('siteBox').classList.remove('d-none');
+}).catch(() => {});
 
 // ==================== Init ====================
 loadAll();

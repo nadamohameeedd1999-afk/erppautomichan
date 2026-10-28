@@ -78,7 +78,10 @@ def html_report(d, user="", for_pdf=False):
         ("اتفحص", d.get("done", 0)), ("شاشات بجدول", n_scr),
         ("جديدة", sum(x.get("kind") == "screen" and not x.get("known") for x in items)),
         ("صفحات تانية", sum(x.get("kind") == "page" for x in items)), ("أخطاء", sum(x.get("kind") == "error" for x in items)),
-        ("اتضاف للاختبارات", sum(bool(x.get("added_at")) for x in items))])
+        ("اتضاف للاختبارات", sum(bool(x.get("added_at")) for x in items)),
+        ("فلتر التخطي", e("، ".join(d.get("skip") or []) or "—")), ("اتخطى", len(d.get("skipped") or []))])
+    skipped = "".join(f'<div class="stp">🚫 {e(x.get("name", ""))} — <span class="ltr">{e(x.get("url", ""))}</span> '
+                      f'<span class="grey">(فيه «{e(x.get("word", ""))}»)</span></div>' for x in d.get("skipped") or [])
     steps = "".join(f'<div class="stp"><span class="ltr grey">{e(s.get("t", ""))}</span> {e(s.get("msg", ""))}</div>' for s in d.get("steps", []))
 
     logo = f'<img src="{co["logo"]}" class="logo">' if co["logo"] else ""
@@ -129,6 +132,7 @@ def html_report(d, user="", for_pdf=False):
       <th class="c">النوع</th><th class="c">جداول</th><th class="c">صفوف</th><th class="c">زر إضافة</th><th class="c">ث</th><th class="c">الاختبارات</th></tr></thead>
     <tbody>{body}</tbody>
   </table>
+  {('<h3>الروابط اللي اتخطت بالفلتر</h3>' + skipped) if skipped else ''}
   <h3>خطوات التنفيذ</h3>
   {steps or '<div class="grey">—</div>'}
 </div>

@@ -54,7 +54,7 @@ def _seed_defs():
     if DEFS_DIR == repo:
         return
     import shutil
-    for sub in ("screens", "scenarios"):
+    for sub in ("screens", "scenarios", "checks"):
         for f in (repo / sub).glob("*.json"):
             dest = DEFS_DIR / sub / f.name
             if not dest.exists():

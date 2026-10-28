@@ -38,12 +38,14 @@
             {{ item(('index',), url_for('index'), 'bi-grid-1x2', 'الرئيسية' if ar else 'Home') }}
             {{ item(('tests',), url_for('tests'), 'bi-clipboard-check', t('tests')) }}
             {{ item(('screens.screens_page', 'screens.scenarios_page'), url_for('screens.screens_page'), 'bi-tools', 'منشئ الاختبارات' if ar else 'Test Builder') }}
+            {{ item(('checks.checks_page',), url_for('checks.checks_page'), 'bi-diagram-3', 'اختبارات متقدمة' if ar else 'Advanced tests') }}
             {{ item(('ops.run_center',), url_for('ops.run_center'), 'bi-play-circle', 'مركز التشغيل' if ar else 'Run Center', '<span class="cnt d-none" id="navRunBadge"></span>') }}
             {{ item(('ops.schedule_page',), url_for('ops.schedule_page'), 'bi-calendar-week', t('schedule')) }}
 
             <div class="sec">{{ 'المتابعة' if ar else 'Monitoring' }}</div>
             {{ item(('reports', 'report_detail', 'ops.daily_report_page', 'ops.discovery_report_page'), url_for('reports'), 'bi-bar-chart-line', t('reports')) }}
             {{ item(('ops.compare_page',), url_for('ops.compare_page'), 'bi-arrow-left-right', 'المقارنة' if ar else 'Compare') }}
+            {{ item(('sites.sites_page', 'monthly.monthly_page'), url_for('sites.sites_page'), 'bi-buildings', 'العملاء والمواقع' if ar else 'Clients & sites') }}
             {{ item(('live_viewer',), url_for('live_viewer'), 'bi-broadcast', 'بث مباشر' if ar else 'Live', '<span class="live-dot d-none" id="navLiveDot"></span>') }}
 
             <div class="sec">{{ 'الإدارة' if ar else 'Admin' }}</div>
@@ -142,13 +144,20 @@ function gSide(open) {
         {icon: 'bi bi-diagram-3', name: AR ? 'سيناريو جديد' : 'New scenario', url: '/scenarios'},
         {icon: 'bi bi-file-earmark-pdf', name: AR ? 'التقرير اليومي' : 'Daily report', url: '/reports/daily'},
         {icon: 'bi bi-list-task', name: AR ? 'طابور التشغيل' : 'Run queue', url: '/queue'},
+        {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
+        {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
+        {icon: 'bi bi-shield-lock', name: AR ? 'اختبار صلاحيات مستخدم' : 'User permissions test', url: '/checks?new=permission'},
+        {icon: 'bi bi-speedometer2', name: AR ? 'سرعة الشاشات' : 'Screen speed', url: '/checks?new=perf'},
+        {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},
     ].map(c => ({...c, kind: AR ? 'أمر' : 'action'}));
     let ITEMS = BASE.concat(CMDS), loaded = false, sel = 0, shown = [];
     async function loadScreens() {
         if (loaded) return; loaded = true;
         try {
-            const [s, c] = await Promise.all([fetch('/api/screens').then(r => r.json()).catch(() => ({})),
-                                              fetch('/api/scenarios').then(r => r.json()).catch(() => ({}))]);
+            const [s, c, k] = await Promise.all([fetch('/api/screens').then(r => r.json()).catch(() => ({})),
+                                              fetch('/api/scenarios').then(r => r.json()).catch(() => ({})),
+                                              fetch('/api/checks').then(r => r.json()).catch(() => ({}))]);
+            (k.checks || []).forEach(x => ITEMS.push({icon: 'bi bi-diagram-3', name: x.name_ar || x.key, url: '/checks?key=' + encodeURIComponent(x.key), kind: AR ? 'اختبار متقدم' : 'advanced'}));
             (s.screens || []).forEach(x => ITEMS.push({icon: 'bi bi-ui-checks-grid', name: x.name_ar || x.key, url: '/screens?key=' + encodeURIComponent(x.key), kind: AR ? 'شاشة' : 'screen'}));
             (c.scenarios || []).forEach(x => ITEMS.push({icon: 'bi bi-film', name: (x.screen_name || x.screen_key) + ' — ' + x.scenario_name,
                 url: `/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}`, kind: AR ? 'سيناريو' : 'scenario'}));

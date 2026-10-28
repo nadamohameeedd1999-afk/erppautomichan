@@ -6,6 +6,7 @@ Screen Builder command line.
   python -m engine.cli dry-run  --config-file my.json   # same, from an unsaved config
   python -m engine.cli run      cash_receipt            # full flow with save
   python -m engine.cli inspect-popup --config-file draft.json --open "ربط بمستند اخر" [--after CustomerId]
+  python -m engine.cli check    --config-file chk.json  # an advanced test (cycle / report / permission / perf)
   python -m engine.cli sync                             # re-create missing tests/screens stubs
 
 The dashboard calls the same commands in the background and reads --out.
@@ -142,7 +143,8 @@ def cmd_discover(a):
     try:
         login(d, _credentials())
         known = [p["url"] for p in all_pages().values() if p["module_key"] != "discovered"]
-        res = discover(d, check=not a.no_check, limit=a.limit, known_urls=known, progress=prog)
+        skip = None if a.skip is None else [s.strip() for s in a.skip.replace("،", ",").split(",") if s.strip()]
+        res = discover(d, check=not a.no_check, limit=a.limit, known_urls=known, progress=prog, skip=skip, deep=a.deep)
         added = 0
         if not a.no_save:                          # command line: add every new screen
             cur = {x["key"]: x for x in discovered()}
@@ -210,6 +212,28 @@ def cmd_fill(a, save):
             pass
 
 
+def cmd_check(a):
+    from engine import checks
+    from engine.check_runner import run_check
+    if a.config_file:
+        cfg = checks.normalize(json.loads(Path(a.config_file).read_text(encoding="utf-8-sig")))
+    else:
+        cfg = checks.load(a.key)
+    d = _driver()
+    result = {"key": cfg["key"]}
+    try:
+        result = run_check(d, _credentials(), cfg)
+        return {"success": True, **result}
+    except AssertionError as e:
+        result = getattr(e, "partial_result", None) or result
+        return {"success": False, **result, "error": str(e)}
+    finally:
+        try:
+            d.quit()
+        except Exception:
+            pass
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="engine.cli")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -233,6 +257,8 @@ def main(argv=None):
     dc.add_argument("--limit", type=int, default=200)
     dc.add_argument("--no-save", action="store_true", help="only report; the dashboard adds the screens the user picks")
     dc.add_argument("--progress", default="")
+    dc.add_argument("--skip", default=None, help="skip links containing these words, comma separated (default: login,logout,tickets…)")
+    dc.add_argument("--deep", action="store_true", help="also follow the links found inside each opened page")
     dc.add_argument("--out", default="")
 
     ip = sub.add_parser("inspect-popup")
@@ -248,6 +274,11 @@ def main(argv=None):
         r.add_argument("key", nargs="?", default="")
         r.add_argument("--config-file", default="")
         r.add_argument("--out", default="")
+
+    ck = sub.add_parser("check")
+    ck.add_argument("key", nargs="?", default="")
+    ck.add_argument("--config-file", default="")
+    ck.add_argument("--out", default="")
 
     s = sub.add_parser("sync")
     s.add_argument("--out", default="")
@@ -269,9 +300,13 @@ def main(argv=None):
                 data = _with_retry(lambda: _raise_crash(cmd_fill(a, save=False)))
             else:
                 data = cmd_fill(a, save=True)
+        elif a.cmd == "check":
+            if not a.key and not a.config_file:
+                p.error("اكتب اسم الاختبار أو --config-file")
+            data = cmd_check(a)
         else:
-            from engine import screen_config
-            data = {"success": True, "created": screen_config.sync_stubs()}
+            from engine import screen_config, checks
+            data = {"success": True, "created": screen_config.sync_stubs() + checks.sync_stubs()}
     except Exception as e:
         data = {"success": False, "error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-2000:]}
     _write(a.out, data)

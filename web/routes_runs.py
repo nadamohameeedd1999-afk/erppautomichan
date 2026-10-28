@@ -93,8 +93,13 @@ def run_test():
     if not test_path:
         return jsonify({"success": False, "error": "test_path required"}), 400
 
-    task_id = f"run_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     qm = get_qm()
+    sites = data.get("sites") or ""
+    if sites:                                   # «شغّلي على: كل المواقع / موقع معين»
+        from web import sites_api
+        out = sites_api.queue_on_sites(qm, test_path, test_name, sites, repeat=_repeat_from_request(test_path))
+        return jsonify({"success": True, **out, "repeat": _repeat_from_request(test_path)})
+    task_id = f"run_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     result = qm.add(task_id, test_path, test_name, repeat=_repeat_from_request(test_path))
 
     return jsonify({

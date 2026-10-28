@@ -65,7 +65,7 @@ def run_cli(mock_erp, tmp_path):
             subprocess.run([sys.executable, "-m", "engine.cli", cmd, *extra, *args, "--out", str(out)],
                            cwd=str(ROOT), env=mock_erp, timeout=600, capture_output=True)
             data = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {"success": False, "error": "no output"}
-            if "InvalidSessionId" not in str(data.get("error", "")) and "disconnected" not in str(data.get("error", "")):
+            if not any(w in str(data.get("error", "")) for w in ("InvalidSessionId", "disconnected", "SessionNotCreated")):
                 break
         return data
     return run

@@ -228,6 +228,7 @@ class QueueManager:
                 env["PYTHONIOENCODING"] = "utf-8"
                 env["PYTHONUTF8"] = "1"
                 env["TEST_REPEAT"] = str(task.get("repeat", 1) or 1)
+                env["RUN_ID"] = task_id                          # advanced tests save their detail table under this id
                 if task.get("site"):
                     env["SITE_PROFILE"] = str(task["site"])      # run on another test site (Settings → المواقع)
                     lf.write(f"SITE: {task.get('site_name') or task['site']}\n")

@@ -1,14 +1,17 @@
-"""Fake NQ ERP (login, cash receipt, customer, sales invoice with items / link documents / attachments, edit, print)
-used by selftest/ to check the engine. Run: npm install && python mock_erp.py  (http://127.0.0.1:5055, erpadmin / pw)"""
+"""Fake NQ ERP (login, cash receipt + its journal entry, customer, sales invoice with items / link documents / attachments,
+edit, print, trial balance with filters, a limited user, a slow page) used by selftest/ to check the engine.
+Run: npm install && python mock_erp.py  (http://127.0.0.1:5055, erpadmin / pw — limited user: viewer / pw2)"""
 from pathlib import Path
 import json
+import time
 from datetime import date, timedelta
 from flask import Flask, request, redirect, jsonify, send_from_directory, make_response
 
 HERE = Path(__file__).resolve().parent
 NM = HERE / "node_modules"
 app = Flask(__name__)
-VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "data": {}}]
+VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "date": "2026-10-01", "data": {}}]
+SLOW = {"ms": 0}          # /__slow?ms=3000 makes the customers list slow (performance test)
 
 LIBS = """
 <link rel="stylesheet" href="/lib/select2/dist/css/select2.min.css">
@@ -32,9 +35,11 @@ def lib(p):
 @app.route("/Login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        if request.form.get("userName") == "erpadmin" and request.form.get("password") == "pw":
+        users = {("erpadmin", "pw"): "1", ("viewer", "pw2"): "viewer"}
+        who = users.get((request.form.get("userName"), request.form.get("password")))
+        if who:
             r = make_response(redirect("/Home"))
-            r.set_cookie("auth", "1")
+            r.set_cookie("auth", who)
             return r
         return redirect("/Login")
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
@@ -47,31 +52,92 @@ def login():
 
 
 def guard():
-    return request.cookies.get("auth") == "1"
+    return request.cookies.get("auth") in ("1", "viewer")
+
+
+def viewer():
+    return request.cookies.get("auth") == "viewer"
+
+
+DENIED = "<html dir=rtl><head><meta charset=utf-8></head><body><h3>ليس لديك صلاحية لدخول هذه الشاشة</h3></body></html>"
+
+
+@app.route("/__slow")
+def set_slow():
+    SLOW["ms"] = int(request.args.get("ms", "0") or 0)
+    return jsonify(SLOW)
+
+
+@app.route("/Home/AccessDenied")
+def access_denied():
+    return DENIED
 
 
 @app.route("/Home")
 def home():
     if not guard():
         return redirect("/Login")
+    crv = "" if viewer() else '<li><a href="/CashReceiptVoucher">سند القبض</a></li>'
     return """<html dir=rtl><head><meta charset=utf-8></head><body>
     <aside class="sidebar"><ul>
       <li><span>المبيعات</span><ul><li><a href="/SalesInvoice">فواتير البيع</a></li><li><a href="/Customer">العملاء</a></li></ul></li>
-      <li><span>الحسابات العامة</span><ul><li><a href="/CashReceiptVoucher">سند القبض</a></li><li><a href="/Reports/Trial">ميزان المراجعة</a></li></ul></li>
-      <li><a href="#">بدون رابط</a></li><li><a href="/Logout">خروج</a></li>
+      <li><span>الحسابات العامة</span><ul>""" + crv + """<li><a href="/Reports/Trial">ميزان المراجعة</a></li></ul></li>
+      <li><a href="/Support/Tickets">التذاكر</a></li><li><a href="#">بدون رابط</a></li><li><a href="/Logout">خروج</a></li>
     </ul></aside><main>home</main></body></html>"""
+
+
+def _journal(v):
+    """the entry a cash receipt makes: cash (debit) / the customer (credit). Notes with «قيد-خطأ» -> unbalanced"""
+    amt = float(v["amount"])
+    bad = "قيد-خطأ" in str((v.get("data") or {}).get("Notes", ""))
+    return [("الصندوق الرئيسي", f"سند قبض {v['no']}", amt, 0.0), (v["customer"], f"سند قبض {v['no']}", 0.0, amt - (10 if bad else 0))]
+
+
+@app.route("/Journal/CRV/<int:no>")
+def journal(no):
+    if not guard():
+        return redirect("/Login")
+    v = next((x for x in VOUCHERS if x["no"] == no), None)
+    if not v:
+        return "<html><body>لا يوجد قيد</body></html>", 404
+    rows = "".join(f"<tr><td>{a}</td><td>{d}</td><td>{dr:,.2f}</td><td>{cr:,.2f}</td></tr>" for a, d, dr, cr in _journal(v))
+    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8><title>قيد يومية J-{no}</title></head><body>
+    <h3>قيد يومية رقم J-{no}</h3><table><thead><tr><th>الحساب</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+    <tbody>{rows}</tbody></table></body></html>"""
 
 
 @app.route("/Reports/Trial")
 def trial():
-    return "<html><body><h1>ميزان المراجعة</h1><p>تقرير</p></body></html>" if guard() else redirect("/Login")
+    if not guard():
+        return redirect("/Login")
+    f, t = request.args.get("DateFrom", ""), request.args.get("DateTo", "")
+    table = ""
+    if request.args.get("show"):
+        acc = {}
+        for v in VOUCHERS:
+            if (f and v.get("date", "") < f) or (t and v.get("date", "") > t):
+                continue
+            for a, _, dr, cr in _journal(v):
+                x = acc.setdefault(a, [0.0, 0.0])
+                x[0] += dr
+                x[1] += cr
+        body = "".join(f"<tr><td>{a}</td><td>{d:,.2f}</td><td>{c:,.2f}</td></tr>" for a, (d, c) in sorted(acc.items())) \
+            or '<tr><td colspan=3 class="dataTables_empty">لا توجد بيانات</td></tr>'
+        table = f"<table id=trial><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>{body}</tbody></table>"
+    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8></head><body><h1>ميزان المراجعة</h1>
+    <form method=get><label for=DateFrom>من تاريخ</label><input type=date id=DateFrom name=DateFrom value="{f}">
+    <label for=DateTo>إلى تاريخ</label><input type=date id=DateTo name=DateTo value="{t}">
+    <input type=hidden name=show value=1><button id=btnShow type=submit>عرض</button></form>{table}</body></html>"""
 
 
 @app.route("/CashReceiptVoucher")
 def crv_list():
     if not guard():
         return redirect("/Login")
-    rows = "".join(f"<tr><td>{v['no']}</td><td>{v['customer']}</td><td>{v['amount']}</td><td><a href='/CashReceiptVoucher/AddEdit?id={v['no']}'>تعديل</a></td></tr>" for v in reversed(VOUCHERS))
+    if viewer():
+        return DENIED
+    rows = "".join(f"<tr><td>{v['no']}</td><td>{v['customer']}</td><td>{v['amount']}</td><td><a href='/CashReceiptVoucher/AddEdit?id={v['no']}'>تعديل</a>"
+                   f" <a href='/Journal/CRV/{v['no']}' target='_blank' title='القيد'>القيد</a></td></tr>" for v in reversed(VOUCHERS))
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8></head><body>
     <nav><input type=text id=globalSearch placeholder=بحث></nav>
     <a class="btn" href="/CashReceiptVoucher/AddEdit">إضافة جديد</a>
@@ -92,10 +158,13 @@ def api_projects():
 def crv_add():
     if not guard():
         return redirect("/Login")
+    if viewer():
+        return redirect("/Home/AccessDenied")
     if request.method == "POST":
         f = request.form
         cust = dict(sum(CUSTOMERS.values(), [])).get(f.get("CustomerId"), "?")
-        VOUCHERS.append({"no": VOUCHERS[-1]["no"] + 1, "customer": cust, "amount": f"{float(f.get('MoneyAmount') or 0):.2f}", "data": dict(f)})
+        VOUCHERS.append({"no": VOUCHERS[-1]["no"] + 1, "customer": cust, "amount": f"{float(f.get('MoneyAmount') or 0):.2f}",
+                         "date": f.get("VoucherDate") or date.today().isoformat(), "data": dict(f)})
         return redirect("/CashReceiptVoucher")
     vid = request.args.get("id")
     rec = next((v for v in VOUCHERS if str(v["no"]) == str(vid)), None) if vid else None
@@ -161,9 +230,21 @@ def crv_add():
 def cust_list():
     if not guard():
         return redirect("/Login")
+    if SLOW["ms"]:
+        time.sleep(SLOW["ms"] / 1000)
     rows = "".join(f"<tr><td>{n}</td></tr>" for _, n in reversed(CUSTOMERS["1"]))
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8></head><body>
-    <a class="btn" href="/Customer/AddEdit">إضافة</a><table><tbody>{rows}</tbody></table></body></html>"""
+    <a class="btn" href="/Customer/AddEdit">إضافة</a> <a href="/CustomerGroups">مجموعات العملاء</a><table><tbody>{rows}</tbody></table></body></html>"""
+
+
+@app.route("/Support/Tickets")
+def tickets():
+    return "<html><body><table><tbody><tr><td>T-1</td></tr></tbody></table></body></html>" if guard() else redirect("/Login")
+
+
+@app.route("/CustomerGroups")
+def customer_groups():
+    return "<html dir=rtl><body><h1>مجموعات العملاء</h1><table><tbody><tr><td>VIP</td></tr></tbody></table></body></html>" if guard() else redirect("/Login")
 
 
 @app.route("/Customer/AddEdit", methods=["GET", "POST"])

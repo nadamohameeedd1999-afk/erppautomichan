@@ -295,6 +295,20 @@ def api_inspect_popup():
     return jsonify({"success": True, "job_id": job_id})
 
 
+@bp.route("/api/screens/ai-build", methods=["POST"])
+@auth.login_required
+def api_ai_build():
+    """«اوصفي الاختبار بالكلام» -> values for the fields that were read from the screen"""
+    from web import ai_builder
+    d = request.get_json(silent=True) or {}
+    try:
+        return jsonify({"success": True, **ai_builder.build(d.get("description"), d.get("fields") or [])})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"حصل خطأ: {e}"}), 500
+
+
 def _shot_name(p):
     return Path(p).name if p else None
 
@@ -382,18 +396,39 @@ def api_discover():
     """Read the ERP side menu, open every link and report what's there (اكتشاف شاشات النظام).
     Nothing is added to the tests until the user picks screens (/api/screens/discovered/add)."""
     d = request.get_json(silent=True) or {}
-    limit = max(1, min(400, int(d.get("limit") or 200)))
+    limit = max(1, min(1500, int(d.get("limit") or 200)))
+    skip = d.get("skip")
+    if isinstance(skip, str):
+        skip = skip.replace("،", ",").replace("\n", ",").split(",")
+    skip = [s.strip() for s in (skip if skip is not None else _disc_settings()["skip"]) if str(s).strip()]
+    deep = bool(d.get("deep", False))
+    from config.storage import save_json
+    save_json(paths.settings_file("discovery.json"), {"skip": skip, "deep": deep, "limit": limit})
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     busy = _running["job"] and _jobs.get(_running["job"], {}).get("status") == "running"
     if not busy:
         (JOBS_DIR / "discover_progress.json").unlink(missing_ok=True)      # a fresh start
-    job_id, err = _start_job("discover", ["discover", "--limit", str(limit), "--no-save",
-                                          "--progress", str(JOBS_DIR / "discover_progress.json")],
-                             extra={"timeout": 3600})
+    job_id, err = _start_job("discover", ["discover", "--limit", str(limit), "--no-save", "--skip", ",".join(skip),
+                                          "--progress", str(JOBS_DIR / "discover_progress.json")] + (["--deep"] if deep else []),
+                             extra={"timeout": 3 * 3600})
     if err:
         return jsonify({"success": False, "error": err}), 409
     _jobs[job_id]["progress"] = str(JOBS_DIR / "discover_progress.json")
     return jsonify({"success": True, "job_id": job_id})
+
+
+def _disc_settings():
+    from config.storage import load_json
+    from engine.discover import DEFAULT_SKIP
+    c = load_json(paths.settings_file("discovery.json"), {}) or {}
+    return {"skip": c.get("skip") if isinstance(c.get("skip"), list) else list(DEFAULT_SKIP),
+            "deep": bool(c.get("deep", False)), "limit": int(c.get("limit") or 200), "default_skip": list(DEFAULT_SKIP)}
+
+
+@bp.route("/api/screens/discover/settings")
+@auth.login_required
+def api_discover_settings():
+    return jsonify({"success": True, **_disc_settings()})
 
 
 @bp.route("/api/screens/discover/<job_id>")

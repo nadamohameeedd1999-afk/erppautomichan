@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% block title %}اختبارات متقدمة - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ck-card { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); }
+    .ck-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tcard { display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; border: 1px solid var(--g-line); background: var(--g-panel);
+             height: 100%; transition: border-color .15s, transform .15s; }
+    .tcard:hover { transform: translateY(-2px); border-color: var(--g-line-strong); }
+    .tcard .ic { font-size: 30px; line-height: 1; }
+    .tcard .d { color: var(--g-muted); font-size: 13px; line-height: 1.7; flex: 1; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .chip.ok { background: rgba(52,211,153,.14); color: var(--g-ok, #198754); } .chip.bad { background: rgba(251,113,133,.14); color: var(--g-bad, #dc3545); }
+    .chip.none { background: var(--g-hover); color: var(--g-muted); }
+    .muted { color: var(--g-muted); font-size: 12px; }
+    .ed-sec { border: 1px solid var(--g-line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+    .ed-sec > .t { font-weight: 800; margin-bottom: 8px; }
+    .ed-sec .hint { color: var(--g-muted); font-size: 12px; line-height: 1.7; }
+    .steps-tbl td, .steps-tbl th { vertical-align: middle; }
+    .row-warn td { background: rgba(251,191,36,.10) !important; }
+    .det-tbl td { vertical-align: top; font-size: 13px; }
+    .det-tbl tr.ok td:last-child { color: var(--g-ok, #198754); font-weight: 700; }
+    .det-tbl tr.bad td { background: rgba(251,113,133,.10) !important; }
+    .det-tbl tr.warn td { background: rgba(251,191,36,.10) !important; }
+    .pick-list { max-height: 300px; overflow: auto; border: 1px solid var(--g-line); border-radius: 10px; padding: 6px 10px; }
+    .pick-list .grp { font-weight: 800; font-size: 12px; color: var(--g-muted); margin: 8px 0 2px; }
+    .tok { cursor: pointer; font-family: monospace; font-size: 12px; padding: 2px 8px; border-radius: 8px; border: 1px dashed var(--g-line-strong); display: inline-block; margin: 2px; }
+    .tok:hover { border-color: var(--g-acc); }
+    .try-log { background: #1e1e1e; color: #d4d4d4; font-size: 12px; border-radius: 8px; padding: 10px; max-height: 200px; overflow: auto; direction: ltr; text-align: left; white-space: pre-wrap; margin: 0; }
+    .shot img { width: 100%; max-height: 220px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid var(--g-line); cursor: zoom-in; }
+    .perf-bar { height: 6px; border-radius: 4px; background: var(--g-acc); opacity: .7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-diagram-3 text-primary"></i> اختبارات متقدمة</h1>
+            <div class="text-muted">اختبارات بتتأكد إن <b>النظام شغال صح</b> مش بس إن الشاشة بتحفظ: دورة كاملة، أرقام التقارير، الصلاحيات، والسرعة.</div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="input-group d-none" id="siteBox" style="width:auto">
+                <span class="input-group-text">🌐 على</span>
+                <select id="runSites" class="form-select"></select>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        {% for k, t in types.items() %}
+        <div class="col-md-6 col-xl-3">
+            <div class="tcard">
+                <div class="d-flex align-items-center gap-2"><span class="ic">{{ t[0] }}</span><span class="fw-bold fs-6">{{ t[1] }}</span></div>
+                <div class="d">{{ t[2] }}</div>
+                {% if k == 'cycle' %}
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-primary dropdown-toggle w-100" data-bs-toggle="dropdown">➕ دورة جديدة</button>
+                    <ul class="dropdown-menu">
+                        {% for tk, tv in templates.items() %}
+                        <li><a class="dropdown-item" href="#" onclick="openNew('cycle', '{{ tk }}');return false">{{ tv.icon }} {{ tv.name }} <span class="muted">({{ tv.slots|join(' ← ') }})</span></a></li>
+                        {% endfor %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="openNew('cycle');return false">✍️ دورة فاضية أرتبها بنفسي</a></li>
+                    </ul>
+                </div>
+                {% else %}
+                <button class="btn btn-sm btn-primary w-100" onclick="openNew('{{ k }}')">➕ جديد</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card ck-card mb-3">
+        <div class="card-header"><span>الاختبارات المتقدمة المحفوظة</span><span class="muted">بتظهر كمان في صفحة الاختبارات تحت «🧪 اختبارات متقدمة»، وتقدري تحطيها في جدولة</span></div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>الاختبار</th><th>النوع</th><th>آخر نتيجة</th><th></th></tr></thead>
+                    <tbody id="list"><tr><td colspan="4" class="text-center text-muted py-4">جاري التحميل…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card ck-card mb-3 d-none" id="perfCard">
+        <div class="card-header"><span>⚡ سرعة الشاشات على مدار الوقت</span>
+            <span class="d-flex gap-2"><select id="perfSite" class="form-select form-select-sm" style="width:auto" onchange="renderPerf()"></select>
+                <select id="perfUrl" class="form-select form-select-sm" style="width:auto" onchange="drawPerf()"></select></span></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-lg-7"><canvas id="perfChart" height="120"></canvas></div>
+                <div class="col-lg-5"><div class="table-responsive" style="max-height:320px">
+                    <table class="table table-sm mb-0"><thead><tr><th>الشاشة</th><th class="text-center">آخر مرة</th><th class="text-center">المتوسط</th><th class="text-center">أبطأ</th></tr></thead>
+                    <tbody id="perfRows"></tbody></table></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- editor -->
+<div class="modal fade" id="edModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="edTitle">—</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+            <div class="col-md-7"><label class="form-label small">الاسم <span class="text-danger">*</span></label><input class="form-control" id="fName"></div>
+            <div class="col-md-5"><label class="form-label small">المفتاح (إنجليزي) — فاضي = يتعمل لوحده</label><input class="form-control ltr" id="fKey" placeholder="sales_cycle"></div>
+        </div>
+        <div id="edBody"></div>
+        <div class="ed-sec"><div class="t">📝 ملاحظات</div><input class="form-control" id="fNotes" placeholder="اختياري"></div>
+        <div id="tryBox" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2"><b id="tryState">—</b><span class="muted" id="tryTime"></span></div>
+            <pre class="try-log" id="tryLog"></pre>
+            <div id="tryResult" class="mt-2"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="small text-muted me-auto" id="edMsg"></span>
+        <button class="btn btn-warning" id="btnTry" onclick="tryNow()">🧪 جرّبي دلوقتي</button>
+        <button class="btn btn-success" onclick="save()">💾 حفظ</button>
+        <button class="btn btn-primary" onclick="save(true)">💾 حفظ وتشغيل</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const TYPES = {{ types | tojson }};
+const TEMPLATES = {{ templates | tojson }};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let LIST = [], OPTS = null, ED = null, PERF = null, perfChart = null;
+
+async function opts() {
+    if (!OPTS) OPTS = await fetch('/api/checks/options').then(r => r.json()).catch(() => ({tests: [], pages: []}));
+    return OPTS;
+}
+
+// ==================== list ====================
+async function loadList() {
+    const r = await fetch('/api/checks').then(r => r.json()).catch(() => ({checks: []}));
+    LIST = r.checks || [];
+    $('list').innerHTML = LIST.length ? LIST.map(c => {
+        const t = TYPES[c.type] || ['⚠️', c.type];
+        const last = c.last ? `<a href="/reports/${esc(c.last.run_id)}" class="chip ${c.last.passed ? 'ok' : 'bad'}">${c.last.passed ? '✅ نجح' : '❌ فشل'}</a>
+             <span class="muted">${esc(c.last.time)}</span>${c.last.passed ? '' : `<div class="muted text-danger">${esc(c.last.message)}</div>`}` : '<span class="chip none">لسه ما اتشغلش</span>';
+        const pend = c.snapshot && c.snapshot.pending ? `<div class="mt-1"><button class="btn btn-sm btn-outline-warning" onclick="accept('${esc(c.key)}')" title="الأرقام اتغيرت عن آخر مرة — لو التغيير مقصود اعتمديها">✔️ اعتمدي الأرقام الجديدة</button></div>` : '';
+        const what = c.type === 'cycle' ? c.steps.map(s => esc(s.name)).join(' ← ') :
+                     c.type === 'report' ? `<span class="ltr">${esc(c.url)}</span> · ${c.values.length} رقم · ${c.asserts.length} قاعدة` :
+                     c.type === 'permission' ? `المستخدم «${esc(c.username)}» · ${c.expect.length} شاشة` :
+                     c.type === 'perf' ? (c.all_pages ? 'كل الشاشات' : c.pages.length + ' شاشة') + ` · ينبه لو أبطأ ${c.factor}×` : '';
+        return `<tr>
+            <td><div class="fw-bold">${t[0]} ${esc(c.name_ar)}</div><div class="muted">${what}</div>${c.error ? `<div class="text-danger small">${esc(c.error)}</div>` : ''}</td>
+            <td><span class="chip none">${esc(t[1])}</span></td>
+            <td>${last}${pend}</td>
+            <td class="text-nowrap text-end">
+                <button class="btn btn-sm btn-success" onclick="runQueued('${esc(c.key)}')" title="يدخل الطابور ويتشغل زي أي اختبار"><i class="bi bi-play-fill"></i> تشغيل</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${esc(c.key)}')"><i class="bi bi-pencil"></i> تعديل</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="del('${esc(c.key)}')"><i class="bi bi-trash"></i></button>
+            </td></tr>`;
+    }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">لسه مفيش — اختاري نوع من فوق وابدئي</td></tr>';
+}
+
+async function runQueued(key) {
+    const r = await fetch(`/api/checks/${encodeURIComponent(key)}/run`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sites: $('runSites').value || ''})}).then(r => r.json());
+    if (!r.success) return alert(r.error || 'حصل خطأ');
+    if (confirm(`اتضاف للطابور${r.count > 1 ? ` على ${r.count} موقع` : ''} ✅ — تروحي مركز التشغيل تتابعيه؟`)) location.href = '/queue';
+}
+async function del(key) {
+    if (!confirm('تمسحي الاختبار ده؟ (بيتنقل لسلة المحذوفات وتقدري ترجعيه من النسخ الاحتياطي)')) return;
+    await fetch('/api/checks/' + encodeURIComponent(key), {method: 'DELETE'});
+    loadList();
+}
+async function accept(key) {
+    const r = await fetch(`/api/checks/${encodeURIComponent(key)}/accept`, {method: 'POST'}).then(r => r.json());
+    alert(r.success ? '✅ الأرقام الجديدة بقت هي المرجع' : 'مفيش أرقام جديدة مستنية');
+    loadList();
+}
+
+// ==================== editor ====================
+function blank(type) {
+    if (type === 'cycle') return {type, steps: []};
+    if (type === 'report') return {type, url: '', fields: [], show_button: 'عرض', min_rows: 1, values: [{name: 'إجمالي المدين', ref: 'sum:مدين'}, {name: 'إجمالي الدائن', ref: 'sum:دائن'}],
+                                   asserts: ['{sum:مدين} = {sum:دائن}'], compare: 'warn', tol: 0.01};
+    if (type === 'permission') return {type, username: '', password: '', expect: [], deny_texts: [], check_menu: true};
+    return {type, pages: [], all_pages: false, times: 2, factor: 2, max_seconds: 0, baseline_runs: 5, fail_on_slow: true};
+}
+
+async function openNew(type, tpl) {
+    await opts();
+    ED = blank(type);
+    $('fName').value = ''; $('fKey').value = ''; $('fKey').disabled = false; $('fNotes').value = '';
+    if (type === 'cycle' && tpl) {
+        const r = await fetch('/api/checks/cycle-template/' + tpl).then(r => r.json());
+        if (r.success) { ED.steps = r.steps.map(s => ({name: s.name, key: s.key, optional: false})); ED.template = tpl; $('fName').value = r.name; }
+    }
+    show();
+}
+async function openEdit(key) {
+    await opts();
+    const r = await fetch('/api/checks/' + encodeURIComponent(key)).then(r => r.json());
+    if (!r.success) return alert(r.error);
+    ED = r.config;
+    $('fName').value = ED.name_ar || ''; $('fKey').value = ED.key; $('fKey').disabled = true; $('fNotes').value = ED.notes || '';
+    show();
+}
+function show() {
+    const t = TYPES[ED.type];
+    $('edTitle').textContent = `${t[0]} ${t[1]}`;
+    $('fKey').placeholder = {cycle: 'sales_cycle', report: 'trial_balance_check', permission: 'viewer_permissions', perf: 'screens_speed'}[ED.type] || '';
+    $('tryBox').classList.add('d-none'); $('edMsg').textContent = '';
+    render();
+    bootstrap.Modal.getOrCreateInstance($('edModal')).show();
+}
+function render() { $('edBody').innerHTML = ({cycle: rCycle, report: rReport, permission: rPerm, perf: rPerf})[ED.type](); }
+function set(path, val, rerender) {
+    const ks = path.split('.'); let o = ED;
+    ks.slice(0, -1).forEach(k => { o = o[k]; });
+    o[ks[ks.length - 1]] = val;
+    if (rerender) render();
+}
+function move(arr, i, d) { const a = ED[arr], j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; render(); }
+function drop(arr, i) { ED[arr].splice(i, 1); render(); }
+
+// ---- cycle ----
+function rCycle() {
+    const tests = OPTS.tests || [];
+    const grp = {screen: '🧩 الشاشات', scenario: '🎬 السيناريوهات', report: '📊 فحص التقارير'};
+    const sel = (st, i) => `<select class="form-select form-select-sm" onchange="set('steps.${i}.key', this.value, true)">
+        <option value="">— لسه مفيش اختبار للخطوة دي —</option>
+        ${Object.entries(grp).map(([k, g]) => `<optgroup label="${g}">${tests.filter(x => x.kind === k).map(x =>
+            `<option value="${esc(x.key)}" ${x.key === st.key ? 'selected' : ''}>${esc(x.icon + ' ' + x.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+    const missing = ED.steps.filter(s => !s.key).length;
+    return `<div class="ed-sec"><div class="t">🔁 خطوات الدورة — بتتشغل بالترتيب في نفس المتصفح</div>
+        <div class="hint mb-2">رقم السند اللي اتحفظ في أي خطوة بيبقى <code>{var:saved_no}</code> و <code>{var:اسم_الشاشة.saved_no}</code> — مثلاً الفاتورة تختار أمر البيع اللي اتعمل قبلها.
+            ${Object.entries(TEMPLATES).map(([k, t]) => `<a href="#" class="ms-2" onclick="useTpl('${k}');return false">${t.icon} ${esc(t.name)}</a>`).join('')}</div>
+        <table class="table table-sm steps-tbl mb-2"><thead><tr><th style="width:36px">#</th><th style="width:30%">الخطوة</th><th>الاختبار اللي بيتشغل فيها</th><th style="width:90px" class="text-center">اختيارية</th><th style="width:110px"></th></tr></thead>
+        <tbody>${ED.steps.map((s, i) => `<tr class="${s.key ? '' : 'row-warn'}"><td class="text-center fw-bold">${i + 1}</td>
+            <td><input class="form-control form-control-sm" value="${esc(s.name)}" onchange="set('steps.${i}.name', this.value)"></td>
+            <td>${sel(s, i)}</td>
+            <td class="text-center"><input type="checkbox" class="form-check-input" ${s.optional ? 'checked' : ''} title="لو فشلت الدورة تكمل" onchange="set('steps.${i}.optional', this.checked)"></td>
+            <td class="text-nowrap"><button class="btn btn-sm btn-light" onclick="move('steps', ${i}, -1)">↑</button><button class="btn btn-sm btn-light" onclick="move('steps', ${i}, 1)">↓</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="drop('steps', ${i})">✖</button></td></tr>`).join('') ||
+            '<tr><td colspan="5" class="text-center text-muted">ضيفي خطوة أو اختاري قالب من فوق</td></tr>'}</tbody></table>
+        <button class="btn btn-sm btn-outline-primary" onclick="ED.steps.push({name: 'خطوة ' + (ED.steps.length + 1), key: '', optional: false}); render()">➕ خطوة</button>
+        ${missing ? `<div class="alert alert-warning py-2 small mt-2 mb-0">⚠️ ${missing} خطوة لسه ملهاش اختبار. اعمليها الأول من <a href="/screens" target="_blank">منشئ الشاشات</a> (أو «📊 فحص تقرير» للأرصدة) وارجعي اختاريها — أو امسحي الخطوة.</div>` : ''}
+    </div>`;
+}
+async function useTpl(k) {
+    const r = await fetch('/api/checks/cycle-template/' + k).then(r => r.json());
+    if (!r.success) return;
+    ED.steps = r.steps.map(s => ({name: s.name, key: s.key, optional: false})); ED.template = k;
+    if (!$('fName').value) $('fName').value = r.name;
+    render();
+}
+
+// ---- report ----
+const FKINDS = {date: 'تاريخ', text: 'نص', number: 'رقم', select2: 'قايمة Select2', select: 'قايمة'};
+function rReport() {
+    const pages = OPTS.pages || [];
+    return `<datalist id="pageUrls">${pages.map(p => `<option value="${esc(p.url)}">${esc(p.name)}</option>`).join('')}</datalist>
+    <div class="ed-sec"><div class="t">📊 التقرير</div><div class="row g-2">
+        <div class="col-md-6"><label class="form-label small">رابط التقرير <span class="text-danger">*</span></label><input class="form-control ltr" list="pageUrls" value="${esc(ED.url)}" placeholder="/Reports/TrialBalance" onchange="set('url', this.value)"></div>
+        <div class="col-md-3"><label class="form-label small">زرار العرض</label><input class="form-control" value="${esc(ED.show_button)}" placeholder="عرض" title="النص اللي على الزرار أو #id — فاضي = التقرير بيظهر لوحده" onchange="set('show_button', this.value)"></div>
+        <div class="col-md-3"><label class="form-label small">أقل عدد صفوف</label><input type="number" min="0" class="form-control" value="${ED.min_rows}" onchange="set('min_rows', +this.value)"></div></div></div>
+    <div class="ed-sec"><div class="t">🔎 الفلاتر (اختياري)</div>
+        <div class="hint mb-2">الـ id بتاع الخانة في صفحة التقرير. في التواريخ: <span class="tok">{month_start}</span> <span class="tok">{month_end}</span> <span class="tok">{today}</span> <span class="tok">{today-30}</span> —
+            <b>نصيحة:</b> فلتري على شهر مقفول (زي الشهر اللي فات) عشان الأرقام متتغيرش من الاختبارات نفسها.</div>
+        <table class="table table-sm mb-1"><thead><tr><th>id</th><th>الاسم</th><th>النوع</th><th>القيمة</th><th></th></tr></thead><tbody>
+        ${ED.fields.map((f, i) => `<tr><td><input class="form-control form-control-sm ltr" value="${esc(f.id)}" placeholder="DateFrom" onchange="set('fields.${i}.id', this.value)"></td>
+            <td><input class="form-control form-control-sm" value="${esc(f.label)}" onchange="set('fields.${i}.label', this.value)"></td>
+            <td><select class="form-select form-select-sm" onchange="set('fields.${i}.kind', this.value)">${Object.entries(FKINDS).map(([k, v]) => `<option value="${k}" ${k === f.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+            <td><input dir="auto" class="form-control form-control-sm" value="${esc(f.value)}" placeholder="فاضي = أول اختيار / زي ما هو" onchange="set('fields.${i}.value', this.value)"></td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="drop('fields', ${i})">✖</button></td></tr>`).join('')}</tbody></table>
+        <button class="btn btn-sm btn-outline-primary" onclick="ED.fields.push({id: '', label: '', kind: 'date', value: ''}); render()">➕ فلتر</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="ED.fields.push({id: 'DateFrom', label: 'من تاريخ', kind: 'date', value: '{month_start}'}, {id: 'DateTo', label: 'إلى تاريخ', kind: 'date', value: '{month_end}'}); render()">📅 من/إلى الشهر ده</button></div>
+    <div class="ed-sec"><div class="t">🔢 الأرقام اللي تتقري وتتقارن بآخر مرة</div>
+        <div class="hint mb-2"><span class="tok" onclick="addVal('إجمالي المدين','sum:مدين')">sum:مدين</span> = مجموع عمود «مدين» ·
+            <span class="tok" onclick="addVal('إجمالي الدائن','sum:دائن')">sum:دائن</span> · <span class="tok" onclick="addVal('الرصيد','sum:الرصيد')">sum:الرصيد</span> · أو id خانة / الكلام اللي جنب الرقم (زي «الإجمالي»)</div>
+        <table class="table table-sm mb-1"><tbody>${ED.values.map((v, i) => `<tr><td><input class="form-control form-control-sm" value="${esc(v.name)}" placeholder="الاسم" onchange="set('values.${i}.name', this.value)"></td>
+            <td><input dir="auto" class="form-control form-control-sm" value="${esc(v.ref)}" placeholder="sum:مدين" onchange="set('values.${i}.ref', this.value)"></td>
+            <td style="width:40px"><button class="btn btn-sm btn-outline-danger" onclick="drop('values', ${i})">✖</button></td></tr>`).join('')}</tbody></table>
+        <button class="btn btn-sm btn-outline-primary" onclick="addVal('', '')">➕ رقم</button>
+        <div class="row g-2 mt-2"><div class="col-md-8"><label class="form-label small">لو الأرقام اتغيرت عن آخر مرة:</label>
+            <select class="form-select form-select-sm" onchange="set('compare', this.value)">
+                <option value="warn" ${ED.compare === 'warn' ? 'selected' : ''}>⚠️ نبّهي بس (التقرير بيتغير طبيعي — زي الشهر الحالي)</option>
+                <option value="equal" ${ED.compare === 'equal' ? 'selected' : ''}>❌ الاختبار يفشل (فترة مقفولة — الأرقام لازم تفضل زي ما هي)</option>
+                <option value="off" ${ED.compare === 'off' ? 'selected' : ''}>من غير مقارنة</option></select></div>
+            <div class="col-md-4"><label class="form-label small">السماحية</label><input type="number" step="0.01" class="form-control form-control-sm" value="${ED.tol}" onchange="set('tol', +this.value)"></div></div>
+        ${ED.key && (LIST.find(x => x.key === ED.key) || {}).snapshot?.values ? `<div class="hint mt-2">آخر أرقام متسجلة: ${Object.entries(LIST.find(x => x.key === ED.key).snapshot.values).map(([k, v]) => `<b>${esc(k)}</b> = ${esc(v)}`).join(' · ')}</div>` : ''}</div>
+    <div class="ed-sec"><div class="t">🧮 قواعد لازم تتحقق (سطر لكل قاعدة)</div>
+        <div class="hint mb-2"><span class="tok" onclick="addRule('{sum:مدين} = {sum:دائن}')">{sum:مدين} = {sum:دائن}</span>
+            <span class="tok" onclick="addRule('{sum:الرصيد} >= 0')">{sum:الرصيد} >= 0</span>
+            <span class="tok" onclick="addRule('{الإجمالي} = {var:report_key.الإجمالي}')">مقارنة برقم من خطوة قبلها</span> · العلامات: = != > < >= <= ~ (فيه)</div>
+        <textarea class="form-control ltr" rows="3" id="rulesBox" onchange="set('asserts', this.value.split('\\n').map(x => x.trim()).filter(Boolean))">${esc((ED.asserts || []).join('\n'))}</textarea></div>`;
+}
+function addVal(n, r) { ED.values.push({name: n || r, ref: r}); render(); }
+function addRule(x) { ED.asserts = (ED.asserts || []).concat([x]); render(); }
+
+// ---- permission ----
+function rPerm() {
+    const pages = OPTS.pages || [];
+    return `<datalist id="pageUrls">${pages.map(p => `<option value="${esc(p.url)}">${esc(p.name)}</option>`).join('')}</datalist>
+    <div class="ed-sec"><div class="t">👤 المستخدم المحدود</div><div class="row g-2">
+        <div class="col-md-4"><label class="form-label small">اسم المستخدم <span class="text-danger">*</span></label><input class="form-control ltr" value="${esc(ED.username)}" onchange="set('username', this.value)" autocomplete="off"></div>
+        <div class="col-md-4"><label class="form-label small">كلمة المرور</label><input type="password" class="form-control ltr" value="" placeholder="${ED.has_password ? '•••• متسجلة — سيبيها فاضية' : ''}" onchange="set('password', this.value)" autocomplete="new-password"></div>
+        <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="pMenu" ${ED.check_menu ? 'checked' : ''} onchange="set('check_menu', this.checked)">
+            <label class="form-check-label small" for="pMenu">نبّهي لو رابط الشاشة الممنوعة ظاهر في القايمة الجانبية</label></div></div></div>
+        <div class="hint mt-2">بيدخل بالمستخدم ده في متصفح لوحده (مش بيأثر على دخول الاختبارات التانية). الشاشة «ممنوعة» لو: رجّعه لشاشة الدخول، أو صفحة AccessDenied، أو كتب «ليس لديك صلاحية» / «غير مصرح»، أو السيرفر رد 401/403.</div>
+        <label class="form-label small mt-2">كلام تاني معناه «ممنوع» في نظامكم (اختياري، افصلي بفاصلة)</label>
+        <input class="form-control form-control-sm" value="${esc((ED.deny_texts || []).join(', '))}" placeholder="مثلاً: عفواً لا تملك الصلاحية" onchange="set('deny_texts', this.value.split(/[,،]/).map(x => x.trim()).filter(Boolean))"></div>
+    <div class="ed-sec"><div class="t">🖥️ الشاشات والمتوقع</div>
+        <table class="table table-sm mb-1"><thead><tr><th>الشاشة</th><th>الرابط</th><th style="width:150px">المتوقع</th><th></th></tr></thead><tbody>
+        ${ED.expect.map((e, i) => `<tr><td><input class="form-control form-control-sm" value="${esc(e.name)}" onchange="set('expect.${i}.name', this.value)"></td>
+            <td><input class="form-control form-control-sm ltr" list="pageUrls" value="${esc(e.url)}" onchange="pickUrl(${i}, this.value)"></td>
+            <td><select class="form-select form-select-sm ${e.allowed ? '' : 'text-danger fw-bold'}" onchange="set('expect.${i}.allowed', this.value === '1', true)">
+                <option value="1" ${e.allowed ? 'selected' : ''}>✅ مسموحة</option><option value="0" ${e.allowed ? '' : 'selected'}>⛔ ممنوعة</option></select></td>
+            <td style="width:40px"><button class="btn btn-sm btn-outline-danger" onclick="drop('expect', ${i})">✖</button></td></tr>`).join('') ||
+            '<tr><td colspan="4" class="text-center text-muted">ضيفي الشاشات اللي عايزة تتأكدي منها</td></tr>'}</tbody></table>
+        <button class="btn btn-sm btn-outline-primary" onclick="ED.expect.push({name: '', url: '', allowed: false}); render()">➕ شاشة</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="addAllPages(false)">⛔ ضيفي كل شاشات النظام كممنوعة</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="addAllPages(true)">✅ ضيفيهم كمسموحة</button>
+        <div class="hint mt-1">بعد ما تضيفي الكل، غيّري اللي المستخدم ده مسموحله بيه بس.</div></div>`;
+}
+function pickUrl(i, v) {
+    ED.expect[i].url = v;
+    const p = (OPTS.pages || []).find(x => x.url === v);
+    if (p && !ED.expect[i].name) ED.expect[i].name = p.name;
+    render();
+}
+function addAllPages(allowed) {
+    const have = new Set(ED.expect.map(e => e.url));
+    (OPTS.pages || []).forEach(p => { if (!have.has(p.url)) ED.expect.push({name: p.name, url: p.url, allowed}); });
+    render();
+}
+
+// ---- perf ----
+let PERF_Q = '';
+function rPerf() {
+    const pages = OPTS.pages || [], sel = new Set(ED.pages.map(p => p.url)), q = PERF_Q.trim();
+    const groups = {};
+    pages.filter(p => !q || (p.name + p.url).includes(q)).forEach(p => (groups[p.module] = groups[p.module] || []).push(p));
+    return `<div class="ed-sec"><div class="t">⚡ الشاشات</div>
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="pAll" ${ED.all_pages ? 'checked' : ''} onchange="set('all_pages', this.checked, true)">
+            <label class="form-check-label" for="pAll"><b>كل شاشات النظام</b> <span class="muted">(${pages.length} شاشة — بياخد وقت أطول)</span></label></div>
+        ${ED.all_pages ? '' : `<div class="d-flex gap-2 mb-2"><input class="form-control form-control-sm" placeholder="🔍 دوّري" value="${esc(PERF_Q)}" oninput="PERF_Q = this.value; render(); const x = document.querySelector('#edBody input[placeholder=\\'🔍 دوّري\\']'); x.focus(); x.setSelectionRange(x.value.length, x.value.length)">
+            <span class="chip none text-nowrap">${sel.size} متحدد</span></div>
+        <div class="pick-list">${Object.entries(groups).map(([g, items]) => `<div class="grp">${esc(g)}</div>` + items.map(p =>
+            `<div class="form-check"><input class="form-check-input" type="checkbox" id="pp_${esc(p.key)}" ${sel.has(p.url) ? 'checked' : ''} onchange="togglePage('${esc(p.url)}', '${esc(p.name).replace(/'/g, '')}', this.checked)">
+             <label class="form-check-label small" for="pp_${esc(p.key)}">${esc(p.name)} <span class="muted ltr">${esc(p.url)}</span></label></div>`).join('')).join('') || '<div class="muted">مفيش</div>'}</div>`}
+    </div>
+    <div class="ed-sec"><div class="t">⚙️ إمتى ينبّه</div><div class="row g-2">
+        <div class="col-md-3"><label class="form-label small">كل شاشة تتفتح كام مرة</label><input type="number" min="1" max="5" class="form-control form-control-sm" value="${ED.times}" onchange="set('times', +this.value)"></div>
+        <div class="col-md-3"><label class="form-label small">أبطأ من العادي بكام مرة</label><input type="number" min="1.2" step="0.1" class="form-control form-control-sm" value="${ED.factor}" onchange="set('factor', +this.value)"></div>
+        <div class="col-md-3"><label class="form-label small">أو أكتر من (ثانية) — 0 = من غير حد</label><input type="number" min="0" step="0.5" class="form-control form-control-sm" value="${ED.max_seconds}" onchange="set('max_seconds', +this.value)"></div>
+        <div class="col-md-3"><label class="form-label small">«العادي» = وسط آخر كام مرة</label><input type="number" min="1" max="20" class="form-control form-control-sm" value="${ED.baseline_runs}" onchange="set('baseline_runs', +this.value)"></div></div>
+        <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="pFail" ${ED.fail_on_slow ? 'checked' : ''} onchange="set('fail_on_slow', this.checked)">
+            <label class="form-check-label small" for="pFail">الاختبار يفشل لو فيه شاشة بطّأت (غير كده تحذير في اللوج بس)</label></div>
+        <div class="hint mt-1">أول مرة بيقيس بس ويحفظ الوقت كأساس. كل مرة بعد كده بيقارن بالوسط — جدوليه كل يوم عشان يعرف «العادي».</div></div>`;
+}
+function togglePage(url, name, on) {
+    ED.pages = ED.pages.filter(p => p.url !== url);
+    if (on) ED.pages.push({url, name});
+    render();
+}
+
+// ---- collect / save / try ----
+function collect() {
+    const c = JSON.parse(JSON.stringify(ED));
+    c.name_ar = $('fName').value.trim();
+    c.notes = $('fNotes').value.trim();
+    c.key = ($('fKey').value.trim() || ED.key || '').toLowerCase();
+    if (!c.key) c.key = (c.type + '_' + Date.now().toString(36)).replace(/[^a-z0-9_]/g, '');
+    if (c.type === 'report') {
+        c.asserts = $('rulesBox') ? $('rulesBox').value.split('\n').map(x => x.trim()).filter(Boolean) : c.asserts;
+        c.fields = c.fields.filter(f => f.id).map(f => ({id: f.id, label: f.label || f.id, kind: f.kind,
+            strategy: f.value ? 'fixed' : (['select', 'select2'].includes(f.kind) ? 'first' : 'keep'), value: f.value || ''}));
+        c.values = c.values.filter(v => v.ref);
+    }
+    if (c.type === 'cycle') c.steps = c.steps.map(s => ({name: s.name, key: s.key, optional: !!s.optional}));
+    if (c.type === 'permission') c.expect = c.expect.filter(e => e.url);
+    return c;
+}
+async function save(andRun) {
+    const c = collect();
+    if (!c.name_ar) return alert('اكتبي اسم');
+    const r = await fetch('/api/checks', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: c})}).then(r => r.json());
+    if (!r.success) { $('edMsg').innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; return; }
+    ED = r.config; $('fKey').value = ED.key; $('fKey').disabled = true;
+    $('edMsg').innerHTML = '<span class="text-success">✅ اتحفظ</span>';
+    await loadList();
+    if (andRun) { bootstrap.Modal.getInstance($('edModal')).hide(); runQueued(ED.key); }
+}
+
+let TRY_T = null;
+async function tryNow() {
+    const c = collect();
+    $('tryBox').classList.remove('d-none'); $('tryResult').innerHTML = ''; $('tryLog').textContent = '';
+    $('tryState').textContent = '⏳ بيبدأ… (بيفتح متصفح ويدخل الـ ERP)'; $('btnTry').disabled = true;
+    const r = await fetch('/api/checks/try', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: c})}).then(r => r.json());
+    if (!r.success) { $('tryState').innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; $('btnTry').disabled = false; return; }
+    const t0 = Date.now();
+    clearInterval(TRY_T);
+    TRY_T = setInterval(async () => {
+        $('tryTime').textContent = Math.round((Date.now() - t0) / 1000) + ' ث';
+        const j = await fetch('/api/screens/jobs/' + r.job_id).then(r => r.json()).catch(() => null);
+        if (!j || !j.success) return;
+        $('tryLog').textContent = (j.log || []).slice(-25).join('\n');
+        $('tryLog').scrollTop = $('tryLog').scrollHeight;
+        if (j.status === 'running') { $('tryState').textContent = '⏳ شغال…'; return; }
+        clearInterval(TRY_T); $('btnTry').disabled = false;
+        const res = j.result || {};
+        $('tryState').innerHTML = res.success ? '<span class="text-success">✅ نجح</span>' : '<span class="text-danger">❌ فشل</span>';
+        $('tryResult').innerHTML = (res.error ? `<div class="alert alert-danger small" style="white-space:pre-wrap">${esc(res.error)}</div>` : '') +
+            detailHtml(res.detail) +
+            ((res.screenshot_names || []).length ? `<div class="row g-2 mt-1">${res.screenshot_names.filter(Boolean).map(n =>
+                `<div class="col-md-4 shot"><a href="/screenshots/${esc(n)}" target="_blank"><img src="/screenshots/${esc(n)}"></a></div>`).join('')}</div>` : '');
+        loadPerf();
+    }, 1500);
+}
+
+function detailHtml(d) {
+    if (!d || !d.rows) return '';
+    return `<div class="fw-bold mb-1">${esc(d.title || '')}</div><div class="table-responsive"><table class="table table-sm det-tbl mb-1">
+        <thead><tr>${(d.columns || []).map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${d.rows.map(r => `<tr class="${r.ok === false ? 'bad' : (r.ok === null ? 'warn' : 'ok')}">${r.cells.map(c => `<td dir="auto">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        ${d.note ? `<div class="muted">${esc(d.note)}</div>` : ''}`;
+}
+
+// ==================== perf history ====================
+async function loadPerf() {
+    PERF = await fetch('/api/perf/history').then(r => r.json()).catch(() => null);
+    if (!PERF || !PERF.sites || !PERF.sites.length) return;
+    $('perfCard').classList.remove('d-none');
+    const cur = $('perfSite').value;
+    $('perfSite').innerHTML = PERF.sites.map((s, i) => `<option value="${i}" ${String(i) === cur ? 'selected' : ''}>${esc(s.site.replace(/^https?:\/\//, ''))}</option>`).join('');
+    renderPerf();
+}
+function renderPerf() {
+    const s = PERF.sites[+$('perfSite').value || 0];
+    if (!s) return;
+    const mx = Math.max(...s.rows.map(r => r.max), 0.1);
+    $('perfRows').innerHTML = s.rows.map(r => `<tr style="cursor:pointer" onclick="$('perfUrl').value='${esc(r.url)}'; drawPerf()">
+        <td><div class="small fw-bold">${esc(r.name)}</div><div class="perf-bar" style="width:${Math.max(4, r.last / mx * 100)}%"></div></td>
+        <td class="text-center">${r.last.toFixed(2)}</td><td class="text-center">${r.avg.toFixed(2)}</td><td class="text-center">${r.max.toFixed(2)}</td></tr>`).join('');
+    const cur = $('perfUrl').value;
+    $('perfUrl').innerHTML = s.rows.map(r => `<option value="${esc(r.url)}" ${r.url === cur ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+    drawPerf();
+}
+function drawPerf() {
+    const s = PERF.sites[+$('perfSite').value || 0];
+    const row = s && (s.rows.find(r => r.url === $('perfUrl').value) || s.rows[0]);
+    if (!row || typeof Chart === 'undefined') return;
+    const data = {labels: row.points.map(p => p.at.slice(5, 16).replace('T', ' ')),
+                  datasets: [{label: row.name + ' (ثانية)', data: row.points.map(p => p.t), tension: .3, fill: false, borderColor: '#22d3ee', pointRadius: 3}]};
+    if (perfChart) { perfChart.data = data; perfChart.update(); return; }
+    perfChart = new Chart($('perfChart'), {type: 'line', data, options: {plugins: {legend: {display: true}}, scales: {y: {beginAtZero: true}}}});
+}
+
+// ==================== sites ====================
+fetch('/api/sites').then(r => r.json()).then(j => {
+    const list = (j && j.sites) || [];
+    if (list.length < 2) return;
+    $('runSites').innerHTML = `<option value="">الموقع النشط</option>` + list.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') +
+        `<option value="all">🌐 كل المواقع (${list.length})</option>`;
+    $('siteBox').classList.remove('d-none');
+}).catch(() => {});
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadList();
+    loadPerf();
+    const q = new URLSearchParams(location.search);
+    if (q.get('new') && TYPES[q.get('new')]) openNew(q.get('new'), q.get('tpl') || '');
+    else if (q.get('key')) openEdit(q.get('key'));
+});
+</script>
+{% endblock %}

@@ -5,6 +5,9 @@ Never clicks add / save / delete.
 
 Progress is written to a JSON file after every step (the dashboard shows it live), and a report of the
 whole run is kept in data/runs/discovery/ (Reports page).
+
+Skip filter (فلتر التخطي): any link whose address (or name) contains one of the words is not opened
+(e.g. login, logout, tickets). deep=True also collects the links found inside each opened page.
 """
 import json
 import re
@@ -25,7 +28,8 @@ document.querySelectorAll('a[href]').forEach(function(a){
   var u; try { u = new URL(h, location.href); } catch(e) { return; }
   if (u.origin !== location.origin) return;
   var path = u.pathname + (u.search || '');
-  if (/logout|logoff|signout|login|\/(addedit|edit|delete|print|details|download|export)\b|\.(pdf|xlsx?|zip|png|jpe?g)$/i.test(path)) return;
+  // never: sign-out (it would end the session) and pages that change / download data
+  if (/logout|logoff|signout|\/(addedit|edit|delete|remove|print|details|download|export)\b|\.(pdf|xlsx?|zip|png|jpe?g)$/i.test(path)) return;
   if (path === '/' || seen[path.toLowerCase()]) return;
   var name = txt(a) || a.getAttribute('title') || a.getAttribute('aria-label') || '';
   if (!name || name.length > 60) return;
@@ -47,6 +51,19 @@ return {title: document.title, heading: h ? (h.innerText || '').replace(/\s+/g, 
         add: !!document.querySelector("a[href*='AddEdit'], a[href*='Create'], a[href*='/Add']"),
         error: /server error|runtime error|404 - |خطأ في الخادم|the resource cannot be found/i.test(t.slice(0, 4000)), url: location.pathname};
 """
+
+
+DEFAULT_SKIP = ["login", "tickets"]          # + whatever the user adds (sign-out links are never opened anyway)
+
+
+def skip_word(path, name, skip):
+    """the skip word this link matches ('' = keep it)"""
+    p, n = (path or "").lower(), (name or "").lower()
+    for w in skip or ():
+        w = str(w).strip().lower()
+        if w and (w in p or w in n):
+            return w
+    return ""
 
 
 def key_for(path):
@@ -99,8 +116,11 @@ class Progress:
                     pass
 
 
-def discover(driver, check=True, limit=200, known_urls=(), progress=None):
+def discover(driver, check=True, limit=200, known_urls=(), progress=None, skip=None, deep=False):
     prog = progress or Progress()
+    skip = [s for s in (DEFAULT_SKIP if skip is None else skip) if str(s).strip()]
+    prog.data["skip"] = skip
+    prog.data["skipped"] = []
     prog.step("✅ دخلت — بقرأ القايمة الجانبية", phase="menu")
     links = []
     for start in ("/", "/Home", "/Home/Index", "/Dashboard"):
@@ -113,11 +133,25 @@ def discover(driver, check=True, limit=200, known_urls=(), progress=None):
         if len(links) >= 3:
             break
     menu = [l for l in links if l["in_menu"]] or links
-    menu = menu[:limit]
+    if deep:                                     # every link on the home page, menu first
+        menu = menu + [l for l in links if l not in menu]
+
+    def keep(l):
+        w = skip_word(l["path"], l["name"], skip)
+        if w:
+            prog.data["skipped"].append({"name": l["name"], "url": l["path"], "word": w})
+        return not w
+    seen = {l["path"].lower() for l in menu}
+    menu = [l for l in menu if keep(l)][:limit]
+    if skip:
+        prog.step(f"🚫 اتخطيت {len(prog.data['skipped'])} رابط فيه: {'، '.join(skip)}")
     known = {u.split("?")[0].lower().rstrip("/") for u in known_urls}
     logger.info(f"🧭 لقيت {len(menu)} رابط في القايمة")
     prog.step(f"🧭 لقيت {len(menu)} رابط في القايمة — هفتحهم واحد واحد", phase="checking", total=len(menu))
-    for i, l in enumerate(menu, 1):
+    i = 0
+    while i < len(menu):
+        l = menu[i]
+        i += 1
         base = l["path"].split("?")[0].lower().rstrip("/")
         item = {"key": key_for(l["path"]), "name": l["name"], "name_en": english_name(l["path"]), "group": l["group"],
                 "url": l["path"], "full_url": BASE_URL.rstrip("/") + l["path"], "known": base in known}
@@ -139,6 +173,18 @@ def discover(driver, check=True, limit=200, known_urls=(), progress=None):
                          "error": info.get("error", False), "title": info.get("title", ""), "heading": info.get("heading", ""),
                          "seconds": round(time.time() - t0, 1)})
             item["kind"] = "error" if item["error"] else ("screen" if item["tables"] else "page")
+            if deep and not item["error"] and len(menu) < limit:
+                try:                             # links inside this page (tabs, sub-menus, report lists)
+                    for nl in driver.execute_script(MENU_JS) or []:
+                        if nl["path"].lower() in seen or len(menu) >= limit:
+                            continue
+                        seen.add(nl["path"].lower())
+                        if keep(nl):
+                            nl["group"] = nl.get("group") or l["name"]
+                            menu.append(nl)
+                    prog.data["total"] = len(menu)
+                except Exception:
+                    pass
         else:
             item["kind"] = "screen"
         icon = {"screen": "✅", "page": "📄", "error": "⚠️"}[item["kind"]]
@@ -147,7 +193,8 @@ def discover(driver, check=True, limit=200, known_urls=(), progress=None):
         prog.data["done"] = i
         prog.save()
     screens = [x for x in prog.data["items"] if x["kind"] == "screen"]
-    prog.step(f"🏁 خلصت: {len(screens)} شاشة فيها جدول من {len(menu)} رابط", phase="done")
+    prog.step(f"🏁 خلصت: {len(screens)} شاشة فيها جدول من {len(menu)} رابط"
+              + (f" · اتخطيت {len(prog.data['skipped'])}" if prog.data["skipped"] else ""), phase="done")
     prog.save(final=True)
     return {"screens": screens, "other": [x for x in prog.data["items"] if x["kind"] != "screen"],
-            "total_links": len(menu), "report_id": prog.id}
+            "total_links": len(menu), "report_id": prog.id, "skipped": prog.data["skipped"]}

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from web import data_helper
 
-_KEY_PATTERNS = (r"\[([^\]]+)\]", r"test_screen_(\w+)\.py", r"test_scn_(\w+)\.py")
+_KEY_PATTERNS = (r"\[([^\]]+)\]", r"test_screen_(\w+)\.py", r"test_scn_(\w+)\.py", r"test_check_(\w+)\.py")
 
 
 def test_key(test_path: str) -> str:

@@ -107,7 +107,8 @@ class TestRunner {
             const res = await fetch('/api/run-test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ test_path: testPath, test_name: testName, repeat: this.repeat })
+                body: JSON.stringify({ test_path: testPath, test_name: testName, repeat: this.repeat,
+                                       sites: (typeof window.getRunSites === 'function' ? window.getRunSites() : '') })
             });
 
             const data = await res.json();
@@ -121,6 +122,7 @@ class TestRunner {
 
             const taskId = data.task_id;
             this.addLog(`Task ID: ${taskId}`, 'info');
+            if (data.count > 1) this.addLog(`🌐 اتضاف على ${data.count} موقع — هنا بتتابعي أول واحد، والباقي في مركز التشغيل`, 'info');
             this.setProgress(10, 'جاري التشغيل...');
             this.addLog('تم بدء الاختبار', 'success');
 

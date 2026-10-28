@@ -50,6 +50,7 @@ STEP_TYPES = {
     "remember": "احفظ قيمة في متغير",
     "assert": "اتأكد من حسبة/قيمة",
     "check_print": "اطبع واتأكد إن الطباعة فتحت",
+    "check_journal": "افتح القيد واتأكد إنه متزن",
 }
 NEEDS_TARGET = {"click", "check", "expect_text"}
 SAMPLE_FILES = ("pdf", "png", "jpg", "xlsx", "txt")
@@ -163,6 +164,41 @@ if (window.jQuery && jQuery(p).modal) { try { jQuery(p).modal('hide'); return 'j
 p.style.display='none'; p.classList.remove('show','in');
 document.querySelectorAll('.modal-backdrop').forEach(function(x){ x.remove(); });
 document.body.classList.remove('modal-open'); return 'forced';
+"""
+
+JOURNAL_JS = COMMON_JS + r"""
+// a journal entry table: columns «مدين / Debit» and «دائن / Credit» -> totals + each line (in a pop-up first)
+function num(v){ var t = String(v||'').replace(/[٠-٩]/g, function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); })
+  .replace(/[٬,]/g,'').replace(/٫/g,'.'); var m = t.match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : 0; }
+function cellVal(td){ var f = td.querySelector('input, select'); return f ? (f.value||'') : txt(td); }
+var scopes = topPopup() ? [topPopup(), document] : [document];
+for (var s=0; s<scopes.length; s++){
+  var tables = scopes[s].querySelectorAll('table');
+  for (var t=0; t<tables.length; t++){
+    var tb = tables[t]; if (!vis(tb)) continue;
+    var ths = tb.querySelectorAll('thead th, thead td'); if (!ths.length) ths = (tb.rows[0] ? tb.rows[0].cells : []);
+    var dc = -1, cc = -1, idx = 0;
+    for (var h=0; h<ths.length; h++){ var x = N(txt(ths[h]));
+      if (dc === -1 && /مدين|debit|\bdr\b/.test(x)) dc = idx;
+      else if (cc === -1 && /دائن|داين|credit|\bcr\b/.test(x)) cc = idx;
+      idx += (ths[h].colSpan || 1); }
+    if (dc === -1 || cc === -1) continue;
+    var lines = [], dr = 0, cr = 0, total = null;
+    Array.prototype.forEach.call(tb.querySelectorAll('tbody tr'), function(tr){
+      if (!vis(tr) || tr.closest('thead')) return;
+      var tds = tr.children, k = 0, d = null, c = null;
+      for (var i=0; i<tds.length; i++){ if (k === dc) d = num(cellVal(tds[i])); if (k === cc) c = num(cellVal(tds[i])); k += (tds[i].colSpan || 1); }
+      if (d === null && c === null) return;
+      var line = txt(tr);
+      if (/^(الاجمالي|الإجمالي|اجمالي|إجمالي|المجموع|total)/.test(N(txt(tds[0])))) { total = {debit: d||0, credit: c||0}; return; }
+      dr += d || 0; cr += c || 0; lines.push({text: line.slice(0, 160), debit: d || 0, credit: c || 0});
+    });
+    if (!lines.length) continue;
+    return {found: true, debit: Math.round(dr*100)/100, credit: Math.round(cr*100)/100, lines: lines.slice(0, 60), total: total,
+            title: (document.querySelector('h1,h2,h3,h4,.modal-title') ? txt(document.querySelector('.modal.show .modal-title, h1, h2, h3, h4')) : document.title)};
+  }
+}
+return {found: false};
 """
 
 TEXT_PRESENT_JS = COMMON_JS + "return N(document.body.innerText).indexOf(N(arguments[0])) !== -1;"
@@ -471,6 +507,12 @@ def normalize_flows(raw, main_field_ids, normalize_field):
             if do == "check_print":
                 s["target"] = str(st.get("target") or "").strip() or "طباعة"
                 s["match"] = str(st.get("match") or "").strip()
+            if do == "check_journal":
+                s["target"] = str(st.get("target") or "").strip()       # button that opens the entry ("" = it's already showing)
+                s["match"] = str(st.get("match") or "").strip()         # the row in the list ({var:saved_no})
+                s["accounts"] = str(st.get("accounts") or "").strip()   # accounts that must be in the entry, comma separated
+                s["amount"] = str(st.get("amount") or "").strip()       # expected total ({var:..} / number), optional
+                s["tol"] = float(st.get("tol", 0.01) or 0.01)
             s["timeout"] = float(st.get("timeout") or (25 if do in ("wait_rows", "wait_popup") else 12))
             s["wait_after"] = float(st.get("wait_after", 0.6) or 0)
             s["optional"] = bool(st.get("optional", False))
@@ -506,6 +548,8 @@ def describe(step):
         return f"{STEP_TYPES[do]}: {step['expr']}"
     if do == "check_print":
         return f"{STEP_TYPES[do]} «{step['target']}»"
+    if do == "check_journal":
+        return STEP_TYPES[do] + (f" (من «{step['target']}»)" if step.get("target") else "")
     return STEP_TYPES[do]
 
 
@@ -777,6 +821,72 @@ class FlowRunner:
                 d.switch_to.window(main if main != new else list(before)[0])
             elif d.current_url != url0:
                 d.back()
+
+    def _check_journal(self, st):
+        """open the entry the saved document made (button in its row / on the page / a new tab) and check
+        debit = credit, the expected accounts are there, and (optional) the total equals the document amount"""
+        d = self.driver
+        before, url0, main = set(d.window_handles), d.current_url, d.current_window_handle
+        new = None
+        if st.get("target"):
+            target = resolve_value(st["target"], self.vars)
+            if st.get("match"):
+                res = self._js(ROW_CLICK_JS, target, resolve_value(st["match"], self.vars)) or {}
+                if not res.get("ok"):
+                    raise FlowError(f"مالقيتش زرار «{target}» في الصف اللي فيه «{resolve_value(st['match'], self.vars)}»")
+            else:
+                self._click({"target": target, "timeout": st["timeout"]})
+            end = time.time() + 10
+            while time.time() < end:
+                extra = [h for h in d.window_handles if h not in before]
+                if extra:
+                    new = extra[-1]
+                    d.switch_to.window(new)
+                    break
+                if self._js(POPUP_JS) or d.current_url != url0:
+                    break
+                time.sleep(0.4)
+        try:
+            end, info = time.time() + max(15, st["timeout"]), {}
+            while time.time() < end:
+                info = self._js(JOURNAL_JS) or {}
+                if info.get("found"):
+                    break
+                time.sleep(0.6)
+            self._shot("journal")
+            if not info.get("found"):
+                raise FlowError("مالقيتش جدول قيد فيه عمود «مدين» وعمود «دائن» في الصفحة"
+                                + (" (اتفتحت صفحة جديدة)" if new else "") + " — اتأكدي من زرار فتح القيد")
+            dr, cr, tol = info["debit"], info["credit"], st.get("tol", 0.01)
+            self.vars["journal_debit"], self.vars["journal_credit"] = dr, cr
+            lines = "؛ ".join(f"{x['text'][:60]}" for x in info.get("lines", [])[:6])
+            if dr <= 0 and cr <= 0:
+                raise FlowError(f"القيد فاضي (مدين = دائن = صفر). السطور: {lines or 'مفيش'}")
+            if abs(dr - cr) > tol:
+                raise FlowError(f"القيد مش متزن: مدين {dr:,.2f} ≠ دائن {cr:,.2f} (الفرق {abs(dr - cr):,.2f})\n   السطور: {lines}")
+            from engine.text_match import normalize as _n
+            all_text = _n(" ".join(x["text"] for x in info.get("lines", [])))
+            missing = [a.strip() for a in re.split(r"[,،]", resolve_value(st.get("accounts") or "", self.vars))
+                       if a.strip() and _n(a.strip()) not in all_text]
+            if missing:
+                raise FlowError(f"القيد مفيهوش الحساب: {'، '.join(missing)}\n   السطور: {lines}")
+            if st.get("amount"):
+                want = to_number(resolve_value(st["amount"], self.vars))
+                if abs(dr - want) > tol:
+                    raise FlowError(f"إجمالي القيد {dr:,.2f} مش زي المبلغ المتوقع {want:,.2f}")
+            return f"متزن: مدين {dr:,.2f} = دائن {cr:,.2f} · {len(info.get('lines', []))} سطر"
+        finally:
+            if new:
+                try:
+                    d.close()
+                except Exception:
+                    pass
+                d.switch_to.window(main)
+            elif self._js(POPUP_JS):
+                self._js(CLOSE_JS)
+            elif d.current_url != url0:
+                d.back()
+                time.sleep(1)
 
     def _upload(self, st):
         path = sample_file(st.get("file") or "pdf")

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}العملاء والمواقع - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .st-card { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); height: 100%; padding: 16px; }
+    .st-card .rate { font-size: 30px; font-weight: 800; line-height: 1; }
+    .st-card .rate.good { color: var(--g-ok, #198754); } .st-card .rate.mid { color: var(--g-warn, #b7791f); } .st-card .rate.bad { color: var(--g-bad, #dc3545); }
+    .muted { color: var(--g-muted); font-size: 12px; }
+    .mx th, .mx td { text-align: center; vertical-align: middle; white-space: nowrap; }
+    .mx td:first-child, .mx th:first-child { text-align: start; white-space: normal; min-width: 200px; position: sticky; inset-inline-start: 0; background: var(--g-panel-solid, var(--g-panel)); }
+    .dot { display: inline-block; width: 26px; height: 26px; line-height: 26px; border-radius: 8px; font-size: 13px; text-decoration: none; }
+    .dot.ok { background: rgba(52,211,153,.18); } .dot.bad { background: rgba(251,113,133,.22); } .dot.none { background: var(--g-hover); color: var(--g-muted); }
+    .act-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--g-acc-soft); color: var(--g-acc-text, var(--g-acc)); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-buildings text-primary"></i> العملاء والمواقع</h1>
+            <div class="text-muted">نفس الاختبارات على نسخة كل عميل — وكل عميل نظامه عامل إزاي في آخر {{ m.days }} يوم.</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-primary" href="/reports/monthly"><i class="bi bi-file-earmark-richtext"></i> التقرير الشهري للعميل</a>
+            <a class="btn btn-outline-secondary" href="/settings#test-sites"><i class="bi bi-plus-lg"></i> ضيفي موقع عميل</a>
+            {% if m.sites|length > 1 %}
+            <button class="btn btn-success" onclick="runAll('all', this)" title="كل الاختبارات الكاملة على كل المواقع"><i class="bi bi-play-fill"></i> شغّلي كل الاختبارات على كل العملاء</button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if m.sites|length < 2 %}
+    <div class="alert alert-info">💡 عشان تختبري أكتر من عميل: من <a href="/settings#test-sites">الإعدادات ← مواقع الاختبار</a> ضيفي نسخة كل عميل (الرابط + المستخدم + كلمة المرور).
+        بعد كده من صفحة الاختبارات اختاري «🌐 على: كل المواقع»، أو في الجدولة اختاري «كل المواقع».</div>
+    {% endif %}
+
+    <div class="row g-3 mb-3">
+        {% for s in m.sites %}
+        <div class="col-md-6 col-xl-3">
+            <div class="st-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div><div class="fw-bold fs-6">{{ s.name }} {% if s.active %}<span class="act-badge">النشط</span>{% endif %}</div>
+                        <div class="muted ltr">{{ s.base_url }}</div></div>
+                    <div class="rate {{ 'good' if s.rate is not none and s.rate >= 90 else ('mid' if s.rate is not none and s.rate >= 70 else ('bad' if s.rate is not none else '')) }}">{{ (s.rate|string + '%') if s.rate is not none else '—' }}</div>
+                </div>
+                <div class="muted mt-2">{{ s.runs }} تشغيلة · {% if s.failing %}<span class="text-danger fw-bold">{{ s.failing }} بيفشل دلوقتي</span>{% else %}مفيش فشل{% endif %}</div>
+                <div class="muted">آخر تشغيل: {{ s.last or '—' }}</div>
+                <div class="d-flex gap-1 mt-2 flex-wrap">
+                    {% if m.sites|length > 1 %}<button class="btn btn-sm btn-outline-success" onclick="runAll('{{ s.id }}', this)">▶ كل الاختبارات</button>{% endif %}
+                    <a class="btn btn-sm btn-outline-primary" href="/reports/monthly?site={{ s.id }}">📄 تقرير الشهر</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card st-card p-0">
+        <div class="p-3 pb-0 fw-bold">آخر نتيجة لكل اختبار على كل موقع</div>
+        <div class="table-responsive p-2">
+            <table class="table table-sm mx mb-0">
+                <thead><tr><th>الاختبار</th>{% for s in m.sites %}<th>{{ s.name }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                {% for r in m.rows %}
+                <tr><td>{{ r.name }}</td>
+                    {% for c in r.cells %}<td>{% if c %}<a class="dot {{ 'ok' if c.passed else 'bad' }}" href="/reports/{{ c.run_id }}" title="{{ c.time }}{{ (' — ' + c.message) if c.message }}">{{ '✓' if c.passed else '✗' }}</a>{% else %}<span class="dot none" title="لسه ما اتشغلش على الموقع ده">·</span>{% endif %}</td>{% endfor %}
+                </tr>
+                {% else %}
+                <tr><td colspan="{{ m.sites|length + 1 }}" class="text-center text-muted py-4">لسه مفيش تشغيلات</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function runAll(site, btn) {
+    if (!confirm(site === 'all' ? 'هيتشغل كل اختبار كامل على كل موقع — ده ممكن ياخد وقت. متأكدة؟' : 'هيتشغل كل اختبار كامل على الموقع ده. متأكدة؟')) return;
+    btn.disabled = true;
+    const r = await fetch('/api/sites/run', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({all_full: true, sites: site === 'all' ? 'all' : [site]})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    btn.disabled = false;
+    if (!r.success) return alert('❌ ' + (r.error || ''));
+    if (confirm(`اتضاف ${r.count} تشغيلة للطابور ✅ — تروحي مركز التشغيل؟`)) location.href = '/queue';
+}
+</script>
+{% endblock %}

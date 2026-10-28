@@ -199,14 +199,32 @@ def fire(s, manual=False, site=None, source=None):
     qm = get_manager()
     batch = []
     stamp = now().strftime("%Y%m%d%H%M%S")
-    for i, t in enumerate(resolve_targets(s)):
-        task_id = f"run_{stamp}{i:02d}"
+    st = site if site is not None else s.get("site", "")
+    if st and st != "all":                      # the hook may pass a site by its name
+        try:
+            from web import test_sites_helper as ts
+            p = next((x for x in ts.load_all().get("profiles", []) if st in (x.get("id"), x.get("name"))), None)
+            st = p.get("id") if p else st
+        except Exception:
+            pass
+    if st == "all":                             # every client's site (Settings → مواقع الاختبار)
+        try:
+            from web import sites_api
+            site_ids = sites_api.resolve_sites("all")
+        except Exception:
+            site_ids = [""]
+    else:
+        site_ids = [st]
+    n = 0
+    for t in resolve_targets(s):
         rep = s.get("repeat", 1) if "[" not in t["path"] else 1
-        st = site if site is not None else s.get("site", "")
-        qm.add(task_id, t["path"], f"⏰ {t['name']}", repeat=rep,
-               source=source or ("manual" if manual else "schedule"),
-               extra={"schedule_id": s["id"], "schedule_name": s["name"], "site": st, "site_name": site_name(st)})
-        batch.append(task_id)
+        for sid in site_ids:
+            task_id = f"run_{stamp}{n:02d}"
+            n += 1
+            qm.add(task_id, t["path"], f"⏰ {t['name']}" + (f" · {site_name(sid)}" if len(site_ids) > 1 else ""), repeat=rep,
+                   source=source or ("manual" if manual else "schedule"),
+                   extra={"schedule_id": s["id"], "schedule_name": s["name"], "site": sid, "site_name": site_name(sid)})
+            batch.append(task_id)
     with _lock:
         items = load()
         for x in items:
@@ -248,6 +266,11 @@ def _loop():
             daily_report.auto_tick(now())
         except Exception as e:
             print(f"[daily-report] tick error: {e}", flush=True)
+        try:
+            from web import monthly_report
+            monthly_report.auto_tick(now())
+        except Exception as e:
+            print(f"[monthly-report] tick error: {e}", flush=True)
         try:
             from web import backup
             backup.auto_tick(now())

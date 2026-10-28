@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}التقرير الشهري للعميل - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mr-card { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); }
+    .mr-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; }
+    .mr-frame { width: 100%; height: 75vh; border: 1px solid var(--g-line); border-radius: 12px; background: #eef2f2; }
+    .muted { color: var(--g-muted); font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-file-earmark-richtext text-primary"></i> التقرير الشهري للعميل</h1>
+            <div class="text-muted">«اختبرنا نظامك X مرة والنتيجة…» — تقرير لكل عميل كل شهر بالتصميم المعتمد، تبعتيه PDF أو بالإيميل.</div>
+        </div>
+        <a class="btn btn-outline-secondary" href="/sites"><i class="bi bi-buildings"></i> العملاء والمواقع</a>
+    </div>
+
+    <div class="card mr-card mb-3"><div class="card-body d-flex flex-wrap gap-2 align-items-end">
+        <div><label class="form-label small mb-0">العميل / الموقع</label>
+            <select class="form-select" id="mSite" onchange="preview()">
+                {% for s in sites %}<option value="{{ s.id }}" {{ 'selected' if s.active }}>{{ s.name }}{{ ' (النشط)' if s.active }}</option>{% endfor %}
+                {% if not sites %}<option value="">الموقع الأساسي</option>{% endif %}
+            </select></div>
+        <div><label class="form-label small mb-0">الشهر</label>
+            <select class="form-select" id="mMonth" onchange="preview()">
+                {% for k, v in months %}<option value="{{ k }}" {{ 'selected' if k == default_month }}>{{ v }}{{ ' (لسه مخلصش)' if loop.first }}</option>{% endfor %}
+            </select></div>
+        <a class="btn btn-primary" id="mPdf" href="#"><i class="bi bi-file-earmark-pdf"></i> تحميل PDF</a>
+        <a class="btn btn-outline-primary" id="mOpen" href="#" target="_blank"><i class="bi bi-box-arrow-up-left"></i> افتحيه لوحده</a>
+        <div class="input-group ms-auto" style="max-width:460px">
+            <input class="form-control ltr" id="mTo" placeholder="إيميل العميل (فاضي = مستلمين الإعدادات)">
+            <button class="btn btn-success" onclick="sendNow(this)"><i class="bi bi-envelope"></i> ابعتيه</button>
+        </div>
+    </div></div>
+
+    <div class="row g-3">
+        <div class="col-xl-9"><iframe class="mr-frame" id="mFrame"></iframe></div>
+        <div class="col-xl-3">
+            <div class="card mr-card"><div class="card-header">📅 يتبعت لوحده كل شهر</div><div class="card-body">
+                <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="aOn" {{ 'checked' if settings.auto }}>
+                    <label class="form-check-label" for="aOn">ابعتي تقرير الشهر اللي فات لكل عميل</label></div>
+                <label class="form-label small">يوم كام في الشهر (الساعة 8 الصبح)</label>
+                <input type="number" min="1" max="28" class="form-control form-control-sm mb-2" id="aDay" value="{{ settings.day }}">
+                <div class="muted mb-1">إيميلات كل عميل (فاضي = مش هيتبعتله):</div>
+                {% for s in sites %}
+                <label class="form-label small mb-0 mt-1">{{ s.name }}</label>
+                <input class="form-control form-control-sm ltr a-to" data-site="{{ s.id }}" value="{{ settings.recipients.get(s.id, '') }}" placeholder="it@client.com, manager@client.com">
+                {% endfor %}
+                {% if not sites %}<div class="muted">ضيفي مواقع العملاء من الإعدادات ← مواقع الاختبار</div>{% endif %}
+                <button class="btn btn-primary btn-sm mt-3 w-100" onclick="saveAuto(this)">حفظ</button>
+                <div class="small mt-2" id="aMsg"></div>
+                <div class="muted mt-2">الإيميل بيتبعت من حساب الإعدادات ← Email.</div>
+            </div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const $ = id => document.getElementById(id);
+const REC = {{ settings.recipients | tojson }};
+function q() { return `site=${encodeURIComponent($('mSite').value)}&month=${encodeURIComponent($('mMonth').value)}`; }
+function preview() {
+    $('mFrame').src = '/reports/monthly/view?' + q();
+    $('mPdf').href = '/reports/monthly.pdf?' + q();
+    $('mOpen').href = '/reports/monthly/view?' + q();
+    $('mTo').value = REC[$('mSite').value] || '';
+}
+async function sendNow(btn) {
+    btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = '⏳ بيعمل الـ PDF…';
+    const r = await fetch('/api/reports/monthly/send', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({site: $('mSite').value, month: $('mMonth').value, to: $('mTo').value.trim()})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    btn.disabled = false; btn.innerHTML = old;
+    alert(r.success ? '✅ اتبعت' : '❌ ' + r.error);
+}
+async function saveAuto(btn) {
+    const rec = {};
+    document.querySelectorAll('.a-to').forEach(i => { rec[i.dataset.site] = i.value.trim(); });
+    const r = await fetch('/api/reports/monthly/settings', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto: $('aOn').checked, day: +$('aDay').value || 1, recipients: rec})}).then(r => r.json());
+    Object.assign(REC, rec);
+    $('aMsg').innerHTML = r.success ? '<span class="text-success">✅ اتحفظ</span>' : '<span class="text-danger">❌</span>';
+}
+const qs = new URLSearchParams(location.search);
+if (qs.get('site') !== null && [...$('mSite').options].some(o => o.value === qs.get('site'))) $('mSite').value = qs.get('site');
+if (qs.get('month')) $('mMonth').value = qs.get('month');
+preview();
+</script>
+{% endblock %}

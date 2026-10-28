@@ -154,7 +154,7 @@ async function load() {
                     onchange="toggle('${s.id}', this.checked)" title="تشغيل/إيقاف الجدولة"></div>
             </div>
             <div class="my-2"><i class="bi bi-clock"></i> ${s.times.length ? `<strong class="ltr">${s.times.join(' · ')}</strong> — ${esc(s.days_text)}` : '<span class="muted">يدوي / بالرابط بس</span>'}
-                ${s.site ? `<span class="chip">🌐 ${esc((DATA.sites.find(x => x.id === s.site) || {}).name || s.site)}</span>` : ''}</div>
+                ${s.site ? `<span class="chip">🌐 ${s.site === 'all' ? 'كل المواقع' : esc((DATA.sites.find(x => x.id === s.site) || {}).name || s.site)}</span>` : ''}</div>
             <div class="sc-next mb-2">${fmtNext(s.next)}</div>
             <div class="mb-3">${last}</div>
             <div class="d-flex gap-2">
@@ -175,7 +175,8 @@ function renderHookCard() {
         DATA.schedules.map(s => `<option value="${esc(s.name)}" ${cur === s.name ? 'selected' : ''}>الجدولة: ${esc(s.name)}</option>`).join('');
     const cs = document.getElementById('hookSite').value;
     document.getElementById('hookSite').innerHTML = '<option value="">موقع الجدولة / النشط</option>' +
-        (DATA.sites || []).map(x => `<option value="${esc(x.name)}" ${cs === x.name ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+        (DATA.sites || []).map(x => `<option value="${esc(x.name)}" ${cs === x.name ? 'selected' : ''}>${esc(x.name)}</option>`).join('') +
+        `<option value="all" ${cs === 'all' ? 'selected' : ''}>🌐 كل المواقع</option>`;
     renderHook();
 }
 function renderHook() {
@@ -202,7 +203,8 @@ function openForm(id) {
     document.getElementById('fName').value = s ? s.name : '';
     document.getElementById('fRepeat').value = s ? s.repeat : 1;
     document.getElementById('fSite').innerHTML = '<option value="">الموقع النشط في الإعدادات</option>' +
-        (DATA.sites || []).map(x => `<option value="${esc(x.id)}" ${s && s.site === x.id ? 'selected' : ''}>${esc(x.name)} — ${esc(x.url || '')}</option>`).join('');
+        (DATA.sites || []).map(x => `<option value="${esc(x.id)}" ${s && s.site === x.id ? 'selected' : ''}>${esc(x.name)} — ${esc(x.url || '')}</option>`).join('') +
+        ((DATA.sites || []).length > 1 ? `<option value="all" ${s && s.site === 'all' ? 'selected' : ''}>🌐 كل المواقع (${DATA.sites.length}) — كل اختبار يتشغل على كل عميل</option>` : '');
     document.getElementById('formTitle').textContent = s ? 'تعديل الجدولة' : 'جدولة جديدة';
     document.getElementById('pickSearch').value = '';
     setMode(FORM.mode); renderTimes(); renderDays(); renderPicker();

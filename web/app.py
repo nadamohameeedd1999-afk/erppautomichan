@@ -33,6 +33,14 @@ live_vnc.init_app(app)
 # ==================== Run center / schedules / compare ====================
 from web.ops_api import bp as ops_bp
 app.register_blueprint(ops_bp)
+
+# ==================== Advanced tests / clients / monthly client report ====================
+from web.checks_api import bp as checks_bp
+from web.sites_api import bp as sites_bp
+from web.monthly_report import bp as monthly_bp
+app.register_blueprint(checks_bp)
+app.register_blueprint(sites_bp)
+app.register_blueprint(monthly_bp)
 from web import scheduler as _scheduler
 _scheduler.start()
 
@@ -45,9 +53,10 @@ except Exception as _e:
 
 # generated test files for every saved screen / scenario (needed when definitions live in data/)
 try:
-    from engine import screen_config as _sc, scenario_config as _scn
+    from engine import screen_config as _sc, scenario_config as _scn, checks as _chk
     _sc.sync_stubs()
     _scn.sync_stubs()
+    _chk.sync_stubs()
 except Exception as _e:
     print(f"[startup] sync_stubs: {_e}", flush=True)
 
@@ -274,7 +283,8 @@ def report_detail(run_id):
         texts = [str(l.get("text", l) if isinstance(l, dict) else l) for l in log_lines]
         why = explain.for_run(insights.first_failure_message(report), texts)
         ai = explain.cached_ai(run_id)
-    return render_template("report_detail.html", report=report, screenshots=screenshots,
+    from engine.check_runner import load_detail
+    return render_template("report_detail.html", report=report, screenshots=screenshots, check=load_detail(run_id),
                            shots=shots, log_lines=log_lines, why=why, ai=ai, ai_on=explain.ai_available(),
                            failed=not insights.run_passed(report))
 

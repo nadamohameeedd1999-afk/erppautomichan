@@ -205,12 +205,21 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="addTemplate('edit');return false">✏️ تعديل بعد الحفظ</a></li>
                             <li><a class="dropdown-item" href="#" onclick="addTemplate('print');return false">🖨️ طباعة بعد الحفظ</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="addTemplate('journal');return false">📒 راجع القيد المحاسبي بعد الحفظ (مدين = دائن)</a></li>
                         </ul>
                     </div>
                     <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('manualBox').classList.toggle('d-none')">✍️ حقل يدوي</button>
                 </span>
             </div>
             <div class="card-body p-0">
+                <div class="p-2 border-bottom ai-box">
+                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                        <textarea class="form-control form-control-sm" id="aiDesc" rows="2" style="flex:1;min-width:260px"
+                            placeholder="✨ اوصفي الاختبار بالكلام — مثلاً: فاتورة لعميل الريادة فيها صنفين حديد وأسمنت بسعر 50، خصم 10%، والملاحظات تجربة"></textarea>
+                        <button class="btn btn-sm btn-primary" id="btnAi" onclick="aiBuild()">✨ ابني من الوصف</button>
+                    </div>
+                    <div class="small mt-1" id="aiResult"></div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0 fields-table">
                         <thead class="table-light">
@@ -384,11 +393,27 @@
         <button type="button" class="btn-close" onclick="discClose()"></button>
       </div>
       <div class="modal-body">
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-3" id="discStartBar">
-          <span class="text-muted small">بيدخل الـ ERP، يقرأ القايمة الجانبية ويفتح كل شاشة <b>(فتح بس — مش بيضيف ولا يحفظ ولا يمسح)</b>.</span>
-          <label class="small ms-auto">أقصى عدد روابط</label>
-          <input type="number" id="discLimit" class="form-control form-control-sm" style="width:90px" value="200" min="1" max="400">
-          <button class="btn btn-success btn-sm" id="discStartBtn" onclick="discStart()">▶️ ابدأ</button>
+        <div class="mb-3" id="discStartBar">
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <span class="text-muted small">بيدخل الـ ERP، يقرأ القايمة الجانبية ويفتح كل شاشة <b>(فتح بس — مش بيضيف ولا يحفظ ولا يمسح)</b>.</span>
+            <label class="small ms-auto">أقصى عدد روابط</label>
+            <input type="number" id="discLimit" class="form-control form-control-sm" style="width:90px" value="200" min="1" max="1500">
+            <button class="btn btn-success btn-sm" id="discStartBtn" onclick="discStart()">▶️ ابدأ</button>
+          </div>
+          <div class="row g-2 align-items-center">
+            <div class="col-lg-8">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">🚫 تخطّي أي رابط فيه</span>
+                <input id="discSkip" class="form-control ltr" placeholder="login, logout, tickets" title="كلمات مفصولة بفاصلة — أي رابط (أو اسم) فيه كلمة منهم مش هيتفتح">
+                <button class="btn btn-outline-secondary" type="button" onclick="discSkipDefault()" title="رجّعي الكلمات الافتراضية">↺</button>
+              </div>
+              <div class="small text-muted mt-1" id="discSkipChips"></div>
+            </div>
+            <div class="col-lg-4">
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="discDeep">
+                <label class="form-check-label small" for="discDeep">🔎 دوّري كمان جوه كل صفحة (يلاقي الشاشات اللي مش في القايمة — أبطأ)</label></div>
+            </div>
+          </div>
         </div>
         <div id="discRun" class="d-none">
           <div class="d-flex justify-content-between small mb-1">
@@ -880,6 +905,7 @@ const STEP_TYPES = {
     close_popup: '✖️ اقفل النافذة', expect_text: '🔎 اتأكد إن النص ظاهر', wait: '⏱️ استنى ثواني',
     row_click: '🖱️ اضغط زرار جوه صف', fill_cell: '🔢 املى خانة في سطر', upload: '📎 ارفع ملف',
     remember: '🔖 احفظ قيمة في متغير', assert: '🧮 اتأكد من حسبة/قيمة', check_print: '🖨️ اطبع واتأكد',
+    check_journal: '📒 راجع القيد المحاسبي',
 };
 const START = '__start__';
 // ready-made buttons (قوالب)
@@ -902,8 +928,45 @@ const ACTION_TEMPLATES = {
         {do: 'click', target: 'button#save'}, {do: 'wait', seconds: 3}]}}),
     print: () => newAction('طباعة بعد الحفظ', '', true, {mode: 'steps', open: true, after_save: true, flow: {optional: false, steps: [
         {do: 'check_print', target: 'طباعة', match: '{var:saved_no}'}]}}),
+    journal: () => newAction('مراجعة القيد المحاسبي', '', true, {mode: 'steps', open: true, after_save: true, flow: {optional: false, steps: [
+        {do: 'check_journal', target: 'القيد', match: '{var:saved_no}', accounts: '', amount: ''}]}}),
 };
 function addTemplate(k) { ROWS.push(ACTION_TEMPLATES[k]()); renderRows(); }
+
+// ✨ «اوصفي الاختبار بالكلام» -> values (Claude if there's a key, a simple Arabic matcher if not)
+async function aiBuild() {
+    const desc = $('aiDesc').value.trim();
+    const fields = ROWS.filter(r => r.kind !== 'action').map(r => ({id: r.id, label: r.label, kind: r.kind, options: (r.options || []).slice(0, 60)}));
+    if (!desc) return $('aiDesc').focus();
+    if (!fields.length) { $('aiResult').innerHTML = '<span class="text-danger">اقري حقول الشاشة الأول (خطوة 1 ← «اقرأ الحقول تلقائي»)، وبعدين اوصفي.</span>'; return; }
+    $('btnAi').disabled = true; $('aiResult').innerHTML = '⏳ بيفهم الوصف…';
+    const r = await fetch('/api/screens/ai-build', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: desc, fields})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    $('btnAi').disabled = false;
+    if (!r.success) { $('aiResult').innerHTML = `<span class="text-danger">❌ ${esc(r.error || '')}</span>`; return; }
+    const done = [];
+    (r.fields || []).forEach(f => {
+        const row = ROWS.find(x => x.id === f.id); if (!row) return;
+        const allowed = KIND_STRATEGIES[row.kind] || ['fixed'];
+        row.include = true;
+        row.strategy = allowed.includes(f.strategy) ? f.strategy : (allowed.includes('fixed') ? 'fixed' : allowed[0]);
+        row.value = f.value || '';
+        done.push(`<b>${esc(row.label)}</b> = ${esc(row.value || STRATEGIES[row.strategy] || row.strategy)}`);
+    });
+    (r.items || []).forEach(it => {
+        const a = ACTION_TEMPLATES.item();
+        a.label = 'إضافة صنف' + (it.name ? ' ' + it.name : '');
+        a.flow.steps.forEach(st => { if (st.do === 'row_click') st.match = it.name || ''; if (st.do === 'fill_cell') st.value = it.price || '100'; });
+        ROWS.push(a);
+        done.push(`➕ صنف ${esc(it.name || '(أول صنف)')} بسعر ${esc(it.price)}`);
+    });
+    if (r.expect_error) { $('fExpectError').value = r.expect_error; done.push(`🚫 اختبار سلبي: «${esc(r.expect_error)}»`); }
+    if ((r.row_contains || []).length) { $('vRowContains').value = r.row_contains.join(', '); done.push('✔️ يتأكد إن الصف فيه: ' + esc(r.row_contains.join('، '))); }
+    renderRows();
+    $('aiResult').innerHTML = (done.length ? `<span class="text-success">✅ ${r.source === 'ai' ? 'Claude' : 'المطابقة البسيطة'} حطّت:</span> ${done.join(' · ')}` : '<span class="text-warning">مالقيتش حاجة أطبّقها — اكتبي اسم الحقل جنب القيمة (زي «المبلغ 250»)</span>') +
+        (r.notes ? `<div class="text-muted">📝 ${esc(r.notes)}</div>` : '') + (r.warning ? `<div class="text-muted">ℹ️ ${esc(r.warning)}</div>` : '') +
+        (done.length ? '<div class="text-muted">راجعي القيم في الجدول تحت، وبعدين «جرّب التعبئة بدون حفظ».</div>' : '');
+}
 let ACT_N = 0;
 
 function newAction(label, target, include, extra) {
@@ -1067,6 +1130,7 @@ function setStep(i, si, key, val) {
         if (val === 'remember') { steps[si].source = ''; steps[si].var = ''; }
         if (val === 'assert') { steps[si].expr = ''; }
         if (val === 'check_print') { steps[si].target = 'طباعة'; steps[si].match = '{var:saved_no}'; }
+        if (val === 'check_journal') { Object.assign(steps[si], {target: 'القيد', match: '{var:saved_no}', accounts: '', amount: ''}); }
         renderRows(); return;
     }
     st[key] = val;
@@ -1137,6 +1201,14 @@ function stepEditor(i, si, st) {
                  title="بين { } : id الحقل، أو الاسم اللي جنبه، أو sum:اسم العمود، أو var:متغير. العلامات: = != > < >= <= ~ (فيه)" onchange="setStep${on}, 'expr', this.value)">`;
     if (st.do === 'check_print') return `<input dir="auto" class="form-control form-control-sm mini" style="width:150px" value="${esc(st.target || '')}" placeholder="زرار الطباعة" onchange="setStep${on}, 'target', this.value)">
             <input dir="auto" class="form-control form-control-sm grow" value="${esc(st.match || '')}" placeholder="(في القايمة) الصف اللي فيه — زي {var:saved_no}" onchange="setStep${on}, 'match', this.value)">`;
+    if (st.do === 'check_journal') return `<input dir="auto" class="form-control form-control-sm mini" style="width:120px" value="${esc(st.target || '')}" placeholder="زرار فتح القيد"
+                 title="الزرار اللي بيفتح القيد (زي «القيد» أو «عرض القيد»). فاضي = القيد ظاهر في الصفحة" onchange="setStep${on}, 'target', this.value)">
+            <input dir="auto" class="form-control form-control-sm mini" style="width:130px" value="${esc(st.match || '')}" placeholder="الصف: {var:saved_no}"
+                 title="في القايمة: الصف اللي فيه الزرار. فاضي = الزرار في الصفحة نفسها" onchange="setStep${on}, 'match', this.value)">
+            <input dir="auto" class="form-control form-control-sm grow" value="${esc(st.accounts || '')}" placeholder="حسابات لازم تبقى فيه: الصندوق, العميل (اختياري)"
+                 onchange="setStep${on}, 'accounts', this.value)">
+            <input dir="auto" class="form-control form-control-sm mini" style="width:120px" value="${esc(st.amount || '')}" placeholder="الإجمالي المتوقع"
+                 title="اختياري: رقم أو {var:...} — لازم إجمالي المدين يساويه" onchange="setStep${on}, 'amount', this.value)">`;
     if (st.do === 'wait_rows') return `<span class="small">على الأقل</span><input type="number" min="1" class="form-control form-control-sm mini" value="${st.min || 1}" onchange="setStep${on}, 'min', +this.value)"><span class="small grow">صف</span>`;
     if (st.do === 'pick_rows') return `<input type="number" min="1" class="form-control form-control-sm mini" value="${st.count || 1}" onchange="setStep${on}, 'count', +this.value)"><span class="small grow">صف من فوق</span>`;
     if (st.do === 'wait') return `<input type="number" min="0.2" step="0.5" class="form-control form-control-sm mini" value="${st.seconds || 1}" onchange="setStep${on}, 'seconds', +this.value)"><span class="small grow">ثانية</span>`;
@@ -1583,19 +1655,39 @@ function opChanged(user) {
 const DISC = {job: null, items: [], sel: new Set(), timer: null, t0: 0, report: null, running: false};
 const DISC_KIND = {screen: '<span class="badge bg-success">شاشة بجدول</span>', page: '<span class="badge bg-secondary">صفحة</span>', error: '<span class="badge bg-danger">خطأ</span>'};
 function discModal() { return bootstrap.Modal.getOrCreateInstance(document.getElementById('discModal')); }
+let DISC_DEFAULT_SKIP = [];
+function discSkipList() { return ($('discSkip').value || '').split(/[,،\n]/).map(x => x.trim()).filter(Boolean); }
+function discSkipChips() {
+    const l = discSkipList();
+    $('discSkipChips').innerHTML = l.length ? 'هيتخطى: ' + l.map(w => `<span class="badge bg-secondary-subtle text-body ltr me-1">${esc(w)} <a href="#" class="text-danger text-decoration-none" onclick="discSkipDrop('${esc(w)}');return false">×</a></span>`).join('')
+        : 'مفيش تخطي — هيفتح كل الروابط';
+}
+function discSkipDrop(w) { $('discSkip').value = discSkipList().filter(x => x !== w).join(', '); discSkipChips(); }
+function discSkipDefault() { $('discSkip').value = DISC_DEFAULT_SKIP.join(', '); discSkipChips(); }
+async function discLoadSettings() {
+    const j = await fetch('/api/screens/discover/settings').then(r => r.json()).catch(() => null);
+    if (!j || !j.success) return;
+    DISC_DEFAULT_SKIP = j.default_skip || [];
+    $('discSkip').value = (j.skip || []).join(', ');
+    $('discDeep').checked = !!j.deep;
+    $('discLimit').value = j.limit || 200;
+    discSkipChips();
+}
 function openDiscover() {
+    if (!DISC.running) discLoadSettings();
+    $('discSkip').oninput = discSkipChips;
     discModal().show();
     try { const j = localStorage.getItem('disc_job'); if (j && !DISC.job) { DISC.job = j; discPoll(); } } catch (e) {}
 }
 function discUI(running) {
     DISC.running = running;
-    $('discStartBtn').disabled = running; $('discLimit').disabled = running;
+    $('discStartBtn').disabled = running; $('discLimit').disabled = running; $('discSkip').disabled = running; $('discDeep').disabled = running;
     $('discStopBtn').classList.toggle('d-none', !running); $('discCancelBtn').classList.toggle('d-none', !running);
     $('discBar').classList.toggle('progress-bar-animated', running);
 }
 async function discStart() {
     const r = await fetch('/api/screens/discover', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({limit: +$('discLimit').value || 200})}).then(r => r.json()).catch(e => ({error: String(e)}));
+        body: JSON.stringify({limit: +$('discLimit').value || 200, skip: discSkipList(), deep: $('discDeep').checked})}).then(r => r.json()).catch(e => ({error: String(e)}));
     if (!r.success) { alert('❌ ' + (r.error || 'مقدرتش أبدأ')); return; }
     DISC.job = r.job_id; DISC.items = []; DISC.sel = new Set(); DISC.t0 = Date.now(); DISC.report = null;
     try { localStorage.setItem('disc_job', r.job_id); } catch (e) {}
@@ -1627,6 +1719,7 @@ async function discPoll() {
     const fresh = j.items || [];
     fresh.forEach(it => { if (!DISC.items.find(x => x.key === it.key) && it.kind === 'screen' && !it.known && !it.added) DISC.sel.add(it.key); });
     DISC.items = fresh;
+    DISC.skipped = j.skipped || [];
     if (j.report_id) { DISC.report = j.report_id; $('discReport').href = '/reports/discovery/' + j.report_id; $('discReport').classList.remove('d-none'); }
     discRender();
     if (running) DISC.timer = setTimeout(discPoll, 2000);
@@ -1647,8 +1740,13 @@ function discRender() {
             <td class="text-center small">${st}</td></tr>`;
     }).join('') || `<tr><td colspan="7" class="text-center text-muted py-3">${DISC.running ? '⏳ لسه بيدوّر…' : 'مفيش حاجة هنا — جربي «كل الروابط»'}</td></tr>`;
     const n = DISC.items.filter(x => DISC.sel.has(x.key) && x.kind === 'screen' && !x.added).length;
-    $('discSelCount').textContent = `مختار ${n} · لقى ${DISC.items.filter(x => x.kind === 'screen').length} شاشة بجدول من ${DISC.items.length} رابط`;
+    const sk = (DISC.skipped || []).length;
+    $('discSelCount').innerHTML = esc(`مختار ${n} · لقى ${DISC.items.filter(x => x.kind === 'screen').length} شاشة بجدول من ${DISC.items.length} رابط`) +
+        (sk ? ` · <a href="#" onclick="discShowSkipped();return false" title="الروابط اللي اتخطت بالفلتر">🚫 اتخطى ${sk}</a>` : '');
     $('discAddBtn').disabled = !n;
+}
+function discShowSkipped() {
+    alert('الروابط اللي اتخطت:\n\n' + (DISC.skipped || []).map(x => `🚫 ${x.name} — ${x.url}  (فيه «${x.word}»)`).join('\n'));
 }
 function discToggle(k, on) { on ? DISC.sel.add(k) : DISC.sel.delete(k); discRender(); }
 function discSelect(on) {

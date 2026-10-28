@@ -131,8 +131,8 @@ def send_test_email(to_email):
         return False, 'Error: ' + str(e)[:150]
 
 
-def send_file(subject, text, file_path):
-    """Email a file (the daily PDF report) to the recipients in Settings → Email."""
+def send_file(subject, text, file_path, to=None):
+    """Email a file (the daily PDF report) to the recipients in Settings → Email (or to `to`)."""
     from email.mime.application import MIMEApplication
     from pathlib import Path
     config = load_config()
@@ -140,6 +140,8 @@ def send_file(subject, text, file_path):
         return False
     try:
         sender, password, recipients = config["sender_email"], config["sender_password"], config["recipients"]
+        if to:
+            recipients = [x.strip() for x in (to if isinstance(to, list) else str(to).replace("،", ",").replace(";", ",").split(",")) if x.strip()]
         if not all([sender, password, recipients]):
             return False
         msg = MIMEMultipart()

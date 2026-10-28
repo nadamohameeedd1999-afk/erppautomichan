@@ -37,7 +37,8 @@ def get_active_profile():
 
 def add_profile(name, base_url, username, password, notes=""):
     data = load_all()
-    new_id = "p_" + datetime.now().strftime("%Y%m%d%H%M%S")
+    import uuid
+    new_id = "p_" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4]     # unique even when two are added in one second
     profile = {
         "id": new_id,
         "name": name,

@@ -94,6 +94,35 @@ def settings_test_ai():
         return jsonify({"success": False, "error": str(e)})
 
 
+@route("/api/settings/alerts", methods=["GET", "POST"])
+@auth.login_required
+def settings_alerts():
+    """WhatsApp / Telegram / webhook alerts (Settings → 📱 واتساب وتليجرام)"""
+    from web import notify
+    if request.method == "POST":
+        d = request.get_json(silent=True) or {}
+        keep = ("notify_on", "dashboard_url", "telegram_on", "telegram_token", "telegram_chats", "telegram_photo",
+                "whatsapp_on", "whatsapp_mode", "callmebot", "wa_token", "wa_phone_id", "wa_to", "webhook_url")
+        notify.save_config({k: d[k] for k in keep if k in d})
+        try:
+            auth.audit("إعدادات التنبيهات", "واتساب/تليجرام")
+        except Exception:
+            pass
+    return jsonify({"success": True, "config": notify.public_config()})
+
+
+@route("/api/settings/alerts/test", methods=["POST"])
+@auth.login_required
+def settings_alerts_test():
+    from web import notify
+    d = request.get_json(silent=True) or {}
+    try:
+        n = notify.send_test(d.get("channel"), d.get("config") or {})
+        return jsonify({"success": True, "sent": n})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 @route("/settings/appearance", methods=["POST"])
 @auth.login_required
 def settings_appearance_save():

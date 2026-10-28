@@ -299,7 +299,7 @@ class TestsRegistry:
                     tp = s.get("test_path", "")
                     # نستخرج page_key من مسار الاختبار
                     m = (re.search(r'\[([^\]]+)\]', tp) or re.search(r'test_screen_(\w+)\.py', tp)
-                         or re.search(r'test_scn_(\w+)\.py', tp))
+                         or re.search(r'test_scn_(\w+)\.py', tp) or re.search(r'test_check_(\w+)\.py', tp))
                     if m:
                         pk = m.group(1)
                         if pk not in last_results:
@@ -454,6 +454,25 @@ class TestsRegistry:
             cands = [x for x in [row.get("last_result")] + [i.get("last_result") for i in items] if x]
             if cands:
                 row["last_result"] = max(cands, key=lambda x: str(x.get("timestamp") or x.get("run_id") or ""))
+        # الاختبارات المتقدمة (دورات / تقارير / صلاحيات / سرعة) — مجموعة لوحدها
+        try:
+            from engine import checks
+            for c in checks.list_all():
+                if c.get("error"):
+                    continue
+                icon, label, _ = checks.TYPES[c["type"]]
+                result.append({
+                    "id": f"advanced::{c['key']}", "module_key": "advanced",
+                    "module_name": "اختبارات متقدمة" if lang != "en" else "Advanced tests", "module_icon": "🧪",
+                    "page_key": c["key"], "name": c["name_ar"], "icon": icon, "url": c.get("url", ""),
+                    "full_path": checks.test_path_for(c["key"]), "smoke_path": None,
+                    "full_available": True, "smoke_available": False,
+                    "last_result": last_results.get(c["key"]), "duration_estimate": 120 if c["type"] != "cycle" else 400,
+                    "builder": False, "check_type": c["type"], "check_label": label,
+                })
+        except Exception as e:
+            print(f"[registry] checks: {e}")
+
         for r in result:
             r.setdefault("scenarios", [])
 

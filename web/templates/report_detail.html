@@ -101,6 +101,23 @@
     {% endif %}
 
     <!-- Test Steps -->
+    {% if check and check.detail %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="fw-bold mb-0">{{ check.detail.title }}</h5>
+            <a class="btn btn-sm btn-outline-primary" href="/checks?key={{ check.key }}"><i class="bi bi-pencil"></i> تعديل الاختبار</a>
+        </div>
+        <div class="card-body pt-2">
+            <div class="table-responsive"><table class="table table-sm align-middle mb-1">
+                <thead><tr>{% for c in check.detail.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+                <tbody>{% for r in check.detail.rows %}
+                    <tr style="{{ 'background:rgba(251,113,133,.12)' if r.ok == false else ('background:rgba(251,191,36,.10)' if r.ok is none else '') }}">
+                    {% for c in r.cells %}<td dir="auto">{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+            </table></div>
+            {% if check.detail.note %}<div class="small text-muted">{{ check.detail.note }}</div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
     {% if report.tests %}
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-0 pt-3">

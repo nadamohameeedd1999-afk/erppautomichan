@@ -137,6 +137,18 @@ def pdf_report(date_from=None, date_to=None, user=""):
 
 
 def html_to_pdf(page):
+    """Chrome sometimes answers «Printing is not available» right after it starts — one more try then"""
+    for attempt in range(4):
+        try:
+            return _html_to_pdf(page)
+        except Exception as e:
+            retry = any(w in str(e).lower() for w in ("printing is not available", "session not created", "disconnected"))
+            if not retry or attempt == 3:
+                raise
+            time.sleep(1.5)
+
+
+def _html_to_pdf(page):
     from tests.conftest import _build_options, _create_driver
     tmp = Path(tempfile.mkdtemp(prefix="daily_report_")) / "report.html"
     tmp.write_text(page, encoding="utf-8")

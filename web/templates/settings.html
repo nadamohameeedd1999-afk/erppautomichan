@@ -157,6 +157,12 @@ function editProfile(id, name, url, username, notes) {
                 Slack
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts" type="button" role="tab">
+                <i class="bi bi-whatsapp"></i>
+                {% if current_lang == 'ar' %}واتساب وتليجرام{% else %}WhatsApp & Telegram{% endif %}
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content" id="settingsTabContent">
@@ -689,6 +695,95 @@ function editProfile(id, name, url, username, notes) {
     </div>
 </div>
 
+<!-- TAB: WhatsApp / Telegram (rendered here, moved into the tabs by JS below) -->
+<div class="tab-pane fade" id="alerts" role="tabpanel" data-move-to="settingsTabContent">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+        <h5 class="fw-bold mb-1"><i class="bi bi-whatsapp text-success"></i> تنبيهات واتساب وتليجرام</h5>
+        <div class="text-muted small mb-3">لما اختبار مجدول يفشل (أو يرجع يشتغل) توصلك رسالة فيها اسم الاختبار، السبب، الحل المقترح، ورابط التقرير.</div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6"><label class="form-label fw-bold">إمتى يبعت؟</label>
+                <select class="form-select" id="alNotifyOn">
+                    <option value="change">لما حالة الاختبار تتغير بس — بقى بيفشل / رجع يشتغل (موصى بيه)</option>
+                    <option value="failure">كل مرة يفشل</option>
+                    <option value="always">كل تشغيلة</option></select></div>
+            <div class="col-md-6"><label class="form-label fw-bold">رابط لوحة التحكم (بيتحط في الرسالة)</label>
+                <input class="form-control ltr" id="alDash" placeholder="https://nqautotesting.up.railway.app"></div>
+        </div>
+
+        <div class="border rounded-3 p-3 mb-3">
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="alTgOn"><label class="form-check-label fw-bold" for="alTgOn">✈️ تليجرام</label></div>
+            <div class="row g-2">
+                <div class="col-md-6"><label class="form-label small">توكن البوت</label><input class="form-control ltr" id="alTgToken" placeholder="123456:ABC-DEF…" autocomplete="off"></div>
+                <div class="col-md-4"><label class="form-label small">رقم الشات (أو أكتر، بفاصلة)</label><input class="form-control ltr" id="alTgChats" placeholder="-1001234567890"></div>
+                <div class="col-md-2 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="alTgPhoto" checked><label class="form-check-label small" for="alTgPhoto">ابعتي صورة الفشل</label></div></div>
+            </div>
+            <div class="form-text">اعملي بوت من <b>@BotFather</b> وخدي التوكن · ابعتي أي رسالة للبوت (أو ضيفيه للجروب) · رقم الشات من <b>@userinfobot</b> (للجروب بيبدأ بـ -100).</div>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="alTest('telegram', this)">📨 ابعتي رسالة تجربة</button>
+        </div>
+
+        <div class="border rounded-3 p-3 mb-3">
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="alWaOn"><label class="form-check-label fw-bold" for="alWaOn">🟢 واتساب</label></div>
+            <select class="form-select form-select-sm mb-2" id="alWaMode" style="max-width:420px" onchange="alWaModeUI()">
+                <option value="callmebot">CallMeBot — مجاني، لرقم أو كام رقم (الأسهل)</option>
+                <option value="cloud">WhatsApp Business Cloud API — رقم الشركة الرسمي</option></select>
+            <div id="alWaCmb">
+                <label class="form-label small">كل سطر: الرقم|الـ apikey</label>
+                <textarea class="form-control ltr" id="alCmb" rows="2" placeholder="201001234567|123456"></textarea>
+                <div class="form-text">من موبايل كل واحد: ضيفي الرقم <b class="ltr">+34 694 29 84 96</b> في الأسماء وابعتيله على واتساب <b>I allow callmebot to send me messages</b> — هيرد بالـ apikey.</div>
+            </div>
+            <div id="alWaCloud" class="d-none"><div class="row g-2">
+                <div class="col-md-5"><label class="form-label small">Access token</label><input class="form-control ltr" id="alWaToken" autocomplete="off"></div>
+                <div class="col-md-3"><label class="form-label small">Phone number ID</label><input class="form-control ltr" id="alWaPid"></div>
+                <div class="col-md-4"><label class="form-label small">الأرقام اللي تستلم (بفاصلة)</label><input class="form-control ltr" id="alWaTo" placeholder="201001234567, 9665…"></div></div>
+                <div class="form-text">من developers.facebook.com ← WhatsApp. ملحوظة: Meta بتسمح برسالة عادية بس لو الرقم كلّمكم في آخر 24 ساعة؛ غير كده محتاجة template معتمد.</div></div>
+            <button class="btn btn-sm btn-outline-success mt-2" onclick="alTest('whatsapp', this)">📨 ابعتي رسالة تجربة</button>
+        </div>
+
+        <div class="border rounded-3 p-3 mb-3">
+            <label class="form-label fw-bold">🔗 Webhook (اختياري) — Teams / n8n / بوابة واتساب عندكم</label>
+            <input class="form-control ltr" id="alHook" placeholder="https://… (بيستلم JSON: {&quot;text&quot;: &quot;…&quot;})">
+            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="alTest('webhook', this)">📨 تجربة</button>
+        </div>
+        <button class="btn btn-primary" onclick="alSave(this)"><i class="bi bi-check-circle"></i> حفظ</button>
+        <span class="small ms-2" id="alMsg"></span>
+    </div></div>
+</div>
+<script>
+(function () {
+    const pane = document.getElementById('alerts'), dest = document.getElementById('settingsTabContent');
+    if (pane && dest) dest.appendChild(pane);
+})();
+const AL = id => document.getElementById(id);
+function alWaModeUI() { const c = AL('alWaMode').value === 'cloud'; AL('alWaCloud').classList.toggle('d-none', !c); AL('alWaCmb').classList.toggle('d-none', c); }
+function alCollect() {
+    return {notify_on: AL('alNotifyOn').value, dashboard_url: AL('alDash').value.trim(),
+            telegram_on: AL('alTgOn').checked, telegram_token: AL('alTgToken').value.trim(), telegram_chats: AL('alTgChats').value.trim(), telegram_photo: AL('alTgPhoto').checked,
+            whatsapp_on: AL('alWaOn').checked, whatsapp_mode: AL('alWaMode').value, callmebot: AL('alCmb').value.trim(),
+            wa_token: AL('alWaToken').value.trim(), wa_phone_id: AL('alWaPid').value.trim(), wa_to: AL('alWaTo').value.trim(), webhook_url: AL('alHook').value.trim()};
+}
+function alFill(c) {
+    AL('alNotifyOn').value = c.notify_on || 'change'; AL('alDash').value = c.dashboard_url || '';
+    AL('alTgOn').checked = !!c.telegram_on; AL('alTgToken').value = c.telegram_token || ''; AL('alTgChats').value = c.telegram_chats || ''; AL('alTgPhoto').checked = c.telegram_photo !== false;
+    AL('alWaOn').checked = !!c.whatsapp_on; AL('alWaMode').value = c.whatsapp_mode || 'callmebot'; AL('alCmb').value = c.callmebot || '';
+    AL('alWaToken').value = c.wa_token || ''; AL('alWaPid').value = c.wa_phone_id || ''; AL('alWaTo').value = c.wa_to || ''; AL('alHook').value = c.webhook_url || '';
+    alWaModeUI();
+}
+async function alSave(btn) {
+    btn.disabled = true;
+    const r = await fetch('/api/settings/alerts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(alCollect())}).then(r => r.json()).catch(e => ({error: String(e)}));
+    btn.disabled = false;
+    AL('alMsg').innerHTML = r.success ? '<span class="text-success">✅ اتحفظ</span>' : `<span class="text-danger">❌ ${r.error || ''}</span>`;
+    if (r.success) alFill(r.config);
+}
+async function alTest(ch, btn) {
+    btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = '⏳ بيبعت…';
+    const r = await fetch('/api/settings/alerts/test', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel: ch, config: alCollect()})}).then(r => r.json()).catch(e => ({error: String(e)}));
+    btn.disabled = false; btn.innerHTML = old;
+    alert(r.success ? `✅ اتبعتت (${r.sent}) — شوفي الموبايل` : '❌ ' + r.error);
+}
+fetch('/api/settings/alerts').then(r => r.json()).then(j => j.success && alFill(j.config)).catch(() => {});
+</script>
+
 <!-- Test Email Modal -->
 <div class="modal fade" id="testEmailModal" tabindex="-1">
     <div class="modal-dialog">
@@ -876,7 +971,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('#appearance .look input').forEach(r => r.addEventListener('change', () => {
         document.querySelectorAll(`#appearance input[name="${r.name}"]`).forEach(x => x.closest('.look').classList.toggle('on', x.checked));
     }));
-    if (location.hash === '#appearance') bootstrap.Tab.getOrCreateInstance(tab).show();
+    const want = location.hash && document.getElementById(location.hash.slice(1) + '-tab');
+    if (want) bootstrap.Tab.getOrCreateInstance(want).show();
 });
 </script>
 {% endblock %}

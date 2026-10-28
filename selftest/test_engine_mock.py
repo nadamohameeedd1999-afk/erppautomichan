@@ -77,3 +77,65 @@ def test_edit_print_delete(run_cli):
            "expect_error": "لا يمكن حذف فاتورة مرحلة"}
     r = run_cli("run", neg)
     assert r.get("success"), r.get("error")
+
+
+# ---------------------------------------------------------------- advanced tests (اختبارات متقدمة)
+CRV = {"key": "st_crv", "name_ar": "سند قبض", "list_url": "/CashReceiptVoucher", "add_url": "/CashReceiptVoucher/AddEdit",
+       "fields": [{"id": "SourceTypeId", "label": "نوع المصدر", "kind": "select2", "strategy": "fixed", "value": "عميل"},
+                  {"id": "CustomerId", "label": "العميل", "kind": "select2", "strategy": "fixed", "value": "11 - الريادة",
+                   "depends_on": "SourceTypeId"},
+                  {"id": "ProjectId", "label": "المشروع", "kind": "select2", "strategy": "keep"},
+                  {"id": "CashReceiptPaymentMethodId", "label": "طريقة الدفع", "kind": "select2", "strategy": "first"},
+                  {"id": "MoneyAmount", "label": "المبلغ", "kind": "number", "strategy": "fixed", "value": "250"}]}
+JOURNAL = {"name": "القيد", "after": "__after_save__", "steps": [
+    {"do": "check_journal", "target": "القيد", "match": "{var:saved_no}", "accounts": "الصندوق, الريادة", "amount": "250"}]}
+TRIAL = {"key": "st_trial", "type": "report", "name_ar": "ميزان المراجعة", "url": "/Reports/Trial",
+         "fields": [{"id": "DateFrom", "label": "من", "kind": "date", "strategy": "fixed", "value": "2026-01-01"}],
+         "show_button": "عرض", "values": [{"name": "مدين", "ref": "sum:مدين"}, {"name": "دائن", "ref": "sum:دائن"}],
+         "asserts": ["{sum:مدين} = {sum:دائن}"]}
+
+
+def _save_check(run_cli_env, cfg):
+    import json
+    from pathlib import Path
+    d = Path(run_cli_env["DEFS_DIR"]) / "checks"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{cfg['key']}.json").write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+
+
+def test_journal_entry(run_cli):
+    r = run_cli("run", {**CRV, "flows": [JOURNAL]})
+    assert r.get("success"), r.get("error")
+    assert "متزن" in str(r["steps"][-1]["result"])
+    bad = {**CRV, "key": "st_crv_bad", "flows": [JOURNAL], "fields": CRV["fields"] + [
+        {"id": "Notes", "label": "ملاحظات", "kind": "textarea", "strategy": "fixed", "value": "قيد-خطأ"}]}
+    r = run_cli("run", bad)
+    assert not r.get("success") and "مش متزن" in r.get("error", "")
+
+
+def test_report_permission_perf_cycle(run_cli, mock_erp):
+    r = run_cli("check", {**TRIAL, "asserts": []})
+    assert r.get("success"), r.get("error")
+    assert r["values"]["مدين"] > 0
+    perm = {"key": "st_perm", "type": "permission", "name_ar": "صلاحيات", "username": "viewer", "password": "pw2",
+            "expect": [{"url": "/CashReceiptVoucher", "allowed": False}, {"url": "/CashReceiptVoucher/AddEdit", "allowed": False},
+                       {"url": "/Customer", "allowed": True}]}
+    r = run_cli("check", perm)
+    assert r.get("success"), r.get("error")
+    r = run_cli("check", {**perm, "expect": [{"url": "/Customer", "allowed": False}]})
+    assert not r.get("success") and "مفتوحة" in r.get("error", "")
+    perf = {"key": "st_perf", "type": "perf", "name_ar": "سرعة", "pages": [{"url": "/Customer", "name": "العملاء"}], "times": 1}
+    assert run_cli("check", perf).get("success")
+    import urllib.request
+    op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    op.open("http://127.0.0.1:5055/__slow?ms=2500").read()
+    try:
+        r = run_cli("check", perf)
+    finally:
+        op.open("http://127.0.0.1:5055/__slow?ms=0").read()
+    assert not r.get("success") and "أبطأ" in r.get("error", "")
+    _save_check(mock_erp, {**TRIAL, "asserts": []})
+    cyc = {"key": "st_cycle", "type": "cycle", "name_ar": "دورة", "steps": [{"key": "st_crv"}, {"key": "st_trial"}]}
+    r = run_cli("check", cyc, defs=[CRV])
+    assert r.get("success"), r.get("error")
+    assert len(r["detail"]["rows"]) == 2 and all(x["ok"] for x in r["detail"]["rows"])
