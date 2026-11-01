@@ -349,7 +349,7 @@ def check_saved_values(r, cfg, steps):
         driver.get(hit["href"])
     r.wait_for_preloader(timeout=20)
     time.sleep(2.5)
-    want = {s["id"]: s for s in steps if s.get("ok") and s.get("result") not in (None, "")}
+    want = {s["id"]: s for s in steps if s.get("ok") and s.get("result") not in (None, "") and s.get("strategy") != "upload"}
     if not want:
         return {"checked": False, "reason": "مفيش قيم أقارنها"}
     got = driver.execute_script(READ_VALUES_JS, list(want.keys())) or {}
@@ -402,6 +402,9 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
         while True:
             try:
                 fill_with_flows(r, cfg, r.filler, result["screenshots"])
+                if cfg.get("auto_complete"):
+                    from engine.auto_fill import complete_required
+                    complete_required(r)
                 break
             except FieldFillError as e:
                 f = e.field or {}

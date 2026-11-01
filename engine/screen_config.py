@@ -138,6 +138,8 @@ def normalize_field(f: dict, i: int, seen: set) -> dict:
         "timeout": float(f.get("timeout", 15) or 15),
         # مش لازم يكون في الصفحة: لو مش موجود يتخطى (الاختبار الآلي في صفحة التعديل)
         "optional": bool(f.get("optional", False)),
+        # لو اتعذّر ملؤه يتسجل ويكمل (الحقول اللي مش إجبارية في الاختبار الآلي)
+        "soft": bool(f.get("soft", False)),
     }
 
 
@@ -229,6 +231,8 @@ def normalize(cfg: dict) -> dict:
         "run_after": _keys_list(cfg.get("run_after")),
         # بيانات من Excel/CSV: كل صف = تشغيلة بقيمه
         "data_file": str(cfg.get("data_file") or "").strip(),
+        # الاختبار الآلي: بعد الملء يدوّر على أي حقل إجباري لسه فاضي (ظهر بعد اختيار) ويملاه + المرفقات
+        "auto_complete": bool(cfg.get("auto_complete", False)),
         "status": "complete",
         "notes": str(cfg.get("notes") or ""),
         "updated_at": cfg.get("updated_at") or "",

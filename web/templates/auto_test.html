@@ -30,8 +30,8 @@
     <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
         <div>
             <h1 class="fw-bold mb-1"><i class="bi bi-robot text-primary"></i> الاختبار الآلي</h1>
-            <div class="text-muted">اختاري أي شاشة من شاشات النظام — <b>من غير ما تجهّزيها</b>. هو بيفتحها على الموقع اللي بيتختبر، يقرا كل الحقول
-                (والإجباري بيتقري من قاعدة بيانات العميل نفسه)، وبعدين يختبر: الإضافة، التعديل، الطباعة، الحذف، واختبارات الرفض.</div>
+            <div class="text-muted">اختاري أي شاشة من شاشات النظام — <b>من غير ما تجهّزيها</b>. بيعمل سجل حقيقي: <b>إضافة</b> ويتأكد من الحفظ،
+                وبعدين على <b>نفس السجل</b>: <b>تعديل</b> ويتأكد، <b>طباعة</b>، و<b>حذف</b> ويتأكد إنه اتشال. الحقول الإجبارية بتتقري من موقع العميل نفسه وقت الاختبار.</div>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
             <div class="input-group d-none" id="siteBox" style="width:auto"><span class="input-group-text">🌐 على</span><select id="runSites" class="form-select"></select></div>
@@ -49,23 +49,16 @@
                 <div class="col-md-6"><div class="opt" data-mode="required" onclick="setMode('required')"><span class="ic">❗</span>
                     <div><div class="fw-bold">الحقول الإجبارية بس</div><div class="d">أقل حاجة الشاشة محتاجاها عشان تحفظ (+ القوايم اللي الإجباري بيعتمد عليها)</div></div></div></div>
             </div>
-            <div class="sec-t">سيناريوهات ملء الحقول في الإضافة <span class="muted">(كل سيناريو = سجل جديد بقيم مختلفة)</span></div>
-            <div class="row g-2 mb-3" id="scnBox">
-                {% for k, s in scenarios.items() %}
-                <div class="col-md-4"><div class="opt" data-scn="{{ k }}" onclick="toggleScn('{{ k }}')"><span class="ic">{{ s[0] }}</span>
-                    <div><div class="fw-bold">{{ s[1] }}</div></div></div></div>
-                {% endfor %}
-            </div>
-            <div class="sec-t">الخطوات</div>
+            <div class="sec-t">الاختبارات — بتتعمل بالترتيب على نفس السجل</div>
             <div class="row g-2 mb-2" id="wayBox">
                 {% for k, w in ways.items() %}
-                <div class="col-md-6 col-xl-4"><div class="opt" data-way="{{ k }}" onclick="toggleWay('{{ k }}')"><span class="ic">{{ w[0] }}</span>
+                <div class="col-md-6 col-xl-3"><div class="opt" data-way="{{ k }}" onclick="toggleWay('{{ k }}')"><span class="ic">{{ w[0] }}</span>
                     <div><div class="fw-bold">{{ loop.index }}. {{ w[1] }}</div><div class="d">{{ w[2] }}</div></div></div></div>
                 {% endfor %}
             </div>
             <details><summary class="small fw-bold">⚙️ إعدادات إضافية (اختياري)</summary>
                 <div class="row g-2 mt-1">
-                    <div class="col-md-3"><label class="form-label small">رسالة الرفض المتوقعة (فاضي = أي رفض)</label><input class="form-control form-control-sm" id="fExpect"></div>
+                    <input type="hidden" id="fExpect">
                     <div class="col-md-3"><label class="form-label small">زرار التعديل في الصف</label><input class="form-control form-control-sm" id="fEditBtn" placeholder="تلقائي"></div>
                     <div class="col-md-3"><label class="form-label small">زرار الطباعة في الصف</label><input class="form-control form-control-sm" id="fPrintBtn" placeholder="تلقائي"></div>
                     <div class="col-md-3"><label class="form-label small">زرار الحذف في الصف</label><input class="form-control form-control-sm" id="fDeleteBtn" placeholder="تلقائي"></div>
@@ -118,14 +111,15 @@
 {% block extra_js %}
 <script>
 const WAY_KEYS = {{ ways.keys() | list | tojson }};
-const SCN_KEYS = {{ scenarios.keys() | list | tojson }};
+const SCN_KEYS = ['first'];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let SCREENS = [], SEL = new Set(), MODE = 'all', SCN = new Set(['first']), WAYS = new Set(WAY_KEYS), TRY_T = null;
-try { const p = JSON.parse(localStorage.getItem('auto_opts') || 'null');
-      if (p) { MODE = p.mode || MODE; SCN = new Set(p.scn || ['first']); WAYS = new Set(p.ways || WAY_KEYS); } } catch (e) {}
+try { const p = JSON.parse(localStorage.getItem('auto_opts2') || 'null');
+      if (p) { MODE = p.mode || MODE; WAYS = new Set((p.ways || WAY_KEYS).filter(w => WAY_KEYS.includes(w))); } } catch (e) {}
+if (!WAYS.size) WAYS = new Set(WAY_KEYS);
 
-function remember() { try { localStorage.setItem('auto_opts', JSON.stringify({mode: MODE, scn: [...SCN], ways: [...WAYS]})); } catch (e) {} }
+function remember() { try { localStorage.setItem('auto_opts2', JSON.stringify({mode: MODE, scn: [...SCN], ways: [...WAYS]})); } catch (e) {} }
 function paintOpts() {
     document.querySelectorAll('[data-mode]').forEach(e => e.classList.toggle('on', e.dataset.mode === MODE));
     document.querySelectorAll('[data-scn]').forEach(e => { e.classList.toggle('on', SCN.has(e.dataset.scn)); e.classList.toggle('off', !SCN.has(e.dataset.scn)); });
@@ -163,7 +157,7 @@ function render() {
             ${l.passed ? '' : `<div class="muted text-danger">${esc(l.message)}</div>`}` : (a ? '<span class="chip none">متحفظ — لسه ما اتشغلش</span>' : '<span class="muted">—</span>');
         html += `<tr><td><input type="checkbox" class="form-check-input" ${SEL.has(s.key) ? 'checked' : ''} onchange="sel('${esc(s.key)}', this.checked)"></td>
             <td><div class="fw-bold">${esc(s.name)} ${s.builder ? '<span class="chip none" title="ليها إعداد في منشئ الشاشات — هيستخدم منه الأصناف والأزرار">🧩</span>' : ''}</div>
-                <div class="muted ltr">${esc(s.url)}</div>${a ? `<div class="muted">${a.fields_mode === 'required' ? 'الإجباري بس' : 'كل الحقول'} · ${a.scenarios.length} سيناريو · ${a.ways.length} خطوة</div>` : ''}</td>
+                <div class="muted ltr">${esc(s.url)}</div>${a ? `<div class="muted">${a.fields_mode === 'required' ? 'الإجباري بس' : 'كل الحقول'} · ${a.ways.length} اختبار</div>` : ''}</td>
             <td>${last}</td>
             <td class="text-nowrap text-end">
                 <button class="btn btn-sm btn-warning" onclick="tryOne('${esc(s.key)}')" title="شغّليه دلوقتي واتفرجي على النتيجة هنا">🧪 جرّبي دلوقتي</button>

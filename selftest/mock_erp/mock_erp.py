@@ -452,5 +452,102 @@ def si_add():
     </script></body></html>"""
 
 
+# ---------------------------------------------------------------- a cash receipt like the real one (الاختبار الآلي):
+# «العميل» shows up after «من», «بناء على» after «العميل», the amount's change handler calls a function that does not
+# exist (setEquivalent), attachments must be chosen AND uploaded before saving, edit / print / delete in each row
+CR2 = []
+
+
+@app.route("/CashReceipt2")
+def cr2_list():
+    if not guard():
+        return redirect("/Login")
+    rows = "".join(f"<tr><td>{v['no']}</td><td>{v['customer']}</td><td>{v['amount']}</td><td>{v.get('notes', '')}</td><td>"
+                   f"<a class='btn' title='تعديل' href='/CashReceipt2/AddEdit?id={v['no']}'>تعديل</a> "
+                   f"<a class='btn' title='طباعة' href='/CashReceipt2/Print/{v['no']}' target='_blank'>طباعة</a> "
+                   f"<button type=button class='btn' title='حذف' onclick='del2({v['no']})'>حذف</button></td></tr>" for v in reversed(CR2))
+    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
+    <a class="btn" href="/CashReceipt2/AddEdit">إضافة جديد</a>
+    <table><thead><tr><th>رقم</th><th>العميل</th><th>المبلغ</th><th>ملاحظات</th><th></th></tr></thead><tbody>{rows}</tbody></table>
+    <script>function del2(no){{ Swal.fire({{title: 'هل أنت متأكد من الحذف؟', icon: 'warning', showCancelButton: true}}).then(function(r){{
+      if (!r.isConfirmed) return; $.post('/CashReceipt2/Delete/' + no, function(){{ Swal.fire({{title: 'تم الحذف', icon: 'success'}}).then(function(){{ location.reload(); }}); }}); }}); }}</script>
+    </body></html>"""
+
+
+@app.route("/CashReceipt2/Delete/<int:no>", methods=["POST"])
+def cr2_delete(no):
+    CR2[:] = [x for x in CR2 if x["no"] != no]
+    return jsonify({"ok": True})
+
+
+@app.route("/CashReceipt2/Print/<int:no>")
+def cr2_print(no):
+    v = next((x for x in CR2 if x["no"] == no), None)
+    return f"<html dir=rtl><head><title>سند قبض {no}</title></head><body><h1>سند قبض رقم {no}</h1><p>{v and v['customer']} — {v and v['amount']}</p></body></html>"
+
+
+@app.route("/CashReceipt2/AddEdit", methods=["GET", "POST"])
+def cr2_add():
+    if not guard():
+        return redirect("/Login")
+    if request.method == "POST":
+        f = request.form
+        if not f.get("uploaded"):
+            return jsonify({"ok": False, "error": "يجب ان تختار الملفات اولا ومن ثم رفعها قبل حفظ الصفحة كاملة"})
+        cust = dict(sum(CUSTOMERS.values(), [])).get(f.get("CustomerId"), "?")
+        rec = {"customer": cust, "amount": f"{float(f.get('Total') or 0):.2f}", "notes": f.get("Notes", ""), "data": dict(f)}
+        old = next((x for x in CR2 if str(x["no"]) == f.get("Id")), None)
+        if old:
+            old.update(rec)
+        else:
+            CR2.append({"no": (CR2[-1]["no"] + 1) if CR2 else 1, **rec})
+        return jsonify({"ok": True})
+    vid = request.args.get("id")
+    rec = next((v for v in CR2 if str(v["no"]) == str(vid)), None) if vid else None
+    pre = json.dumps((rec or {}).get("data") or {})
+    return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
+    <script>window.PREFILL = {pre};</script>
+    <form id=frm>
+      <input type=hidden id=Id name=Id value="{vid or 0}"><input type=hidden id=uploaded name=uploaded value="{'1' if rec else ''}">
+      <div class=form-group><label for=BranchId>الفرع *</label><select id=BranchId name=BranchId data-val-required="مطلوب"><option value="">اختر</option><option value=1>01 - الفرع الاول</option></select></div>
+      <div class=form-group><label for=VDate>التاريخ *</label><input id=VDate name=VDate type=date data-val-required="مطلوب" value="{date.today().isoformat()}"></div>
+      <div class=form-group><label for=SourceType>من *</label><select id=SourceType name=SourceType data-val-required="مطلوب"><option value="">اختر</option><option value=1>عميل</option><option value=2>مورد</option></select></div>
+      <div class=form-group id=custBox style="display:none"><label for=CustomerId>العميل *</label><select id=CustomerId name=CustomerId data-val-required="العميل مطلوب"><option value="">اختر</option></select></div>
+      <div class=form-group id=basedBox style="display:none"><label for=BasedOn>بناء على *</label><select id=BasedOn name=BasedOn data-val-required="مطلوب"><option value="">اختر</option><option value=1>فاتورة</option><option value=2>دفعة مقدمة</option></select></div>
+      <div class=form-group><label for=Total>الاجمالي (بالعملة المحلية) *</label><input id=Total name=Total type=number data-val-required="مطلوب"></div>
+      <div class=form-group><label for=Notes>ملاحظات</label><textarea id=Notes name=Notes></textarea></div>
+      <div class=form-group><label>المرفقات</label><input type=file id=Files><button type=button id=btnUpload class=btn>رفع</button></div>
+    </form>
+    <button id=save type=button>حفظ</button>
+    <script>
+    $('#BranchId, #SourceType, #CustomerId, #BasedOn').select2({{width: '260px'}});
+    $('#Total').on('change', function () {{ setEquivalent(this.value); }});          // the page's own bug
+    $('#SourceType').on('change', function () {{
+      $('#custBox').toggle(!!this.value);
+      $.getJSON('/api/customers', {{source: this.value}}, function (rows) {{
+        var s = $('#CustomerId').empty().append('<option value="">اختر</option>');
+        rows.forEach(function (r) {{ s.append(new Option(r[1], r[0])); }});
+        s.trigger('change.select2');
+        if (window.PREFILL && PREFILL.CustomerId) {{ s.val(PREFILL.CustomerId).trigger('change'); }}
+      }});
+    }});
+    $('#CustomerId').on('change', function () {{ $('#basedBox').toggle(!!this.value); }});
+    $('#btnUpload').on('click', function () {{ if ($('#Files')[0].files.length) {{ $('#uploaded').val('1'); }} }});
+    if (window.PREFILL && PREFILL.SourceType) {{
+      ['BranchId', 'SourceType', 'BasedOn'].forEach(function (k) {{ $('#' + k).val(PREFILL[k]).trigger('change'); }});
+      $('#Total').val(PREFILL.Total); $('#Notes').val(PREFILL.Notes);
+    }}
+    $('#save').on('click', function () {{
+      Swal.fire({{icon: 'question', title: 'هل تريد الحفظ؟', showCancelButton: true}}).then(function (r) {{
+        if (!r.isConfirmed) return;
+        $.post('/CashReceipt2/AddEdit', $('#frm').serialize(), function (j) {{
+          if (!j.ok) {{ Swal.fire({{icon: 'error', title: 'خطأ', text: j.error}}); return; }}
+          location.href = '/CashReceipt2';
+        }});
+      }});
+    }});
+    </script></body></html>"""
+
+
 if __name__ == "__main__":
     app.run(port=5055, threaded=True)

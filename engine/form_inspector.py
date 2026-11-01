@@ -179,7 +179,7 @@ for (var i = 0; i < s.options.length; i++) {
   var t = s.options[i].text.replace(/\s+/g,' ').trim();
   if (!t || ph.indexOf(t.toLowerCase()) !== -1 || !s.options[i].value) continue;
   s.selectedIndex = i;
-  if (window.jQuery) { jQuery(s).trigger('change'); } else { s.dispatchEvent(new Event('change', {bubbles:true})); }
+  if (window.jQuery) { try { jQuery(s).trigger('change'); } catch (_e) {} } else { s.dispatchEvent(new Event('change', {bubbles:true})); }
   return t;
 }
 return null;

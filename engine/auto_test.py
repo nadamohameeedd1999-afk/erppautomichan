@@ -156,6 +156,7 @@ def build_fields(read, mode, scenario, builder=None, editing=False):
         dep = f.get("depends_on") if f.get("depends_on") in ids else None
         out.append({"id": f["id"], "label": f.get("label") or f["id"], "kind": f["kind"], "strategy": st, "value": val,
                     "required": bool(f.get("required")) and st != "keep", "depends_on": dep,
+                    "soft": not f.get("required"),          # an optional field that can't be filled is noted, not fatal
                     "format": (fixed.get(f["id"]) or {}).get("format", ""), "timeout": 15, "wait_after": 0.5})
         ids.add(f["id"])
     return out, req
@@ -191,21 +192,57 @@ def _scenario_for(screen_key, op):
 
 
 # ---------------------------------------------------------------- run
-def _what(res, cfg_v):
+def _filled(res):
+    out, skipped = [], []
+    for st in res.get("steps") or []:
+        if st.get("strategy") == "flow":
+            continue
+        lbl = str(st.get("label") or st.get("id") or "").replace(" (اتملى تلقائي — ظهر إجباري)", " 🧩")
+        if st.get("skipped") or (not st.get("ok") and st.get("error")):
+            if st.get("error"):
+                skipped.append(f"{lbl}: {str(st['error']).splitlines()[0].split('] ')[-1][:80]}")
+            continue
+        if st.get("ok") and st.get("result") not in (None, ""):
+            out.append(f"{lbl} = {str(st['result'])[:40]}")
+    return out, skipped
+
+
+def explain(way, res, ok, err=""):
+    """the cell «اللي حصل»: what was filled, how the save went, how it was checked — line by line"""
     from engine.screen_runner import RUN_VARS
-    if res.get("negative_ok"):
-        return "اترفض ✓ — " + " | ".join(str(x) for x in (res.get("rejected_with") or []))[:150]
-    if res.get("operation") == "print":
-        return "صفحة الطباعة فتحت"
-    if res.get("operation") == "delete":
-        return f"اتحذف ومبقاش في القايمة ({(res.get('row') or '')[:50]})"
-    chk = res.get("saved_check") or {}
-    filled = sum(1 for s in (res.get("steps") or []) if s.get("ok") and s.get("strategy") != "flow" and s.get("result") not in (None, ""))
-    extra = (f" · فتحته تاني وراجعت {len(chk.get('rows', []))} قيمة — كلها صح" if chk.get("checked") else
-             (f" · (مقدرتش أفتحه تاني أراجع القيم: {chk.get('reason')})" if chk.get("reason") else ""))
-    if res.get("operation") == "edit":
-        return f"اتعدل {filled} حقل" + extra
-    return f"اتملى {filled} حقل · اتحفظ · ظهر صف جديد في القايمة (رقم {RUN_VARS.get('saved_no', '—')})" + extra
+    lines = []
+    filled, skipped = _filled(res)
+    flows = [st for st in (res.get("steps") or []) if st.get("strategy") == "flow" and st.get("ok")]
+    if way in ("add", "edit"):
+        if filled:
+            lines.append(f"✍️ اتملى {len(filled)} حقل: " + " · ".join(filled[:14]) + (" …" if len(filled) > 14 else ""))
+        if flows:
+            lines.append(f"🔗 {len(flows)} خطوة (أصناف / أزرار / مرفقات) اتعملت")
+        if skipped:
+            lines.append("⏭️ حقول مش إجبارية اتخطت: " + " · ".join(skipped[:5]))
+    if ok:
+        if way == "add":
+            msgs = [str(a).replace("SweetAlert: ", "").replace("JS: ", "").strip() for a in (res.get("alerts") or [])]
+            msg = next((m for m in reversed(msgs) if m and not m.startswith("هل ") and "?" not in m and "؟" not in m), "")
+            lines.append("💾 اتحفظ" + (f" — رسالة النظام: {msg[:120]}" if msg else " — الصفحة رجعت للقايمة من غير أخطاء"))
+            if res.get("first_row_after"):
+                lines.append(f"📋 السجل الجديد ظهر أول القايمة: رقم {RUN_VARS.get('saved_no', '—')} — «{str(res['first_row_after'])[:90]}»")
+        if way == "edit":
+            lines.append(f"💾 التعديل اتحفظ على السجل «{str(res.get('row') or '')[:80]}»")
+        chk = res.get("saved_check") or {}
+        if chk.get("checked"):
+            lines.append(f"🔎 فتحته تاني وقارنت {len(chk.get('rows', []))} قيمة — كلها زي ما اتكتبت ✓")
+        elif chk.get("reason"):
+            lines.append(f"🔎 مقدرتش أفتحه تاني أقارن القيم: {chk['reason']}")
+        if way == "print":
+            lines.append("🖨️ صفحة الطباعة فتحت ومش فاضية ومفيهاش خطأ")
+        if way == "delete":
+            lines.append(f"🗑️ اتحذف ومبقاش في القايمة — «{str(res.get('row') or '')[:80]}»")
+    else:
+        lines.append("❌ " + {"add": "الإضافة ما نجحتش", "edit": "التعديل ما نجحش", "print": "الطباعة ما نجحتش",
+                             "delete": "الحذف ما نجحش"}.get(way, "فشل") + ":")
+        lines += ["   " + x.strip() for x in str(err).split("\n") if x.strip()][:8]
+    return "\n".join(lines)
 
 
 def run_auto(driver, credentials, cfg, result=None):
@@ -218,137 +255,84 @@ def run_auto(driver, credentials, cfg, result=None):
     RUN_VARS.clear()
     login(driver, credentials)
     rows, fails = [], []
-    result["detail"] = {"title": f"🤖 الاختبار الآلي — {info['name']}", "columns": ["#", "الخطوة", "اللي حصل", "المدة (ث)"],
+    result["detail"] = {"title": f"🤖 الاختبار الآلي — {info['name']}", "columns": ["#", "الاختبار", "اللي حصل بالتفصيل", "المدة (ث)"],
                         "rows": rows, "note": ""}
     result["screenshots"] = []
 
-    # ---- 0. read the form on this site
+    # ---- read the add form on this site (required fields come from this client's own setup)
     t0 = time.time()
     try:
         insp = FormInspector(driver).inspect(info["list_url"], info["add_url"], info["add_button"], find_dependencies=True)
     except Exception as e:
-        rows.append({"cells": [0, "📖 قراءة الحقول من الشاشة", f"مقدرتش أفتح فورم الإضافة: {str(e).splitlines()[0][:200]}", round(time.time() - t0, 1)], "ok": BAD})
+        rows.append({"cells": [0, "📖 قراءة الشاشة", f"مقدرتش أفتح فورم الإضافة: {type(e).__name__}: {str(e).splitlines()[0][:200]}",
+                               round(time.time() - t0, 1)], "ok": BAD})
         e2 = AssertionError(f"الاختبار الآلي لـ «{info['name']}»: مقدرتش أقرا الحقول — {type(e).__name__}: {str(e).splitlines()[0][:200]}")
         e2.partial_result = result
         raise e2
     read = insp.get("fields") or []
     usable = _usable(read)
     req_labels = [f["label"] or f["id"] for f in usable if f.get("required")]
-    lists = sum(1 for f in usable if f["kind"] in ("select", "select2"))
-    deps = sum(1 for f in usable if f.get("depends_on"))
     if insp.get("screenshot"):
         result["screenshots"].append(insp["screenshot"])
-    note = (f"{len(usable)} حقل ({len(req_labels)} إجباري: {'، '.join(req_labels[:8]) or '—'}) · {lists} قايمة"
-            + (f" · {deps} بتعتمد على غيرها" if deps else "") + (f" · زرار الحفظ: {insp.get('suggested_save')}" if insp.get("suggested_save") else ""))
-    if insp.get("warnings"):
-        note += "\n⚠️ " + " | ".join(insp["warnings"])
+    note = f"📖 لقيت {len(usable)} حقل — منهم {len(req_labels)} إجباري على الموقع ده: {'، '.join(req_labels[:10]) or '—'}"
     if info["builder"] and info["builder"].get("flows"):
-        note += f"\n🧩 هستخدم من منشئ الشاشات: {len(info['builder']['flows'])} إجراء (أصناف / أزرار / نوافذ)"
-    ok_read = bool(usable)
-    rows.append({"cells": [0, "📖 قراءة الحقول من الشاشة (على الموقع ده)", note, round(time.time() - t0, 1)], "ok": OK if ok_read else BAD})
-    logger.info(f"📖 {info['name']}: {note}")
-    if not ok_read:
+        note += f"\n🧩 هستخدم من منشئ الشاشات {len(info['builder']['flows'])} خطوة (أصناف / أزرار / نوافذ)"
+    rows.append({"cells": [0, "📖 قراءة الشاشة", note, round(time.time() - t0, 1)], "ok": OK if usable else BAD})
+    logger.info(note)
+    if not usable:
         e = AssertionError(f"الاختبار الآلي لـ «{info['name']}»: مالقيتش حقول في فورم الإضافة ({insp.get('add_url')})")
         e.partial_result = result
         raise e
 
     base = _base(info, insp)
     mode = cfg.get("fields_mode", "all")
-    expect = cfg.get("expect_error") or "*"
-    neg = {"expect_error": expect, "save_timeout": 20, "verify": {**base["verify"], "open_saved": False}}
-    first_fields, req = build_fields(read, "all", "first", info["builder"])
-    steps = []
-    for way in cfg["ways"]:
-        label = AUTO_WAYS[way][1]
-        if way == "reject_empty":
-            steps.append((way, label, _variant(base, "auto_empty", fields=[_keep(f) for f in first_fields], flows=[], **neg)))
-        elif way == "reject_required":
-            reqf = [f for f in first_fields if f["id"] in req]
-            if not reqf:
-                steps.append((way, label, "الشاشة دي مفيهاش حقول إجبارية على الموقع ده"))
-            for f in reqf[:3]:
-                empty = _children(first_fields, f["id"])
-                steps.append((way, f"«{f['label']}» فاضي لازم يترفض",
-                              _variant(base, "auto_no_" + "".join(c for c in f["id"].lower() if c.isalnum())[:30] or "f",
-                                       fields=[_keep(x) if x["id"] in empty else x for x in first_fields], **neg)))
-        elif way == "add":
-            for sc in cfg.get("scenarios") or ["first"]:
-                flds, _ = build_fields(read, mode if req else "all", sc, info["builder"])
-                if not flds:
-                    steps.append(("add", f"{SCENARIOS[sc][0]} إضافة", "مفيش حقول تتملى"))
-                    continue
-                steps.append(("add", f"{SCENARIOS[sc][0]} إضافة — {SCENARIOS[sc][1]} ({'كل الحقول' if mode == 'all' else 'الإجباري بس'})",
-                              _variant(base, f"auto_add_{sc}", fields=flds,
-                                       verify={**base["verify"], "new_first_row": True, "open_saved": True})))
-        elif way == "edit":
-            scn = _scenario_for(info["key"], "edit")
-            flds, _ = build_fields(read, mode, "random", None, editing=True)
-            flds = [{**f, "optional": True} for f in flds if f["strategy"] != "keep"]   # the edit page may show fewer fields
-            if not flds:
-                steps.append((way, label, "مفيش حقول تتعدّل"))
-                continue
-            steps.append((way, f"{label} ({len(flds)} حقل بقيم جديدة)", _variant(
-                base, "auto_edit", operation="edit", target_row="{var:auto_no}", fields=flds,
-                flows=[],                                   # item lines / pop-ups are not added again when editing
-                op_button=cfg.get("edit_button") or (scn or {}).get("op_button", ""),
-                verify={**base["verify"], "open_saved": True})))
-        elif way == "print":
-            scn = _scenario_for(info["key"], "print")
-            steps.append((way, label, _variant(base, "auto_print", operation="print", target_row="{var:auto_no}", fields=[], flows=[],
-                                               op_button=cfg.get("print_button") or (scn or {}).get("op_button", ""))))
-        elif way == "delete":
-            scn = _scenario_for(info["key"], "delete")
-            steps.append((way, label, _variant(base, "auto_delete", operation="delete", target_row="{var:auto_del}", fields=[], flows=[],
-                                               op_button=cfg.get("delete_button") or (scn or {}).get("op_button", ""))))
-
-    made = []                                    # numbers of the records the test saved (deleted at the end)
-    logger.info(f"🤖 الاختبار الآلي لـ «{info['name']}»: {len(steps)} خطوة")
+    flds, req = build_fields(read, mode if req_labels else "all", "first", info["builder"])
+    edit_flds, _ = build_fields(read, mode if req_labels else "all", "random", None, editing=True)
+    edit_flds = [{**f, "optional": True, "soft": True} for f in edit_flds if f["strategy"] != "keep"]
+    plan = {
+        "add": _variant(base, "auto_add", fields=flds, auto_complete=True,
+                        verify={**base["verify"], "new_first_row": True, "open_saved": True}),
+        "edit": _variant(base, "auto_edit", operation="edit", target_row="{var:auto_no}", fields=edit_flds or flds[:1], flows=[],
+                         auto_complete=True, op_button=cfg.get("edit_button") or (_scenario_for(info["key"], "edit") or {}).get("op_button", ""),
+                         verify={**base["verify"], "open_saved": True}),
+        "print": _variant(base, "auto_print", operation="print", target_row="{var:auto_no}", fields=[], flows=[],
+                          op_button=cfg.get("print_button") or (_scenario_for(info["key"], "print") or {}).get("op_button", "")),
+        "delete": _variant(base, "auto_delete", operation="delete", target_row="{var:auto_no}", fields=[], flows=[],
+                           op_button=cfg.get("delete_button") or (_scenario_for(info["key"], "delete") or {}).get("op_button", "")),
+    }
     n = 0
-    for way, label, c in steps:
+    for way in [w for w in AUTO_WAYS if w in cfg["ways"]]:
         n += 1
-        if isinstance(c, str):
-            rows.append({"cells": [n, label, "اتخطت: " + c, ""], "ok": SKIP})
+        icon, label = AUTO_WAYS[way][0], AUTO_WAYS[way][1]
+        if way != "add" and not RUN_VARS.get("auto_no"):
+            rows.append({"cells": [n, f"{icon} {label}", "ما اتشغلش — مفيش سجل اتحفظ في اختبار الإضافة يتعمل عليه " + label.replace("اختبار ", ""), ""],
+                         "ok": SKIP})
             continue
-        targets = [None]
-        if way in ("edit", "print") and not RUN_VARS.get("auto_no"):
-            rows.append({"cells": [n, label, "ما اتشغلتش — مفيش سجل اتحفظ من الإضافة", ""], "ok": SKIP})
-            continue
-        if way == "delete":
-            targets = list(dict.fromkeys(made))
-            if not targets:
-                rows.append({"cells": [n, label, "مفيش سجلات اتعملت عشان تتحذف", ""], "ok": SKIP})
-                continue
-        for tno in targets:
-            if tno:
-                RUN_VARS["auto_del"] = tno
-            lbl = label + (f" — رقم {tno}" if tno and len(targets) > 1 else "")
-            t0, before = time.time(), RUN_VARS.get("saved_no")
-            logger.info(f"🤖 {n}. {lbl}")
-            try:
-                res = run_screen(driver, credentials, c, save=True, do_login=False)
-                ok, what = OK, _what(res, c)
-            except (AssertionError, FieldFillError) as e:
-                res = getattr(e, "partial_result", None) or {}
-                ok, what = BAD, str(e).split("\n  (Session info")[0]
-            except Exception as e:
-                res, ok, what = {}, BAD, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
-            result["screenshots"] += [s for s in (res.get("screenshots") or []) if s][-2:]
-            if way == "add" and RUN_VARS.get("saved_no") and RUN_VARS.get("saved_no") != before:
-                made.append(RUN_VARS["saved_no"])
-                RUN_VARS.setdefault("auto_no", RUN_VARS["saved_no"])
-                if not ok:
-                    what += f"\n(السجل اتحفظ برقم {RUN_VARS['saved_no']} — هكمل عليه)"
-            if way == "edit" and ok and RUN_VARS.get("saved_no") and RUN_VARS.get("saved_no") != RUN_VARS.get("auto_no"):
-                made = [RUN_VARS["saved_no"] if x == RUN_VARS.get("auto_no") else x for x in made]
-                RUN_VARS["auto_no"] = RUN_VARS["saved_no"]
-            rows.append({"cells": [n, lbl, what, round(time.time() - t0, 1)], "ok": ok})
-            (logger.success if ok else logger.error)(f"{'✅' if ok else '❌'} {lbl}: {what.splitlines()[0][:200]}")
-            if not ok:
-                fails.append(f"{lbl}: {what.splitlines()[0][:200]}")
-    done = [r for r in rows if r["ok"] is not SKIP]
+        t0, before = time.time(), RUN_VARS.get("saved_no")
+        logger.info(f"🤖 {n}. {label}")
+        try:
+            res = run_screen(driver, credentials, plan[way], save=True, do_login=False)
+            ok, err = OK, ""
+        except (AssertionError, FieldFillError) as e:
+            res = getattr(e, "partial_result", None) or {}
+            ok, err = BAD, str(e).split("\n  (Session info")[0]
+        except Exception as e:
+            res, ok, err = {}, BAD, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
+        result["screenshots"] += [x for x in (res.get("screenshots") or []) if x][-3:]
+        if way == "add" and RUN_VARS.get("saved_no") and RUN_VARS.get("saved_no") != before:
+            RUN_VARS["auto_no"] = RUN_VARS["saved_no"]
+        if way == "edit" and ok and RUN_VARS.get("saved_no"):
+            RUN_VARS["auto_no"] = RUN_VARS["saved_no"]
+        what = explain(way, res, ok, err)
+        if way == "add" and not ok and RUN_VARS.get("auto_no"):
+            what += f"\n(السجل اتحفظ برقم {RUN_VARS['auto_no']} — هكمل عليه التعديل والطباعة والحذف)"
+        rows.append({"cells": [n, f"{icon} {label}", what, round(time.time() - t0, 1)], "ok": ok})
+        (logger.success if ok else logger.error)(f"{'✅' if ok else '❌'} {label}: {what.splitlines()[-1][:200]}")
+        if not ok:
+            fails.append(f"{label}: {err.splitlines()[0][:200] if err else ''}")
+    done = [r for r in rows[1:] if r["ok"] is not SKIP]
     passed = sum(1 for r in done if r["ok"])
-    result["detail"]["note"] = f"نجح {passed} من {len(done)}" + (f" · اتخطى {len(rows) - len(done)}" if len(rows) > len(done) else "") \
-        + f" · الحقول: {'كل الحقول' if mode == 'all' else 'الإجباري بس'}"
+    result["detail"]["note"] = f"نجح {passed} من {len(done)} · الحقول: {'كل الحقول' if mode == 'all' else 'الإجباري بس'}"
     result["vars"] = {k: v for k, v in RUN_VARS.items() if isinstance(v, (str, int, float))}
     if fails:
         e = AssertionError(f"الاختبار الآلي لـ «{info['name']}»: {len(fails)} من {len(done)} فشلوا\n   " + "\n   ".join(fails))

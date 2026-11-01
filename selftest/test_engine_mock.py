@@ -142,6 +142,22 @@ def test_auto_full(run_cli):
     r = run_cli("check", {"key": "st_auto", "type": "auto", "name_ar": "آلي", "screen": "st_auto_inv"}, defs=[inv])
     assert r.get("success"), r.get("error")
     rows = r["detail"]["rows"]
-    # read the form · empty rejected · «العميل» empty rejected · add · edit · print · delete
-    assert len(rows) == 7 and all(x["ok"] for x in rows), rows
-    assert "إجباري: العميل" in rows[0]["cells"][2]
+    # read the form · add · edit · print · delete — all on the same record
+    assert len(rows) == 5 and all(x["ok"] for x in rows), rows
+    assert "إجباري" in rows[0]["cells"][2] and "العميل" in rows[0]["cells"][2]
+
+
+def test_auto_like_real_cash_receipt(run_cli, mock_erp):
+    """no Screen Builder setup; «العميل» / «بناء على» show up after other choices, the amount's handler throws
+    (setEquivalent is not defined), attachments must be chosen and uploaded — add / edit / print / delete must all pass"""
+    import json
+    from pathlib import Path
+    st = Path(mock_erp["DATA_DIR"]) / "settings"
+    st.mkdir(parents=True, exist_ok=True)
+    (st / "discovered_screens.json").write_text(json.dumps({"screens": [
+        {"key": "d_cr2", "name": "سند قبض", "name_en": "CR2", "group": "الحسابات", "url": "/CashReceipt2"}]}, ensure_ascii=False), encoding="utf-8")
+    r = run_cli("check", {"key": "st_auto_cr2", "type": "auto", "name_ar": "آلي", "screen": "d_cr2", "fields_mode": "required"})
+    assert r.get("success"), r.get("error")
+    rows = r["detail"]["rows"]
+    assert len(rows) == 5 and all(x["ok"] for x in rows), rows
+    assert "بناء على" in rows[1]["cells"][2] and "قارنت" in rows[1]["cells"][2]

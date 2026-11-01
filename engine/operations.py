@@ -226,6 +226,9 @@ def run_operation(r, cfg, result, save, start):
     with allure.step("تعديل الحقول"):
         try:
             fill_with_flows(r, cfg, r.filler, result["screenshots"])
+            if cfg.get("auto_complete"):
+                from engine.auto_fill import complete_required
+                complete_required(r)
         except Exception as e:
             result["steps"] = r.filler.steps
             e.partial_result = result
@@ -251,7 +254,7 @@ def run_operation(r, cfg, result, save, start):
 
     if cfg["verify"].get("open_saved"):
         with allure.step("فتح السجل تاني ومراجعة التعديل"):
-            want = {s["id"]: s for s in result["steps"] if s.get("ok") and s.get("result") not in (None, "")}
+            want = {s["id"]: s for s in result["steps"] if s.get("ok") and s.get("result") not in (None, "") and s.get("strategy") != "upload"}
             _open_list(r, cfg)
             again = _row_action(r, cfg, "edit", rid or match)
             if again.get("href"):

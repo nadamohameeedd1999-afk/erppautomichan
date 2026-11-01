@@ -45,7 +45,7 @@ SET_INDEX_JS = r"""
 var s = document.getElementById(arguments[0]);
 if (!s) return false;
 s.selectedIndex = arguments[1];
-if (window.jQuery) { jQuery(s).trigger('change'); jQuery(s).trigger({type: 'select2:select', params: {data: {id: s.value, text: s.options[s.selectedIndex].text}}}); }
+if (window.jQuery) { try { jQuery(s).trigger('change'); } catch (_e) {} try { jQuery(s).trigger({type: 'select2:select', params: {data: {id: s.value, text: s.options[s.selectedIndex].text}}}); } catch (_e) {} }
 else { s.dispatchEvent(new Event('change', {bubbles: true})); }
 return s.options[s.selectedIndex].text.trim();
 """
@@ -69,7 +69,7 @@ try { el.focus(); } catch (e) {}
 var proto = tag === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
 try { Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v); } catch (e) { el.value = v; }
 ['input', 'change', 'keyup'].forEach(function (n) { el.dispatchEvent(new Event(n, {bubbles: true})); });
-if (window.jQuery) { jQuery(el).trigger('change'); }
+if (window.jQuery) { try { jQuery(el).trigger('change'); } catch (_e) {} }
 el.dispatchEvent(new Event('blur', {bubbles: true}));
 return el.value;
 """
@@ -381,8 +381,11 @@ class FormFiller:
                 result = self.fill_field(field)
             except FieldFillError as e:
                 self.steps.append({"id": field["id"], "label": label, "strategy": field["strategy"],
-                                   "wanted": field.get("value", ""), "result": None, "ok": False,
-                                   "error": str(e), "seconds": round(time.time() - t0, 1)})
+                                   "wanted": field.get("value", ""), "result": None, "ok": bool(field.get("soft")),
+                                   "skipped": bool(field.get("soft")), "error": str(e), "seconds": round(time.time() - t0, 1)})
+                if field.get("soft"):                    # not required: note it and go on
+                    logger.warning(f"⚠️ {label}: اتخطى — {str(e).splitlines()[0][:160]}")
+                    continue
                 logger.error(f"❌ {e}")
                 raise
             self.steps.append({"id": field["id"], "label": label, "strategy": field["strategy"],
