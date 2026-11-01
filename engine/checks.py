@@ -5,7 +5,9 @@ Advanced tests (اختبارات متقدمة) — one JSON per test in DEFS_DIR
                                     same browser and same {var:...} (أمر بيع ← تسليم ← فاتورة ← سند قبض ← أرصدة العميل)
   report      (📊 فحص تقرير)     : open a report with filters, read totals, check rules ({مدين} = {دائن})
                                     and compare the numbers with the last run
-  permission  (🔐 صلاحيات)       : sign in with a limited user and check which screens open / are blocked
+  auto        (🤖 الاختبار الآلي) : one screen tested every way: rejected when empty / a required field is missing,
+                                    add with the required fields only, add with every field (+ open it and compare),
+                                    edit it, print it, delete it — all in one browser, one table of results
   perf        (⚡ سرعة الشاشات)   : time how long each screen takes to open and warn when it doubles
 
 Each saved test gets tests/checks/test_check_<key>.py so it runs from the queue / schedules like any other test.
@@ -25,7 +27,7 @@ KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,90}$")
 TYPES = {
     "cycle": ("🔁", "دورة كاملة", "شاشات ورا بعض في نفس المتصفح (رقم السند بيتنقل من خطوة للي بعدها)"),
     "report": ("📊", "فحص تقرير", "يفتح تقرير بفلتر، يقرا الإجماليات، يتأكد من قواعد (مدين = دائن) ويقارن بآخر مرة"),
-    "permission": ("🔐", "صلاحيات مستخدم", "يدخل بمستخدم محدود ويتأكد إن الشاشات الممنوعة مقفولة والمسموحة بتفتح"),
+    "auto": ("🤖", "الاختبار الآلي", "شاشة واحدة بكل الطرق: إضافة، تعديل، حذف، طباعة، واختبارات الرفض"),
     "perf": ("⚡", "سرعة الشاشات", "يقيس وقت فتح كل شاشة وينبه لو بقت أبطأ من العادي"),
 }
 
@@ -59,6 +61,17 @@ CYCLE_TEMPLATES = {
         ("قيد يدوي", ["journal_entries", "قيود"]),
         ("ميزان المراجعة", ["trial_balance", "ميزان المراجعة"]),
     ]},
+}
+
+# the ways of the automatic full test, in the order they run (record-making ones before edit / print / delete)
+AUTO_WAYS = {
+    "reject_empty": ("🚫", "حفظ فاضي لازم يترفض", "يدوس حفظ من غير ما يملى حاجة — النظام لازم يرفض"),
+    "reject_required": ("🚫", "كل حقل إجباري لو فاضي لازم يترفض", "يملى كل حاجة ما عدا حقل إجباري واحد (لحد 3 حقول) — لازم يترفض"),
+    "add_required": ("➕", "إضافة بالحقول الإجبارية بس", "يملى الإجباري بس ويحفظ — لازم يتحفظ ويظهر في القايمة"),
+    "add_full": ("➕", "إضافة بكل الحقول + مراجعة القيم", "يملى كل الحقول ويحفظ، يتأكد إن صف جديد ظهر، ويفتحه ويقارن كل قيمة"),
+    "edit": ("✏️", "تعديل السجل اللي اتضاف", "يفتح السجل، يغيّر حقل، يحفظ، ويفتحه تاني يتأكد إن التعديل اتسجل"),
+    "print": ("🖨️", "طباعة السجل", "يدوس طباعة ويتأكد إن صفحة الطباعة / الـ PDF فتحت ومش فاضية ومفيهاش خطأ"),
+    "delete": ("🗑️", "حذف السجلات اللي الاختبار عملها", "يحذف السجل ويتأكد إنه اختفى من القايمة (والسجل التاني لو اتعمل)"),
 }
 
 DENY_TEXTS = ["ليس لديك صلاحية", "ليس لديك الصلاحية", "لا تملك صلاحية", "لا يوجد لديك صلاحية", "غير مصرح", "غير مسموح",
@@ -138,22 +151,20 @@ def normalize(cfg):
                     "min_rows": max(0, int(cfg.get("min_rows", 1) or 0)), "values": values, "asserts": asserts,
                     "compare": compare, "tol": float(cfg.get("tol", 0.01) or 0.01)})
 
-    elif typ == "permission":
-        user = str(cfg.get("username") or "").strip()
-        if not user:
-            raise ConfigError("اكتبي اسم المستخدم المحدود اللي هندخل بيه")
-        expect = []
-        for e in cfg.get("expect") or []:
-            u = _url(e.get("url"))
-            if not u:
-                continue
-            allowed = e.get("allowed")
-            allowed = allowed if isinstance(allowed, bool) else str(allowed).lower() in ("1", "true", "yes", "allow", "مسموح")
-            expect.append({"url": u, "name": str(e.get("name") or u).strip(), "allowed": allowed})
-        if not expect:
-            raise ConfigError("ضيفي شاشة واحدة على الأقل وحددي مسموحة ولا ممنوعة")
-        out.update({"username": user, "password": str(cfg.get("password") or ""), "expect": expect,
-                    "deny_texts": _list(cfg.get("deny_texts")), "check_menu": bool(cfg.get("check_menu", True))})
+    elif typ == "auto":
+        screen = str(cfg.get("screen") or "").strip()
+        if not screen:
+            raise ConfigError("اختاري الشاشة اللي هتتختبر")
+        ways = [w for w in (cfg.get("ways") or list(AUTO_WAYS)) if w in AUTO_WAYS]
+        if not ways:
+            raise ConfigError("اختاري طريقة واحدة على الأقل")
+        out.update({"screen": screen, "ways": [w for w in AUTO_WAYS if w in ways],
+                    "edit_field": str(cfg.get("edit_field") or "").strip(),
+                    "edit_value": str(cfg.get("edit_value") or "").strip(),
+                    "edit_button": str(cfg.get("edit_button") or "").strip(),
+                    "print_button": str(cfg.get("print_button") or "").strip(),
+                    "delete_button": str(cfg.get("delete_button") or "").strip(),
+                    "expect_error": str(cfg.get("expect_error") or "").strip()})
 
     elif typ == "perf":
         pages = []
@@ -236,10 +247,6 @@ def write_stub(cfg):
 
 
 def save(cfg):
-    old = {}
-    if cfg.get("type") == "permission" and not cfg.get("password") and exists(str(cfg.get("key") or "")):
-        old = load_json(path(cfg["key"]), {}) or {}          # keep the saved password when the box was left empty
-        cfg = {**cfg, "password": old.get("password", "")}
     cfg = normalize(cfg)
     cfg["updated_at"] = datetime.now().isoformat(timespec="seconds")
     CHECKS_DIR.mkdir(parents=True, exist_ok=True)
@@ -266,12 +273,8 @@ def sync_stubs():
 
 
 def public(cfg):
-    """what the browser sees (no password)"""
-    c = dict(cfg)
-    if c.get("type") == "permission":
-        c["has_password"] = bool(c.get("password"))
-        c["password"] = ""
-    return c
+    """what the browser sees"""
+    return dict(cfg)
 
 
 # ---------------------------------------------------------------- cycle helpers

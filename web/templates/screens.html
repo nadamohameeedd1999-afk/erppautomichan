@@ -559,6 +559,7 @@ async function loadScreens(selectKey) {
                 ${(SCN_BY_SCREEN[s.key] || []).map(x => `<a class="badge bg-info-subtle text-dark me-1" href="/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}">🎬 ${esc(x.scenario_name)}</a>`).join('')}
                 <a href="/scenarios?screen=${encodeURIComponent(s.key)}">＋ سيناريو</a>
                 <span class="ms-1">· ${['edit', 'delete', 'print'].map(o => `<a class="me-1" href="/scenarios?screen=${encodeURIComponent(s.key)}&op=${o}" title="اختبار ${OP_NAME[o]}">${OP_ICON[o]} ${OP_NAME[o]}</a>`).join('')}</span>
+                <a class="ms-1 fw-bold" href="/auto-test?screen=${encodeURIComponent(s.key)}" title="يختبر الشاشة بكل الطرق: إضافة وتعديل وحذف وطباعة واختبارات الرفض">🤖 اختبار آلي</a>
             </div>
         </div>`).join('');
 }

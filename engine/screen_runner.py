@@ -456,13 +456,15 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
             result["screenshots"].append(_shot(r, f"{cfg['key']}_negative"))
             seen = " | ".join(r.alerts + r.page_errors())
             if ok:
-                raise AssertionError(f"اتحفظ — والمفروض كان يترفض برسالة «{cfg['expect_error']}»")
+                raise AssertionError("اتحفظ — والمفروض كان يترفض" + (f" برسالة «{cfg['expect_error']}»" if cfg["expect_error"] != "*" else ""))
             from engine.text_match import normalize as _n
-            if _n(cfg["expect_error"]) not in _n(seen + " " + r.failure_reason()):
+            if cfg["expect_error"] != "*" and _n(cfg["expect_error"]) not in _n(seen + " " + r.failure_reason()):
                 raise AssertionError(f"اترفض صح بس الرسالة مختلفة.\n   المتوقع: «{cfg['expect_error']}»\n   اللي ظهر: {seen or r.failure_reason()}")
             result["negative_ok"] = True
+            result["rejected_with"] = (r.error_alerts + r.page_errors() + r.alerts)[:3] or [r.failure_reason()]
             result["seconds"] = round(time.time() - start, 1)
-            logger.success(f"✅ {cfg['name_ar']}: اترفض صح بالرسالة «{cfg['expect_error']}»")
+            logger.success(f"✅ {cfg['name_ar']}: اترفض صح" + (f" بالرسالة «{cfg['expect_error']}»" if cfg["expect_error"] != "*" else
+                                                            f": {' | '.join(result['rejected_with'])[:160]}"))
             return result
 
     with allure.step("حفظ"):

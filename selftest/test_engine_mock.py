@@ -113,17 +113,10 @@ def test_journal_entry(run_cli):
     assert not r.get("success") and "مش متزن" in r.get("error", "")
 
 
-def test_report_permission_perf_cycle(run_cli, mock_erp):
+def test_report_perf_cycle(run_cli, mock_erp):
     r = run_cli("check", {**TRIAL, "asserts": []})
     assert r.get("success"), r.get("error")
     assert r["values"]["مدين"] > 0
-    perm = {"key": "st_perm", "type": "permission", "name_ar": "صلاحيات", "username": "viewer", "password": "pw2",
-            "expect": [{"url": "/CashReceiptVoucher", "allowed": False}, {"url": "/CashReceiptVoucher/AddEdit", "allowed": False},
-                       {"url": "/Customer", "allowed": True}]}
-    r = run_cli("check", perm)
-    assert r.get("success"), r.get("error")
-    r = run_cli("check", {**perm, "expect": [{"url": "/Customer", "allowed": False}]})
-    assert not r.get("success") and "مفتوحة" in r.get("error", "")
     perf = {"key": "st_perf", "type": "perf", "name_ar": "سرعة", "pages": [{"url": "/Customer", "name": "العملاء"}], "times": 1}
     assert run_cli("check", perf).get("success")
     import urllib.request
@@ -139,3 +132,14 @@ def test_report_permission_perf_cycle(run_cli, mock_erp):
     r = run_cli("check", cyc, defs=[CRV])
     assert r.get("success"), r.get("error")
     assert len(r["detail"]["rows"]) == 2 and all(x["ok"] for x in r["detail"]["rows"])
+
+
+def test_auto_full(run_cli):
+    """the automatic full test: rejected empty / required missing, add (required only, all fields), edit, print, delete"""
+    inv = invoice("st_auto_inv", [item(), UPLOAD])
+    inv["fields"] = [{**CUST, "required": True},
+                     {"id": "Notes", "label": "ملاحظات", "kind": "textarea", "strategy": "fixed", "value": "آلي {ts}"}]
+    r = run_cli("check", {"key": "st_auto", "type": "auto", "name_ar": "آلي", "screen": "st_auto_inv"}, defs=[inv])
+    assert r.get("success"), r.get("error")
+    rows = r["detail"]["rows"]
+    assert len(rows) == 8 and all(x["ok"] for x in rows), rows

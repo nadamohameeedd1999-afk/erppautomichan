@@ -49,7 +49,7 @@
     </div>
 
     <div class="row g-3 mb-3">
-        {% for k, t in types.items() %}
+        {% for k, t in types.items() if k != 'auto' %}
         <div class="col-md-6 col-xl-3">
             <div class="tcard">
                 <div class="d-flex align-items-center gap-2"><span class="ic">{{ t[0] }}</span><span class="fw-bold fs-6">{{ t[1] }}</span></div>
@@ -157,7 +157,7 @@ async function loadList() {
         const pend = c.snapshot && c.snapshot.pending ? `<div class="mt-1"><button class="btn btn-sm btn-outline-warning" onclick="accept('${esc(c.key)}')" title="الأرقام اتغيرت عن آخر مرة — لو التغيير مقصود اعتمديها">✔️ اعتمدي الأرقام الجديدة</button></div>` : '';
         const what = c.type === 'cycle' ? c.steps.map(s => esc(s.name)).join(' ← ') :
                      c.type === 'report' ? `<span class="ltr">${esc(c.url)}</span> · ${c.values.length} رقم · ${c.asserts.length} قاعدة` :
-                     c.type === 'permission' ? `المستخدم «${esc(c.username)}» · ${c.expect.length} شاشة` :
+                     c.type === 'auto' ? `الشاشة «${esc(c.screen)}» · ${c.ways.length} طريقة` :
                      c.type === 'perf' ? (c.all_pages ? 'كل الشاشات' : c.pages.length + ' شاشة') + ` · ينبه لو أبطأ ${c.factor}×` : '';
         return `<tr>
             <td><div class="fw-bold">${t[0]} ${esc(c.name_ar)}</div><div class="muted">${what}</div>${c.error ? `<div class="text-danger small">${esc(c.error)}</div>` : ''}</td>
@@ -193,7 +193,6 @@ function blank(type) {
     if (type === 'cycle') return {type, steps: []};
     if (type === 'report') return {type, url: '', fields: [], show_button: 'عرض', min_rows: 1, values: [{name: 'إجمالي المدين', ref: 'sum:مدين'}, {name: 'إجمالي الدائن', ref: 'sum:دائن'}],
                                    asserts: ['{sum:مدين} = {sum:دائن}'], compare: 'warn', tol: 0.01};
-    if (type === 'permission') return {type, username: '', password: '', expect: [], deny_texts: [], check_menu: true};
     return {type, pages: [], all_pages: false, times: 2, factor: 2, max_seconds: 0, baseline_runs: 5, fail_on_slow: true};
 }
 
@@ -208,6 +207,7 @@ async function openNew(type, tpl) {
     show();
 }
 async function openEdit(key) {
+    if ((LIST.find(x => x.key === key) || {}).type === 'auto') { location.href = '/auto-test?key=' + encodeURIComponent(key); return; }
     await opts();
     const r = await fetch('/api/checks/' + encodeURIComponent(key)).then(r => r.json());
     if (!r.success) return alert(r.error);
@@ -218,12 +218,12 @@ async function openEdit(key) {
 function show() {
     const t = TYPES[ED.type];
     $('edTitle').textContent = `${t[0]} ${t[1]}`;
-    $('fKey').placeholder = {cycle: 'sales_cycle', report: 'trial_balance_check', permission: 'viewer_permissions', perf: 'screens_speed'}[ED.type] || '';
+    $('fKey').placeholder = {cycle: 'sales_cycle', report: 'trial_balance_check', perf: 'screens_speed'}[ED.type] || '';
     $('tryBox').classList.add('d-none'); $('edMsg').textContent = '';
     render();
     bootstrap.Modal.getOrCreateInstance($('edModal')).show();
 }
-function render() { $('edBody').innerHTML = ({cycle: rCycle, report: rReport, permission: rPerm, perf: rPerf})[ED.type](); }
+function render() { $('edBody').innerHTML = ({cycle: rCycle, report: rReport, perf: rPerf})[ED.type](); }
 function set(path, val, rerender) {
     const ks = path.split('.'); let o = ED;
     ks.slice(0, -1).forEach(k => { o = o[k]; });
@@ -308,43 +308,6 @@ function rReport() {
 function addVal(n, r) { ED.values.push({name: n || r, ref: r}); render(); }
 function addRule(x) { ED.asserts = (ED.asserts || []).concat([x]); render(); }
 
-// ---- permission ----
-function rPerm() {
-    const pages = OPTS.pages || [];
-    return `<datalist id="pageUrls">${pages.map(p => `<option value="${esc(p.url)}">${esc(p.name)}</option>`).join('')}</datalist>
-    <div class="ed-sec"><div class="t">👤 المستخدم المحدود</div><div class="row g-2">
-        <div class="col-md-4"><label class="form-label small">اسم المستخدم <span class="text-danger">*</span></label><input class="form-control ltr" value="${esc(ED.username)}" onchange="set('username', this.value)" autocomplete="off"></div>
-        <div class="col-md-4"><label class="form-label small">كلمة المرور</label><input type="password" class="form-control ltr" value="" placeholder="${ED.has_password ? '•••• متسجلة — سيبيها فاضية' : ''}" onchange="set('password', this.value)" autocomplete="new-password"></div>
-        <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="pMenu" ${ED.check_menu ? 'checked' : ''} onchange="set('check_menu', this.checked)">
-            <label class="form-check-label small" for="pMenu">نبّهي لو رابط الشاشة الممنوعة ظاهر في القايمة الجانبية</label></div></div></div>
-        <div class="hint mt-2">بيدخل بالمستخدم ده في متصفح لوحده (مش بيأثر على دخول الاختبارات التانية). الشاشة «ممنوعة» لو: رجّعه لشاشة الدخول، أو صفحة AccessDenied، أو كتب «ليس لديك صلاحية» / «غير مصرح»، أو السيرفر رد 401/403.</div>
-        <label class="form-label small mt-2">كلام تاني معناه «ممنوع» في نظامكم (اختياري، افصلي بفاصلة)</label>
-        <input class="form-control form-control-sm" value="${esc((ED.deny_texts || []).join(', '))}" placeholder="مثلاً: عفواً لا تملك الصلاحية" onchange="set('deny_texts', this.value.split(/[,،]/).map(x => x.trim()).filter(Boolean))"></div>
-    <div class="ed-sec"><div class="t">🖥️ الشاشات والمتوقع</div>
-        <table class="table table-sm mb-1"><thead><tr><th>الشاشة</th><th>الرابط</th><th style="width:150px">المتوقع</th><th></th></tr></thead><tbody>
-        ${ED.expect.map((e, i) => `<tr><td><input class="form-control form-control-sm" value="${esc(e.name)}" onchange="set('expect.${i}.name', this.value)"></td>
-            <td><input class="form-control form-control-sm ltr" list="pageUrls" value="${esc(e.url)}" onchange="pickUrl(${i}, this.value)"></td>
-            <td><select class="form-select form-select-sm ${e.allowed ? '' : 'text-danger fw-bold'}" onchange="set('expect.${i}.allowed', this.value === '1', true)">
-                <option value="1" ${e.allowed ? 'selected' : ''}>✅ مسموحة</option><option value="0" ${e.allowed ? '' : 'selected'}>⛔ ممنوعة</option></select></td>
-            <td style="width:40px"><button class="btn btn-sm btn-outline-danger" onclick="drop('expect', ${i})">✖</button></td></tr>`).join('') ||
-            '<tr><td colspan="4" class="text-center text-muted">ضيفي الشاشات اللي عايزة تتأكدي منها</td></tr>'}</tbody></table>
-        <button class="btn btn-sm btn-outline-primary" onclick="ED.expect.push({name: '', url: '', allowed: false}); render()">➕ شاشة</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="addAllPages(false)">⛔ ضيفي كل شاشات النظام كممنوعة</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="addAllPages(true)">✅ ضيفيهم كمسموحة</button>
-        <div class="hint mt-1">بعد ما تضيفي الكل، غيّري اللي المستخدم ده مسموحله بيه بس.</div></div>`;
-}
-function pickUrl(i, v) {
-    ED.expect[i].url = v;
-    const p = (OPTS.pages || []).find(x => x.url === v);
-    if (p && !ED.expect[i].name) ED.expect[i].name = p.name;
-    render();
-}
-function addAllPages(allowed) {
-    const have = new Set(ED.expect.map(e => e.url));
-    (OPTS.pages || []).forEach(p => { if (!have.has(p.url)) ED.expect.push({name: p.name, url: p.url, allowed}); });
-    render();
-}
-
 // ---- perf ----
 let PERF_Q = '';
 function rPerf() {
@@ -389,7 +352,6 @@ function collect() {
         c.values = c.values.filter(v => v.ref);
     }
     if (c.type === 'cycle') c.steps = c.steps.map(s => ({name: s.name, key: s.key, optional: !!s.optional}));
-    if (c.type === 'permission') c.expect = c.expect.filter(e => e.url);
     return c;
 }
 async function save(andRun) {

@@ -38,6 +38,7 @@
             {{ item(('index',), url_for('index'), 'bi-grid-1x2', 'الرئيسية' if ar else 'Home') }}
             {{ item(('tests',), url_for('tests'), 'bi-clipboard-check', t('tests')) }}
             {{ item(('screens.screens_page', 'screens.scenarios_page'), url_for('screens.screens_page'), 'bi-tools', 'منشئ الاختبارات' if ar else 'Test Builder') }}
+            {{ item(('checks.auto_page',), url_for('checks.auto_page'), 'bi-robot', 'الاختبار الآلي' if ar else 'Automatic test') }}
             {{ item(('checks.checks_page',), url_for('checks.checks_page'), 'bi-diagram-3', 'اختبارات متقدمة' if ar else 'Advanced tests') }}
             {{ item(('ops.run_center',), url_for('ops.run_center'), 'bi-play-circle', 'مركز التشغيل' if ar else 'Run Center', '<span class="cnt d-none" id="navRunBadge"></span>') }}
             {{ item(('ops.schedule_page',), url_for('ops.schedule_page'), 'bi-calendar-week', t('schedule')) }}
@@ -146,7 +147,7 @@ function gSide(open) {
         {icon: 'bi bi-list-task', name: AR ? 'طابور التشغيل' : 'Run queue', url: '/queue'},
         {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
         {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
-        {icon: 'bi bi-shield-lock', name: AR ? 'اختبار صلاحيات مستخدم' : 'User permissions test', url: '/checks?new=permission'},
+        {icon: 'bi bi-robot', name: AR ? 'الاختبار الآلي الكامل لشاشة' : 'Automatic full test', url: '/auto-test'},
         {icon: 'bi bi-speedometer2', name: AR ? 'سرعة الشاشات' : 'Screen speed', url: '/checks?new=perf'},
         {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},
     ].map(c => ({...c, kind: AR ? 'أمر' : 'action'}));

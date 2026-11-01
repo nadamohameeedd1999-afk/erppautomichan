@@ -1,5 +1,5 @@
 """
-Runs the advanced tests of engine/checks.py (cycle / report / permission / perf).
+Runs the advanced tests of engine/checks.py (cycle / report / perf / auto).
 
   run_check(driver, credentials, cfg)       -> result dict (with "detail": a table for the report page)
                                               raises AssertionError (with .partial_result) when the check fails
@@ -184,122 +184,6 @@ def run_report(driver, credentials, cfg, do_login=True, result=None):
     return result
 
 
-# ================================================================ permission
-PAGE_STATE_JS = r"""
-var t = ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').trim();
-var st = 0; try { var n = performance.getEntriesByType('navigation')[0]; st = (n && n.responseStatus) || 0; } catch (e) {}
-return {url: location.href, text: t.slice(0, 5000), len: t.length, status: st, title: document.title || '',
-        table: !!document.querySelector('table'), form: !!document.querySelector('form input:not([type=hidden]), form select')};
-"""
-
-MENU_JS = r"""
-return Array.prototype.map.call(document.querySelectorAll('a[href]'), function(a){
-  var h = a.getAttribute('href') || ''; try { return new URL(h, location.href).pathname.toLowerCase(); } catch (e) { return h.toLowerCase(); } });
-"""
-
-
-def _login_as(driver, user, password):
-    from engine import session_cache
-    from pages.login_page import LoginPage
-    from selenium.common.exceptions import TimeoutException
-    old = session_cache.ENABLED
-    session_cache.ENABLED = False                 # never reuse / overwrite the admin's saved session
-    try:
-        page = LoginPage(driver)
-        page.load()
-        driver.delete_all_cookies()
-        page.load()
-        try:
-            page.login(user, password)
-        except TimeoutException:
-            raise AssertionError(f"مقدرتش أدخل بالمستخدم «{user}» — اتأكدي من اسم المستخدم وكلمة المرور") from None
-    finally:
-        session_cache.ENABLED = old
-
-
-def is_denied(state, extra_texts=()):
-    from engine.text_match import normalize as _n
-    url = (state.get("url") or "").lower()
-    if state.get("status") in (401, 403):
-        return f"السيرفر رد {state['status']}"
-    if "/login" in url:
-        return "رجّعه لشاشة الدخول"
-    for w in ("accessdenied", "access-denied", "unauthorized", "forbidden", "notallowed", "nopermission"):
-        if w in url.replace("_", "").replace("/", ""):
-            return f"اتحول لـ {url.split('/', 3)[-1][:60]}"
-    text = _n(state.get("text") or "") + " " + _n(state.get("title") or "")
-    for w in list(extra_texts) + DENY():
-        nw = _n(w)
-        if not nw:
-            continue
-        if nw.isdigit() and state.get("len", 0) > 400:      # 403 / 401 only on a short error page
-            continue
-        if nw in text:
-            return f"الصفحة بتقول «{w}»"
-    return ""
-
-
-def DENY():
-    from engine.checks import DENY_TEXTS
-    return DENY_TEXTS
-
-
-def run_permission(driver, credentials, cfg, result=None):
-    from pages.base_page import BasePage
-    result = result if result is not None else {}
-    _login_as(driver, cfg["username"], cfg["password"])
-    logger.success(f"🔐 دخلت بالمستخدم «{cfg['username']}»")
-    menu = set()
-    if cfg.get("check_menu"):
-        try:
-            menu = set(driver.execute_script(MENU_JS) or [])
-        except Exception:
-            menu = set()
-    rows, problems, warnings, shots = [], [], [], []
-    bp = BasePage(driver)
-    for e in cfg["expect"]:
-        driver.get(_abs(e["url"]))
-        bp.wait_for_preloader(timeout=20)
-        time.sleep(1.2)
-        try:
-            driver.switch_to.alert.accept()
-        except Exception:
-            pass
-        st = driver.execute_script(PAGE_STATE_JS) or {}
-        why = is_denied(st, cfg.get("deny_texts") or [])
-        server_err = not why and any(w in (st.get("text") or "").lower()[:2000] for w in ("server error", "exception", "runtime error"))
-        opened = not why and not server_err
-        want = "مسموحة" if e["allowed"] else "ممنوعة"
-        got = "اتفتحت" if opened else (f"اتقفلت ({why})" if why else "خطأ في السيرفر")
-        ok = opened == e["allowed"] and not server_err
-        in_menu = e["url"].lower().split("?")[0] in menu
-        note = ""
-        if not e["allowed"] and in_menu:
-            note = "الرابط لسه ظاهر في القايمة"
-            warnings.append(f"«{e['name']}» ممنوعة بس رابطها ظاهر في القايمة الجانبية")
-        if not ok:
-            shots.append(_shot(driver, f"perm_{cfg['key']}"))
-            if e["allowed"]:
-                problems.append(f"«{e['name']}» المفروض تفتح للمستخدم ده بس {got}")
-            else:
-                problems.append(f"🚨 «{e['name']}» مفتوحة للمستخدم «{cfg['username']}» والمفروض تبقى مقفولة")
-        rows.append({"cells": [e["name"], e["url"], want, got, note], "ok": ok})
-        logger.info(f"{'✅' if ok else '❌'} {e['name']}: المتوقع {want} — {got}")
-    try:
-        driver.delete_all_cookies()                # sign the limited user out of this browser
-    except Exception:
-        pass
-    result["screenshots"] = [s for s in shots if s]
-    result["detail"] = {"title": f"🔐 صلاحيات «{cfg['username']}»", "columns": ["الشاشة", "الرابط", "المتوقع", "اللي حصل", "ملاحظة"],
-                        "rows": rows, "note": " · ".join(warnings)}
-    for w in warnings:
-        logger.warning("⚠️ " + w)
-    if problems:
-        _fail(result, f"الصلاحيات مش مظبوطة ({len(problems)} من {len(rows)}):\n   " + "\n   ".join(problems))
-    logger.success(f"✅ صلاحيات «{cfg['username']}» مظبوطة في {len(rows)} شاشة")
-    return result
-
-
 # ================================================================ perf
 NAV_JS = r"""
 try { var n = performance.getEntriesByType('navigation')[0];
@@ -449,7 +333,7 @@ def run_cycle(driver, credentials, cfg, result=None):
 
 
 # ================================================================ entry points
-RUNNERS = {"report": run_report, "permission": run_permission, "perf": run_perf, "cycle": run_cycle}
+RUNNERS = {"report": run_report, "perf": run_perf, "cycle": run_cycle, "auto": None}   # auto: engine/auto_test.py
 
 
 def run_check(driver, credentials, cfg):
@@ -457,7 +341,11 @@ def run_check(driver, credentials, cfg):
     result = {"key": cfg["key"], "type": cfg["type"], "started_at": datetime.now().isoformat(timespec="seconds")}
     t0 = time.time()
     try:
-        RUNNERS[cfg["type"]](driver, credentials, cfg, result=result)
+        if cfg["type"] == "auto":
+            from engine.auto_test import run_auto
+            run_auto(driver, credentials, cfg, result=result)
+        else:
+            RUNNERS[cfg["type"]](driver, credentials, cfg, result=result)
     finally:
         result["seconds"] = round(time.time() - t0, 1)
         save_detail(result)

@@ -46,3 +46,4 @@ tree.txt
 *.patch
 *.tmp
 selftest/mock_erp/node_modules
+tests/checks/test_check_*.py

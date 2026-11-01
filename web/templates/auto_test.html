@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}الاختبار الآلي - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .at-card { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); }
+    .at-card .card-header { background: transparent; border: 0; padding: 14px 18px 0; font-weight: 800; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .way { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--g-line); border-radius: 12px; height: 100%; }
+    .way .n { width: 26px; height: 26px; border-radius: 50%; background: var(--g-acc-soft); color: var(--g-acc-text, inherit); display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
+    .way .d { color: var(--g-muted); font-size: 12px; line-height: 1.6; }
+    .way.pick { cursor: pointer; } .way.pick.off { opacity: .45; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .chip.ok { background: rgba(52,211,153,.14); color: var(--g-ok, #198754); } .chip.bad { background: rgba(251,113,133,.14); color: var(--g-bad, #dc3545); }
+    .chip.none { background: var(--g-hover); color: var(--g-muted); }
+    .muted { color: var(--g-muted); font-size: 12px; }
+    .try-log { background: #1e1e1e; color: #d4d4d4; font-size: 12px; border-radius: 8px; padding: 10px; max-height: 180px; overflow: auto; direction: ltr; text-align: left; white-space: pre-wrap; margin: 0; }
+    .res-tbl td { vertical-align: top; font-size: 13px; white-space: pre-wrap; }
+    .res-tbl tr.bad td { background: rgba(251,113,133,.10) !important; }
+    .res-tbl tr.skip td { background: rgba(251,191,36,.10) !important; color: var(--g-muted); }
+    .res-tbl tr.ok td:first-child { color: var(--g-ok, #198754); font-weight: 800; }
+    .shot img { width: 100%; max-height: 200px; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid var(--g-line); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-robot text-primary"></i> الاختبار الآلي</h1>
+            <div class="text-muted">اختاري شاشة من اللي ليها إعداد في منشئ الشاشات، وهو يختبرها <b>بكل الطرق</b>: إضافة، تعديل، طباعة، حذف، واختبارات الرفض — في متصفح واحد، ونتيجة واحدة.</div>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="input-group d-none" id="siteBox" style="width:auto"><span class="input-group-text">🌐 على</span><select id="runSites" class="form-select"></select></div>
+            <button class="btn btn-success" onclick="runAll()"><i class="bi bi-play-fill"></i> اختبري كل الشاشات</button>
+        </div>
+    </div>
+
+    <div class="card at-card mb-3">
+        <div class="card-header"><span>الطرق اللي بيجربها بالترتيب</span><span class="muted">تقدري تشيلي أي طريقة من إعداد كل شاشة</span></div>
+        <div class="card-body"><div class="row g-2">
+            {% for k, w in ways.items() %}
+            <div class="col-md-6 col-xl-3"><div class="way"><span class="n">{{ loop.index }}</span>
+                <div><div class="fw-bold">{{ w[0] }} {{ w[1] }}</div><div class="d">{{ w[2] }}</div></div></div></div>
+            {% endfor %}
+        </div></div>
+    </div>
+
+    <div class="card at-card mb-3">
+        <div class="card-header"><span>الشاشات</span><a class="btn btn-sm btn-outline-primary" href="/screens"><i class="bi bi-plus-lg"></i> شاشة جديدة في منشئ الشاشات</a></div>
+        <div class="card-body">
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+                <thead><tr><th>الشاشة</th><th>الحقول الإجبارية</th><th>آخر اختبار آلي</th><th></th></tr></thead>
+                <tbody id="rows"><tr><td colspan="4" class="text-center text-muted py-4">جاري التحميل…</td></tr></tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="atModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="atTitle">—</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="fw-bold mb-2">الطرق — دوسي على أي واحدة عشان تشيليها أو ترجعيها</div>
+        <div class="row g-2 mb-3" id="atWays"></div>
+        <details class="mb-3" id="atMore"><summary class="fw-bold">⚙️ إعدادات (اختياري — الافتراضي بيشتغل لوحده)</summary>
+          <div class="row g-2 mt-1">
+            <div class="col-md-4"><label class="form-label small">حقل التعديل</label><select class="form-select form-select-sm" id="fEditField"></select></div>
+            <div class="col-md-4"><label class="form-label small">القيمة الجديدة في التعديل</label><input class="form-control form-control-sm" id="fEditValue" placeholder="تعديل آلي {ts}"></div>
+            <div class="col-md-4"><label class="form-label small">رسالة الرفض المتوقعة (فاضي = أي رفض)</label><input class="form-control form-control-sm" id="fExpect" placeholder="مثلاً: برجاء استكمال البيانات"></div>
+            <div class="col-md-4"><label class="form-label small">زرار التعديل في الصف</label><input class="form-control form-control-sm" id="fEditBtn" placeholder="تلقائي (تعديل / ✏️)"></div>
+            <div class="col-md-4"><label class="form-label small">زرار الطباعة في الصف</label><input class="form-control form-control-sm" id="fPrintBtn" placeholder="تلقائي (طباعة / 🖨️)"></div>
+            <div class="col-md-4"><label class="form-label small">زرار الحذف في الصف</label><input class="form-control form-control-sm" id="fDeleteBtn" placeholder="تلقائي (حذف / 🗑️)"></div>
+          </div>
+          <div class="muted mt-2" id="atOpsNote"></div>
+        </details>
+        <div id="atWarn"></div>
+        <div id="tryBox" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2"><b id="tryState">—</b><span class="muted" id="tryTime"></span></div>
+            <pre class="try-log" id="tryLog"></pre>
+            <div id="tryResult" class="mt-2"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="small me-auto" id="atMsg"></span>
+        <button class="btn btn-warning" id="btnTry" onclick="tryNow()">🧪 جرّبي دلوقتي واتفرجي</button>
+        <button class="btn btn-success" onclick="save()">💾 حفظ</button>
+        <button class="btn btn-primary" onclick="save(true)">▶ حفظ وتشغيل في الطابور</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const WAYS = {{ ways | tojson }};
+const WAY_KEYS = {{ ways.keys() | list | tojson }};   // run order (tojson sorts object keys)
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let SCREENS = [], CUR = null, PICK = new Set(), TRY_T = null;
+
+async function load() {
+    const r = await fetch('/api/auto-test/screens').then(r => r.json()).catch(() => ({screens: []}));
+    SCREENS = r.screens || [];
+    $('rows').innerHTML = SCREENS.length ? SCREENS.map(s => {
+        if (s.error) return `<tr><td>⚠️ ${esc(s.name)}</td><td colspan="3" class="text-danger small">${esc(s.error)}</td></tr>`;
+        const last = s.last ? `<a href="/reports/${esc(s.last.run_id)}" class="chip ${s.last.passed ? 'ok' : 'bad'}">${s.last.passed ? '✅ نجح' : '❌ فشل'}</a> <span class="muted">${esc(s.last.time)}</span>
+              ${s.last.passed ? '' : `<div class="muted text-danger">${esc(s.last.message)}</div>`}` : (s.auto ? '<span class="chip none">متحفظ — لسه ما اتشغلش</span>' : '<span class="chip none">مفيش</span>');
+        return `<tr><td><div class="fw-bold">🧩 ${esc(s.name)}</div><div class="muted ltr">${esc(s.list_url)}</div></td>
+            <td>${s.required.length ? s.required.map(x => `<span class="chip none me-1">${esc(x)}</span>`).join('') : '<span class="muted">مش متحدد — اختبارات الرفض هتتخطى</span>'}</td>
+            <td>${last}</td>
+            <td class="text-nowrap text-end">
+                <button class="btn btn-sm btn-primary" onclick="openScreen('${esc(s.key)}')"><i class="bi bi-robot"></i> اختبار آلي</button>
+                ${s.auto ? `<button class="btn btn-sm btn-success" onclick="queue('${esc(s.auto.key)}')"><i class="bi bi-play-fill"></i> تشغيل</button>` : ''}
+            </td></tr>`;
+    }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">لسه مفيش شاشات ليها إعداد — ابدئي من <a href="/screens">منشئ الشاشات</a></td></tr>';
+}
+
+function openScreen(key) {
+    CUR = SCREENS.find(s => s.key === key);
+    const a = CUR.auto || {};
+    PICK = new Set(a.ways || WAY_KEYS);
+    $('atTitle').textContent = `🤖 الاختبار الآلي — ${CUR.name}`;
+    const texts = CUR.fields.filter(f => ['text', 'textarea', 'number'].includes(f.kind));
+    $('fEditField').innerHTML = `<option value="">تلقائي${CUR.edit_field ? ' (' + esc((CUR.fields.find(f => f.id === CUR.edit_field) || {}).label || CUR.edit_field) + ')' : ''}</option>` +
+        texts.map(f => `<option value="${esc(f.id)}" ${a.edit_field === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('');
+    $('fEditValue').value = a.edit_value || ''; $('fExpect').value = a.expect_error || '';
+    $('fEditBtn').value = a.edit_button || ''; $('fPrintBtn').value = a.print_button || ''; $('fDeleteBtn').value = a.delete_button || '';
+    $('atOpsNote').textContent = CUR.ops.length ? `الشاشة دي ليها سيناريو ${CUR.ops.map(o => ({edit: 'تعديل', print: 'طباعة', delete: 'حذف'})[o] || o).join(' و')} — هيتاخد منه الزرار والحقول.` : '';
+    $('atWarn').innerHTML = CUR.required.length ? '' : `<div class="alert alert-warning py-2 small">⚠️ مفيش ولا حقل متعلّم عليه «إجباري» في إعداد الشاشة، فاختبارات الرفض و«الإجباري بس» هتتخطى.
+        افتحي الشاشة في <a href="/screens?key=${encodeURIComponent(CUR.key)}" target="_blank">منشئ الشاشات</a> ودوسي «اقرأ الحقول» تاني — هو بيعرف الإجباري لوحده.</div>`;
+    $('tryBox').classList.add('d-none'); $('atMsg').textContent = '';
+    renderWays();
+    bootstrap.Modal.getOrCreateInstance($('atModal')).show();
+}
+function renderWays() {
+    $('atWays').innerHTML = WAY_KEYS.map((k, i) => `<div class="col-md-6 col-lg-4"><div class="way pick ${PICK.has(k) ? '' : 'off'}" onclick="toggleWay('${k}')">
+        <span class="n">${PICK.has(k) ? '✓' : i + 1}</span><div><div class="fw-bold">${WAYS[k][0]} ${esc(WAYS[k][1])}</div><div class="d">${esc(WAYS[k][2])}</div></div></div></div>`).join('');
+}
+function toggleWay(k) { PICK.has(k) ? PICK.delete(k) : PICK.add(k); renderWays(); }
+
+function config() {
+    return {key: (CUR.auto && CUR.auto.key) || ('auto_' + CUR.key).slice(0, 90), type: 'auto', name_ar: `🤖 ${CUR.name}`, screen: CUR.key,
+            ways: WAY_KEYS.filter(k => PICK.has(k)), edit_field: $('fEditField').value, edit_value: $('fEditValue').value.trim(),
+            expect_error: $('fExpect').value.trim(), edit_button: $('fEditBtn').value.trim(), print_button: $('fPrintBtn').value.trim(),
+            delete_button: $('fDeleteBtn').value.trim()};
+}
+async function save(andRun) {
+    if (!PICK.size) return alert('اختاري طريقة واحدة على الأقل');
+    const r = await fetch('/api/checks', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: config()})}).then(r => r.json());
+    if (!r.success) { $('atMsg').innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; return; }
+    $('atMsg').innerHTML = '<span class="text-success">✅ اتحفظ — بقى ليه مكان في صفحة الاختبارات والجدولة</span>';
+    await load(); CUR = SCREENS.find(s => s.key === CUR.key);
+    if (andRun) { bootstrap.Modal.getInstance($('atModal')).hide(); queue(r.config.key); }
+}
+async function queue(key) {
+    const r = await fetch(`/api/checks/${encodeURIComponent(key)}/run`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sites: $('runSites').value || ''})}).then(r => r.json());
+    if (!r.success) return alert(r.error || 'حصل خطأ');
+    if (confirm(`اتضاف للطابور${r.count > 1 ? ` على ${r.count} موقع` : ''} ✅ — تروحي مركز التشغيل تتابعيه؟`)) location.href = '/queue';
+}
+async function runAll() {
+    if (!SCREENS.filter(s => !s.error).length) return alert('مفيش شاشات ليها إعداد لسه');
+    if (!confirm(`هيتعمل اختبار آلي لكل شاشة مالهاش (بكل الطرق) ويتشغلوا كلهم في الطابور (${SCREENS.filter(s => !s.error).length} شاشة). متأكدة؟`)) return;
+    const r = await fetch('/api/auto-test/all', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sites: $('runSites').value || ''})}).then(r => r.json());
+    if (!r.success) return alert(r.error || 'حصل خطأ');
+    await load();
+    if (confirm(`✅ اتعمل ${r.made} اختبار جديد، واتضاف ${r.queued} تشغيلة للطابور. تروحي مركز التشغيل؟`)) location.href = '/queue';
+}
+
+async function tryNow() {
+    if (!PICK.size) return alert('اختاري طريقة واحدة على الأقل');
+    $('tryBox').classList.remove('d-none'); $('tryResult').innerHTML = ''; $('tryLog').textContent = '';
+    $('tryState').textContent = '⏳ بيبدأ… (بيفتح متصفح ويدخل الـ ERP — شوفيه من «بث مباشر»)'; $('btnTry').disabled = true;
+    const r = await fetch('/api/checks/try', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: config()})}).then(r => r.json());
+    if (!r.success) { $('tryState').innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; $('btnTry').disabled = false; return; }
+    const t0 = Date.now();
+    clearInterval(TRY_T);
+    TRY_T = setInterval(async () => {
+        $('tryTime').textContent = Math.round((Date.now() - t0) / 1000) + ' ث';
+        const j = await fetch('/api/screens/jobs/' + r.job_id).then(r => r.json()).catch(() => null);
+        if (!j || !j.success) return;
+        const lines = (j.log || []).filter(l => /🤖|✅|❌|⏭️|اترفض|اتحفظ|اتحذف|اتعدل/.test(l));
+        $('tryLog').textContent = lines.slice(-20).join('\n') || (j.log || []).slice(-8).join('\n');
+        $('tryLog').scrollTop = $('tryLog').scrollHeight;
+        if (j.status === 'running') { $('tryState').textContent = '⏳ شغال…'; return; }
+        clearInterval(TRY_T); $('btnTry').disabled = false;
+        const res = j.result || {}, d = res.detail;
+        $('tryState').innerHTML = res.success ? '<span class="text-success">✅ نجح كله</span>' : '<span class="text-danger">❌ فيه طرق فشلت</span>';
+        $('tryResult').innerHTML = (d ? `<div class="table-responsive"><table class="table table-sm res-tbl mb-1"><thead><tr>${d.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+            <tbody>${d.rows.map(x => `<tr class="${x.ok === false ? 'bad' : (x.ok === null ? 'skip' : 'ok')}">${x.cells.map((c, i) => `<td dir="auto">${i === 0 ? (x.ok === false ? '❌' : x.ok === null ? '⏭️' : '✅') + ' ' : ''}${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+            <div class="muted">${esc(d.note || '')}</div>` : (res.error ? `<div class="alert alert-danger small" style="white-space:pre-wrap">${esc(res.error)}</div>` : '')) +
+            ((res.screenshot_names || []).length ? `<div class="row g-2 mt-1">${res.screenshot_names.filter(Boolean).slice(-6).map(n =>
+                `<div class="col-md-4 shot"><a href="/screenshots/${esc(n)}" target="_blank"><img src="/screenshots/${esc(n)}"></a></div>`).join('')}</div>` : '');
+        load();
+    }, 1500);
+}
+
+fetch('/api/sites').then(r => r.json()).then(j => {
+    const list = (j && j.sites) || [];
+    if (list.length < 2) return;
+    $('runSites').innerHTML = `<option value="">الموقع النشط</option>` + list.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') +
+        `<option value="all">🌐 كل المواقع (${list.length})</option>`;
+    $('siteBox').classList.remove('d-none');
+}).catch(() => {});
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await load();
+    const q = new URLSearchParams(location.search);
+    const k = q.get('key'), sc = q.get('screen');
+    const s = sc ? SCREENS.find(x => x.key === sc) : (k ? SCREENS.find(x => x.auto && x.auto.key === k) : null);
+    if (s && !s.error) openScreen(s.key);
+});
+</script>
+{% endblock %}

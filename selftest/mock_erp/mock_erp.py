@@ -332,7 +332,8 @@ def si_add():
         return redirect("/Login")
     if request.method == "POST":
         n = len(request.form.getlist("line"))
-        INVOICES.append({"no": 500 + len(INVOICES), "customer": request.form.get("cust_text", ""), "lines": n})
+        INVOICES.append({"no": max(x["no"] for x in INVOICES) + 1, "customer": request.form.get("cust_text", ""), "lines": n,
+                         "notes": request.form.get("Notes", "")})
         return jsonify({"ok": True})
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}
     <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css">
