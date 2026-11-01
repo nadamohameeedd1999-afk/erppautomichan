@@ -142,4 +142,6 @@ def test_auto_full(run_cli):
     r = run_cli("check", {"key": "st_auto", "type": "auto", "name_ar": "آلي", "screen": "st_auto_inv"}, defs=[inv])
     assert r.get("success"), r.get("error")
     rows = r["detail"]["rows"]
-    assert len(rows) == 8 and all(x["ok"] for x in rows), rows
+    # read the form · empty rejected · «العميل» empty rejected · add · edit · print · delete
+    assert len(rows) == 7 and all(x["ok"] for x in rows), rows
+    assert "إجباري: العميل" in rows[0]["cells"][2]

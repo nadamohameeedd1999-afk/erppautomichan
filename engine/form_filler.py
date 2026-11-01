@@ -132,6 +132,16 @@ class FormFiller:
         except TimeoutException:
             raise FieldFillError(field, "الحقل مش موجود في الصفحة (اتأكد من الـ id)")
 
+    def _present(self, field, timeout=3):
+        fid = field["id"]
+        by = (By.CSS_SELECTOR, fid[4:]) if fid.startswith("css:") else (By.ID, fid)
+        end = time.time() + timeout
+        while time.time() < end:
+            if self.driver.find_elements(*by):
+                return True
+            time.sleep(0.3)
+        return False
+
     def options(self, select_id):
         raw = self.driver.execute_script(OPTIONS_JS, select_id)
         return [t for t, _ in (raw or [])]
@@ -362,6 +372,11 @@ class FormFiller:
             kids = dependents.get(field["id"], [])
             before = {k["id"]: self.signature(k["id"]) for k in kids}
             t0 = time.time()
+            if field.get("optional") and not self._present(field):
+                self.steps.append({"id": field["id"], "label": label, "strategy": field["strategy"], "wanted": field.get("value", ""),
+                                   "result": None, "ok": True, "skipped": True, "seconds": round(time.time() - t0, 1)})
+                logger.info(f"⏭️ {label}: مش موجود في الصفحة دي — اتخطى")
+                continue
             try:
                 result = self.fill_field(field)
             except FieldFillError as e:

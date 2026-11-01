@@ -5,9 +5,9 @@ Advanced tests (اختبارات متقدمة) — one JSON per test in DEFS_DIR
                                     same browser and same {var:...} (أمر بيع ← تسليم ← فاتورة ← سند قبض ← أرصدة العميل)
   report      (📊 فحص تقرير)     : open a report with filters, read totals, check rules ({مدين} = {دائن})
                                     and compare the numbers with the last run
-  auto        (🤖 الاختبار الآلي) : one screen tested every way: rejected when empty / a required field is missing,
-                                    add with the required fields only, add with every field (+ open it and compare),
-                                    edit it, print it, delete it — all in one browser, one table of results
+  auto        (🤖 الاختبار الآلي) : any screen of the system, its form read live on the tested site, then: rejected when
+                                    empty / a required field is missing, add in one or more scenarios (all fields or
+                                    required only) checked every way, edit with new values, print, delete (engine/auto_test.py)
   perf        (⚡ سرعة الشاشات)   : time how long each screen takes to open and warn when it doubles
 
 Each saved test gets tests/checks/test_check_<key>.py so it runs from the queue / schedules like any other test.
@@ -67,12 +67,12 @@ CYCLE_TEMPLATES = {
 AUTO_WAYS = {
     "reject_empty": ("🚫", "حفظ فاضي لازم يترفض", "يدوس حفظ من غير ما يملى حاجة — النظام لازم يرفض"),
     "reject_required": ("🚫", "كل حقل إجباري لو فاضي لازم يترفض", "يملى كل حاجة ما عدا حقل إجباري واحد (لحد 3 حقول) — لازم يترفض"),
-    "add_required": ("➕", "إضافة بالحقول الإجبارية بس", "يملى الإجباري بس ويحفظ — لازم يتحفظ ويظهر في القايمة"),
-    "add_full": ("➕", "إضافة بكل الحقول + مراجعة القيم", "يملى كل الحقول ويحفظ، يتأكد إن صف جديد ظهر، ويفتحه ويقارن كل قيمة"),
-    "edit": ("✏️", "تعديل السجل اللي اتضاف", "يفتح السجل، يغيّر حقل، يحفظ، ويفتحه تاني يتأكد إن التعديل اتسجل"),
+    "add": ("➕", "إضافة جديد (بالسيناريوهات اللي تختاريها)", "يملى الحقول ويحفظ، ويتأكد بكل الطرق: مفيش رسالة خطأ، صف جديد في القايمة، ويفتحه تاني ويقارن كل قيمة"),
+    "edit": ("✏️", "تعديل السجل بقيم جديدة فعلاً", "يفتح السجل، يغيّر كل الحقول لقيم جديدة، يحفظ، ويفتحه تاني يتأكد إن التعديل اتسجل"),
     "print": ("🖨️", "طباعة السجل", "يدوس طباعة ويتأكد إن صفحة الطباعة / الـ PDF فتحت ومش فاضية ومفيهاش خطأ"),
-    "delete": ("🗑️", "حذف السجلات اللي الاختبار عملها", "يحذف السجل ويتأكد إنه اختفى من القايمة (والسجل التاني لو اتعمل)"),
+    "delete": ("🗑️", "حذف كل السجلات اللي الاختبار عملها", "يحذف كل سجل اتعمل ويتأكد إنه اختفى من القايمة"),
 }
+AUTO_SCENARIOS = ("first", "random", "edge")
 
 DENY_TEXTS = ["ليس لديك صلاحية", "ليس لديك الصلاحية", "لا تملك صلاحية", "لا يوجد لديك صلاحية", "غير مصرح", "غير مسموح",
               "access denied", "unauthorized", "forbidden", "not authorized", "you do not have permission", "403", "401"]
@@ -155,10 +155,13 @@ def normalize(cfg):
         screen = str(cfg.get("screen") or "").strip()
         if not screen:
             raise ConfigError("اختاري الشاشة اللي هتتختبر")
-        ways = [w for w in (cfg.get("ways") or list(AUTO_WAYS)) if w in AUTO_WAYS]
+        raw = [("add" if w in ("add_required", "add_full") else w) for w in (cfg.get("ways") or list(AUTO_WAYS))]
+        ways = [w for w in AUTO_WAYS if w in raw]
         if not ways:
             raise ConfigError("اختاري طريقة واحدة على الأقل")
-        out.update({"screen": screen, "ways": [w for w in AUTO_WAYS if w in ways],
+        scen = [x for x in AUTO_SCENARIOS if x in (cfg.get("scenarios") or ["first"])] or ["first"]
+        mode = cfg.get("fields_mode") or ("required" if cfg.get("ways") and "add_required" in cfg["ways"] and "add_full" not in cfg["ways"] else "all")
+        out.update({"screen": screen, "ways": ways, "scenarios": scen, "fields_mode": mode if mode in ("all", "required") else "all",
                     "edit_field": str(cfg.get("edit_field") or "").strip(),
                     "edit_value": str(cfg.get("edit_value") or "").strip(),
                     "edit_button": str(cfg.get("edit_button") or "").strip(),

@@ -184,63 +184,91 @@ def api_perf_history():
     return jsonify({"success": True, "sites": sites, "now": datetime.now().isoformat(timespec="seconds")})
 
 
-# ======================================================== الاختبار الآلي الكامل (add / edit / delete / print, every way)
+# ======================================================== الاختبار الآلي الشامل (any screen of the system)
 def auto_key(screen_key):
-    return ("auto_" + screen_key)[:90]
+    import re
+    return ("auto_" + re.sub(r"[^a-z0-9_]", "_", screen_key.lower()))[:90]
 
 
 @bp.route("/auto-test")
 @auth.login_required
 def auto_page():
     C = _C()
-    return render_template("auto_test.html", ways=C.AUTO_WAYS)
+    from engine.auto_test import SCENARIOS
+    return render_template("auto_test.html", ways=C.AUTO_WAYS, scenarios=SCENARIOS)
 
 
 @bp.route("/api/auto-test/screens")
 @auth.login_required
 def api_auto_screens():
+    """every screen of the project + its automatic test (if saved) + the last result"""
     C = _C()
-    from engine import screen_config, scenario_config
-    from engine.auto_test import edit_field
+    from engine.auto_test import all_screens
     last = _last_results()
     autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
     out = []
-    for s in screen_config.list_all():
-        if s.get("error"):
-            out.append({"key": s["key"], "name": s.get("name_ar"), "error": s["error"]})
-            continue
-        ops = sorted({c.get("operation") for c in scenario_config.list_all(s["key"]) if not c.get("error") and c.get("operation") != "add"})
+    for s in all_screens():
         a = autos.get(s["key"])
-        ef = edit_field(a or {}, s)
-        out.append({"key": s["key"], "name": s["name_ar"], "list_url": s["list_url"], "ops": ops,
-                    "fields": [{"id": f["id"], "label": f["label"], "kind": f["kind"], "required": f.get("required"), "strategy": f["strategy"]}
-                               for f in s["fields"]],
-                    "required": [f["label"] for f in s["fields"] if f.get("required") and f["strategy"] != "keep"],
-                    "edit_field": ef["id"] if ef else "",
-                    "auto": C.public(a) if a else None, "last": last.get(a["key"]) if a else None})
+        out.append({**s, "auto": C.public(a) if a else None, "last": last.get(a["key"]) if a else None})
     return jsonify({"success": True, "screens": out})
 
 
-@bp.route("/api/auto-test/all", methods=["POST"])
-@auth.login_required
-def api_auto_all():
-    """make an automatic test for every screen that has none, and queue them all"""
+def _auto_cfg(screen, name, d, old=None):
     C = _C()
-    from engine import screen_config
+    return {"key": (old or {}).get("key") or auto_key(screen), "type": "auto", "name_ar": f"🤖 {name}", "screen": screen,
+            "ways": d.get("ways") or list(C.AUTO_WAYS), "scenarios": d.get("scenarios") or ["first"],
+            "fields_mode": d.get("fields_mode") or "all", "expect_error": d.get("expect_error", ""),
+            "edit_button": d.get("edit_button", ""), "print_button": d.get("print_button", ""), "delete_button": d.get("delete_button", "")}
+
+
+@bp.route("/api/auto-test/save", methods=["POST"])
+@auth.login_required
+def api_auto_save():
+    """save the automatic test of the chosen screens (same options for all) and optionally queue them"""
+    C = _C()
+    from engine.auto_test import all_screens
     from web.queue_manager import get_manager
     from web import sites_api
     d = request.get_json(silent=True) or {}
-    have = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
-    made, ids = 0, []
-    for s in screen_config.list_all():
-        if s.get("error"):
-            continue
-        c = have.get(s["key"])
-        if not c:
-            c = C.save({"key": auto_key(s["key"]), "type": "auto", "name_ar": f"🤖 {s['name_ar']}", "screen": s["key"],
-                        "ways": d.get("ways") or list(C.AUTO_WAYS)})
-            made += 1
-        if d.get("run", True):
-            ids += sites_api.queue_on_sites(get_manager(), C.test_path_for(c["key"]), f"🤖 {s['name_ar']}",
-                                            d.get("sites"), source="manual")["task_ids"]
-    return jsonify({"success": True, "made": made, "queued": len(ids)})
+    names = {s["key"]: s["name"] for s in all_screens()}
+    keys = [k for k in d.get("screens") or [] if k in names]
+    if d.get("all"):
+        keys = list(names)
+    if not keys:
+        return jsonify({"success": False, "error": "اختاري شاشة واحدة على الأقل"}), 400
+    autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
+    saved, ids = [], []
+    for k in keys:
+        try:
+            c = C.save(_auto_cfg(k, names[k], d, autos.get(k)))
+        except C.ConfigError as e:
+            return jsonify({"success": False, "error": f"{names[k]}: {e}"}), 400
+        saved.append(c["key"])
+        if d.get("run"):
+            ids += sites_api.queue_on_sites(get_manager(), C.test_path_for(c["key"]), c["name_ar"], d.get("sites"),
+                                            source="manual")["task_ids"]
+    return jsonify({"success": True, "saved": saved, "queued": len(ids)})
+
+
+@bp.route("/api/auto-test/try", methods=["POST"])
+@auth.login_required
+def api_auto_try():
+    """one screen, now, with the result shown on the page"""
+    from engine.auto_test import all_screens
+    d = request.get_json(silent=True) or {}
+    s = next((x for x in all_screens() if x["key"] == d.get("screen")), None)
+    if not s:
+        return jsonify({"success": False, "error": "الشاشة مش موجودة"}), 404
+    C = _C()
+    from web.screens_api import _start_job, JOBS_DIR
+    try:
+        cfg = C.normalize(_auto_cfg(s["key"], s["name"], d))
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = JOBS_DIR / f"check_{cfg['key']}_{uuid.uuid4().hex[:6]}.json"
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    job_id, err = _start_job("check", ["check", "--config-file", str(tmp)], {"timeout": 3600})
+    if err:
+        return jsonify({"success": False, "error": err}), 409
+    return jsonify({"success": True, "job_id": job_id})

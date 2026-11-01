@@ -79,10 +79,17 @@
     </div>
     {% endif %}
 
+    <ul class="nav nav-pills mb-3 gap-2">
+        <li class="nav-item"><a class="nav-link {{ 'active' if category_filter not in ('auto', 'other') }}" href="{{ url_for('reports', status=status_filter) }}">كل التقارير</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if category_filter == 'auto' }}" href="{{ url_for('reports', category='auto', status=status_filter) }}">🤖 الاختبارات الآلية بس</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if category_filter == 'other' }}" href="{{ url_for('reports', category='other', status=status_filter) }}">باقي الاختبارات</a></li>
+    </ul>
+
     <!-- Filters -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" action="{{ url_for('reports') }}" class="row g-3">
+                <input type="hidden" name="category" value="{{ category_filter }}">
                 <div class="col-md-3">
                     <label class="form-label small fw-bold">{{ t('filter_by_status') }}</label>
                     <select name="status" class="form-select">
@@ -176,7 +183,7 @@
 
 {% block extra_js %}
 <script>
-fetch('/api/reports/discovery').then(r => r.json()).then(j => {
+{% if category_filter != 'auto' %}fetch('/api/reports/discovery').then(r => r.json()).then(j => {
     if (!j.success || !j.runs.length) return;
     const e = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
     document.getElementById('discRows').innerHTML = j.runs.map(r => `<tr>
@@ -186,7 +193,7 @@ fetch('/api/reports/discovery').then(r => r.json()).then(j => {
         <td class="text-end text-nowrap"><a class="btn btn-sm text-white" style="background:#0F7C7A" href="/reports/discovery/${e(r.id)}">📄 التقرير</a>
             <a class="btn btn-sm btn-outline-secondary" href="/reports/discovery/${e(r.id)}.pdf">PDF</a></td></tr>`).join('');
     document.getElementById('discovery').classList.remove('d-none');
-}).catch(() => {});
+}).catch(() => {});{% endif %}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>

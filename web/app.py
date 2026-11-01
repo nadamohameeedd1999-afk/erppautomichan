@@ -219,6 +219,12 @@ def reports():
         if status_filter == "failed" and failed == 0:
             continue
 
+        is_auto = "test_check_auto" in (s.get("test_path") or "")
+        if category_filter == "auto" and not is_auto:
+            continue
+        if category_filter == "other" and is_auto:
+            continue
+
         if search_query:
             text = (s.get("test_name", "") + s.get("run_id", "")).lower()
             if search_query.lower() not in text:

@@ -136,6 +136,8 @@ def normalize_field(f: dict, i: int, seen: set) -> dict:
         # لو القيمة مش موجودة: شغّل الشاشة/السيناريو ده الأول يعملها (مثلاً customer أو customer__new)
         "create_with": str(f.get("create_with") or "").strip(),
         "timeout": float(f.get("timeout", 15) or 15),
+        # مش لازم يكون في الصفحة: لو مش موجود يتخطى (الاختبار الآلي في صفحة التعديل)
+        "optional": bool(f.get("optional", False)),
     }
 
 
