@@ -14,7 +14,7 @@ import os
 import time
 from pathlib import Path
 
-from config.settings import BASE_URL, USERNAME
+from config.settings import BASE_URL, USERNAME, ACTIVITY, BRANCH
 from utils.logger import logger
 
 from config import paths  # noqa: E402
@@ -24,7 +24,7 @@ MAX_AGE = int(os.getenv("SESSION_REUSE_MINUTES", "25")) * 60
 
 
 def _file():
-    h = hashlib.sha1(f"{BASE_URL}|{USERNAME}".encode("utf-8")).hexdigest()[:12]
+    h = hashlib.sha1(f"{BASE_URL}|{USERNAME}|{ACTIVITY}|{BRANCH}".encode("utf-8")).hexdigest()[:12]
     return STATE_DIR / f"session_{h}.json"
 
 

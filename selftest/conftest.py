@@ -48,7 +48,7 @@ def run_cli(mock_erp, tmp_path):
     """run `python -m engine.cli <cmd>` on a config dict; retries once if Chrome itself crashes"""
     import json
 
-    def run(cmd, cfg=None, *args, defs=None):
+    def run(cmd, cfg=None, *args, defs=None, env=None):
         cfg_file = tmp_path / "cfg.json"
         out = tmp_path / "out.json"
         extra = []
@@ -63,7 +63,7 @@ def run_cli(mock_erp, tmp_path):
         data = {}
         for _ in range(3):
             subprocess.run([sys.executable, "-m", "engine.cli", cmd, *extra, *args, "--out", str(out)],
-                           cwd=str(ROOT), env=mock_erp, timeout=600, capture_output=True)
+                           cwd=str(ROOT), env={**mock_erp, **(env or {})}, timeout=600, capture_output=True)
             data = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {"success": False, "error": "no output"}
             if not any(w in str(data.get("error", "")) for w in ("InvalidSessionId", "disconnected", "SessionNotCreated")):
                 break

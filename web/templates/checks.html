@@ -49,7 +49,7 @@
     </div>
 
     <div class="row g-3 mb-3">
-        {% for k, t in types.items() if k != 'auto' %}
+        {% for k, t in types.items() if k not in ('auto', 'health') %}
         <div class="col-md-6 col-xl-3">
             <div class="tcard">
                 <div class="d-flex align-items-center gap-2"><span class="ic">{{ t[0] }}</span><span class="fw-bold fs-6">{{ t[1] }}</span></div>
@@ -158,6 +158,7 @@ async function loadList() {
         const what = c.type === 'cycle' ? c.steps.map(s => esc(s.name)).join(' ← ') :
                      c.type === 'report' ? `<span class="ltr">${esc(c.url)}</span> · ${c.values.length} رقم · ${c.asserts.length} قاعدة` :
                      c.type === 'auto' ? `الشاشة «${esc(c.screen)}» · ${c.ways.length} طريقة` :
+                     c.type === 'health' ? 'كل شاشات المنيو' + (c.reports ? ' والتقارير' : '') :
                      c.type === 'perf' ? (c.all_pages ? 'كل الشاشات' : c.pages.length + ' شاشة') + ` · ينبه لو أبطأ ${c.factor}×` : '';
         return `<tr>
             <td><div class="fw-bold">${t[0]} ${esc(c.name_ar)}</div><div class="muted">${what}</div>${c.error ? `<div class="text-danger small">${esc(c.error)}</div>` : ''}</td>
@@ -208,6 +209,7 @@ async function openNew(type, tpl) {
 }
 async function openEdit(key) {
     if ((LIST.find(x => x.key === key) || {}).type === 'auto') { location.href = '/auto-test?key=' + encodeURIComponent(key); return; }
+    if ((LIST.find(x => x.key === key) || {}).type === 'health') { location.href = '/health'; return; }
     await opts();
     const r = await fetch('/api/checks/' + encodeURIComponent(key)).then(r => r.json());
     if (!r.success) return alert(r.error);

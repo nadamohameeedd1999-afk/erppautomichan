@@ -22,6 +22,7 @@ If the screen also has a Screen Builder setup, its item lines / buttons / pop-up
 values are used too. Result: one table, a row per step.
 """
 import copy
+import re
 import time
 
 from utils.logger import logger
@@ -259,6 +260,60 @@ def explain(way, res, ok, err=""):
     return "\n".join(lines)
 
 
+def _num(v):
+    m = re.findall(r"\d+", str(v or ""))
+    return int(m[-1]) if m else None
+
+
+def check_numbering(driver, credentials, plan, RUN_VARS, result):
+    """add a 2nd record right after the 1st: its document number must exist, differ from the 1st and come after it;
+    then delete the 2nd so only the 1st is left for edit / print / delete. -> (what, ok, err)"""
+    from engine.screen_runner import run_screen
+    from engine.form_filler import FieldFillError
+    first = RUN_VARS.get("auto_no")
+    before = RUN_VARS.get("saved_no")
+    lines = [f"السجل الأول رقمه: {first}"]
+    try:
+        res = run_screen(driver, credentials, plan["number"], save=True, do_login=False)
+        err = ""
+    except (AssertionError, FieldFillError) as e:
+        res, err = getattr(e, "partial_result", None) or {}, str(e).split("\n  (Session info")[0]
+    except Exception as e:
+        res, err = {}, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
+    result["screenshots"] += [x for x in (res.get("screenshots") or []) if x][-2:]
+    second = RUN_VARS.get("saved_no") if (RUN_VARS.get("saved_no") != before or not err) else None
+    RUN_VARS["saved_no"] = before
+    if err and not second:
+        txt = explain("add", res, False, err)
+        dup = re.search(r"DocumentNumber|duplicate|مكرر|UNIQUE|PRIMARY KEY|51000", err + txt, re.I)
+        lines.append("❌ السجل التاني ما اتحفظش" + (" — والخطأ من ناحية رقم المستند (تكرار / تسلسل الترقيم)" if dup else ""))
+        lines.append(txt)
+        return "\n".join(lines), BAD, ("رقم المستند اتكرر / الترقيم واقف — " if dup else "السجل التاني ما اتحفظش — ") + err.splitlines()[0][:160]
+    lines.append(f"السجل التاني رقمه: {second or '—'}")
+    a, b = _num(first), _num(second)
+    ok, why = OK, ""
+    if not second:
+        ok, why = BAD, "السجل التاني اتحفظ بس مالقيتش له رقم جديد في القايمة"
+    elif str(second).strip() == str(first).strip():
+        ok, why = BAD, f"رقم المستند اتكرر: الاتنين {first}"
+    elif a is not None and b is not None and b < a:
+        ok, why = BAD, f"الترقيم راجع لورا: {second} بعد {first}"
+    if ok:
+        lines.append(f"✅ الترقيم سليم: {first} ثم {second}" + (f" (الفرق {b - a})" if a is not None and b is not None else ""))
+        if a is not None and b is not None and b - a > 1:
+            lines.append(f"ℹ️ فيه {b - a - 1} رقم اتفوّت في النص (ممكن حد تاني ضاف في نفس الوقت، أو الترقيم بيحجز أرقام)")
+    else:
+        lines.append("❌ " + why)
+    if second:                                                     # clean up: delete the 2nd record
+        try:
+            run_screen(driver, credentials, {**plan["delete"], "target_row": str(second)}, save=True, do_login=False)
+            lines.append(f"🧹 السجل التاني ({second}) اتحذف — هكمل على السجل الأول")
+        except Exception as e:
+            lines.append(f"⚠️ مقدرتش أحذف السجل التاني ({second}): {str(e).splitlines()[0][:120]} — امسحيه بإيدك")
+        RUN_VARS["saved_no"] = before
+    return "\n".join(lines), ok, why
+
+
 def run_auto(driver, credentials, cfg, result=None):
     from engine.screen_runner import run_screen, login, RUN_VARS
     from engine.form_filler import FieldFillError
@@ -306,6 +361,7 @@ def run_auto(driver, credentials, cfg, result=None):
     plan = {
         "add": _variant(base, "auto_add", fields=flds, auto_complete=True,
                         verify={**base["verify"], "new_first_row": True, "open_saved": True}),
+        "number": _variant(base, "auto_add2", fields=flds, auto_complete=True, verify={**base["verify"], "new_first_row": True}),
         "edit": _variant(base, "auto_edit", operation="edit", target_row="{var:auto_no}", fields=edit_flds or flds[:1], flows=[],
                          auto_complete=True, op_button=cfg.get("edit_button") or (_scenario_for(info["key"], "edit") or {}).get("op_button", ""),
                          verify={**base["verify"], "open_saved": True}),
@@ -321,6 +377,15 @@ def run_auto(driver, credentials, cfg, result=None):
         if way != "add" and not RUN_VARS.get("auto_no"):
             rows.append({"cells": [n, f"{icon} {label}", "ما اتشغلش — مفيش سجل اتحفظ في اختبار الإضافة يتعمل عليه " + label.replace("اختبار ", ""), ""],
                          "ok": SKIP})
+            continue
+        if way == "number":
+            t0 = time.time()
+            logger.info(f"🤖 {n}. {label}")
+            what, ok, err = check_numbering(driver, credentials, plan, RUN_VARS, result)
+            rows.append({"cells": [n, f"{icon} {label}", what, round(time.time() - t0, 1)], "ok": ok})
+            (logger.success if ok else logger.error)(f"{'✅' if ok else '❌'} {label}: {what.splitlines()[0][:200]}")
+            if not ok:
+                fails.append(f"{label}: {err[:200]}")
             continue
         t0, before = time.time(), RUN_VARS.get("saved_no")
         logger.info(f"🤖 {n}. {label}")

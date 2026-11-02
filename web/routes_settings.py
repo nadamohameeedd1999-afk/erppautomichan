@@ -317,6 +317,8 @@ def settings_test_sites_save():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
     notes = request.form.get("notes", "").strip()
+    activity = request.form.get("activity", "").strip()
+    branch = request.form.get("branch", "").strip()
 
     if not name or not base_url or not username:
         flash("الاسم والرابط واسم المستخدم مطلوبين", "danger")
@@ -326,14 +328,14 @@ def settings_test_sites_save():
         success, result = tsh.update_profile(
             profile_id,
             name=name, base_url=base_url,
-            username=username, password=password, notes=notes
+            username=username, password=password, notes=notes, activity=activity, branch=branch
         )
         flash("تم تحديث الموقع" if success else "فشل التحديث",
               "success" if success else "danger")
     else:
         success, result = tsh.add_profile(
             name=name, base_url=base_url,
-            username=username, password=password, notes=notes
+            username=username, password=password, notes=notes, activity=activity, branch=branch
         )
         flash("تم إضافة الموقع: " + name if success else "فشل الإضافة",
               "success" if success else "danger")

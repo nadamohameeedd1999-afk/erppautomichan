@@ -341,7 +341,10 @@ def run_check(driver, credentials, cfg):
     result = {"key": cfg["key"], "type": cfg["type"], "started_at": datetime.now().isoformat(timespec="seconds")}
     t0 = time.time()
     try:
-        if cfg["type"] == "auto":
+        if cfg["type"] == "health":
+            from engine.health import run_health
+            run_health(driver, credentials, cfg, result=result)
+        elif cfg["type"] == "auto":
             from engine.auto_test import run_auto
             run_auto(driver, credentials, cfg, result=result)
         else:

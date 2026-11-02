@@ -11,7 +11,8 @@ HERE = Path(__file__).resolve().parent
 NM = HERE / "node_modules"
 app = Flask(__name__)
 VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "date": "2026-10-01", "data": {}}]
-SLOW = {"ms": 0}          # /__slow?ms=3000 makes the customers list slow (performance test)
+SLOW = {"ms": 0}
+FLAGS = {"broken": False, "dupnum": False}   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
 
 LIBS = """
 <link rel="stylesheet" href="/lib/select2/dist/css/select2.min.css">
@@ -40,13 +41,14 @@ def login():
         if who:
             r = make_response(redirect("/Home"))
             r.set_cookie("auth", who)
+            r.set_cookie("place", f"{request.form.get('act')}-{request.form.get('branch')}")
             return r
         return redirect("/Login")
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
     <form method=post action=/Login>
       <input id=userName name=userName><input id=password name=password type=password>
-      <select id=cmbact name=act><option value="">اختر</option><option value=1>النشاط الرئيسي</option></select>
-      <select id=cmbbranch name=branch><option value="">اختر</option><option value=1>الفرع الرئيسي</option></select>
+      <select id=cmbact name=act><option value="">اختر</option><option value=1>النشاط الرئيسي</option><option value=2>شركة النخبة</option></select>
+      <select id=cmbbranch name=branch><option value="">اختر</option><option value=1>الفرع الرئيسي</option><option value=2>الفرع ٢</option></select>
       <button class="btn-login" type=submit>دخول</button>
     </form><script>$('select').select2();</script></body></html>"""
 
@@ -68,6 +70,19 @@ def set_slow():
     return jsonify(SLOW)
 
 
+@app.route("/__flags")
+def set_flags():
+    for k in FLAGS:
+        if k in request.args:
+            FLAGS[k] = request.args[k] == "1"
+    return jsonify(FLAGS)
+
+
+@app.route("/RentalAssets/Contracts")
+def rental_broken():
+    return "<html><body><h1>Server Error in '/' Application.</h1><p>Invalid object name 'RentalContracts'. SqlException</p></body></html>", 500
+
+
 @app.route("/Home/AccessDenied")
 def access_denied():
     return DENIED
@@ -82,8 +97,9 @@ def home():
     <aside class="sidebar"><ul>
       <li><span>المبيعات</span><ul><li><a href="/SalesInvoice">فواتير البيع</a></li><li><a href="/Customer">العملاء</a></li></ul></li>
       <li><span>الحسابات العامة</span><ul>""" + crv + """<li><a href="/Reports/Trial">ميزان المراجعة</a></li></ul></li>
+""" + ('<li><span>أصول التأجير</span><ul><li><a href="/RentalAssets/Contracts">عقود التأجير</a></li><li><a href="/GoneScreen">شاشة اتشالت</a></li></ul></li>' if FLAGS["broken"] else "") + """
       <li><a href="/Support/Tickets">التذاكر</a></li><li><a href="#">بدون رابط</a></li><li><a href="/Logout">خروج</a></li>
-    </ul></aside><main>home</main></body></html>"""
+    </ul></aside><main>home <span id=place>""" + str(request.cookies.get("place", "")) + """</span></main></body></html>"""
 
 
 def _journal(v):
@@ -500,7 +516,7 @@ def cr2_add():
         if old:
             old.update(rec)
         else:
-            CR2.append({"no": (CR2[-1]["no"] + 1) if CR2 else 1, **rec})
+            CR2.append({"no": (CR2[-1]["no"] + (0 if FLAGS["dupnum"] else 1)) if CR2 else 1, **rec})
         return jsonify({"ok": True})
     vid = request.args.get("id")
     rec = next((v for v in CR2 if str(v["no"]) == str(vid)), None) if vid else None

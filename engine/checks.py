@@ -29,6 +29,7 @@ TYPES = {
     "report": ("📊", "فحص تقرير", "يفتح تقرير بفلتر، يقرا الإجماليات، يتأكد من قواعد (مدين = دائن) ويقارن بآخر مرة"),
     "auto": ("🤖", "الاختبار الآلي", "شاشة واحدة بكل الطرق: إضافة، تعديل، حذف، طباعة، واختبارات الرفض"),
     "perf": ("⚡", "سرعة الشاشات", "يقيس وقت فتح كل شاشة وينبه لو بقت أبطأ من العادي"),
+    "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
 }
 
 # ready-made cycles: each slot = (name, words that find a saved screen with a similar key / name)
@@ -66,6 +67,7 @@ CYCLE_TEMPLATES = {
 # the ways of the automatic full test, in the order they run (record-making ones before edit / print / delete)
 AUTO_WAYS = {
     "add": ("➕", "اختبار الإضافة", "يفتح الشاشة، يدوس إضافة، يملى البيانات، يحفظ — ويتأكد إن الحفظ تم صح: مفيش رسالة خطأ، السجل ظهر في القايمة، ولما يفتحه تاني القيم هي اللي اتكتبت"),
+    "number": ("🔢", "اختبار الترقيم", "يضيف سجل تاني ورا الأول على طول ويتأكد إن رقم المستند اتولّد ومش مكرر وماشي بالترتيب — وبعدين يحذف السجل التاني"),
     "edit": ("✏️", "اختبار التعديل", "يفتح نفس السجل اللي اتضاف، يغيّر البيانات اللي اتكتبت، يحفظ — ويفتحه تاني يتأكد إن التعديل اتسجل"),
     "print": ("🖨️", "اختبار الطباعة", "يطبع نفس السجل ويتأكد إن صفحة الطباعة / الـ PDF فتحت ومش فاضية ومفيهاش خطأ"),
     "delete": ("🗑️", "اختبار الحذف", "يحذف نفس السجل ويتأكد إنه اختفى من القايمة"),
@@ -183,6 +185,11 @@ def normalize(cfg):
                     "max_seconds": max(0.0, float(cfg.get("max_seconds", 0) or 0)),
                     "baseline_runs": max(1, min(20, int(cfg.get("baseline_runs", 5) or 5))),
                     "fail_on_slow": bool(cfg.get("fail_on_slow", True))})
+    elif typ == "health":
+        out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],
+                    "reports": bool(cfg.get("reports", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
+                    "slow_seconds": max(0.0, float(cfg.get("slow_seconds", 0) or 0)),
+                    "workers": max(1, min(16, int(cfg.get("workers", 8) or 8))), "menu_page": _url(cfg.get("menu_page")) or "/Home"})
     return out
 
 

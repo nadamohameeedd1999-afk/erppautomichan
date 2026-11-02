@@ -272,3 +272,60 @@ def api_auto_try():
     if err:
         return jsonify({"success": False, "error": err}), 409
     return jsonify({"success": True, "job_id": job_id})
+
+
+# ======================================================== 🩺 صحة النظام (every screen of the menu, broken ones + alerts)
+HEALTH_KEY = "system_health"
+
+
+def _health_cfg():
+    C = _C()
+    try:
+        return C.load(HEALTH_KEY)
+    except C.ConfigError:
+        return C.normalize({"key": HEALTH_KEY, "type": "health", "name_ar": "🩺 صحة النظام — كل الشاشات"})
+
+
+@bp.route("/health")
+@auth.login_required
+def health_page():
+    return render_template("health.html")
+
+
+@bp.route("/api/health")
+@auth.login_required
+def api_health():
+    from engine import health
+    states = []
+    for f in sorted(health.STATE.glob("health_*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        since = d.get("since") or {}
+        d["broken"] = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
+        d["broken"].sort(key=lambda b: (b.get("module") or "", b.get("name") or ""))
+        states.append(d)
+    states.sort(key=lambda d: d.get("at") or "", reverse=True)
+    C = _C()
+    cfg = _health_cfg()
+    return jsonify({"success": True, "config": C.public(cfg), "saved": C.exists(HEALTH_KEY), "states": states,
+                    "last": _last_results().get(HEALTH_KEY), "default_skip": health.DEFAULT_SKIP})
+
+
+@bp.route("/api/health/save", methods=["POST"])
+@auth.login_required
+def api_health_save():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    cfg = {**(d.get("config") or {}), "key": HEALTH_KEY, "type": "health", "name_ar": "🩺 صحة النظام — كل الشاشات"}
+    try:
+        saved = C.save(cfg)
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    out = {"success": True, "config": C.public(saved)}
+    if d.get("run"):
+        from web.queue_manager import get_manager
+        from web import sites_api
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), saved["name_ar"], d.get("sites"), source="manual"))
+    return jsonify(out)

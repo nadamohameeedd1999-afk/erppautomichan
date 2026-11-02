@@ -142,8 +142,8 @@ def test_auto_full(run_cli):
     r = run_cli("check", {"key": "st_auto", "type": "auto", "name_ar": "آلي", "screen": "st_auto_inv"}, defs=[inv])
     assert r.get("success"), r.get("error")
     rows = r["detail"]["rows"]
-    # read the form · add · edit · print · delete — all on the same record
-    assert len(rows) == 5 and all(x["ok"] for x in rows), rows
+    # read the form · add · numbering · edit · print · delete — all on the same record
+    assert len(rows) == 6 and all(x["ok"] for x in rows), rows
     assert "إجباري" in rows[0]["cells"][2] and "العميل" in rows[0]["cells"][2]
 
 
@@ -159,5 +159,58 @@ def test_auto_like_real_cash_receipt(run_cli, mock_erp):
     r = run_cli("check", {"key": "st_auto_cr2", "type": "auto", "name_ar": "آلي", "screen": "d_cr2", "fields_mode": "required"})
     assert r.get("success"), r.get("error")
     rows = r["detail"]["rows"]
-    assert len(rows) == 5 and all(x["ok"] for x in rows), rows
+    assert len(rows) == 6 and all(x["ok"] for x in rows), rows
+    assert "الترقيم سليم" in rows[2]["cells"][2] and "اتحذف" in rows[2]["cells"][2], rows[2]
     assert "بناء على" in rows[1]["cells"][2] and "قارنت" in rows[1]["cells"][2]
+
+
+def _flags(**kw):
+    import urllib.request
+    op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    op.open("http://127.0.0.1:5055/__flags?" + "&".join(f"{k}={int(v)}" for k, v in kw.items())).read()
+
+
+def test_numbering_duplicate(run_cli, mock_erp):
+    """the ERP gives the 2nd record the same document number -> the numbering test fails and says so"""
+    import json
+    from pathlib import Path
+    st = Path(mock_erp["DATA_DIR"]) / "settings"
+    st.mkdir(parents=True, exist_ok=True)
+    (st / "discovered_screens.json").write_text(json.dumps({"screens": [
+        {"key": "d_cr2", "name": "سند قبض", "name_en": "CR2", "group": "الحسابات", "url": "/CashReceipt2"}]}, ensure_ascii=False), encoding="utf-8")
+    _flags(dupnum=1)
+    try:
+        r = run_cli("check", {"key": "st_num", "type": "auto", "name_ar": "ترقيم", "screen": "d_cr2", "fields_mode": "required",
+                              "ways": ["add", "number"]})
+    finally:
+        _flags(dupnum=0)
+    assert not r.get("success")
+    rows = r["detail"]["rows"]
+    assert rows[1]["ok"] and not rows[2]["ok"], rows
+    assert "اتكرر" in rows[2]["cells"][2], rows[2]
+
+
+def test_system_health(run_cli, mock_erp):
+    """every menu link opened; broken ones (500 / 404) listed, then «fixed» when they come back; activity / branch login"""
+    cfg = {"key": "st_health", "type": "health", "name_ar": "صحة"}
+    r = run_cli("check", cfg)
+    assert r.get("success"), r.get("error")
+    assert r["health"]["broken"] == 0 and r["health"]["total"] >= 4, r["health"]
+    assert not any("/Support/Tickets" in x["cells"][3] for x in r["detail"]["rows"])        # skipped
+    _flags(broken=1)
+    try:
+        r = run_cli("check", cfg)
+    finally:
+        _flags(broken=0)
+    assert not r.get("success")
+    rows = {x["cells"][3]: x for x in r["detail"]["rows"]}
+    assert "500" in rows["/RentalAssets/Contracts"]["cells"][4] and "SqlException" in rows["/RentalAssets/Contracts"]["cells"][4], rows
+    assert "404" in rows["/GoneScreen"]["cells"][4] and rows["/GoneScreen"]["cells"][0].startswith("🆕"), rows
+    r = run_cli("check", cfg)
+    assert r.get("success") and len(r["health"]["fixed"]) == 2, r
+    # login on another activity / branch (the profile says which; «2» matches «٢»)
+    r = run_cli("check", cfg, env={"LOGIN_ACTIVITY": "النخبه", "LOGIN_BRANCH": "الفرع 2"})
+    assert r.get("success"), r.get("error")
+    assert "النخبه" in r["detail"]["note"]
+    r = run_cli("check", cfg, env={"LOGIN_ACTIVITY": "نشاط مش موجود"})
+    assert not r.get("success") and "مش موجود" in r.get("error", ""), r.get("error")

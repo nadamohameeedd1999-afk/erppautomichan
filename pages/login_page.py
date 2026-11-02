@@ -36,7 +36,15 @@ class LoginPage(BasePage):
         self.click(self.LOGIN_BUTTON, "زر تسجيل الدخول")
 
     # ==================== Select2 Dropdowns ====================
-    def _select_first_option(self, select2_id: str, label: str, timeout: int = 15) -> bool:
+    @staticmethod
+    def _norm(t):
+        t = (t or "").strip().lower()
+        for a, b in (("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")):
+            t = t.replace(a, b)
+        t = t.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+        return " ".join(t.split())
+
+    def _select_first_option(self, select2_id: str, label: str, timeout: int = 15, want: str = "") -> bool:
         """
         اختيار أول عنصر حقيقي في Select2 dropdown
         
@@ -90,7 +98,7 @@ class LoginPage(BasePage):
                 except Exception:
                     pass
                 time.sleep(0.5)
-                return self._select_first_option_js(select2_id, label)
+                return self._select_first_option_js(select2_id, label, want)
             
             # ═══ 3) اختار أول عنصر حقيقي (مش placeholder) ═══
             options = self.driver.find_elements(
@@ -116,12 +124,21 @@ class LoginPage(BasePage):
                     continue
                 if any(p in text for p in ["اختر", "بحث", "----"]):
                     continue
+                if want and self._norm(want) not in self._norm(text):
+                    continue                     # the profile asks for another activity / branch
                 
                 # ده عنصر حقيقي
                 chosen = opt
                 logger.info(f"سأختار: '{text}'")
                 break
             
+            if not chosen and want:
+                logger.error(f"❌ مالقيتش «{want}» في [{label}] — الموجود: {[o.text.strip() for o in options if o.text.strip()]}")
+                try:
+                    self.driver.find_element(By.TAG_NAME, "body").click()
+                except Exception:
+                    pass
+                return False
             if not chosen:
                 logger.warning(f"⚠️ مفيش عنصر حقيقي في [{label}]")
                 # جرب أول عنصر عادي
@@ -150,23 +167,26 @@ class LoginPage(BasePage):
                 pass
             return False
 
-    def _select_first_option_js(self, select_id: str, label: str) -> bool:
+    def _select_first_option_js(self, select_id: str, label: str, want: str = "") -> bool:
         """Fallback: يختار أول عنصر حقيقي في الـ <select> نفسه ويبعت change (زي ما Select2 بيعمل)."""
         result = self.driver.execute_script(r"""
-            var s = document.getElementById(arguments[0]);
+            var s = document.getElementById(arguments[0]), want = arguments[1] || '';
+            var N = function (t) { return (t || '').trim().toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+                .replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/\s+/g, ' '); };
             if (!s) return {ok: false, why: 'no-select'};
             var all = Array.from(s.options).map(function (o) { return o.text.trim(); });
             var cur = s.selectedIndex >= 0 && s.options[s.selectedIndex] ? s.options[s.selectedIndex] : null;
-            if (cur && cur.value && !/اختر|select|----/i.test(cur.text)) return {ok: true, text: cur.text.trim(), already: true, all: all};
+            if (cur && cur.value && !/اختر|select|----/i.test(cur.text) && (!want || N(cur.text).indexOf(N(want)) >= 0)) return {ok: true, text: cur.text.trim(), already: true, all: all};
             for (var i = 0; i < s.options.length; i++) {
                 var o = s.options[i], t = o.text.trim();
                 if (!o.value || !t || /اختر|select|بحث|----/i.test(t)) continue;
+                if (want && N(t).indexOf(N(want)) < 0) continue;
                 s.selectedIndex = i;
                 if (window.jQuery) { jQuery(s).trigger('change'); } else { s.dispatchEvent(new Event('change', {bubbles: true})); }
                 return {ok: true, text: t, all: all};
             }
             return {ok: false, why: 'no-real-option', all: all};
-        """, select_id) or {}
+        """, select_id, want or "") or {}
         if result.get("ok"):
             how = "كان مختار بالفعل" if result.get("already") else "اتختار بالـ JavaScript"
             logger.success(f"✅ [{label}] = '{result.get('text')}' ({how}) — الخيارات: {result.get('all')}")
@@ -177,11 +197,13 @@ class LoginPage(BasePage):
 
     def select_activity(self, timeout: int = 15) -> bool:
         """اختيار النشاط الرئيسي - أول عنصر حقيقي"""
-        return self._select_first_option(self.ACTIVITY_SELECT2_ID, "النشاط الرئيسي", timeout)
+        from config.settings import ACTIVITY
+        return self._select_first_option(self.ACTIVITY_SELECT2_ID, "النشاط الرئيسي", timeout, want=ACTIVITY)
 
     def select_branch(self, timeout: int = 15) -> bool:
         """اختيار الفرع الرئيسي - أول عنصر حقيقي"""
-        return self._select_first_option(self.BRANCH_SELECT2_ID, "الفرع الرئيسي", timeout)
+        from config.settings import BRANCH
+        return self._select_first_option(self.BRANCH_SELECT2_ID, "الفرع الرئيسي", timeout, want=BRANCH)
 
     # ==================== Login Flow ====================
     def login(self, username: str, password: str,
@@ -223,6 +245,10 @@ class LoginPage(BasePage):
             time.sleep(wait_activity)  # استنى الحقل يظهر بعد اليوزر
             activity_ok = self.select_activity()
             if not activity_ok:
+                from config.settings import ACTIVITY
+                if ACTIVITY:
+                    self.take_screenshot("ERROR_activity_not_found")
+                    raise AssertionError(f"شاشة الدخول: النشاط «{ACTIVITY}» المكتوب في إعدادات الموقع مش موجود للمستخدم ده")
                 logger.warning("⚠️ فشل اختيار النشاط - بستمر")
         else:
             logger.info("⏭️ تخطي اختيار النشاط")
@@ -233,6 +259,10 @@ class LoginPage(BasePage):
             time.sleep(wait_branch)  # استنى الفرع يعتمد على النشاط
             branch_ok = self.select_branch()
             if not branch_ok:
+                from config.settings import BRANCH
+                if BRANCH:
+                    self.take_screenshot("ERROR_branch_not_found")
+                    raise AssertionError(f"شاشة الدخول: الفرع «{BRANCH}» المكتوب في إعدادات الموقع مش موجود في النشاط ده")
                 logger.warning("⚠️ فشل اختيار الفرع - بستمر")
         else:
             logger.info("⏭️ تخطي اختيار الفرع")

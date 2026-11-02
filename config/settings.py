@@ -37,6 +37,8 @@ def _get(key, env_key, default=""):
 BASE_URL = _get("base_url", "BASE_URL", "https://test-site-nq.premiumasp.net")
 USERNAME = _get("username", "LOGIN_USERNAME", "erpadmin")
 PASSWORD = _get("password", "LOGIN_PASSWORD", "")
+ACTIVITY = _get("activity", "LOGIN_ACTIVITY", "")      # النشاط في شاشة الدخول (فاضي = أول نشاط)
+BRANCH = _get("branch", "LOGIN_BRANCH", "")            # الفرع (فاضي = أول فرع)
 
 LOGIN_URL = BASE_URL + "/Login"
 SALES_INVOICE_LIST_URL = BASE_URL + "/SalesInvoice"

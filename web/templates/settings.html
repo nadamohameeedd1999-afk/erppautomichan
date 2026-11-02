@@ -47,6 +47,13 @@
                         <div class="form-text" id="pwdHint" style="display:none;">اتركها فاضية للإبقاء على الباسورد الحالي</div>
                     </div>
 
+                    <div class="row g-2 mb-3">
+                        <div class="col"><label class="form-label fw-bold">🏢 النشاط</label>
+                            <input type="text" name="activity" id="activity_field" class="form-control" placeholder="فاضي = أول نشاط (مثال: شركة النخبة)"></div>
+                        <div class="col"><label class="form-label fw-bold">📍 الفرع</label>
+                            <input type="text" name="branch" id="branch_field" class="form-control" placeholder="فاضي = أول فرع (مثال: الفرع ٢)"></div>
+                        <div class="form-text">علشان تختبري كل نشاط / فرع: اعملي موقع لكل واحد بنفس الرابط واختاري «كل المواقع» وقت التشغيل.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">ملاحظات</label>
                         <textarea name="notes" id="notes_field" class="form-control" rows="2"></textarea>
@@ -76,8 +83,9 @@ function togglePwd(id, btn) {
     }
 }
 
-function editProfile(id, name, url, username, notes) {
+function editProfile(id, name, url, username, notes, activity, branch) {
     document.getElementById('profile_id_field').value = id;
+    if (document.getElementById('activity_field')) { document.getElementById('activity_field').value = activity || ''; document.getElementById('branch_field').value = branch || ''; }
     document.getElementById('name_field').value = name;
     document.getElementById('base_url_field').value = url;
     document.getElementById('username_field').value = username;
@@ -572,10 +580,10 @@ function editProfile(id, name, url, username, notes) {
                                     </td>
                                     <td class="fw-bold">{{ p.name }}</td>
                                     <td><code dir="ltr">{{ p.base_url }}</code></td>
-                                    <td dir="ltr">{{ p.username }}</td>
+                                    <td dir="ltr">{{ p.username }}{% if p.activity or p.branch %}<div class="small text-muted" dir="rtl">🏢 {{ p.activity or 'أول نشاط' }} · 📍 {{ p.branch or 'أول فرع' }}</div>{% endif %}</td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-primary"
-                                                onclick="editProfile('{{ p.id }}', '{{ p.name }}', '{{ p.base_url }}', '{{ p.username }}', '{{ p.notes or "" }}')">
+                                                onclick="editProfile('{{ p.id }}', '{{ p.name }}', '{{ p.base_url }}', '{{ p.username }}', '{{ p.notes or "" }}', '{{ p.activity or "" }}', '{{ p.branch or "" }}')">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <form method="POST" action="{{ url_for('settings_test_sites_delete', profile_id=p.id) }}"
@@ -908,6 +916,13 @@ async function sendTestEmail() {
                         <div class="form-text" id="pwdHint" style="display:none;">اتركها فاضية للإبقاء على الباسورد الحالي</div>
                     </div>
 
+                    <div class="row g-2 mb-3">
+                        <div class="col"><label class="form-label fw-bold">🏢 النشاط</label>
+                            <input type="text" name="activity" id="activity_field" class="form-control" placeholder="فاضي = أول نشاط (مثال: شركة النخبة)"></div>
+                        <div class="col"><label class="form-label fw-bold">📍 الفرع</label>
+                            <input type="text" name="branch" id="branch_field" class="form-control" placeholder="فاضي = أول فرع (مثال: الفرع ٢)"></div>
+                        <div class="form-text">علشان تختبري كل نشاط / فرع: اعملي موقع لكل واحد بنفس الرابط واختاري «كل المواقع» وقت التشغيل.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">ملاحظات</label>
                         <textarea name="notes" id="notes_field" class="form-control" rows="2"></textarea>
@@ -937,8 +952,9 @@ function togglePwd(id, btn) {
     }
 }
 
-function editProfile(id, name, url, username, notes) {
+function editProfile(id, name, url, username, notes, activity, branch) {
     document.getElementById('profile_id_field').value = id;
+    if (document.getElementById('activity_field')) { document.getElementById('activity_field').value = activity || ''; document.getElementById('branch_field').value = branch || ''; }
     document.getElementById('name_field').value = name;
     document.getElementById('base_url_field').value = url;
     document.getElementById('username_field').value = username;

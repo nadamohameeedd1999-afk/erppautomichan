@@ -35,7 +35,7 @@ def get_active_profile():
     return None
 
 
-def add_profile(name, base_url, username, password, notes=""):
+def add_profile(name, base_url, username, password, notes="", activity="", branch=""):
     data = load_all()
     import uuid
     new_id = "p_" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4]     # unique even when two are added in one second
@@ -46,6 +46,8 @@ def add_profile(name, base_url, username, password, notes=""):
         "username": username,
         "password": password,
         "notes": notes,
+        "activity": activity,      # النشاط اللي يتختار في شاشة الدخول (فاضي = أول نشاط)
+        "branch": branch,          # الفرع (فاضي = أول فرع)
         "created_at": datetime.now().isoformat(),
     }
     data.setdefault("profiles", []).append(profile)
@@ -69,6 +71,9 @@ def update_profile(profile_id, **kwargs):
                 p["password"] = kwargs["password"]
             if "notes" in kwargs:
                 p["notes"] = kwargs["notes"]
+            for k in ("activity", "branch"):
+                if k in kwargs:
+                    p[k] = kwargs[k]
             p["updated_at"] = datetime.now().isoformat()
             _save_json(TEST_SITES_FILE, data)
             return True, p
