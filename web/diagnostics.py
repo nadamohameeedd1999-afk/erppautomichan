@@ -283,9 +283,11 @@ def build(hours=24, parts=None, max_failed=15, log_lines=120):
                 cols = d["detail"].get("columns") or []
                 for row in d["detail"].get("rows") or []:
                     if row.get("ok") is False:
-                        L.append("  ✗ " + " | ".join(f"{c}: {str(v)[:600]}" for c, v in zip(cols, row.get("cells") or [])))
+                        L.append("  ✗ " + " | ".join(f"{c}: {str(v)[:3000]}" for c, v in zip(cols, row.get("cells") or [])))
             lg = paths.RUN_LOGS_DIR / f"{r['run_id']}.log"
-            tail = _tail(lg, log_lines)
+            raw = _tail(lg, 5000)
+            eng = [x for x in raw if re.match(r"\s*(\S+::\S+ )?\d\d:\d\d:\d\d \| ", _strip(x)) or re.match(r"\s*(E |FAILED|Exit code|Duration|=====)", _strip(x))]
+            tail = (eng or raw)[-log_lines:]
             if tail:
                 L.append(f"آخر {len(tail)} سطر من اللوج:")
                 L += ["  " + _strip(x.rstrip()) for x in tail]

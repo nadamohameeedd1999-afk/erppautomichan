@@ -198,9 +198,13 @@ class ScreenRunner(BasePage):
     def save(self):
         sel = self.cfg["save_button"]
         try:
-            el = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
+            el = WebDriverWait(self.driver, 8 if self.cfg.get("operation") == "edit" else 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
         except TimeoutException:
-            raise AssertionError(f"زرار الحفظ ({sel}) مش موجود")
+            el = self.driver.execute_script(FIND_SAVE_JS)
+            if not el:
+                raise AssertionError(f"زرار الحفظ ({sel}) مش موجود — ومالقيتش أي زرار «حفظ / تعديل / Save» ظاهر في الصفحة")
+            logger.info(f"🔎 زرار الحفظ المتسجل ({sel}) مش موجود هنا — لقيت «{(el.text or el.get_attribute('value') or '').strip()[:30]}» ودوست عليه")
         self.wait_for_preloader()
         self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
         time.sleep(0.3)
@@ -239,7 +243,7 @@ class ScreenRunner(BasePage):
             parts.append("رسائل التحقق في الفورم: " + " | ".join(errs))
         empty = []
         for f in self.cfg["fields"]:
-            if f["kind"] in ("select", "select2") and not f["id"].startswith("css:"):
+            if f["kind"] in ("select", "select2") and not f["id"].startswith("css:") and f.get("required") and not f.get("soft"):
                 try:
                     from engine.text_match import is_placeholder
                     if is_placeholder(self.filler.selected_text(f["id"])):
@@ -372,6 +376,17 @@ def check_saved_values(r, cfg, steps):
             mismatches.append(f"{s['label']}: اتملى '{s['result']}' بس اتسجل '{v}'")
     _shot(r, f"{cfg['key']}_saved_record")
     return {"checked": True, "rows": rows, "mismatches": mismatches}
+
+
+FIND_SAVE_JS = r"""
+const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+const T = e => ((e.innerText || e.value || e.title || '') + ' ' + (e.id || '') + ' ' + (e.className || '')).toLowerCase();
+const all = Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a.btn'))
+  .filter(e => vis(e) && !e.disabled && !e.closest('nav, header, .navbar, aside, .sidebar, .modal:not(.show), table'));
+const pri = [/^\s*(حفظ|save)\b/, /حفظ التعديل|تعديل وحفظ|update|حفظ|save|تحديث|submit/, /btn-?save|#?save/];
+for (const re of pri) { const e = all.find(x => re.test(T(x)) && !/حفظ و جديد|حفظ وجديد|طباعة|print|بحث|search|الغاء|إلغاء|cancel/.test(T(x))); if (e) return e; }
+return null;
+"""
 
 
 def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth=0):

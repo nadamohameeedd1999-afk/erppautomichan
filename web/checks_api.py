@@ -417,6 +417,7 @@ def api_cleanup_forget():
 
 # ======================================================== 📈 الأخطاء المتكررة (all runs, grouped by the error)
 _ERR_KINDS = (
+    ("📦 بيانات أساسية ناقصة في الموقع", r"بيانات أساسية ناقصة|مفيش ولا خيار في القايمة"),
     ("🗄️ خطأ قاعدة بيانات / SQL", r"sql|stored procedure|transaction count|begin/commit|_insert|_update|deadlock|constraint|51000"),
     ("💥 خطأ سيرفر", r"\b50[0-9]\b|server error|exception|خطأ سيرفر|internal"),
     ("📜 خطأ JavaScript في الصفحة", r"javascript|is not defined|is not a function|cannot read prop|js error"),

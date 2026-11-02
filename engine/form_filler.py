@@ -340,6 +340,24 @@ class FormFiller:
                     return actual
             except ValueError:
                 pass
+            digits = "".join(ch for ch in value if ch.isdigit())
+            if digits and not value.replace(",", "").replace(".", "").isdigit() and re.fullmatch(r"[\d.,\s]*", actual or ""):
+                # a number box (masked / numeric): it ate the letters -> write a number instead
+                num = digits[-9:].lstrip("0") or "1"
+                try:
+                    el.clear()
+                    el.send_keys(num)
+                except Exception:
+                    pass
+                actual = el.get_attribute("value") or ""
+                if actual.strip() != num:
+                    actual = self.driver.execute_script(SET_VALUE_JS, el, num) or ""
+                try:
+                    if float(actual.replace(",", "") or "x") == float(num):
+                        logger.info(f"🔢 {field.get('label') or field['id']}: خانة أرقام — كتبت {num} بدل '{value}'")
+                        return actual
+                except ValueError:
+                    pass
             raise FieldFillError(field, f"كتبنا '{value}' بس الحقل فيه '{actual}'")
         try:
             el.send_keys(Keys.TAB)

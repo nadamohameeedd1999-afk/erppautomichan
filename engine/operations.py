@@ -61,7 +61,7 @@ if (kind === 'edit' && target.tagName === 'A') {
   var h = target.getAttribute('href') || '';
   if (h && h !== '#' && h.indexOf('javascript') !== 0) return {ok: true, href: target.href, row: (row.innerText||'').replace(/\s+/g,' ').trim().slice(0, 200), id: id};
 }
-if (doClick) { target.scrollIntoView({block: 'center'}); target.click(); }
+if (doClick) { target.scrollIntoView({block: 'center'}); setTimeout(function(){ target.click(); }, 0); }   // async: a native confirm() must not break this script
 return {ok: true, clicked: !!doClick, row: (row.innerText||'').replace(/\s+/g,' ').trim().slice(0, 200), id: id};
 """
 
@@ -110,6 +110,10 @@ def _row_action(r, cfg, kind, match, click=True, tries=2):
             continue
         time.sleep(2)
     if res.get("ok"):
+        if click:
+            time.sleep(0.6)
+            while r.accept_js_alert(timeout=1.2) is not None:      # «هل تريد الحذف ؟» from the browser itself
+                pass
         return res
     err = res.get("error")
     if err == "empty":

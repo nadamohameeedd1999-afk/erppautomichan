@@ -158,6 +158,8 @@ def build_fields(read, mode, scenario, builder=None, editing=False):
             ids.add(b["id"])
         usable = [f for f in usable if f["id"] not in ids]
     for f in usable:
+        if f["id"] in ids:                  # same name twice (a radio group, a repeated hidden copy) -> once
+            continue
         if f["id"] in fixed:
             b = fixed[f["id"]]
             st, val = b["strategy"], b["value"]
@@ -257,7 +259,19 @@ def explain(way, res, ok, err=""):
         lines.append("❌ " + {"add": "الإضافة ما نجحتش", "edit": "التعديل ما نجحش", "print": "الطباعة ما نجحتش",
                              "delete": "الحذف ما نجحش"}.get(way, "فشل") + ":")
         lines += ["   " + x.strip() for x in str(err).split("\n") if x.strip()][:8]
+        m = MISSING_DATA_RE.search(str(err))
+        if m:
+            lines.append(f"📦 بيانات أساسية ناقصة في الموقع: «{m.group(1).strip()}» مفيهاش ولا اختيار — عرّفي واحد على الأقل في الـ ERP"
+                         " وشغّلي الاختبار تاني (ده مش عيب في الشاشة نفسها)")
     return "\n".join(lines)
+
+
+MISSING_DATA_RE = re.compile(r"\[([^\]/]+?)\s*(?:/[^\]]*)?\]\s*مفيش ولا خيار في القايمة")
+
+
+def missing_data(err):
+    m = MISSING_DATA_RE.search(str(err or ""))
+    return m.group(1).strip() if m else ""
 
 
 def _num(v):
@@ -414,7 +428,9 @@ def run_auto(driver, credentials, cfg, result=None):
         deleted = deleted or (way == "delete" and ok)
         (logger.success if ok else logger.error)(f"{'✅' if ok else '❌'} {label}: {what.splitlines()[-1][:200]}")
         if not ok:
-            fails.append(f"{label}: {err.splitlines()[0][:200] if err else ''}")
+            md = missing_data(err)
+            fails.append(f"{label}: " + (f"📦 بيانات أساسية ناقصة: «{md}» مفيهاش ولا اختيار في الموقع" if md
+                                         else (err.splitlines()[0][:200] if err else "")))
     if RUN_VARS.get("auto_no") and not deleted:               # the record stays on the site -> «تنظيف بيانات الاختبار»
         try:
             from engine import cleanup

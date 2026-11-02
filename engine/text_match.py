@@ -29,10 +29,13 @@ def normalize(text) -> str:
     return t
 
 
+_PH_RE = re.compile(r"^(اختر|اختار|قم باختيار|برجاء الاختيار|من فضلك اختر|select|choose|please select)\b")
+
+
 def is_placeholder(text) -> bool:
     n = normalize(text)
-    stripped = n.replace("-", "").replace("_", "").replace(".", "").strip()
-    return n in PLACEHOLDERS or stripped in PLACEHOLDERS
+    stripped = n.replace("-", "").replace("_", "").replace(".", "").replace("=", "").strip()
+    return n in PLACEHOLDERS or stripped in PLACEHOLDERS or bool(_PH_RE.match(stripped))
 
 
 def real_options(texts):
