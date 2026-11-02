@@ -35,6 +35,88 @@ return '';
 """
 
 
+LINE_ITEMS_JS = r"""
+const done = arguments[arguments.length - 1];
+(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const PH = /^\s*(-+\s*)?(اختر|اختار|إختر|select|choose)/i;
+  const txt = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
+  const fire = (e, v) => { if (window.jQuery) { jQuery(e).val(v).trigger('input').trigger('change').trigger('blur'); }
+                           else { e.value = v; ['input', 'change', 'blur'].forEach(t => e.dispatchEvent(new Event(t, {bubbles: true}))); } };
+  const nm = e => ((e.getAttribute('data-name') || '') + ' ' + (e.name || '') + ' ' + (e.className || '') + ' ' + (e.placeholder || '')).toLowerCase();
+  const out = [];
+  try {
+    // 1) «details» block: an entry row (.newRowData) above an empty table + «إضافة» (.addNewRow) moves it into the table
+    for (const box of document.querySelectorAll('.details')) {
+      const tb = box.querySelector('table tbody'), btn = box.querySelector('.addNewRow');
+      if (!tb || !btn || tb.querySelectorAll('tr').length || btn.getBoundingClientRect().width === 0) continue;
+      const ins = Array.from(box.querySelectorAll('.newRowData input, .newRowData select, .newRowData textarea'))
+        .filter(e => e.type !== 'hidden' && !e.readOnly && !e.disabled);
+      if (!ins.length) continue;
+      for (const e of ins) {
+        if (e.type === 'checkbox' || (e.value && !(e.tagName === 'SELECT' && PH.test(txt(e.options[e.selectedIndex]))))) continue;
+        if (e.tagName === 'SELECT') { const o = Array.from(e.options).find(o => o.value && !PH.test(o.text)); if (o) fire(e, o.value); }
+        else if (/date/.test(e.type)) fire(e, new Date().toISOString().slice(0, 10));
+        else fire(e, /qty|quantity|كمي|عدد/.test(nm(e)) ? '1' : (/disc|خصم/.test(nm(e)) ? '0' : '100'));
+        await sleep(300);
+      }
+      btn.click(); await sleep(900);
+      const n = tb.querySelectorAll('tr').length;
+      const head = Array.from(box.querySelectorAll('thead th')).slice(0, 3).map(txt).join(' / ');
+      out.push(n ? `أضفت سطر في جدول «${head}»` : `دست «إضافة» في جدول «${head}» بس السطر ما اتضافش`);
+    }
+    // 2) items grid with an item-search popup (فواتير / أوامر / عروض أسعار): search, choose the first item, quantity 1
+    const grid = Array.from(document.querySelectorAll('table')).find(t => t.querySelector('.itemId, .item-name') && t.querySelector('.quantity'));
+    const filled = grid && Array.from(grid.querySelectorAll('.itemId')).some(e => e.value);
+    if (grid && !filled && document.getElementById('itemSearchModal') && (typeof window.appendSearch === 'function' || document.getElementById('submitSearch'))) {
+      if (window.jQuery) jQuery('#itemSearchModal').modal('show');
+      await sleep(700);
+      if (typeof window.appendSearch === 'function') window.appendSearch(1); else document.getElementById('submitSearch').click();
+      let b = null;
+      for (let i = 0; i < 40 && !b; i++) { await sleep(400); b = document.querySelector('#itemSearchModal tbody tr button, #items-prices-quantities tr button'); }
+      if (!b) { out.push('فتحت بحث الأصناف بس مفيش أصناف ظهرت (اتأكدي إن فيه أصناف ليها سعر في المخزن / الفرع ده)'); }
+      else {
+        const name = txt(b.closest('tr')).slice(0, 60);
+        b.click(); await sleep(2200);
+        const sw = document.querySelector('.swal2-confirm'); if (sw && /اول|أول|first/.test(txt(document.querySelector('.swal2-popup')))) sw.click();
+        const row = Array.from(grid.querySelectorAll('tr')).reverse().find(tr => tr.querySelector('.itemId') && tr.querySelector('.itemId').value);
+        if (!row) out.push(`اخترت «${name}» من بحث الأصناف بس الصنف ما نزلش في الجدول`);
+        else {
+          const q = row.querySelector('.quantity'), p = row.querySelector('.price');
+          if (q && !(parseFloat(String(q.value).replace(/,/g, '')) > 0)) { fire(q, '1'); await sleep(500); }
+          if (p && !(parseFloat(String(p.value).replace(/,/g, '')) > 0) && !p.readOnly) { fire(p, '100'); await sleep(500); }
+          out.push(`اخترت صنف «${(row.querySelector('.item-name') || {}).value || name}» من بحث الأصناف — الكمية ${q ? q.value : '—'} · السعر ${p ? p.value : '—'}`);
+        }
+      }
+      if (window.jQuery) jQuery('#itemSearchModal').modal('hide');
+    }
+  } catch (e) { out.push('⚠️ الأصناف: ' + e); }
+  done(out);
+})();
+"""
+
+
+def add_line_items(r):
+    """invoices / orders: put one line in the items table (the ERP rejects a document without lines)"""
+    d = r.driver
+    try:
+        d.set_script_timeout(60)
+        did = d.execute_async_script(LINE_ITEMS_JS) or []
+    except Exception as e:
+        did = [f"⚠️ الأصناف: {str(e).splitlines()[0][:150]}"]
+    for x in did:
+        (logger.success if not x.startswith("⚠️") and "ما " not in x else logger.warning)(f"🧾 {x}")
+        r.filler.steps.append({"id": "__items", "label": "🧾 " + x, "strategy": "flow", "wanted": "", "result": x,
+                               "ok": not x.startswith("⚠️") and "ما " not in x and "مفيش" not in x, "seconds": 1, "auto": True})
+    try:
+        while r.accept_js_alert(timeout=0.8) is not None:
+            pass
+        r.handle_swals(max_count=2, timeout=1, max_misses=1)
+    except Exception:
+        pass
+    return did
+
+
 def _empty(f):
     from engine.text_match import is_placeholder
     v = str(f.get("value") or "").strip()
@@ -47,6 +129,7 @@ def complete_required(r, passes=3):
     from engine.auto_test import _strategy
     from engine.form_filler import FieldFillError
     d, added, tried = r.driver, [], set()
+    add_line_items(r)
     for _ in range(passes):
         try:
             root = d.execute_script(FORM_ROOT_JS)
