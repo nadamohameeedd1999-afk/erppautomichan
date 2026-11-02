@@ -475,3 +475,14 @@ def api_errors():
     days_list = [(since + timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(days)]
     return jsonify({"success": True, "total": total, "groups": out[:100], "kinds": sorted(kinds.items(), key=lambda x: -x[1]),
                     "per_day": [{"d": d, "n": per_day.get(d, 0)} for d in days_list]})
+
+
+@bp.route("/api/auto-test/recipes", methods=["DELETE"])
+@auth.login_required
+def api_recipes_reset():
+    from engine.stubborn import RECIPES
+    n = 0
+    for f in RECIPES.glob("*.json") if RECIPES.exists() else []:
+        f.unlink()
+        n += 1
+    return jsonify({"success": True, "count": n})

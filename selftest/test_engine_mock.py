@@ -261,3 +261,29 @@ def test_cleanup_leftovers(run_cli, mock_erp):
     assert r.get("success"), r.get("error")
     assert any(x["cells"][1] == str(no) and "اتحذف" in x["cells"][3] for x in r["detail"]["rows"]), r["detail"]
     assert json.loads((Path(mock_erp["DATA_DIR"]) / "state" / "leftovers.json").read_text(encoding="utf-8")) == []
+
+
+def test_stubborn_add(run_cli, mock_erp):
+    """🧠 the normal way is rejected (the first customer is blocked) -> it copies a saved record and saves;
+    next run starts with the saved recipe"""
+    import json
+    from pathlib import Path
+    st = Path(mock_erp["DATA_DIR"]) / "settings"
+    st.mkdir(parents=True, exist_ok=True)
+    (st / "discovered_screens.json").write_text(json.dumps({"screens": [
+        {"key": "d_cr2", "name": "سند قبض", "name_en": "CR2", "group": "الحسابات", "url": "/CashReceipt2"}]}, ensure_ascii=False), encoding="utf-8")
+    import urllib.request
+    op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    op.open("http://127.0.0.1:5055/__flags?picky=1&seed_cr2=1").read()
+    try:
+        cfg = {"key": "st_stub", "type": "auto", "name_ar": "عنيد", "screen": "d_cr2", "fields_mode": "required", "ways": ["add", "delete"]}
+        r = run_cli("check", cfg)
+        assert r.get("success"), r.get("error")
+        add = r["detail"]["rows"][1]["cells"][2]
+        assert "🧠 المحاولات" in add and "نسخ قيم سجل محفوظ: ✅" in add, add
+        r = run_cli("check", cfg)
+        assert r.get("success"), r.get("error")
+        add = r["detail"]["rows"][1]["cells"][2]
+        assert "الوصفة الناجحة من آخر مرة: ✅" in add, add
+    finally:
+        _flags(picky=0)

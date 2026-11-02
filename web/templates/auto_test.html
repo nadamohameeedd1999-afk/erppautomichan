@@ -49,6 +49,10 @@
                 <div class="col-md-6"><div class="opt" data-mode="required" onclick="setMode('required')"><span class="ic">❗</span>
                     <div><div class="fw-bold">الحقول الإجبارية بس</div><div class="d">أقل حاجة الشاشة محتاجاها عشان تحفظ (+ القوايم اللي الإجباري بيعتمد عليها)</div></div></div></div>
             </div>
+            <div class="alert alert-info py-2 small mb-3">🧠 <b>المختبر العنيد شغال دايمًا:</b> لو الحفظ اترفض، بيجرب طرق تانية زي أي مختبر —
+                الوصفة اللي نجحت قبل كده ← الطريقة العادية ← <b>نسخ قيم سجل محفوظ</b> في نفس الشاشة ← اختيارات تانية في القوايم ← كل الحقول / الإجباري —
+                ويقف عند أول طريقة تحفظ وبيفتكرها للمرة الجاية. لو ظهر خطأ تقني (SQL / سيرفر) بيقف ويقول إنها <b>مشكلة في الـ ERP</b>.
+                <a href="#" onclick="resetRecipes();return false">امسحي الوصفات المحفوظة</a></div>
             <div class="sec-t">الاختبارات — بتتعمل بالترتيب على نفس السجل</div>
             <div class="row g-2 mb-2" id="wayBox">
                 {% for k, w in ways.items() %}
@@ -219,6 +223,11 @@ async function tryOne(key) {
     }, 1500);
 }
 
+async function resetRecipes() {
+    if (!confirm('أمسح كل الوصفات الناجحة المحفوظة؟ الاختبارات الجاية هتتعلم من الأول')) return;
+    const r = await fetch('/api/auto-test/recipes', {method: 'DELETE'}).then(r => r.json());
+    alert(r.success ? `اتمسح ${r.count} وصفة` : r.error);
+}
 fetch('/api/sites').then(r => r.json()).then(j => {
     const list = (j && j.sites) || [];
     if (list.length < 2) return;

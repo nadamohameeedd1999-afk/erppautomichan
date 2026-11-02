@@ -12,7 +12,7 @@ NM = HERE / "node_modules"
 app = Flask(__name__)
 VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "date": "2026-10-01", "data": {}}]
 SLOW = {"ms": 0}
-FLAGS = {"broken": False, "dupnum": False, "update": False, "unbalanced": False}   # update=1: the customer form changes like after an ERP update   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
+FLAGS = {"broken": False, "dupnum": False, "update": False, "unbalanced": False, "picky": False}   # picky: CashReceipt2 only accepts the customer «12 - شركة النور»   # update=1: the customer form changes like after an ERP update   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
 
 LIBS = """
 <link rel="stylesheet" href="/lib/select2/dist/css/select2.min.css">
@@ -75,6 +75,9 @@ def set_flags():
     for k in FLAGS:
         if k in request.args:
             FLAGS[k] = request.args[k] == "1"
+    if request.args.get("seed_cr2"):           # a record saved by a person: customer النور
+        CR2.append({"no": (CR2[-1]["no"] + 1) if CR2 else 1, "customer": "12 - شركة النور", "amount": "75.00", "notes": "يدوي",
+                    "data": {"BranchId": "1", "SourceType": "1", "CustomerId": "12", "BasedOn": "سداد آلي", "Total": "75", "Notes": "يدوي"}})
     return jsonify(FLAGS)
 
 
@@ -190,6 +193,8 @@ def crv_add():
     if request.method == "POST":
         f = request.form
         cust = dict(sum(CUSTOMERS.values(), [])).get(f.get("CustomerId"), "?")
+        if FLAGS["picky"] and f.get("CustomerId") != "12":
+            return jsonify({"ok": False, "error": "العميل موقوف عن التعامل — لا يمكن الحفظ"})
         VOUCHERS.append({"no": VOUCHERS[-1]["no"] + 1, "customer": cust, "amount": f"{float(f.get('MoneyAmount') or 0):.2f}",
                          "date": f.get("VoucherDate") or date.today().isoformat(), "data": dict(f)})
         return redirect("/CashReceiptVoucher")
@@ -522,6 +527,8 @@ def cr2_add():
         if f.get("chosen") and not f.get("uploaded"):
             return jsonify({"ok": False, "error": "يجب ان تختار الملفات اولا ومن ثم رفعها قبل حفظ الصفحة كاملة"})
         cust = dict(sum(CUSTOMERS.values(), [])).get(f.get("CustomerId"), "?")
+        if FLAGS["picky"] and f.get("CustomerId") != "12":
+            return jsonify({"ok": False, "error": "العميل موقوف عن التعامل — لا يمكن الحفظ"})
         rec = {"customer": cust, "amount": f"{float(f.get('Total') or 0):.2f}", "notes": f.get("Notes", ""), "data": dict(f)}
         old = next((x for x in CR2 if str(x["no"]) == f.get("Id")), None)
         if old:

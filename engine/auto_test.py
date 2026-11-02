@@ -408,13 +408,22 @@ def run_auto(driver, credentials, cfg, result=None):
             continue
         t0, before = time.time(), RUN_VARS.get("saved_no")
         logger.info(f"🤖 {n}. {label}")
-        try:
+        tries = []
+        if way == "add" and cfg.get("stubborn", True):          # 🧠 like a person: another way after a rejected save
+            from engine.stubborn import add_stubbornly
+            res, okk, err, tries = add_stubbornly(
+                driver, credentials, info, base, plan["add"], read, mode if req_labels else "all", info["builder"],
+                lambda c: _variant(base, "auto_add", **{k: v for k, v in c.items() if k not in ("key", "run_before", "run_after", "data_file")}),
+                build_fields)
+            ok = OK if okk else BAD
+        else:
+          try:
             res = run_screen(driver, credentials, plan[way], save=True, do_login=False)
             ok, err = OK, ""
-        except (AssertionError, FieldFillError) as e:
+          except (AssertionError, FieldFillError) as e:
             res = getattr(e, "partial_result", None) or {}
             ok, err = BAD, str(e).split("\n  (Session info")[0]
-        except Exception as e:
+          except Exception as e:
             res, ok, err = {}, BAD, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
         result["screenshots"] += [x for x in (res.get("screenshots") or []) if x][-3:]
         if way == "add" and RUN_VARS.get("saved_no") and RUN_VARS.get("saved_no") != before:
@@ -422,6 +431,8 @@ def run_auto(driver, credentials, cfg, result=None):
         if way == "edit" and ok and RUN_VARS.get("saved_no"):
             RUN_VARS["auto_no"] = RUN_VARS["saved_no"]
         what = explain(way, res, ok, err)
+        if tries and (len(tries) > 1 or not ok or "📌" in tries[0]):
+            what += "\n🧠 المحاولات:\n" + "\n".join("   " + t for t in tries)
         if way == "add" and not ok and RUN_VARS.get("auto_no"):
             what += f"\n(السجل اتحفظ برقم {RUN_VARS['auto_no']} — هكمل عليه التعديل والطباعة والحذف)"
         rows.append({"cells": [n, f"{icon} {label}", what, round(time.time() - t0, 1)], "ok": ok})
