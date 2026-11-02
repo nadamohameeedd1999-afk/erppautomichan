@@ -22,6 +22,10 @@ from web import data_helper, settings_helper, auth
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config.from_object(Config)
 
+# ==================== 📋 تقرير التشخيص: the server console + every error saved to data/logs (one text to copy) ====================
+from web import diagnostics
+diagnostics.install(app)
+
 # ==================== Screen Builder (منشئ الشاشات) ====================
 from web.screens_api import bp as screens_bp
 app.register_blueprint(screens_bp)

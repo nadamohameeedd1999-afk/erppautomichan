@@ -39,6 +39,7 @@
             {{ item(('tests',), url_for('tests'), 'bi-clipboard-check', t('tests')) }}
             {{ item(('screens.screens_page', 'screens.scenarios_page'), url_for('screens.screens_page'), 'bi-tools', 'منشئ الاختبارات' if ar else 'Test Builder') }}
             {{ item(('checks.auto_page',), url_for('checks.auto_page'), 'bi-robot', 'الاختبار الآلي' if ar else 'Automatic test') }}
+            {{ item(('diag.page',), url_for('diag.page'), 'bi-clipboard-pulse', 'تقرير التشخيص' if ar else 'Diagnostics') }}
             {{ item(('checks.health_page',), url_for('checks.health_page'), 'bi-heart-pulse', 'صحة النظام' if ar else 'System health') }}
             {{ item(('checks.checks_page',), url_for('checks.checks_page'), 'bi-diagram-3', 'اختبارات متقدمة' if ar else 'Advanced tests') }}
             {{ item(('ops.run_center',), url_for('ops.run_center'), 'bi-play-circle', 'مركز التشغيل' if ar else 'Run Center', '<span class="cnt d-none" id="navRunBadge"></span>') }}
@@ -149,6 +150,7 @@ function gSide(open) {
         {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
         {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
         {icon: 'bi bi-robot', name: AR ? 'الاختبار الآلي الكامل لشاشة' : 'Automatic full test', url: '/auto-test'},
+        {icon: 'bi bi-clipboard-pulse', name: AR ? 'تقرير التشخيص — انسخي كل اللي حصل' : 'Diagnostics — copy everything', url: '/diagnostics'},
         {icon: 'bi bi-heart-pulse', name: AR ? 'صحة النظام — افحص كل الشاشات' : 'System health — every screen', url: '/health'},
         {icon: 'bi bi-speedometer2', name: AR ? 'سرعة الشاشات' : 'Screen speed', url: '/checks?new=perf'},
         {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},
@@ -193,6 +195,20 @@ function gSide(open) {
 })();
 </script>
 
+<script>
+/* 📋 تقرير التشخيص: errors of the dashboard pages are sent to the server log */
+(function () {
+    let n = 0;
+    function send(d) { if (n++ > 20) return; try { navigator.sendBeacon('/api/diag/client-error', new Blob([JSON.stringify({page: location.pathname, ...d})], {type: 'application/json'})); } catch (e) {} }
+    window.addEventListener('error', e => send({msg: e.message, src: (e.filename || '') + ':' + (e.lineno || ''), stack: e.error && e.error.stack || ''}));
+    window.addEventListener('unhandledrejection', e => send({msg: 'Promise: ' + (e.reason && e.reason.message || e.reason), stack: e.reason && e.reason.stack || ''}));
+    const f = window.fetch;
+    window.fetch = function () {
+        const u = String(arguments[0] && arguments[0].url || arguments[0]);
+        return f.apply(this, arguments).then(r => { if (r.status >= 500 && !u.includes('/api/diag/')) send({msg: `HTTP ${r.status} ${u}`}); return r; });
+    };
+})();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
