@@ -45,7 +45,7 @@ SET_INDEX_JS = r"""
 var s = document.getElementById(arguments[0]);
 if (!s) return false;
 s.selectedIndex = arguments[1];
-if (window.jQuery) { try { jQuery(s).trigger('change'); } catch (_e) {} try { jQuery(s).trigger({type: 'select2:select', params: {data: {id: s.value, text: s.options[s.selectedIndex].text}}}); } catch (_e) {} }
+if (window.jQuery) { try { jQuery(s).trigger('change'); } catch (_e) { console.error('JS error in the ERP page: ' + _e); } try { jQuery(s).trigger({type: 'select2:select', params: {data: {id: s.value, text: s.options[s.selectedIndex].text}}}); } catch (_e) { console.error('JS error in the ERP page: ' + _e); } }
 else { s.dispatchEvent(new Event('change', {bubbles: true})); }
 return s.options[s.selectedIndex].text.trim();
 """
@@ -69,7 +69,7 @@ try { el.focus(); } catch (e) {}
 var proto = tag === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
 try { Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v); } catch (e) { el.value = v; }
 ['input', 'change', 'keyup'].forEach(function (n) { el.dispatchEvent(new Event(n, {bubbles: true})); });
-if (window.jQuery) { try { jQuery(el).trigger('change'); } catch (_e) {} }
+if (window.jQuery) { try { jQuery(el).trigger('change'); } catch (_e) { console.error('JS error in the ERP page: ' + _e); } }
 el.dispatchEvent(new Event('blur', {bubbles: true}));
 return el.value;
 """

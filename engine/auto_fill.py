@@ -1,7 +1,7 @@
 """
 Complete the form before saving (الاختبار الآلي): after the planned fields are filled, look again at the page and fill
 whatever is STILL required and empty — fields that only show up or become required after another choice
-(«العميل» after «من», «بناء على» …) — and attach a test file when the form has an empty attachment box.
+(«العميل» after «من», «بناء على» …) — and attach a test file when an attachment box is marked required.
 Up to 3 passes, each one can reveal new fields.
 """
 import time
@@ -14,6 +14,7 @@ var out = [];
 document.querySelectorAll('input[type=file]').forEach(function(f, i){
   if (f.closest('.modal, [role=dialog], .ui-dialog, nav, header')) return;
   if (f.files && f.files.length) return;
+  if (!(f.required || f.hasAttribute('data-val-required'))) return;     // optional attachments: only if a save asks (engine/heal.py)
   var box = f.closest('.form-group, .row, div') || f.parentElement;
   if (!vis(f) && !(box && vis(box))) return;
   if (!f.id) f.id = '__auto_file_' + i;

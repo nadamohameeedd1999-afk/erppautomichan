@@ -242,11 +242,13 @@ def run_operation(r, cfg, result, save, start):
 
     with allure.step("حفظ التعديل"):
         r.run_before_save()
-        r.save()
-        ok = r.wait_saved()
+        from engine.heal import save_with_healing, explain_failure
+        ok = save_with_healing(r, cfg, result)
         result["screenshots"].append(_shot(r, f"{cfg['key']}_after_save"))
         if not ok:
-            raise AssertionError(f"حفظ التعديل ما نجحش. URL: {d.current_url}\n   {r.failure_reason()}")
+            e = AssertionError(f"حفظ التعديل ما نجحش. URL: {d.current_url}\n   {r.failure_reason()}" + explain_failure(result))
+            e.partial_result = {**result, "steps": r.filler.steps}
+            raise e
         result["saved"] = True
     if rid:
         RUN_VARS["saved_no"] = rid

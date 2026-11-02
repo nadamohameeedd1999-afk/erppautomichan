@@ -664,7 +664,7 @@ class FlowRunner:
             time.sleep(0.4)
         if not self._js("return arguments[0].checked;", box):
             self._js("arguments[0].checked = true; arguments[0].dispatchEvent(new Event('change', {bubbles:true}));"
-                     "if (window.jQuery) try { jQuery(arguments[0]).trigger('change'); } catch (_e) {}", box)
+                     "if (window.jQuery) try { jQuery(arguments[0]).trigger('change'); } catch (_e) { console.error('JS error in the ERP page: ' + _e); }", box)
         picked = self._js("var s=(arguments[0].closest('table')||document);"
                           "return s.querySelectorAll('tbody input[type=checkbox]:checked').length;", box)
         return f"اتعلّم ({picked} صف متحدد)" if picked else "اتعلّم"
@@ -734,7 +734,7 @@ class FlowRunner:
             got = self._js("var s=arguments[0], w=arguments[1].trim();"
                            "for (var i=0;i<s.options.length;i++){ if (s.options[i].text.trim()===w || s.options[i].value===w){"
                            " s.selectedIndex=i; s.dispatchEvent(new Event('change',{bubbles:true}));"
-                           " if (window.jQuery) try { jQuery(s).trigger('change'); } catch (_e) {} return s.options[i].text.trim(); } } return null;",
+                           " if (window.jQuery) try { jQuery(s).trigger('change'); } catch (_e) { console.error('JS error in the ERP page: ' + _e); } return s.options[i].text.trim(); } } return null;",
                            el, value)
             if got is None:
                 raise FlowError(f"القيمة «{value}» مش في قايمة «{st['cell']}»")
@@ -896,7 +896,7 @@ class FlowRunner:
             raise FlowError("مفيش خانة رفع ملفات (input type=file) في الصفحة")
         el.send_keys(str(path))
         self._js("arguments[0].dispatchEvent(new Event('change',{bubbles:true}));"
-                 "if (window.jQuery) try { jQuery(arguments[0]).trigger('change'); } catch (_e) {}", el)
+                 "if (window.jQuery) try { jQuery(arguments[0]).trigger('change'); } catch (_e) { console.error('JS error in the ERP page: ' + _e); }", el)
         time.sleep(1)
         self._settle()
         name = self._js("return arguments[0].files && arguments[0].files.length ? arguments[0].files[0].name : '';", el)

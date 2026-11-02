@@ -144,9 +144,18 @@ def build_fields(read, mode, scenario, builder=None, editing=False):
             need |= _parents(usable, r)
         usable = [f for f in usable if f["id"] in need]
     fixed = {}
-    if builder and scenario == "first" and not editing:     # values the Screen Builder setup already chose
-        fixed = {f["id"]: f for f in builder["fields"] if f["strategy"] not in ("keep",)}
     ids, out = set(), []
+    if builder and not editing:
+        # the Screen Builder setup = the way a person really fills this screen (العميل الريادة، نقدي، الصندوق الرئيسي …):
+        # its fields always come first, whatever the mode; a field it has that this site no longer shows is skipped
+        live = {f["id"] for f in read}
+        for b in builder["fields"]:
+            if b["strategy"] == "keep":
+                continue
+            dep = b.get("depends_on") if b.get("depends_on") in ids else None
+            out.append({**b, "depends_on": dep, "soft": not b.get("required"), "optional": b["id"] not in live})
+            ids.add(b["id"])
+        usable = [f for f in usable if f["id"] not in ids]
     for f in usable:
         if f["id"] in fixed:
             b = fixed[f["id"]]
@@ -221,6 +230,11 @@ def explain(way, res, ok, err=""):
         if skipped:
             lines.append("⏭️ حقول مش إجبارية اتخطت: " + " · ".join(skipped[:5]))
     if ok:
+        for at in res.get("save_attempts") or []:
+            if not at.get("ok") and at.get("did"):
+                lines.append(f"🔁 محاولة الحفظ {at['n']} اترفضت ({at['reason'].splitlines()[0][:110]}) → {' · '.join(at['did'])}")
+        if res.get("tech_errors"):
+            lines.append("🐞 اتحفظ، بس صفحة الـ ERP طلّعت أخطاء تقنية: " + " | ".join(res["tech_errors"][:4]))
         if way == "add":
             msgs = [str(a).replace("SweetAlert: ", "").replace("JS: ", "").strip() for a in (res.get("alerts") or [])]
             msg = next((m for m in reversed(msgs) if m and not m.startswith("هل ") and "?" not in m and "؟" not in m), "")

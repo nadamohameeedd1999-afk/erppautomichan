@@ -492,7 +492,7 @@ def cr2_add():
         return redirect("/Login")
     if request.method == "POST":
         f = request.form
-        if not f.get("uploaded"):
+        if f.get("chosen") and not f.get("uploaded"):
             return jsonify({"ok": False, "error": "يجب ان تختار الملفات اولا ومن ثم رفعها قبل حفظ الصفحة كاملة"})
         cust = dict(sum(CUSTOMERS.values(), [])).get(f.get("CustomerId"), "?")
         rec = {"customer": cust, "amount": f"{float(f.get('Total') or 0):.2f}", "notes": f.get("Notes", ""), "data": dict(f)}
@@ -508,16 +508,17 @@ def cr2_add():
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
     <script>window.PREFILL = {pre};</script>
     <form id=frm>
-      <input type=hidden id=Id name=Id value="{vid or 0}"><input type=hidden id=uploaded name=uploaded value="{'1' if rec else ''}">
+      <input type=hidden id=Id name=Id value="{vid or 0}"><input type=hidden id=uploaded name=uploaded value="{'1' if rec else ''}"><input type=hidden id=chosen name=chosen>
       <div class=form-group><label for=BranchId>الفرع *</label><select id=BranchId name=BranchId data-val-required="مطلوب"><option value="">اختر</option><option value=1>01 - الفرع الاول</option></select></div>
       <div class=form-group><label for=VDate>التاريخ *</label><input id=VDate name=VDate type=date data-val-required="مطلوب" value="{date.today().isoformat()}"></div>
       <div class=form-group><label for=SourceType>من *</label><select id=SourceType name=SourceType data-val-required="مطلوب"><option value="">اختر</option><option value=1>عميل</option><option value=2>مورد</option></select></div>
-      <div class=form-group id=custBox style="display:none"><label for=CustomerId>العميل *</label><select id=CustomerId name=CustomerId data-val-required="العميل مطلوب"><option value="">اختر</option></select></div>
-      <div class=form-group id=basedBox style="display:none"><label for=BasedOn>بناء على *</label><select id=BasedOn name=BasedOn data-val-required="مطلوب"><option value="">اختر</option><option value=1>فاتورة</option><option value=2>دفعة مقدمة</option></select></div>
+      <div class=form-group id=custBox style="display:none"><label for=CustomerId>العميل</label><select id=CustomerId name=CustomerId><option value="">اختر</option></select></div>
+      <div class=form-group><label for=BasedOn>بناء على *</label><input id=BasedOn name=BasedOn readonly data-val-required="مطلوب"></div>
       <div class=form-group><label for=Total>الاجمالي (بالعملة المحلية) *</label><input id=Total name=Total type=number data-val-required="مطلوب"></div>
       <div class=form-group><label for=Notes>ملاحظات</label><textarea id=Notes name=Notes></textarea></div>
       <div class=form-group><label>المرفقات</label><input type=file id=Files><button type=button id=btnUpload class=btn>رفع</button></div>
     </form>
+    <button id=autoPay2 type=button class=btn>سداد آلي</button>
     <button id=save type=button>حفظ</button>
     <script>
     $('#BranchId, #SourceType, #CustomerId, #BasedOn').select2({{width: '260px'}});
@@ -531,13 +532,19 @@ def cr2_add():
         if (window.PREFILL && PREFILL.CustomerId) {{ s.val(PREFILL.CustomerId).trigger('change'); }}
       }});
     }});
-    $('#CustomerId').on('change', function () {{ $('#basedBox').toggle(!!this.value); }});
+    $('#Files').on('change', function () {{ $('#chosen').val(this.files.length ? '1' : ''); }});
     $('#btnUpload').on('click', function () {{ if ($('#Files')[0].files.length) {{ $('#uploaded').val('1'); }} }});
+    $('#autoPay2').on('click', function () {{                 // fills «بناء على» (the user can't type in it)
+      Swal.fire({{icon: 'warning', title: 'السداد الالي سيقوم باعادة دفع الفواتير', showCancelButton: true}}).then(function (r) {{
+        if (r.isConfirmed) $('#BasedOn').val('فاتورة 77'); }});
+    }});
     if (window.PREFILL && PREFILL.SourceType) {{
-      ['BranchId', 'SourceType', 'BasedOn'].forEach(function (k) {{ $('#' + k).val(PREFILL[k]).trigger('change'); }});
-      $('#Total').val(PREFILL.Total); $('#Notes').val(PREFILL.Notes);
+      ['BranchId', 'SourceType'].forEach(function (k) {{ $('#' + k).val(PREFILL[k]).trigger('change'); }});
+      $('#BasedOn').val(PREFILL.BasedOn); $('#Total').val(PREFILL.Total); $('#Notes').val(PREFILL.Notes);
     }}
     $('#save').on('click', function () {{
+      if (!$('#CustomerId').val()) {{ alert('العميل مطلوب'); return; }}
+      if (!$('#BasedOn').val()) {{ $('#BasedOn').addClass('input-validation-error'); Swal.fire({{icon: 'error', title: 'خطأ', text: 'برجاء استكمال البيانات'}}); return; }}
       Swal.fire({{icon: 'question', title: 'هل تريد الحفظ؟', showCancelButton: true}}).then(function (r) {{
         if (!r.isConfirmed) return;
         $.post('/CashReceipt2/AddEdit', $('#frm').serialize(), function (j) {{

@@ -61,6 +61,11 @@ def _shot(page, name):
     return path
 
 
+import re as _re
+# a message after save that means «rejected» (not «saved»): «العميل مطلوب», «يجب …», «برجاء استكمال …»
+_ERROR_WORDS = _re.compile(r"مطلوب|يجب|خطأ|خطا|برجاء|من فضلك|لا يمكن|غير صحيح|غير مسموح|فشل|required|error|invalid|must", _re.I)
+
+
 class ScreenRunner(BasePage):
     SWAL_POPUP = (By.CSS_SELECTOR, ".swal2-popup")
 
@@ -215,7 +220,8 @@ class ScreenRunner(BasePage):
                 logger.success(f"🎯 الصفحة اتنقلت بعد الحفظ: {self.driver.current_url}")
                 return True
             # edit pages often stay put and show a success message
-            if getattr(self, "form_path", None) and self.alerts and time.time() > end - timeout + 3 and not self.page_errors():
+            if getattr(self, "form_path", None) and self.alerts and time.time() > end - timeout + 3 and not self.page_errors() \
+                    and not _ERROR_WORDS.search(self.alerts[-1]):
                 logger.success(f"🎯 رسالة بعد الحفظ: {self.alerts[-1][:120]}")
                 return True
             # page stayed: a validation message means the form was rejected
@@ -471,12 +477,14 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
             return result
 
     with allure.step("حفظ"):
-        r.save()
-        ok = r.wait_saved()
+        from engine.heal import save_with_healing, explain_failure
+        ok = save_with_healing(r, cfg, result)
         result["screenshots"].append(_shot(r, f"{cfg['key']}_after_save"))
         if not ok:
-            raise AssertionError(
-                f"الحفظ ما نجحش ({cfg['name_ar']}). URL: {driver.current_url}\n   {r.failure_reason()}")
+            e = AssertionError(
+                f"الحفظ ما نجحش ({cfg['name_ar']}). URL: {driver.current_url}\n   {r.failure_reason()}" + explain_failure(result))
+            e.partial_result = {**result, "steps": r.filler.steps}
+            raise e
         result["saved"] = True
 
     if cfg["verify"]["new_first_row"]:
