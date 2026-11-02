@@ -309,7 +309,12 @@ def check_numbering(driver, credentials, plan, RUN_VARS, result):
             run_screen(driver, credentials, {**plan["delete"], "target_row": str(second)}, save=True, do_login=False)
             lines.append(f"🧹 السجل التاني ({second}) اتحذف — هكمل على السجل الأول")
         except Exception as e:
-            lines.append(f"⚠️ مقدرتش أحذف السجل التاني ({second}): {str(e).splitlines()[0][:120]} — امسحيه بإيدك")
+            lines.append(f"⚠️ مقدرتش أحذف السجل التاني ({second}): {str(e).splitlines()[0][:120]} — اتسجل في «تنظيف بيانات الاختبار»")
+            try:
+                from engine import cleanup
+                cleanup.remember(plan["delete"].get("name_ar") or "", second, plan["delete"], "السجل التاني بتاع اختبار الترقيم")
+            except Exception:
+                pass
         RUN_VARS["saved_no"] = before
     return "\n".join(lines), ok, why
 
@@ -370,7 +375,7 @@ def run_auto(driver, credentials, cfg, result=None):
         "delete": _variant(base, "auto_delete", operation="delete", target_row="{var:auto_no}", fields=[], flows=[],
                            op_button=cfg.get("delete_button") or (_scenario_for(info["key"], "delete") or {}).get("op_button", "")),
     }
-    n = 0
+    n, deleted = 0, False
     for way in [w for w in AUTO_WAYS if w in cfg["ways"]]:
         n += 1
         icon, label = AUTO_WAYS[way][0], AUTO_WAYS[way][1]
@@ -406,9 +411,17 @@ def run_auto(driver, credentials, cfg, result=None):
         if way == "add" and not ok and RUN_VARS.get("auto_no"):
             what += f"\n(السجل اتحفظ برقم {RUN_VARS['auto_no']} — هكمل عليه التعديل والطباعة والحذف)"
         rows.append({"cells": [n, f"{icon} {label}", what, round(time.time() - t0, 1)], "ok": ok})
+        deleted = deleted or (way == "delete" and ok)
         (logger.success if ok else logger.error)(f"{'✅' if ok else '❌'} {label}: {what.splitlines()[-1][:200]}")
         if not ok:
             fails.append(f"{label}: {err.splitlines()[0][:200] if err else ''}")
+    if RUN_VARS.get("auto_no") and not deleted:               # the record stays on the site -> «تنظيف بيانات الاختبار»
+        try:
+            from engine import cleanup
+            cleanup.remember(info["name"], RUN_VARS["auto_no"], plan["delete"],
+                             "اختبار الحذف فشل" if "delete" in cfg["ways"] else "اختبار الحذف مش متختار")
+        except Exception as e:
+            logger.debug(f"leftovers: {e}")
     done = [r for r in rows[1:] if r["ok"] is not SKIP]
     passed = sum(1 for r in done if r["ok"])
     result["detail"]["note"] = f"نجح {passed} من {len(done)} · الحقول: {'كل الحقول' if mode == 'all' else 'الإجباري بس'}"

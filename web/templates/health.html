@@ -50,6 +50,24 @@
 
     <div id="states"></div>
 
+    <div class="row g-3 mt-1">
+        <div class="col-lg-5"><div class="hc h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-bold">🧹 بيانات الاختبار الفاضلة <span id="cLast"></span></div>
+                <button class="btn btn-sm btn-success" onclick="runClean()"><i class="bi bi-trash"></i> امسحيهم</button>
+            </div>
+            <div class="muted mb-2">السجلات اللي الاختبار الآلي حفظها ومقدرش يحذفها (الحذف فشل / مش متختار / سجل الترقيم التاني)</div>
+            <div id="clean"></div>
+        </div></div>
+        <div class="col-lg-7"><div class="hc h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-bold">📈 الأخطاء المتكررة</div>
+                <select id="eDays" class="form-select form-select-sm" style="width:auto" onchange="loadErrors()"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="90">آخر 90 يوم</option></select>
+            </div>
+            <div id="errs"></div>
+        </div></div>
+    </div>
+
     <div class="hc mt-3">
         <div class="fw-bold mb-2">⚙️ الإعدادات</div>
         <div class="row g-3">
@@ -184,6 +202,32 @@ fetch('/api/sites').then(r => r.json()).then(j => {
         `<option value="all">🌐 كل المواقع (${list.length})</option>`;
     $('runSites').classList.remove('d-none');
 }).catch(() => {});
-load();
+async function loadClean() {
+    const j = await fetch('/api/cleanup').then(r => r.json());
+    if (j.last) $('cLast').innerHTML = `<a class="chip ${j.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(j.last.run_id)}">${j.last.passed ? '✅' : '❌'} آخر تنظيف</a>`;
+    $('clean').innerHTML = j.items.length ? `<div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>الرقم</th><th>ليه فضل</th><th></th></tr></thead><tbody>
+        ${j.items.map(x => `<tr><td class="fw-bold">${esc(x.screen)}<div class="muted ltr">${esc(x.site)}</div></td><td>${esc(x.no)}</td><td class="muted">${esc(x.why)}<br>${esc((x.at || '').slice(0, 16).replace('T', ' '))}</td>
+        <td><button class="btn btn-sm btn-link text-muted" title="شيليه من القايمة (اتمسح بإيدك)" onclick='forget(${JSON.stringify([x.site, x.list_url, x.no])})'>✖</button></td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="text-center muted py-3">✅ مفيش سجلات اختبار فاضلة</div>';
+}
+async function runClean() {
+    const r = await fetch('/api/cleanup/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sites: $('runSites').value || 'all'})}).then(r => r.json());
+    $('msg').innerHTML = r.success ? '<div class="alert alert-success py-2">🧹 التنظيف دخل الطابور — <a href="/queue">تابعيه</a></div>' : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+}
+async function forget(k) {
+    await fetch('/api/cleanup/forget', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items: [k]})});
+    loadClean();
+}
+async function loadErrors() {
+    const j = await fetch('/api/errors?days=' + $('eDays').value).then(r => r.json());
+    const mx = Math.max(1, ...j.per_day.map(x => x.n));
+    $('errs').innerHTML = !j.total ? '<div class="text-center muted py-3">✅ مفيش أخطاء في الفترة دي</div>' : `
+      <div class="bars mb-2" style="height:40px">${j.per_day.map(x => `<i class="${x.n ? '' : 'z'}" style="height:${Math.max(8, x.n / mx * 100)}%" title="${x.d}: ${x.n} فشل"></i>`).join('')}</div>
+      <div class="mb-2">${j.kinds.map(([k, n]) => `<span class="chip bad me-1 mb-1">${esc(k)}: ${n}</span>`).join('')}</div>
+      <div class="table-responsive" style="max-height:420px"><table class="table table-sm" id="brk"><thead><tr><th>الخطأ</th><th>كام مرة</th><th>الاختبارات</th><th>آخر مرة</th></tr></thead><tbody>
+      ${j.groups.map(g => `<tr><td><div class="muted">${esc(g.kind)}</div><a href="/reports/${esc(g.run_id)}" title="${esc(g.example)}">${esc(g.sig)}</a></td><td class="fw-bold text-center">${g.count}</td>
+        <td class="muted">${g.tests.map(esc).join('<br>')}</td><td class="muted text-nowrap">${esc(g.last)}<br>من ${esc(g.first)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+load(); loadClean(); loadErrors();
 </script>
 {% endblock %}

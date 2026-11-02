@@ -242,3 +242,22 @@ def test_books_balanced(run_cli, mock_erp):
         _flags(unbalanced=0)
     assert not r.get("success")
     assert "الفرق 900.00" in r["error"], r["error"]
+
+
+def test_cleanup_leftovers(run_cli, mock_erp):
+    """a record the automatic test could not delete is remembered, then the cleanup deletes it"""
+    import json
+    from pathlib import Path
+    st = Path(mock_erp["DATA_DIR"]) / "settings"
+    st.mkdir(parents=True, exist_ok=True)
+    (st / "discovered_screens.json").write_text(json.dumps({"screens": [
+        {"key": "d_cr2", "name": "سند قبض", "name_en": "CR2", "group": "الحسابات", "url": "/CashReceipt2"}]}, ensure_ascii=False), encoding="utf-8")
+    r = run_cli("check", {"key": "st_left", "type": "auto", "name_ar": "x", "screen": "d_cr2", "fields_mode": "required", "ways": ["add"]})
+    assert r.get("success"), r.get("error")
+    no = r["vars"]["auto_no"]
+    left = json.loads((Path(mock_erp["DATA_DIR"]) / "state" / "leftovers.json").read_text(encoding="utf-8"))
+    assert any(x["no"] == str(no) for x in left), left
+    r = run_cli("check", {"key": "st_clean", "type": "cleanup", "name_ar": "تنظيف"})
+    assert r.get("success"), r.get("error")
+    assert any(x["cells"][1] == str(no) and "اتحذف" in x["cells"][3] for x in r["detail"]["rows"]), r["detail"]
+    assert json.loads((Path(mock_erp["DATA_DIR"]) / "state" / "leftovers.json").read_text(encoding="utf-8")) == []

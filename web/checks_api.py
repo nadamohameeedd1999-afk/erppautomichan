@@ -381,3 +381,96 @@ def api_books_save():
         from web import sites_api
         out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), saved["name_ar"], d.get("sites"), source="manual"))
     return jsonify(out)
+
+
+# ======================================================== 🧹 تنظيف بيانات الاختبار
+CLEAN_KEY = "test_data_cleanup"
+
+
+@bp.route("/api/cleanup")
+@auth.login_required
+def api_cleanup():
+    from engine import cleanup
+    items = [{k: v for k, v in x.items() if k != "plan"} | {"list_url": x["plan"].get("list_url")} for x in cleanup.load_all()]
+    return jsonify({"success": True, "items": items, "last": _last_results().get(CLEAN_KEY)})
+
+
+@bp.route("/api/cleanup/run", methods=["POST"])
+@auth.login_required
+def api_cleanup_run():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    saved = C.save({"key": CLEAN_KEY, "type": "cleanup", "name_ar": "🧹 تنظيف بيانات الاختبار"})
+    from web.queue_manager import get_manager
+    from web import sites_api
+    return jsonify({"success": True, **sites_api.queue_on_sites(get_manager(), C.test_path_for(CLEAN_KEY), saved["name_ar"],
+                                                                 d.get("sites"), source="manual")})
+
+
+@bp.route("/api/cleanup/forget", methods=["POST"])
+@auth.login_required
+def api_cleanup_forget():
+    from engine import cleanup
+    cleanup.forget((request.get_json(silent=True) or {}).get("items") or [])
+    return jsonify({"success": True})
+
+
+# ======================================================== 📈 الأخطاء المتكررة (all runs, grouped by the error)
+_ERR_KINDS = (
+    ("🗄️ خطأ قاعدة بيانات / SQL", r"sql|stored procedure|transaction count|begin/commit|_insert|_update|deadlock|constraint|51000"),
+    ("💥 خطأ سيرفر", r"\b50[0-9]\b|server error|exception|خطأ سيرفر|internal"),
+    ("📜 خطأ JavaScript في الصفحة", r"javascript|is not defined|is not a function|cannot read prop|js error"),
+    ("🔢 الترقيم", r"الترقيم|رقم المستند|documentnumber|مكرر"),
+    ("⚖️ الحسابات", r"مدين|دائن|ميزان|متزن"),
+    ("🔒 الدخول / الصلاحيات", r"login|الدخول|صلاحي|403|401"),
+    ("⏱️ بطء / مهلة", r"timeout|timed out|انتهى الوقت|أبطأ|بطيئة"),
+    ("📝 حقول / تحقق", r"مطلوب|إجباري|اجباري|required|يجب"),
+    ("🔍 عنصر مش موجود", r"no such element|مالقيتش|not found|404|stale"),
+)
+
+
+def _kind(msg):
+    import re
+    m = msg.lower()
+    return next((k for k, rx in _ERR_KINDS if re.search(rx, m, re.I)), "❓ غير ذلك")
+
+
+def _sig(msg):
+    import re
+    line = next((x.strip() for x in msg.splitlines() if x.strip()), "")
+    line = re.sub(r"«[^»]*»|\"[^\"]*\"|'[^']*'", "«…»", line)
+    line = re.sub(r"\d+([.,]\d+)*", "#", line)
+    return line[:160]
+
+
+@bp.route("/api/errors")
+@auth.login_required
+def api_errors():
+    from datetime import datetime, timedelta
+    from web import insights
+    days = int(request.args.get("days", 30) or 30)
+    since = datetime.now() - timedelta(days=days)
+    groups, kinds, total, per_day = {}, {}, 0, {}
+    for r in insights.all_runs():
+        if r["time"] < since or r["passed"] or not r["message"]:
+            continue
+        total += 1
+        sig, kind = _sig(r["message"]), _kind(r["message"])
+        g = groups.setdefault(sig, {"sig": sig, "kind": kind, "count": 0, "tests": [], "first": r["time"], "last": r["time"],
+                                    "run_id": r["run_id"], "example": r["message"][:300]})
+        g["count"] += 1
+        g["first"] = min(g["first"], r["time"])
+        if r["time"] >= g["last"]:
+            g["last"], g["run_id"], g["example"] = r["time"], r["run_id"], r["message"][:300]
+        if r["name"] not in g["tests"]:
+            g["tests"].append(r["name"])
+        kinds[kind] = kinds.get(kind, 0) + 1
+        d = r["time"].strftime("%Y-%m-%d")
+        per_day[d] = per_day.get(d, 0) + 1
+    out = sorted(groups.values(), key=lambda g: (-g["count"], g["last"]))
+    for g in out:
+        g["first"], g["last"] = g["first"].strftime("%Y-%m-%d %H:%M"), g["last"].strftime("%Y-%m-%d %H:%M")
+        g["tests"] = g["tests"][:8]
+    days_list = [(since + timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(days)]
+    return jsonify({"success": True, "total": total, "groups": out[:100], "kinds": sorted(kinds.items(), key=lambda x: -x[1]),
+                    "per_day": [{"d": d, "n": per_day.get(d, 0)} for d in days_list]})
