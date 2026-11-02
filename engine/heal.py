@@ -167,6 +167,31 @@ def heal(r, cfg, tried):
     return did
 
 
+SERVER_PATTERNS = [
+    (r"Transaction count after EXECUTE|mismatching number of BEGIN and COMMIT",
+     "إجراء الحفظ في قاعدة البيانات عمل ROLLBACK جوه transaction مفتوحة (BEGIN/COMMIT مش متطابقين)"),
+    (r"(\w+_(Insert|Update|Delete|Save)\w*)\s*:\s*5\d{4}", "إجراء قاعدة البيانات «{1}» رجّع خطأ"),
+    (r"\?{3,}", "رسالة الخطأ العربي ظاهرة «????» — الرسالة في قاعدة البيانات مكتوبة varchar مش nvarchar (N'…')"),
+    (r"SqlException|Cannot insert|violation of (PRIMARY|UNIQUE) KEY|duplicate key|FOREIGN KEY constraint|deadlock|Timeout expired",
+     "خطأ من SQL Server"),
+    (r"Server Error|Internal Server Error|Object reference not set|NullReferenceException|status of 500",
+     "خطأ في السيرفر (500)"),
+]
+
+
+def server_error(text):
+    """the save failed inside the ERP (database / server), not because of the data — a short Arabic diagnosis"""
+    found = []
+    for pat, msg in SERVER_PATTERNS:
+        m = re.search(pat, text or "", re.I)
+        if m:
+            found.append(msg.replace("{1}", m.group(1) if m.groups() else ""))
+    if not found:
+        return ""
+    raw = re.sub(r"\s+", " ", text or "").strip()[:260]
+    return "خطأ تقني من الـ ERP (مش من بيانات الاختبار): " + " · ".join(found) + f" — النص: «{raw}»"
+
+
 def explain_failure(result):
     """extra lines for the failure message: the tries and the page's technical errors"""
     out = []
@@ -196,6 +221,12 @@ def save_with_healing(r, cfg, result, tries=3):
             result.setdefault("tech_errors", []).extend(e for e in errs if e not in result.get("tech_errors", []))
             break
         reason = r.failure_reason()
+        server = server_error(" | ".join(r.error_alerts + r.alerts[-3:]) + " " + reason)
+        if server:                                     # the database / server failed — filling more fields won't help
+            result.setdefault("tech_errors", []).append(server)
+            attempts.append({"n": n, "ok": False, "reason": reason, "did": [], "errors": errs, "server": server})
+            logger.error(f"🐞 {server}")
+            break
         did = heal(r, cfg, tried) if cfg.get("auto_complete") and n < tries else []
         attempts.append({"n": n, "ok": False, "reason": reason, "did": did, "errors": errs})
         result.setdefault("tech_errors", []).extend(e for e in errs if e not in result.get("tech_errors", []))
