@@ -63,6 +63,80 @@ Promise.all(Array.from({length: workers}, w)).then(() => done(out));
 """
 
 
+FORMS_JS = r"""
+const [paths, workers, done] = [arguments[0], arguments[1], arguments[arguments.length - 1]];
+const P = new DOMParser(), out = {}; let i = 0;
+const txt = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
+const root = d => d.querySelector('.content-wrapper, .page-content, main, #content, .main-content, .content') || d.body;
+async function get(u) { try { const r = await fetch(u, {credentials: 'include'}); return {s: r.status, url: r.url, html: await r.text()}; } catch (e) { return {s: 0, html: ''}; } }
+function fields(d) {
+  const f = {};
+  root(d).querySelectorAll('input, select, textarea').forEach(e => {
+    const t = (e.type || '').toLowerCase();
+    if (['hidden', 'submit', 'button', 'search', 'reset', 'image'].includes(t) || e.closest('.modal, nav, header, .navbar, aside, .sidebar')) return;
+    const k = e.id || e.name; if (!k || f[k]) return;
+    const l = e.id ? d.querySelector('label[for="' + e.id + '"]') : null;
+    const lab = (txt(l) || e.getAttribute('placeholder') || '').slice(0, 40);
+    f[k] = {l: lab.replace(/\s*\*$/, ''), r: !!(e.required || e.hasAttribute('data-val-required') || /\*\s*$/.test(lab))};
+  });
+  return f;
+}
+async function one(p) {
+  const L = await get(p); if (L.s !== 200) return;
+  const d = P.parseFromString(L.html, 'text/html');
+  const ctrl = p.split('?')[0].replace(/\/(index)?$/i, '').toLowerCase();
+  const links = Array.from(root(d).querySelectorAll('a[href]')).map(a => a.getAttribute('href') || '')
+    .filter(h => /addedit|\/create\b|\/add\b|\/new\b/i.test(h) && !/todotask|presencestatus/i.test(h));
+  const add = links.find(h => h.toLowerCase().indexOf(ctrl + '/') >= 0) || links[0];
+  if (!add) return;
+  const u = new URL(add, location.origin + p), A = await get(u.pathname + u.search);
+  out[p] = {add: u.pathname + u.search, s: A.s, f: A.s === 200 && !/\/login/i.test(A.url || '') ? fields(P.parseFromString(A.html, 'text/html')) : null};
+}
+async function w() { while (i < paths.length) { await one(paths[i++]); } }
+Promise.all(Array.from({length: workers}, w)).then(() => done(out));
+"""
+
+
+def compare_forms(old, new):
+    """add-form changes between two snapshots -> [(path, what, ok)]"""
+    out = []
+    for p, n in new.items():
+        o = old.get(p)
+        if not o:
+            continue
+        if o.get("f") is not None and n.get("f") is None:
+            out.append((p, f"فورم الإضافة بقى مش بيفتح ({n.get('s')}) — كان شغال", False))
+            continue
+        if o.get("f") is None and n.get("f") is not None:
+            out.append((p, "فورم الإضافة رجع يفتح ✅", True))
+            continue
+        of, nf = o.get("f") or {}, n.get("f") or {}
+        lab = lambda f, k: f.get(k, {}).get("l") or k
+        added = [k for k in nf if k not in of]
+        gone = [k for k in of if k not in nf]
+        req = [k for k in nf if k in of and nf[k].get("r") and not of[k].get("r")]
+        unreq = [k for k in nf if k in of and of[k].get("r") and not nf[k].get("r")]
+        if req:
+            out.append((p, "⚠️ بقى إجباري: " + "، ".join(lab(nf, k) for k in req[:12]), False))
+        if gone:
+            out.append((p, "➖ حقول اتشالت: " + "، ".join(lab(of, k) for k in gone[:12]), False))
+        if added:
+            out.append((p, "➕ حقول جديدة: " + "، ".join(lab(nf, k) for k in added[:12]) + ("  (منهم إجباري: " + "، ".join(lab(nf, k) for k in added if nf[k].get("r"))[:200] + ")" if any(nf[k].get("r") for k in added) else ""), None))
+        if unreq:
+            out.append((p, "مابقاش إجباري: " + "، ".join(lab(nf, k) for k in unreq[:12]), None))
+    return out
+
+
+def set_baseline(site_file=None):
+    """«اللقطة قبل التحديث»: the last run's screens + forms become the reference until set again"""
+    f = site_file or _state_file()
+    d = json.loads(f.read_text(encoding="utf-8"))
+    d["baseline"] = {"at": d.get("at"), "forms": d.get("forms") or {}, "broken": list((d.get("broken") or {}).keys()),
+                     "paths": d.get("paths") or []}
+    f.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    return d["baseline"]["at"]
+
+
 def _site_key():
     from config.settings import BASE_URL, ACTIVITY, BRANCH
     return hashlib.sha1(f"{BASE_URL}|{ACTIVITY}|{BRANCH}".encode()).hexdigest()[:10]
@@ -161,6 +235,12 @@ def run_health(driver, credentials, cfg, result=None):
         part = [l["path"] for l in todo[i:i + 200]]
         res.update(driver.execute_async_script(FETCH_JS, part, int(cfg.get("workers") or 8)) or {})
         logger.info(f"   … {min(i + 200, len(todo))}/{len(todo)}")
+    forms = {}
+    if cfg.get("forms", True):
+        screens = [l["path"] for l in todo if not is_report(l["path"]) and l["path"] in res and res[l["path"]].get("s") == 200]
+        logger.info(f"📋 بقرا فورم الإضافة في {len(screens)} شاشة (علشان المقارنة قبل / بعد التحديث)")
+        for i in range(0, len(screens), 200):
+            forms.update(driver.execute_async_script(FORMS_JS, screens[i:i + 200], int(cfg.get("workers") or 8)) or {})
     secs = round(time.time() - t0, 1)
 
     slow_ms = int(float(cfg.get("slow_seconds") or 0) * 1000)
@@ -183,8 +263,21 @@ def run_health(driver, credentials, cfg, result=None):
         since.setdefault(p, now)
     for p in fixed:
         since.pop(p, None)
-    _save_state({"at": now, "base_url": base, "activity": ACTIVITY, "branch": BRANCH, "total": len(todo),
-                 "broken": broken, "since": since, "history": hist})
+    ref = prev.get("baseline") or ({"at": prev.get("at"), "forms": prev.get("forms") or {}, "paths": prev.get("paths") or []} if prev else None)
+    changes = compare_forms(ref.get("forms") or {}, forms) if ref and forms else []
+    paths_now = [l["path"] for l in todo]
+    gone_links = [p for p in (ref or {}).get("paths", []) if p not in set(paths_now)] if ref else []
+    new_links = [p for p in paths_now if p not in set((ref or {}).get("paths", []))] if ref and ref.get("paths") else []
+    state = {"at": now, "base_url": base, "activity": ACTIVITY, "branch": BRANCH, "total": len(todo),
+             "broken": broken, "since": since, "history": hist, "forms": forms, "paths": paths_now,
+             "names": {l["path"]: l["name"] for l in todo},
+             "changes": [{"path": p, "what": w, "ok": ok} for p, w, ok in changes]
+                        + [{"path": p, "what": "➖ اللينك اتشال من المنيو", "ok": None} for p in gone_links]
+                        + [{"path": p, "what": "➕ شاشة جديدة في المنيو", "ok": None} for p in new_links],
+             "compared_with": (ref or {}).get("at") if ref else None}
+    if prev.get("baseline"):
+        state["baseline"] = prev["baseline"]
+    _save_state(state)
 
     rows = []
     for tag, lst, ok in (("🆕 باظت من آخر مرة", new, False), ("🔁 لسه بايظة", still, False), ("✅ اتصلحت", fixed, True)):
@@ -193,6 +286,10 @@ def run_health(driver, credentials, cfg, result=None):
             rows.append({"cells": [tag, b.get("module") or "—", b.get("name") or p, p,
                                    "اشتغلت تاني ✅" if ok else b.get("why", ""), (since.get(p) or "")[:16].replace("T", " ") if not ok else "—"],
                          "ok": ok})
+    nm = {l["path"]: (l["name"], l["module"]) for l in todo}
+    for c in state["changes"]:
+        n_, m_ = nm.get(c["path"], ((prev.get("names") or {}).get(c["path"], c["path"]), ""))
+        rows.append({"cells": ["🔀 اتغيرت", m_ or "—", n_, c["path"], c["what"], "—"], "ok": c["ok"]})
     times = sorted(r.get("ms", 0) for r in res.values() if r.get("s") == 200)
     med = times[len(times) // 2] / 1000 if times else 0
     slowest = sorted(((r.get("ms", 0), p) for p, r in res.items() if r.get("s") == 200), reverse=True)[:5]
@@ -201,14 +298,18 @@ def run_health(driver, credentials, cfg, result=None):
             f" (🆕 {len(new)} · ✅ اتصلحت {len(fixed)}) · متوسط الفتح {med:.1f} ث")
     if slowest:
         note += "\n🐢 أبطأ شاشات: " + "، ".join(f"{names.get(p, p)} ({ms / 1000:.1f} ث)" for ms, p in slowest)
+    if forms:
+        note += f"\n📋 قريت فورم الإضافة في {sum(1 for x in forms.values() if x.get('f') is not None)} شاشة"
+        if state["compared_with"]:
+            note += f" · 🔀 {len(state['changes'])} تغيير عن {'اللقطة قبل التحديث' if prev.get('baseline') else 'آخر فحص'} ({state['compared_with'][:16].replace('T', ' ')})"
     if ACTIVITY or BRANCH:
         note += f"\n🏢 {ACTIVITY or 'أول نشاط'} · 📍 {BRANCH or 'أول فرع'}"
-    result["detail"] = {"title": "🩺 صحة النظام — كل الشاشات", "columns": ["الحالة", "الموديول", "الشاشة", "الرابط", "السبب", "بايظة من"],
+    result["detail"] = {"title": "🩺 صحة النظام — كل الشاشات", "columns": ["الحالة", "الموديول", "الشاشة", "الرابط", "السبب / التغيير", "بايظة من"],
                         "rows": rows, "note": note}
-    result["health"] = {"total": len(todo), "broken": len(broken), "new": new, "fixed": fixed}
+    result["health"] = {"total": len(todo), "broken": len(broken), "new": new, "fixed": fixed, "changes": len(state["changes"])}
     logger.info(note)
 
-    if (new or fixed) and prev:                               # first run = the starting point, no alert
+    if (new or fixed or any("بقى إجباري" in c["what"] or "مش بيفتح" in c["what"] for c in state["changes"])) and prev:                               # first run = the starting point, no alert
         lines = [f"🩺 صحة النظام — {base}" + (f" ({ACTIVITY} / {BRANCH})" if ACTIVITY or BRANCH else "")]
         if new:
             lines.append(f"🆕 {len(new)} شاشة باظت:")
@@ -216,6 +317,9 @@ def run_health(driver, credentials, cfg, result=None):
         if fixed:
             lines.append(f"✅ {len(fixed)} شاشة اتصلحت:")
             lines += [f"• {(before.get(p) or {}).get('name', p)} ({p})" for p in fixed[:15]]
+        req = [c for c in state["changes"] if "بقى إجباري" in c["what"] or "مش بيفتح" in c["what"]]
+        if req:
+            lines.append(f"🔀 {len(req)} فورم اتغير (حقول بقت إجبارية / مابقاش بيفتح)")
         lines.append(f"الإجمالي: {len(broken)} بايظة من {len(todo)}")
         _alert("\n".join(lines))
 

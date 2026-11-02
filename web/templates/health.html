@@ -36,6 +36,18 @@
     </div>
     <div id="msg"></div>
 
+    <div class="hc mb-3">
+        <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center">
+            <div><div class="fw-bold">⚖️ مطابقة الحسابات <span id="bLast"></span></div>
+                <div class="muted">من غير أي إعداد: يقرا ميزان المراجعة من الموقع ويتأكد إن مدين = دائن (أول المدة، حركة الفترة، الرصيد) وإن كل حساب أب = مجموع الفرعي</div></div>
+            <div class="d-flex gap-2 align-items-center">
+                <input id="bFrom" type="date" class="form-control form-control-sm" style="width:auto" title="من (فاضي = أول السنة)">
+                <input id="bTo" type="date" class="form-control form-control-sm" style="width:auto" title="إلى (فاضي = آخر السنة)">
+                <button class="btn btn-sm btn-success" onclick="runBooks()"><i class="bi bi-play-fill"></i> طابقي الحسابات</button>
+            </div>
+        </div>
+    </div>
+
     <div id="states"></div>
 
     <div class="hc mt-3">
@@ -54,6 +66,10 @@
             <div class="col-md-3">
                 <label class="form-label fw-bold">📊 التقارير</label>
                 <select id="fReports" class="form-select"><option value="1">افحص التقارير كمان</option><option value="0">الشاشات بس</option></select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">📋 فورمات الإضافة</label>
+                <select id="fForms" class="form-select"><option value="1">اقرا حقول الإضافة (للمقارنة قبل / بعد التحديث)</option><option value="0">لا (أسرع)</option></select>
             </div>
             <div class="col-md-3">
                 <label class="form-label fw-bold">❌ الاختبار يفشل لو</label>
@@ -85,7 +101,7 @@ let D = null;
 function paint() {
     const c = D.config;
     $('fSkip').value = (c.skip || []).join('\n'); $('fExtra').value = (c.extra || []).join('\n');
-    $('fReports').value = c.reports === false ? '0' : '1'; $('fFail').value = c.fail_on || 'any';
+    $('fReports').value = c.reports === false ? '0' : '1'; $('fForms').value = c.forms === false ? '0' : '1'; $('fFail').value = c.fail_on || 'any';
     $('fSlow').value = c.slow_seconds || ''; $('fWorkers').value = c.workers || 8;
     $('defSkip').textContent = (D.default_skip || []).join(' · ');
     const last = D.last ? `<a class="chip ${D.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(D.last.run_id)}">${D.last.passed ? '✅ سليم' : '❌ فيه شاشات بايظة'}</a> <span class="muted">${esc(D.last.time)}</span>` : '';
@@ -106,6 +122,13 @@ function paint() {
             <div class="col-6 col-md-3"><div class="kpi ${s.broken.length ? 'bad' : 'ok'}"><b>${s.broken.length}</b><span>بايظة</span></div></div>
             <div class="col-6 col-md-3"><div class="kpi"><div class="bars" title="عدد البايظ في آخر ${hist.length} فحص">${hist.map(h => `<i class="${h.broken ? '' : 'z'}" style="height:${Math.max(8, h.broken / mx * 100)}%" title="${esc(h.at)} — ${h.broken} بايظة"></i>`).join('')}</div><span>البايظ في آخر الفحوصات</span></div></div>
           </div>
+          <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-2">
+            <div class="muted">📋 فورمات الإضافة المقروءة: ${s.forms_count || 0}${s.compared_with ? ` · بيقارن بـ ${s.baseline_at ? '<b>📸 اللقطة قبل التحديث</b>' : 'آخر فحص'} (${esc((s.compared_with || '').slice(0, 16).replace('T', ' '))})` : ''}</div>
+            <button class="btn btn-sm btn-outline-primary" onclick="baseline('${esc(s.file)}')" title="قبل ما الـ ERP يتحدث: افحصي، وبعدين دوسي هنا. كل فحص بعد التحديث هيقولك إيه اللي اتغير عنها">📸 اعتبري آخر فحص «اللقطة قبل التحديث»</button>
+          </div>
+          ${(s.changes || []).length ? `<div class="fw-bold mt-2 mb-1">🔀 اللي اتغير (${s.changes.length})</div><div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>الرابط</th><th>التغيير</th></tr></thead><tbody>
+            ${s.changes.map(c => `<tr class="${c.ok === false ? 'table-danger' : (c.ok ? 'table-success' : '')}"><td class="fw-bold">${esc(c.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + c.path)}">${esc(c.path)}</a></td><td>${esc(c.what)}</td></tr>`).join('')}
+            </tbody></table></div>` : (s.compared_with ? '<div class="muted mb-2">🔀 مفيش تغيير في الشاشات والفورمات</div>' : '')}
           ${s.broken.length ? `<div class="mb-2">${Object.entries(mods).sort((a, b) => b[1] - a[1]).map(([m, n]) => `<span class="chip bad me-1">${esc(m)}: ${n}</span>`).join('')}</div>
           <div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الموديول</th><th>الشاشة</th><th>الرابط</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
           ${s.broken.map(b => `<tr><td>${esc(b.module || '—')}</td><td class="fw-bold">${esc(b.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></td><td>${esc(b.why)}</td><td class="muted text-nowrap">${esc((b.since || '').slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
@@ -121,6 +144,23 @@ function copyList(i) {
     navigator.clipboard.writeText(t).then(() => { $('msg').innerHTML = '<div class="alert alert-success py-2">اتنسخت ✅</div>'; });
 }
 
+async function baseline(file) {
+    const r = await fetch('/api/health/baseline', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file})}).then(r => r.json());
+    $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">📸 اتحفظت كلقطة قبل التحديث (${esc(r.at)}) — بعد التحديث شغلي الفحص وهيقولك إيه اللي اتغير</div>`
+                                   : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+    load();
+}
+
+async function runBooks() {
+    const r = await fetch('/api/books/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({config: {date_from: $('bFrom').value, date_to: $('bTo').value}, run: true, sites: $('runSites').value || ''})}).then(r => r.json());
+    $('msg').innerHTML = r.success ? '<div class="alert alert-success py-2">✅ المطابقة دخلت الطابور — <a href="/queue">تابعيها</a></div>' : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+}
+fetch('/api/books').then(r => r.json()).then(j => {
+    $('bFrom').value = j.config.date_from || ''; $('bTo').value = j.config.date_to || '';
+    if (j.last) $('bLast').innerHTML = `<a class="chip ${j.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(j.last.run_id)}">${j.last.passed ? '✅ متزن' : '❌ مش متزن'}</a> <span class="muted">${esc(j.last.time)}</span>`;
+});
+
 async function load() {
     D = await fetch('/api/health').then(r => r.json());
     paint();
@@ -128,7 +168,7 @@ async function load() {
 
 async function save(run) {
     const lines = v => v.split('\n').map(x => x.trim()).filter(Boolean);
-    const config = {skip: lines($('fSkip').value), extra: lines($('fExtra').value), reports: $('fReports').value === '1',
+    const config = {skip: lines($('fSkip').value), extra: lines($('fExtra').value), reports: $('fReports').value === '1', forms: $('fForms').value === '1',
                     fail_on: $('fFail').value, slow_seconds: +$('fSlow').value || 0, workers: +$('fWorkers').value || 8};
     const r = await fetch('/api/health/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({config, run, sites: $('runSites').value || ''})}).then(r => r.json());

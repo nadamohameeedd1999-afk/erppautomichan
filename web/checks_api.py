@@ -303,6 +303,14 @@ def api_health():
         except Exception:
             continue
         since = d.get("since") or {}
+        d["file"] = f.name
+        d["forms_count"] = sum(1 for x in (d.get("forms") or {}).values() if x.get("f") is not None)
+        names = d.get("names") or {}
+        for c in d.get("changes") or []:
+            c["name"] = names.get(c["path"], c["path"])
+        d["baseline_at"] = (d.get("baseline") or {}).get("at")
+        for k in ("forms", "paths", "names", "baseline", "history_full"):
+            d.pop(k, None)
         d["broken"] = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
         d["broken"].sort(key=lambda b: (b.get("module") or "", b.get("name") or ""))
         states.append(d)
@@ -328,4 +336,48 @@ def api_health_save():
         from web.queue_manager import get_manager
         from web import sites_api
         out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), saved["name_ar"], d.get("sites"), source="manual"))
+    return jsonify(out)
+
+
+@bp.route("/api/health/baseline", methods=["POST"])
+@auth.login_required
+def api_health_baseline():
+    """📸 the last check of this site = «قبل التحديث»: the next checks compare with it until it is set again"""
+    from engine import health
+    name = (request.get_json(silent=True) or {}).get("file") or ""
+    f = health.STATE / name
+    if not name.startswith("health_") or "/" in name or not f.exists():
+        return jsonify({"success": False, "error": "مفيش فحص للموقع ده"}), 404
+    return jsonify({"success": True, "at": health.set_baseline(f)})
+
+
+# ======================================================== ⚖️ مطابقة الحسابات (trial balance, no setup)
+BOOKS_KEY = "books_check"
+
+
+@bp.route("/api/books")
+@auth.login_required
+def api_books():
+    C = _C()
+    try:
+        cfg = C.load(BOOKS_KEY)
+    except C.ConfigError:
+        cfg = C.normalize({"key": BOOKS_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات"})
+    return jsonify({"success": True, "config": C.public(cfg), "last": _last_results().get(BOOKS_KEY)})
+
+
+@bp.route("/api/books/save", methods=["POST"])
+@auth.login_required
+def api_books_save():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    try:
+        saved = C.save({**(d.get("config") or {}), "key": BOOKS_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    out = {"success": True}
+    if d.get("run"):
+        from web.queue_manager import get_manager
+        from web import sites_api
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), saved["name_ar"], d.get("sites"), source="manual"))
     return jsonify(out)

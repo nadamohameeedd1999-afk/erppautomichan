@@ -203,14 +203,42 @@ def test_system_health(run_cli, mock_erp):
     finally:
         _flags(broken=0)
     assert not r.get("success")
-    rows = {x["cells"][3]: x for x in r["detail"]["rows"]}
+    rows = {x["cells"][3]: x for x in r["detail"]["rows"] if not x["cells"][0].startswith("🔀")}
     assert "500" in rows["/RentalAssets/Contracts"]["cells"][4] and "SqlException" in rows["/RentalAssets/Contracts"]["cells"][4], rows
     assert "404" in rows["/GoneScreen"]["cells"][4] and rows["/GoneScreen"]["cells"][0].startswith("🆕"), rows
     r = run_cli("check", cfg)
     assert r.get("success") and len(r["health"]["fixed"]) == 2, r
+    # before / after an ERP update: the customer add form gets a new required field
+    from engine import health  # noqa
+    import json, glob
+    f = glob.glob(mock_erp["DATA_DIR"] + "/**/health_*.json", recursive=True)
+    assert f, "no health state"
+    import subprocess, sys
+    _flags(update=1)
+    try:
+        r = run_cli("check", cfg)
+    finally:
+        _flags(update=0)
+    ch = [x for x in r["detail"]["rows"] if x["cells"][0].startswith("🔀")]
+    assert any("الرقم الضريبي" in x["cells"][4] and "/Customer" == x["cells"][3] for x in ch), r["detail"]["rows"]
     # login on another activity / branch (the profile says which; «2» matches «٢»)
     r = run_cli("check", cfg, env={"LOGIN_ACTIVITY": "النخبه", "LOGIN_BRANCH": "الفرع 2"})
     assert r.get("success"), r.get("error")
     assert "النخبه" in r["detail"]["note"]
     r = run_cli("check", cfg, env={"LOGIN_ACTIVITY": "نشاط مش موجود"})
     assert not r.get("success") and "مش موجود" in r.get("error", ""), r.get("error")
+
+
+def test_books_balanced(run_cli, mock_erp):
+    """⚖️ trial balance read from the site: balanced -> pass; an unbalanced entry -> fail with the difference"""
+    cfg = {"key": "st_books", "type": "books", "name_ar": "مطابقة"}
+    r = run_cli("check", cfg)
+    assert r.get("success"), r.get("error")
+    assert len(r["detail"]["rows"]) == 4 and all(x["ok"] for x in r["detail"]["rows"])
+    _flags(unbalanced=1)
+    try:
+        r = run_cli("check", cfg)
+    finally:
+        _flags(unbalanced=0)
+    assert not r.get("success")
+    assert "الفرق 900.00" in r["error"], r["error"]

@@ -101,9 +101,15 @@ class LoginPage(BasePage):
                 return self._select_first_option_js(select2_id, label, want)
             
             # ═══ 3) اختار أول عنصر حقيقي (مش placeholder) ═══
-            options = self.driver.find_elements(
-                By.CSS_SELECTOR, ".select2-container--open .select2-results__option"
+            options = self.driver.find_elements(           # this dropdown's own list (another one may still be open)
+                By.CSS_SELECTOR, f"#select2-{select2_id}-results .select2-results__option"
             )
+            if not options:                              # its list didn't open (another dropdown is open) -> pick in the <select>
+                try:
+                    self.driver.find_element(By.TAG_NAME, "body").click()
+                except Exception:
+                    pass
+                return self._select_first_option_js(select2_id, label, want)
             
             if not options:
                 logger.warning(f"⚠️ مفيش options في [{label}]")

@@ -29,6 +29,7 @@ TYPES = {
     "report": ("📊", "فحص تقرير", "يفتح تقرير بفلتر، يقرا الإجماليات، يتأكد من قواعد (مدين = دائن) ويقارن بآخر مرة"),
     "auto": ("🤖", "الاختبار الآلي", "شاشة واحدة بكل الطرق: إضافة، تعديل، حذف، طباعة، واختبارات الرفض"),
     "perf": ("⚡", "سرعة الشاشات", "يقيس وقت فتح كل شاشة وينبه لو بقت أبطأ من العادي"),
+    "books": ("⚖️", "مطابقة الحسابات", "يقرا ميزان المراجعة من الموقع نفسه ويتأكد: مدين = دائن (أول المدة، الحركة، الرصيد) وكل حساب أب = مجموع الفرعي"),
     "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
 }
 
@@ -185,9 +186,14 @@ def normalize(cfg):
                     "max_seconds": max(0.0, float(cfg.get("max_seconds", 0) or 0)),
                     "baseline_runs": max(1, min(20, int(cfg.get("baseline_runs", 5) or 5))),
                     "fail_on_slow": bool(cfg.get("fail_on_slow", True))})
+    elif typ == "books":
+        out.update({"date_from": str(cfg.get("date_from") or "").strip(), "date_to": str(cfg.get("date_to") or "").strip(),
+                    "url": str(cfg.get("url") or "").strip(), "departments": _list(cfg.get("departments")),
+                    "tol": max(0.0, float(cfg.get("tol", 0.01) or 0.01))})
+
     elif typ == "health":
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],
-                    "reports": bool(cfg.get("reports", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
+                    "reports": bool(cfg.get("reports", True)), "forms": bool(cfg.get("forms", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
                     "slow_seconds": max(0.0, float(cfg.get("slow_seconds", 0) or 0)),
                     "workers": max(1, min(16, int(cfg.get("workers", 8) or 8))), "menu_page": _url(cfg.get("menu_page")) or "/Home"})
     return out

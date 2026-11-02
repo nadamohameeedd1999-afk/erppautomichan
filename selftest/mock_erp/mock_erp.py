@@ -12,7 +12,7 @@ NM = HERE / "node_modules"
 app = Flask(__name__)
 VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "date": "2026-10-01", "data": {}}]
 SLOW = {"ms": 0}
-FLAGS = {"broken": False, "dupnum": False}   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
+FLAGS = {"broken": False, "dupnum": False, "update": False, "unbalanced": False}   # update=1: the customer form changes like after an ERP update   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
 
 LIBS = """
 <link rel="stylesheet" href="/lib/select2/dist/css/select2.min.css">
@@ -76,6 +76,17 @@ def set_flags():
         if k in request.args:
             FLAGS[k] = request.args[k] == "1"
     return jsonify(FLAGS)
+
+
+@app.route("/TrialBalanceWithLevelsTree/GETTrialBalanceWithLevelsTree")
+def tb_tree():
+    if not guard():
+        return redirect("/Login")
+    extra = 900.0 if FLAGS["unbalanced"] else 0.0
+    acc = lambda i, code, name, parent, d, c: {"Id": i, "Code": code, "ArName": name, "ParentId": parent, "ObDebit": 0, "ObCredit": 0,
+                                               "Debit": d, "Credit": c, "BalanceDebit": max(d - c, 0), "BalanceCredit": max(c - d, 0)}
+    return jsonify([acc(1, "1", "الموجودات", None, 1000 + extra, 0), acc(11, "101", "الصندوق", 1, 1000 + extra, 0),
+                    acc(4, "4", "الايرادات", None, 0, 1000), acc(41, "401", "المبيعات", 4, 0, 1000)])
 
 
 @app.route("/RentalAssets/Contracts")
@@ -274,7 +285,7 @@ def cust_add():
         return redirect("/Customer")
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
     <form id=frm method=post action="/Customer/AddEdit"><label for=Name>اسم العميل</label>
-    <input id=Name name=Name data-val-required="مطلوب"></form>
+    <input id=Name name=Name data-val-required="مطلوب">""" + ('<label for=TaxNo>الرقم الضريبي</label><input id=TaxNo name=TaxNo required>' if FLAGS["update"] else "") + """</form>
     <button id=save type=button onclick="document.getElementById('frm').submit()">حفظ</button></body></html>"""
 
 
