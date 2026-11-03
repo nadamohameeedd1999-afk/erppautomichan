@@ -61,6 +61,10 @@ const done = arguments[arguments.length - 1];
         await sleep(300);
       }
       btn.click(); await sleep(900);
+      for (const f of ['calculateAll', 'CalculateAll', 'calcTotals', 'calculateTotals', 'CalcTotal', 'calculateTotal']) {
+        if (typeof window[f] === 'function') { try { window[f](); } catch (e) {} }
+      }
+      await sleep(400);
       const n = tb.querySelectorAll('tr').length;
       const head = Array.from(box.querySelectorAll('thead th')).slice(0, 3).map(txt).join(' / ');
       out.push(n ? `أضفت سطر في جدول «${head}»` : `دست «إضافة» في جدول «${head}» بس السطر ما اتضافش`);

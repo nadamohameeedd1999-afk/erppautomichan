@@ -47,7 +47,7 @@ document.querySelectorAll('input, select, textarea').forEach(function(e, i){
 });
 var msgs = [];
 document.querySelectorAll('.field-validation-error, .invalid-feedback, .text-danger, .alert-danger, .validation-summary-errors li, .toast, .toast-message, .swal2-html-container, .swal2-title').forEach(function(e){
-  var t = txt(e); if (t.replace(/[*\s]/g, '').length > 1 && vis(e) && msgs.indexOf(t) === -1) msgs.push(t); });
+  var t = txt(e); if (t.replace(/[*\s]/g, '').length > 1 && !/^[\d.,\s%-]+$/.test(t) && vis(e) && msgs.indexOf(t) === -1) msgs.push(t); });
 return {fields: fields, msgs: msgs.slice(0, 15)};
 """
 

@@ -108,6 +108,9 @@ def _children(fields, fid):
     return out
 
 
+NUMERIC_WORDS = re.compile(r"خصم|سعر|كمي|مبلغ|قيمه|قيمة|نسبه|نسبة|اجمالي|إجمالي|رصيد|عدد|تكلفه|تكلفة|ضريبه|ضريبة|discount|price|qty|quantity|amount|total|rate|percent|cost|balance", re.I)
+
+
 def _strategy(f, scenario, editing=False):
     from engine.smart_values import guess
     kind, pre = f["kind"], str(f.get("value") or "").strip()
@@ -126,6 +129,10 @@ def _strategy(f, scenario, editing=False):
         return ("smart", "") if smart else ("fixed", "{rand}")
     if smart:
         return ("smart", "")
+    lab = f"{f.get('label', '')} {f['id']}"
+    if NUMERIC_WORDS.search(lab) and not re.search(r"رقم|كود|code|no\b|number", lab, re.I):
+        # an amount / quantity / percentage box (often masked): a number, never text
+        return ("fixed", "0" if re.search(r"خصم|discount", lab, re.I) else ("15" if editing else "10"))
     if editing:
         return ("fixed", "معدّل آلي {ts}")
     if scenario == "edge":
@@ -247,7 +254,13 @@ def explain(way, res, ok, err=""):
         if way == "edit":
             lines.append(f"💾 التعديل اتحفظ على السجل «{str(res.get('row') or '')[:80]}»")
         chk = res.get("saved_check") or {}
-        if chk.get("checked"):
+        if chk.get("checked") and chk.get("warnings"):
+            n = len(chk.get("rows", []))
+            lines.append(f"🔎 فتحته تاني وقارنت {n} قيمة — {n - len(chk['warnings'])} زي ما اتكتبت ✓")
+            lines.append(("🔒 ماتغيرتش بعد التعديل (غالبًا مقفولة في التعديل في الـ ERP): " if way == "edit" else
+                          "⚠️ حقول مش إجبارية اتملت بس الـ ERP ما حفظهاش (راجعيها — ممكن تكون مشكلة في الـ ERP): ")
+                         + " · ".join(chk["warnings"][:6]))
+        elif chk.get("checked"):
             lines.append(f"🔎 فتحته تاني وقارنت {len(chk.get('rows', []))} قيمة — كلها زي ما اتكتبت ✓")
         elif chk.get("reason"):
             lines.append(f"🔎 مقدرتش أفتحه تاني أقارن القيم: {chk['reason']}")

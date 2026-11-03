@@ -86,6 +86,8 @@ def _build_options():
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--lang=ar-EG")
     options.set_capability("goog:loggingPrefs", {"browser": "ALL"})     # the ERP page's JS / server errors (engine/heal.py)
+    # «هل تريد الحفظ؟» / «هل تريد الحذف ؟» from the browser itself: a tester presses OK (the default was Cancel -> nothing saved)
+    options.set_capability("unhandledPromptBehavior", "accept and notify")
     options.add_experimental_option("prefs", {"intl.accept_languages": "ar-EG,ar,en;q=0.5"})
 
     return options

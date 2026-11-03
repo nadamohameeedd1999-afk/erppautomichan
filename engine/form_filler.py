@@ -341,7 +341,7 @@ class FormFiller:
             except ValueError:
                 pass
             digits = "".join(ch for ch in value if ch.isdigit())
-            if digits and not value.replace(",", "").replace(".", "").isdigit() and re.fullmatch(r"[\d.,\s]*", actual or ""):
+            if digits and not value.replace(",", "").replace(".", "").isdigit() and re.fullmatch(r"\s*-?[\d.,\s]*", actual or ""):
                 # a number box (masked / numeric): it ate the letters -> write a number instead
                 num = digits[-9:].lstrip("0") or "1"
                 try:

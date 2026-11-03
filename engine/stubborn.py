@@ -76,18 +76,29 @@ def forget_recipe(info):
 
 def read_saved_record(driver, base, ids):
     """open the first saved record of the list (edit / view page) and read its values -> {id: value}"""
-    from engine.screen_runner import OPEN_ROW_JS, READ_VALUES_JS, _abs
+    from engine.screen_runner import OPEN_ROW_JS, READ_VALUES_JS, ScreenRunner, _abs
+    from engine.operations import _row_action
     driver.get(_abs(base["list_url"]))
     time.sleep(3)
     end = time.time() + 20
     while time.time() < end and not driver.execute_script("return document.querySelectorAll('table tbody tr td').length > 1"):
         time.sleep(0.8)
+    url0 = driver.current_url
     hit = driver.execute_script(OPEN_ROW_JS, "") or {}
     if hit.get("href"):
         driver.get(hit["href"])
     elif not hit.get("clicked"):
-        return {}
+        try:                                   # the same way the edit test finds the row's edit button
+            r = ScreenRunner(driver, {**base, "operation": "edit"})
+            h2 = _row_action(r, {**base, "op_button": ""}, "edit", "")
+            if h2.get("href"):
+                driver.get(h2["href"])
+        except Exception as e:
+            logger.info(f"📋 مقدرتش أفتح سجل محفوظ: {str(e).splitlines()[0][:120]}")
+            return {}
     time.sleep(4)
+    if driver.current_url == url0 and not driver.execute_script("return !!document.querySelector('form input, form select')"):
+        return {}
     got = driver.execute_script(READ_VALUES_JS, ids) or {}
     time.sleep(2)                                          # Select2 lists on edit pages load late
     got2 = driver.execute_script(READ_VALUES_JS, ids) or {}

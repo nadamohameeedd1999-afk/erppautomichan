@@ -287,3 +287,20 @@ def test_stubborn_add(run_cli, mock_erp):
         assert "الوصفة الناجحة من آخر مرة: ✅" in add, add
     finally:
         _flags(picky=0)
+
+
+def test_native_confirm_save(run_cli, mock_erp):
+    """the save button asks «هل تريد الحفظ؟» with the browser's own confirm(): the tester presses OK and it saves"""
+    import json
+    from pathlib import Path
+    st = Path(mock_erp["DATA_DIR"]) / "settings"
+    st.mkdir(parents=True, exist_ok=True)
+    (st / "discovered_screens.json").write_text(json.dumps({"screens": [
+        {"key": "d_cust", "name": "العملاء", "name_en": "Customers", "group": "المبيعات", "url": "/Customer"}]}, ensure_ascii=False), encoding="utf-8")
+    _flags(confirmsave=1)
+    try:
+        r = run_cli("check", {"key": "st_confirm", "type": "auto", "name_ar": "تأكيد", "screen": "d_cust", "ways": ["add"]})
+    finally:
+        _flags(confirmsave=0)
+    assert r.get("success"), r.get("error")
+    assert "اتحفظ" in r["detail"]["rows"][1]["cells"][2]

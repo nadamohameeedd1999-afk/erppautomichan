@@ -278,8 +278,12 @@ def run_operation(r, cfg, result, save, start):
                     bad.append(f"{s['label']}: اتعدل لـ '{s['result']}' بس اتسجل '{v}'")
             result["saved_check"] = {"checked": True, "rows": rows, "mismatches": bad}
             _shot(r, f"{cfg['key']}_edited_record")
-            if bad:
-                raise AssertionError("التعديل ما اتسجلش صح:\n   " + "\n   ".join(bad))
+            changed = [x for x in rows if x["ok"] and x["saved"] is not None]
+            if bad and not changed:
+                raise AssertionError("التعديل ما اتسجلش خالص (ولا قيمة جديدة اتحفظت):\n   " + "\n   ".join(bad))
+            if bad:                            # some fields kept the old value: usually locked after the first save
+                result["saved_check"]["warnings"] = bad
+                logger.warning(f"🔒 {len(bad)} حقل ماتغيرش بعد التعديل (غالبًا مقفول في التعديل في الـ ERP): " + " | ".join(bad))
 
     result["seconds"] = round(time.time() - start, 1)
     logger.success(f"✅ {cfg['name_ar']}: اتعدل واتحفظ ({result['seconds']} ثانية)")

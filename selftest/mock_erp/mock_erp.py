@@ -12,7 +12,7 @@ NM = HERE / "node_modules"
 app = Flask(__name__)
 VOUCHERS = [{"no": 100, "customer": "11 - الريادة", "amount": "50.00", "date": "2026-10-01", "data": {}}]
 SLOW = {"ms": 0}
-FLAGS = {"broken": False, "dupnum": False, "update": False, "unbalanced": False, "picky": False}   # picky: CashReceipt2 only accepts the customer «12 - شركة النور»   # update=1: the customer form changes like after an ERP update   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
+FLAGS = {"broken": False, "dupnum": False, "update": False, "unbalanced": False, "picky": False, "confirmsave": False}   # picky: CashReceipt2 only accepts the customer «12 - شركة النور»   # update=1: the customer form changes like after an ERP update   # /__flags?broken=1 adds broken screens to the menu · dupnum=1 -> CashReceipt2 repeats its number          # /__slow?ms=3000 makes the customers list slow (performance test)
 
 LIBS = """
 <link rel="stylesheet" href="/lib/select2/dist/css/select2.min.css">
@@ -291,7 +291,7 @@ def cust_add():
     return f"""<!doctype html><html dir=rtl><head><meta charset=utf-8>{LIBS}</head><body>
     <form id=frm method=post action="/Customer/AddEdit"><label for=Name>اسم العميل</label>
     <input id=Name name=Name data-val-required="مطلوب">""" + ('<label for=TaxNo>الرقم الضريبي</label><input id=TaxNo name=TaxNo required>' if FLAGS["update"] else "") + """</form>
-    <button id=save type=button onclick="document.getElementById('frm').submit()">حفظ</button></body></html>"""
+    <button id=save type=button onclick="(""" + ("confirm('هل تريد الحفظ؟')" if FLAGS["confirmsave"] else "true") + """) && document.getElementById('frm').submit()">حفظ</button></body></html>"""
 
 
 INVOICES = [{"no": 500, "customer": "11 - الريادة", "lines": 1}]

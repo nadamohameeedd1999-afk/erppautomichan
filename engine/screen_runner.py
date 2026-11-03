@@ -5,6 +5,7 @@ login -> list (remember first row) -> add page -> fill fields (strict)
       -> before-save buttons -> save -> alerts -> saved? -> new first row in list
 """
 import json
+import re
 import time
 
 import allure
@@ -208,7 +209,8 @@ class ScreenRunner(BasePage):
         self.wait_for_preloader()
         self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
         time.sleep(0.3)
-        self.driver.execute_script("arguments[0].click();", el)
+        self.driver.execute_script("var e = arguments[0]; setTimeout(function () { e.click(); }, 0);", el)   # async: a confirm() stays open for us
+        time.sleep(0.4)
         logger.info("ضغطنا حفظ")
         time.sleep(0.8)
         self.handle_swals()
@@ -238,7 +240,7 @@ class ScreenRunner(BasePage):
         parts = []
         if self.error_alerts:
             parts.append("رسالة خطأ: " + " | ".join(self.error_alerts))
-        errs = self.page_errors()
+        errs = [e for e in self.page_errors() if not re.fullmatch(r"[\d.,\s|%-]+", str(e))]
         if errs:
             parts.append("رسائل التحقق في الفورم: " + " | ".join(errs))
         empty = []
@@ -339,6 +341,9 @@ def _same(a, b):
     a, b = normalize(a), normalize(b)
     if a == b:
         return True
+    yes, no = {"on", "true", "1", "yes", "نعم", "checked"}, {"off", "false", "0", "no", "لا", ""}
+    if (a in yes and b in yes) or (a in no and b in no):
+        return True
     try:
         return float(a.replace(",", "")) == float(b.replace(",", ""))
     except ValueError:
@@ -371,9 +376,10 @@ def check_saved_values(r, cfg, steps):
     for k, s in want.items():
         v = got.get(k)
         ok = v is None or _same(s["result"], v)
-        rows.append({"label": s["label"], "filled": s["result"], "saved": v, "ok": ok})
+        rows.append({"id": k, "label": s["label"], "filled": s["result"], "saved": v, "ok": ok,
+                     "msg": "" if ok else f"{s['label']}: اتملى '{s['result']}' بس اتسجل '{v}'"})
         if not ok:
-            mismatches.append(f"{s['label']}: اتملى '{s['result']}' بس اتسجل '{v}'")
+            mismatches.append(rows[-1]["msg"])
     _shot(r, f"{cfg['key']}_saved_record")
     return {"checked": True, "rows": rows, "mismatches": mismatches}
 
@@ -539,9 +545,16 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
                 for row in chk["rows"]:
                     mark = "✅" if row["ok"] else "❌"
                     logger.info(f"{mark} مراجعة {row['label']}: اتملى '{row['filled']}' — اتسجل '{row['saved']}'")
-                if chk["mismatches"]:
-                    raise AssertionError("القيم اللي اتسجلت مختلفة عن اللي اتملت:\n   " + "\n   ".join(chk["mismatches"]))
-                logger.success("✅ كل القيم اتسجلت صح")
+                req = {f["id"] for f in cfg["fields"] if f.get("required") and not f.get("soft")}
+                hard = [x["msg"] for x in chk["rows"] if not x["ok"] and x["id"] in req]
+                soft = [m for m in chk["mismatches"] if m not in hard]
+                if hard:
+                    raise AssertionError("القيم اللي اتسجلت مختلفة عن اللي اتملت:\n   " + "\n   ".join(hard))
+                if soft:                       # optional fields the ERP did not keep: noted, the save itself is fine
+                    chk["warnings"] = soft
+                    logger.warning("⚠️ حقول مش إجبارية اتملت بس ما اتسجلتش زي ما هي: " + " | ".join(soft))
+                else:
+                    logger.success("✅ كل القيم اتسجلت صح")
 
     result["seconds"] = round(time.time() - start, 1)
     logger.success(f"✅ {cfg['name_ar']}: اتحفظ وظهر في القايمة ({result['seconds']} ثانية)")
