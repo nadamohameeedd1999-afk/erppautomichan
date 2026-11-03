@@ -239,8 +239,17 @@ def live_status():
             running, running_name = True, cur.get("test_name", "")
     except Exception:
         pass
+    chromes = 0
+    try:
+        from utils.chrome_cleanup import kill_orphan_chrome, chrome_count
+        if not running:
+            kill_orphan_chrome()                     # a test that died left its browser on the screen
+        chromes = chrome_count()
+    except Exception:
+        pass
     return jsonify({
         "success": True,
+        "chromes": chromes,
         "proxy": HAS_SOCK and novnc_dir() is not None,
         "has_sock": HAS_SOCK,
         "novnc": novnc_dir() is not None,
@@ -299,3 +308,22 @@ def _ws_bridge(ws):
             tcp.close()
         except Exception:
             pass
+
+
+@bp.route("/api/live/cleanup", methods=["POST"])
+@auth.login_required
+def live_cleanup():
+    """close every browser left open — refused while a test (or a Screen Builder try / discovery) is running"""
+    from web.queue_manager import get_manager
+    from utils.chrome_cleanup import kill_all_chrome
+    if (get_manager().get_status() or {}).get("running"):
+        return jsonify({"success": False, "error": "فيه اختبار شغال دلوقتي — استني يخلص"}), 409
+    try:
+        from web.screens_api import JOBS_DIR
+        import json as _json, time as _time
+        for f in JOBS_DIR.glob("*.json"):
+            if _time.time() - f.stat().st_mtime < 120 and not _json.loads(f.read_text(encoding="utf-8") or "{}").get("done", True):
+                return jsonify({"success": False, "error": "فيه تجربة / اكتشاف شغال من منشئ الشاشات — استني يخلص"}), 409
+    except Exception:
+        pass
+    return jsonify({"success": True, "closed": kill_all_chrome()})

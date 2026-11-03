@@ -214,6 +214,17 @@ def build(hours=24, parts=None, max_failed=15, log_lines=120):
             disk = f"{du.free / 2**30:.1f} GB فاضي من {du.total / 2**30:.1f} GB"
         except Exception:
             disk = "?"
+        mem = ""
+        try:
+            info = dict(x.split(":", 1) for x in open("/proc/meminfo").read().splitlines() if ":" in x)
+            kb = lambda k: int(info.get(k, "0 kB").split()[0])
+            mem = f"{kb('MemAvailable') / 1024:.0f} MB فاضية من {kb('MemTotal') / 1024:.0f} MB"
+            chromes = sum(1 for d in os.listdir("/proc") if d.isdigit() and os.path.exists(f"/proc/{d}/comm")
+                          and open(f"/proc/{d}/comm").read().strip() in ("chrome", "chromedriver"))
+            mem += f" · عمليات Chrome شغالة دلوقتي: {chromes}"
+        except Exception:
+            mem = "?"
+        L += [f"الذاكرة: {mem}"]
         L += [f"النسخة: {_git_version()}", f"Python: {sys.version.split()[0]} · {platform.platform()}",
               f"المشروع: {paths.BASE_DIR}", f"البيانات: {paths.DATA_DIR} · التعريفات: {paths.DEFS_DIR}", f"الديسك: {disk}",
               f"CHROME_BIN={os.getenv('CHROME_BIN', '')} · CHROMEDRIVER_PATH={os.getenv('CHROMEDRIVER_PATH', '')} · HEADLESS={os.getenv('HEADLESS', '')}"]

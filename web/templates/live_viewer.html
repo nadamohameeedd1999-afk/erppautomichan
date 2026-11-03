@@ -51,6 +51,7 @@
                 <label class="form-check-label small" for="viewOnly">مشاهدة بس (من غير ماوس وكيبورد)</label>
             </div>
             <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-sm btn-outline-danger d-none" id="cleanBtn" onclick="cleanChrome()" title="متصفح فاضل مفتوح من غير اختبار شغال — بياكل ذاكرة السيرفر">🧹 اقفلي المتصفحات المعلقة</button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="reconnect()" title="إعادة الاتصال"><i class="bi bi-arrow-clockwise"></i></button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="goFull()" title="ملء الشاشة"><i class="bi bi-arrows-fullscreen"></i></button>
                 <a class="btn btn-sm btn-outline-primary" id="openTab" target="_blank" title="فتح في تاب لوحده"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -241,8 +242,20 @@ async function poll() {
     // تشغيل / إيقاف تلقائي
     if (document.getElementById('autoLive').checked) {
         if (STATUS.test_running && !LIVE) setLive(true, true);
-        else if (!STATUS.test_running && LIVE && autoStarted) setLive(false);
+        else if (!STATUS.test_running && LIVE) {                // the test ended (or none was running): stop after a short grace
+            idleTicks = (idleTicks || 0) + 1;
+            if (autoStarted || idleTicks >= 3) { idleTicks = 0; setLive(false, false);
+                showOff('مفيش اختبار شغال', 'البث وقف لوحده — هيشتغل تاني أول ما اختبار يبدأ.'); }
+        } else idleTicks = 0;
     }
+    const cb = document.getElementById('cleanBtn');
+    if (cb) cb.classList.toggle('d-none', !(STATUS.chromes > 0 && !STATUS.test_running));
+}
+
+let idleTicks = 0;
+async function cleanChrome() {
+    const r = await fetch('/api/live/cleanup', {method: 'POST'}).then(r => r.json()).catch(e => ({error: String(e)}));
+    showOff(r.success ? `🧹 اتقفل ${r.closed} عملية متصفح` : 'مقدرتش أقفل', r.success ? 'الذاكرة رجعت للسيرفر' : (r.error || ''));
 }
 
 (async function () {

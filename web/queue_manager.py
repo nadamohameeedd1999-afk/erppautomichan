@@ -187,6 +187,11 @@ class QueueManager:
             if p.poll() is None:
                 self.stopped_ids.add(k)
                 try:
+                    from utils.chrome_cleanup import kill_tree
+                    kill_tree(p.pid)                 # the test + its chromedriver + its Chrome (terminate left Chrome running)
+                except Exception:
+                    pass
+                try:
                     p.terminate()
                     try:
                         p.wait(timeout=5)
@@ -318,6 +323,13 @@ class QueueManager:
             with self.lock:
                 self.procs.pop(task_id, None)
                 self.running.pop(task_id, None)
+            try:                                       # a test that died leaves its Chrome behind
+                from utils.chrome_cleanup import kill_orphan_chrome
+                n = kill_orphan_chrome()
+                if n:
+                    print(f"[queue] 🧹 closed {n} leftover Chrome processes", flush=True)
+            except Exception:
+                pass
             if task.get("auto_retry"):
                 # إعادة مرة واحدة أول الطابور
                 self.add(task["auto_retry"], task["test_path"], f"{task.get('test_name', '')} (إعادة تلقائية)",

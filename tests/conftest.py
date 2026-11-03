@@ -108,9 +108,82 @@ def _get_service():
         return Service(ChromeDriverManager().install())
 
 
+def kill_orphan_chrome():
+    from utils.chrome_cleanup import kill_orphan_chrome as _k
+    n = _k() if IS_LINUX else 0
+    if n:
+        logger.warning(f"🧹 قفلت {n} عملية Chrome قديمة فاضلة من اختبارات وقعت (كانت واكلة ذاكرة السيرفر)")
+    return n
+
+
+def _kill_tree(pid):
+    """a process and everything it started (the crashed Chrome under its chromedriver)"""
+    kids = {}
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                with open(f"/proc/{d}/stat") as fh:
+                    st = fh.read()
+                kids.setdefault(int(st[st.rindex(")") + 2:].split()[1]), []).append(int(d))
+            except Exception:
+                pass
+    todo, all_ = [pid], []
+    while todo:
+        p = todo.pop()
+        all_.append(p)
+        todo += kids.get(p, [])
+    for p in reversed(all_):
+        try:
+            os.kill(p, 9)
+        except Exception:
+            pass
+
+
+def _crash_safe(drv, options):
+    """«tab crashed» (the server ran out of memory): a crashed tab can't be used again, so start a fresh Chrome and point
+    this same driver object at it (the test keeps going), log in again from the saved session, and open the page again"""
+    orig_get = drv.get
+
+    def get(url):
+        try:
+            return orig_get(url)
+        except Exception as e:
+            if "tab crashed" not in str(e) and "chrome not reachable" not in str(e):
+                raise
+            logger.warning("💥 المتصفح وقع (ذاكرة السيرفر) — بشغّل Chrome جديد وبكمّل من نفس المكان")
+            old_service = getattr(drv, "service", None)
+            old_pid = getattr(getattr(old_service, "process", None), "pid", None)
+            if old_pid and IS_LINUX:
+                _kill_tree(old_pid)                  # the crashed browser can't be quit normally
+                try:
+                    old_service.process.wait(timeout=5)
+                except Exception:
+                    pass
+            else:
+                try:
+                    drv.quit()
+                except Exception:
+                    pass
+            kill_orphan_chrome()
+            fresh = webdriver.Chrome(service=_get_service(), options=options)
+            drv.session_id, drv.command_executor = fresh.session_id, fresh.command_executor
+            drv.service = fresh.service
+            try:
+                drv.set_page_load_timeout(60)
+                drv.set_script_timeout(60)
+                from engine import session_cache
+                session_cache.restore(drv)
+            except Exception:
+                pass
+            return orig_get(url)
+    drv.get = get
+    return drv
+
+
 def _create_driver(options):
+    kill_orphan_chrome()
     service = _get_service()
-    return webdriver.Chrome(service=service, options=options)
+    return _crash_safe(webdriver.Chrome(service=service, options=options), options)
 
 
 @pytest.fixture(scope="function")

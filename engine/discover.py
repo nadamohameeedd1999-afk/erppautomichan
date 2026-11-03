@@ -53,6 +53,48 @@ return {title: document.title, heading: h ? (h.innerText || '').replace(/\s+/g, 
 """
 
 
+# open many pages from inside the logged-in page (fetch + DOMParser): no page loads in the tab -> no «tab crashed»,
+# far less memory on the server and ~10x faster than opening every page in Chrome
+FETCH_CHECK_JS = r"""
+const [paths, workers, deep, done] = [arguments[0], arguments[1], arguments[2], arguments[arguments.length - 1]];
+const P = new DOMParser(), out = {}; let i = 0;
+const txt = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
+const BAD = /logout|logoff|signout|\/(addedit|edit|delete|remove|print|details|download|export)\b|\.(pdf|xlsx?|zip|png|jpe?g)$/i;
+async function one(p) {
+  const t0 = performance.now();
+  try {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 40000);
+    const r = await fetch(p, {credentials: 'include', signal: ctl.signal}); const html = await r.text(); clearTimeout(tm);
+    const d = P.parseFromString(html, 'text/html');
+    const body = (d.body && d.body.textContent || '').slice(0, 6000);
+    const tables = Array.from(d.querySelectorAll('table')).filter(t => !t.closest('.modal, nav, header, aside, .sidebar'));
+    let rows = 0; tables.forEach(t => { rows = Math.max(rows, t.querySelectorAll('tbody tr').length); });
+    const h = d.querySelector('.content-wrapper h1, .content-wrapper h2, .content-wrapper h3, .page-title, .breadcrumb .active, .content-header, h1, h2');
+    const res = {s: r.status, ms: Math.round(performance.now() - t0), login: /\/login/i.test(new URL(r.url).pathname) && !/\/login/i.test(p),
+      title: txt(d.querySelector('title')).slice(0, 80), heading: h ? txt(h).slice(0, 80) : '', tables: tables.length, rows: rows,
+      add: !!d.querySelector("a[href*='AddEdit'], a[href*='Create'], a[href*='/Add']"),
+      error: r.status >= 400 || /server error|runtime error|404 - |خطأ في الخادم|the resource cannot be found|compilation error/i.test(body)};
+    if (deep && !res.error) {
+      const seen = {}; res.links = [];
+      const root = d.querySelector('.content-wrapper, main, .page-content, .content') || d.body;
+      root.querySelectorAll('a[href]').forEach(a => {
+        if (a.closest('nav, aside, header, .sidebar, .navbar')) return;
+        const hr = a.getAttribute('href') || ''; if (!hr || hr[0] === '#' || /^(javascript|mailto|tel):/i.test(hr)) return;
+        let u; try { u = new URL(hr, location.origin + p); } catch (e) { return; }
+        if (u.origin !== location.origin) return;
+        const path = u.pathname + (u.search || ''); if (path === '/' || BAD.test(path) || seen[path.toLowerCase()]) return;
+        const name = txt(a) || a.getAttribute('title') || ''; if (!name || name.length > 60) return;
+        seen[path.toLowerCase()] = 1; res.links.push({path: path, name: name, group: '', in_menu: false});
+      });
+      res.links = res.links.slice(0, 60);
+    }
+    out[p] = res;
+  } catch (e) { out[p] = {s: 0, ms: Math.round(performance.now() - t0), error: true, title: String(e).slice(0, 80), tables: 0, rows: 0}; }
+}
+async function w() { while (i < paths.length) { await one(paths[i++]); } }
+Promise.all(Array.from({length: workers}, w)).then(() => done(out));
+"""
+
 DEFAULT_SKIP = ["login", "tickets"]          # + whatever the user adds (sign-out links are never opened anyway)
 
 
@@ -149,33 +191,36 @@ def discover(driver, check=True, limit=3000, known_urls=(), progress=None, skip=
     logger.info(f"🧭 لقيت {len(menu)} رابط في القايمة")
     prog.step(f"🧭 لقيت {len(menu)} رابط في القايمة — هفتحهم واحد واحد", phase="checking", total=len(menu))
     i = 0
+    if check:
+        driver.set_script_timeout(600)
     while i < len(menu):
-        l = menu[i]
-        i += 1
-        base = l["path"].split("?")[0].lower().rstrip("/")
-        item = {"key": key_for(l["path"]), "name": l["name"], "name_en": english_name(l["path"]), "group": l["group"],
-                "url": l["path"], "full_url": BASE_URL.rstrip("/") + l["path"], "known": base in known}
-        prog.data["current"] = f"{l['name']} ({l['path']})"
+        batch = menu[i:i + 40]
+        prog.data["current"] = f"{batch[0]['name']} … ({len(batch)} صفحة مع بعض)"
         prog.save()
+        res = {}
         if check:
-            t0 = time.time()
             try:
-                driver.get(item["full_url"])
-                time.sleep(2)
-                info = driver.execute_script(CHECK_JS) or {}
+                res = driver.execute_async_script(FETCH_CHECK_JS, [l["path"] for l in batch], 6, bool(deep)) or {}
             except Exception as e:
                 t = f"{type(e).__name__} {e}".lower()
                 if any(w in t for w in ("invalidsessionid", "disconnected", "session deleted", "chrome not reachable", "tab crashed")):
                     prog.step("⚠️ المتصفح وقع — ببدأ من جديد", phase="retry")
                     raise
-                info = {"error": True, "title": str(e)[:80], "tables": 0}
-            item.update({"tables": info.get("tables", 0), "rows": info.get("rows", 0), "has_add": info.get("add", False),
-                         "error": info.get("error", False), "title": info.get("title", ""), "heading": info.get("heading", ""),
-                         "seconds": round(time.time() - t0, 1)})
-            item["kind"] = "error" if item["error"] else ("screen" if item["tables"] else "page")
-            if deep and not item["error"] and len(menu) < limit:
-                try:                             # links inside this page (tabs, sub-menus, report lists)
-                    for nl in driver.execute_script(MENU_JS) or []:
+                res = {}
+        for l in batch:
+            i += 1
+            base = l["path"].split("?")[0].lower().rstrip("/")
+            item = {"key": key_for(l["path"]), "name": l["name"], "name_en": english_name(l["path"]), "group": l["group"],
+                    "url": l["path"], "full_url": BASE_URL.rstrip("/") + l["path"], "known": base in known}
+            if check:
+                info = res.get(l["path"]) or {"error": True, "title": "مارجعش رد", "tables": 0}
+                item.update({"tables": info.get("tables", 0), "rows": info.get("rows", 0), "has_add": info.get("add", False),
+                             "error": bool(info.get("error") or info.get("login")), "title": info.get("title", ""),
+                             "heading": info.get("heading", ""), "seconds": round((info.get("ms") or 0) / 1000, 1),
+                             "status": info.get("s")})
+                item["kind"] = "error" if item["error"] else ("screen" if item["tables"] else "page")
+                if deep and not item["error"] and len(menu) < limit:
+                    for nl in info.get("links") or []:
                         if nl["path"].lower() in seen or len(menu) >= limit:
                             continue
                         seen.add(nl["path"].lower())
@@ -183,14 +228,12 @@ def discover(driver, check=True, limit=3000, known_urls=(), progress=None, skip=
                             nl["group"] = nl.get("group") or l["name"]
                             menu.append(nl)
                     prog.data["total"] = len(menu)
-                except Exception:
-                    pass
-        else:
-            item["kind"] = "screen"
-        icon = {"screen": "✅", "page": "📄", "error": "⚠️"}[item["kind"]]
-        logger.info(f"   {i}/{len(menu)} {icon} {l['name']} ({l['path']}){' — موجودة' if item['known'] else ''}")
-        prog.data["items"].append(item)
-        prog.data["done"] = i
+            else:
+                item["kind"] = "screen"
+            icon = {"screen": "✅", "page": "📄", "error": "⚠️"}[item["kind"]]
+            logger.info(f"   {i}/{len(menu)} {icon} {l['name']} ({l['path']}){' — موجودة' if item['known'] else ''}")
+            prog.data["items"].append(item)
+            prog.data["done"] = i
         prog.save()
     screens = [x for x in prog.data["items"] if x["kind"] == "screen"]
     prog.step(f"🏁 خلصت: {len(screens)} شاشة فيها جدول من {len(menu)} رابط"

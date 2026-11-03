@@ -87,6 +87,8 @@ class ScreenRunner(BasePage):
             text = a.text
             a.accept()
             self.alerts.append(f"JS: {text}")
+            if _ERROR_WORDS.search(text or "") and not str(text).strip().endswith(("؟", "?")):
+                self.error_alerts.append(text)          # «لا يمكن الحفظ: …» from the ERP = the real reason
             logger.info(f"JS Alert: {text[:150]}")
             time.sleep(0.5)
             return text
@@ -197,6 +199,7 @@ class ScreenRunner(BasePage):
             time.sleep(a.get("wait_after", 1.5))
 
     def save(self):
+        self.error_alerts.clear()              # messages from filling (العميل مطلوب…) are not the save's answer
         sel = self.cfg["save_button"]
         try:
             el = WebDriverWait(self.driver, 8 if self.cfg.get("operation") == "edit" else 15).until(
