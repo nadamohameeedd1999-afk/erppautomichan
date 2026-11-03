@@ -130,15 +130,16 @@ def api_list():
 @bp.route("/api/screens/catalog")
 @auth.login_required
 def api_catalog():
-    from config.modules_registry import ModulesRegistry
+    from config.screens_catalog import all_pages
     sc = _cfg()
     have = set(sc.keys())
     out = []
-    for mk, m in ModulesRegistry.MODULES.items():
-        for pk, p in m.get("pages", {}).items():
-            out.append({"module_key": mk, "module_name": m.get("name_ar", mk), "key": pk,
-                        "name_ar": p.get("name_ar", pk), "name_en": p.get("name_en", ""),
-                        "url": p.get("url", ""), "has_config": pk in have})
+    for pk, p in all_pages().items():           # the registry + every screen found by «اكتشاف شاشات النظام»
+        if not p.get("url"):
+            continue
+        out.append({"module_key": p.get("module_key", ""), "module_name": p.get("module_name") or "🧭 شاشات مكتشفة", "key": pk,
+                    "name_ar": p.get("name_ar", pk), "name_en": p.get("name_en", ""),
+                    "url": p.get("url", ""), "has_config": pk in have})
     listed = {p["key"] for p in out}
     for c in sc.list_all():
         if not c.get("error") and c["key"] not in listed:
@@ -396,7 +397,7 @@ def api_discover():
     """Read the ERP side menu, open every link and report what's there (اكتشاف شاشات النظام).
     Nothing is added to the tests until the user picks screens (/api/screens/discovered/add)."""
     d = request.get_json(silent=True) or {}
-    limit = max(1, min(1500, int(d.get("limit") or 200)))
+    limit = max(1, min(5000, int(d.get("limit") or 3000)))
     skip = d.get("skip")
     if isinstance(skip, str):
         skip = skip.replace("،", ",").replace("\n", ",").split(",")
@@ -422,7 +423,7 @@ def _disc_settings():
     from engine.discover import DEFAULT_SKIP
     c = load_json(paths.settings_file("discovery.json"), {}) or {}
     return {"skip": c.get("skip") if isinstance(c.get("skip"), list) else list(DEFAULT_SKIP),
-            "deep": bool(c.get("deep", False)), "limit": int(c.get("limit") or 200), "default_skip": list(DEFAULT_SKIP)}
+            "deep": bool(c.get("deep", False)), "limit": max(int(c.get("limit") or 3000), 3000), "default_skip": list(DEFAULT_SKIP)}
 
 
 @bp.route("/api/screens/discover/settings")

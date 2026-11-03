@@ -116,7 +116,7 @@ class Progress:
                     pass
 
 
-def discover(driver, check=True, limit=200, known_urls=(), progress=None, skip=None, deep=False):
+def discover(driver, check=True, limit=3000, known_urls=(), progress=None, skip=None, deep=False):
     prog = progress or Progress()
     skip = [s for s in (DEFAULT_SKIP if skip is None else skip) if str(s).strip()]
     prog.data["skip"] = skip

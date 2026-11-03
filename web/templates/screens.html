@@ -141,6 +141,7 @@
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label small">اختار من شاشات النظام</label>
+                        <input class="form-control form-control-sm mb-1" id="catalogFilter" placeholder="🔍 دوّري باسم الشاشة أو الرابط… (كل شاشات النظام المكتشفة)" oninput="paintCatalog(this.value)">
                         <select class="form-select" id="catalogSelect" onchange="pickFromCatalog(this.value)">
                             <option value="">— أو اكتب رابط شاشة جديدة تحت —</option>
                         </select>
@@ -397,7 +398,7 @@
           <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
             <span class="text-muted small">بيدخل الـ ERP، يقرأ القايمة الجانبية ويفتح كل شاشة <b>(فتح بس — مش بيضيف ولا يحفظ ولا يمسح)</b>.</span>
             <label class="small ms-auto">أقصى عدد روابط</label>
-            <input type="number" id="discLimit" class="form-control form-control-sm" style="width:90px" value="200" min="1" max="1500">
+            <input type="number" id="discLimit" class="form-control form-control-sm" style="width:90px" value="3000" min="1" max="5000">
             <button class="btn btn-success btn-sm" id="discStartBtn" onclick="discStart()">▶️ ابدأ</button>
           </div>
           <div class="row g-2 align-items-center">
@@ -587,12 +588,21 @@ async function loadCatalog() {
     const r = await fetch('/api/screens/catalog').then(r => r.json()).catch(() => ({success: false}));
     if (!r.success) return;
     CATALOG = r.pages;
+    paintCatalog('');
+}
+
+function paintCatalog(q) {
+    const n = s => String(s || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const w = n(q).trim();
     const groups = {};
-    CATALOG.forEach(p => { (groups[p.module_name] = groups[p.module_name] || []).push(p); });
-    $('catalogSelect').innerHTML = '<option value="">— أو اكتب رابط شاشة جديدة تحت —</option>' +
+    CATALOG.filter(p => !w || n(p.name_ar + ' ' + p.url + ' ' + p.module_name).includes(w))
+        .forEach(p => { (groups[p.module_name] = groups[p.module_name] || []).push(p); });
+    const cur = $('catalogSelect').value;
+    $('catalogSelect').innerHTML = `<option value="">— ${CATALOG.length} شاشة — أو اكتب رابط شاشة جديدة تحت —</option>` +
         Object.entries(groups).map(([g, items]) => `<optgroup label="${esc(g)}">` +
             items.map(p => `<option value="${esc(p.key)}">${p.has_config ? '🧩 ' : ''}${esc(p.name_ar)} — ${esc(p.url)}</option>`).join('') +
             '</optgroup>').join('');
+    if (cur) $('catalogSelect').value = cur;
 }
 
 function pickFromCatalog(key) {
@@ -1671,7 +1681,7 @@ async function discLoadSettings() {
     DISC_DEFAULT_SKIP = j.default_skip || [];
     $('discSkip').value = (j.skip || []).join(', ');
     $('discDeep').checked = !!j.deep;
-    $('discLimit').value = j.limit || 200;
+    $('discLimit').value = j.limit || 3000;
     discSkipChips();
 }
 function openDiscover() {
@@ -1688,7 +1698,7 @@ function discUI(running) {
 }
 async function discStart() {
     const r = await fetch('/api/screens/discover', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({limit: +$('discLimit').value || 200, skip: discSkipList(), deep: $('discDeep').checked})}).then(r => r.json()).catch(e => ({error: String(e)}));
+        body: JSON.stringify({limit: +$('discLimit').value || 3000, skip: discSkipList(), deep: $('discDeep').checked})}).then(r => r.json()).catch(e => ({error: String(e)}));
     if (!r.success) { alert('❌ ' + (r.error || 'مقدرتش أبدأ')); return; }
     DISC.job = r.job_id; DISC.items = []; DISC.sel = new Set(); DISC.t0 = Date.now(); DISC.report = null;
     try { localStorage.setItem('disc_job', r.job_id); } catch (e) {}

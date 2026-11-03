@@ -254,7 +254,7 @@ def main(argv=None):
 
     dc = sub.add_parser("discover")
     dc.add_argument("--no-check", action="store_true")
-    dc.add_argument("--limit", type=int, default=200)
+    dc.add_argument("--limit", type=int, default=3000)
     dc.add_argument("--no-save", action="store_true", help="only report; the dashboard adds the screens the user picks")
     dc.add_argument("--progress", default="")
     dc.add_argument("--skip", default=None, help="skip links containing these words, comma separated (default: login,logout,tickets…)")
