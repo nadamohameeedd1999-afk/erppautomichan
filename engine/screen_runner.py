@@ -201,7 +201,9 @@ class ScreenRunner(BasePage):
         try:
             el = WebDriverWait(self.driver, 8 if self.cfg.get("operation") == "edit" else 15).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
-        except TimeoutException:
+            if not el.is_displayed() or re.search(r"^bm|bookmark", (el.get_attribute("id") or "") + " " + (el.get_attribute("class") or ""), re.I):
+                raise TimeoutException("hidden")
+        except (TimeoutException, Exception):
             el = self.driver.execute_script(FIND_SAVE_JS)
             if not el:
                 raise AssertionError(f"زرار الحفظ ({sel}) مش موجود — ومالقيتش أي زرار «حفظ / تعديل / Save» ظاهر في الصفحة")
@@ -388,7 +390,8 @@ FIND_SAVE_JS = r"""
 const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
 const T = e => ((e.innerText || e.value || e.title || '') + ' ' + (e.id || '') + ' ' + (e.className || '')).toLowerCase();
 const all = Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a.btn'))
-  .filter(e => vis(e) && !e.disabled && !e.closest('nav, header, .navbar, aside, .sidebar, .modal:not(.show), table'));
+  .filter(e => vis(e) && !e.disabled && !e.closest('nav, header, .navbar, aside, .sidebar, .modal:not(.show), table')
+             && !/^bm|bookmark|favou?rite/i.test((e.id || '') + ' ' + (e.className || '')));
 const pri = [/^\s*(حفظ|save)\b/, /حفظ التعديل|تعديل وحفظ|update|حفظ|save|تحديث|submit/, /btn-?save|#?save/];
 for (const re of pri) { const e = all.find(x => re.test(T(x)) && !/حفظ و جديد|حفظ وجديد|طباعة|print|بحث|search|الغاء|إلغاء|cancel/.test(T(x))); if (e) return e; }
 return null;

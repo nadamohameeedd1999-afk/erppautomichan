@@ -43,7 +43,7 @@ def load_recipe(info):
         return None
 
 
-def save_recipe(info, way, fields, res):
+def save_recipe(info, way, fields, res, no_flows=False):
     """the values that really saved -> fixed fields for next time"""
     got = {s.get("id"): s for s in (res.get("steps") or []) if s.get("ok") and s.get("id") and not str(s.get("id")).startswith("__")}
     out = []
@@ -64,7 +64,7 @@ def save_recipe(info, way, fields, res):
         return
     RECIPES.mkdir(parents=True, exist_ok=True)
     (RECIPES / f"{_key(info)}.json").write_text(json.dumps({"way": way, "at": datetime.now().isoformat(timespec="seconds"),
-                                                            "screen": info["name"], "fields": out}, ensure_ascii=False), encoding="utf-8")
+                                                            "screen": info["name"], "fields": out, "no_flows": no_flows}, ensure_ascii=False), encoding="utf-8")
     logger.info(f"📌 اتحفظت «الوصفة الناجحة» لـ «{info['name']}» ({len(out)} حقل) — المرة الجاية هبدأ بيها")
 
 
@@ -153,7 +153,8 @@ def verdict(attempts):
     if md and all(md):
         return "data", f"📦 بيانات أساسية ناقصة في الموقع: «{md[0]}» مفيهاش ولا اختيار — عرّفي واحد وشغّلي تاني"
     reasons = {a["reason"] for a in attempts}
-    if len(reasons) == 1 and attempts and len(attempts) > 1:
+    ours = re.compile(r"مفيش رسالة|Exception|ConfigError|وقف في الإجراء|مالقيتش|مش موجود|selector|خطوة|اتملى|كتبنا", re.I)
+    if len(reasons) == 1 and attempts and len(attempts) > 1 and not ours.search(attempts[0]["reason"]):
         return "erp", f"❌ كل الطرق ({len(attempts)}) اترفضت بنفس رسالة الـ ERP: «{attempts[0]['reason']}» — غالبًا قاعدة / مشكلة في الـ ERP"
     return "tool", (f"⚠️ جربت {len(attempts)} طرق ومحدش فيهم اتحفظ ومفيش خطأ تقني من الـ ERP — سجّلي الشاشة بإيدك مرة واحدة"
                     " (منشئ الاختبارات ← تسجيل) وهكرر خطواتك")
@@ -167,7 +168,8 @@ def add_stubbornly(driver, credentials, info, base, plan_add, read, mode, builde
     ladder = []
     rec = load_recipe(info)
     if rec and rec.get("fields"):
-        ladder.append(("📌 الوصفة الناجحة من آخر مرة", lambda: rec["fields"]))
+        ladder.append(("📌 الوصفة الناجحة من آخر مرة",
+                       lambda: {"__no_flows__": True, "fields": rec["fields"]} if rec.get("no_flows") else rec["fields"]))
     ladder.append(("🙂 الطريقة العادية", lambda: plan_add["fields"]))
     copy_note = {}
 
@@ -181,6 +183,9 @@ def add_stubbornly(driver, credentials, info, base, plan_add, read, mode, builde
         return flds
     ladder.append(("📋 نسخ قيم سجل محفوظ", from_saved))
     ladder.append(("🔀 اختيارات تانية في القوايم", lambda: other_options(plan_add["fields"])))
+    if plan_add.get("flows") or plan_add.get("before_save"):
+        ladder.append(("🧩 من غير خطوات منشئ الشاشات (أصناف تلقائي)",
+                       lambda: {"__no_flows__": True, "fields": build_fields(read, "all", "first", None)[0]}))
     other = "required" if mode == "all" else "all"
     ladder.append(("📝 " + ("الإجباري بس" if other == "required" else "كل الحقول"), lambda: build_fields(read, other, "first", builder)[0]))
 
@@ -192,8 +197,13 @@ def add_stubbornly(driver, credentials, info, base, plan_add, read, mode, builde
         except Exception as e:
             lines.append(f"{i}) {name}: ⏭️ {str(e).splitlines()[0][:150]}")
             continue
+        if not (fields["fields"] if isinstance(fields, dict) else fields):
+            lines.append(f"{i}) {name}: ⏭️ مفيش حقول للطريقة دي")
+            continue
         logger.info(f"🧠 محاولة {i}: {name}")
         cfg = {**plan_add, "fields": fields}
+        if isinstance(fields, dict):
+            cfg = {**plan_add, "fields": fields["fields"], "flows": [], "before_save": []}
         try:
             res = run_screen(driver, credentials, variant(cfg), save=True, do_login=False)
             ok, err = True, ""
@@ -207,7 +217,7 @@ def add_stubbornly(driver, credentials, info, base, plan_add, read, mode, builde
             extra = f" (نسخت {copy_note['used']} قيمة من سجل محفوظ)" if name.startswith("📋") else ""
             lines.append(f"{i}) {name}: ✅ اتحفظ{extra}")
             if i > 1 or not name.startswith("📌"):
-                save_recipe(info, name, fields, res)
+                save_recipe(info, name, fields["fields"] if isinstance(fields, dict) else fields, res, no_flows=isinstance(fields, dict))
             return res, ok, err, lines
         reason = next((x.strip() for x in err.splitlines() if x.strip() and "ما نجح" not in x), err[:150])[:170]
         lines.append(f"{i}) {name}: ❌ {reason}")

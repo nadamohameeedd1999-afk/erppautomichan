@@ -150,7 +150,7 @@ function start(mode, fellBack) {
     document.getElementById('liveOff').style.display = 'none';
     if (mode === 'vnc') {
         const url = vncUrl(); lastUrl = url;
-        frame.src = url; frame.style.display = 'block'; img.style.display = 'none';
+        frame.src = url; frame.style.display = 'block'; if (LS && LS.img) LS.img.style.display = 'none';
         document.getElementById('openTab').href = url;
         watchTimer = setTimeout(checkVnc, 8000);           // noVNC couldn't connect -> pictures
     } else {

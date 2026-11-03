@@ -7,6 +7,7 @@ It never clicks save. The only thing it touches is the dropdowns (to find which
 field depends on which, e.g. project after customer) — nothing is sent to the server
 except the normal "load options" requests the page itself makes.
 """
+import re
 import time
 from urllib.parse import urlsplit
 
@@ -121,7 +122,10 @@ var els = root.querySelectorAll('button, input[type=submit], input[type=button],
 for (var i = 0; i < els.length; i++) {
   var b = els[i];
   if (b.closest('nav, .navbar, header, .select2-container, .dataTables_wrapper, .swal2-container, .modal-footer')) continue;
-  var sel = b.id ? (b.tagName.toLowerCase() + '#' + b.id) : '';
+  if (/^bm|bookmark|favou?rite/i.test((b.id || '') + ' ' + (b.className || '')) || b.closest('[id*=bookmark i], [class*=bookmark i]')) continue;   // «إضافة الي الصفحات المفضلة»
+  var tag = b.tagName.toLowerCase(), oc = b.getAttribute('onclick') || '';
+  var sel = b.id ? (/^[A-Za-z_][\w-]*$/.test(b.id) ? tag + '#' + b.id : tag + '[id="' + b.id.replace(/["\\]/g, '\\$&') + '"]')
+          : (oc ? tag + '[onclick="' + oc.replace(/["\\]/g, '\\$&') + '"]' : '');
   if (!sel) continue;
   if (seen[sel]) continue; seen[sel] = 1;
   var r = b.getBoundingClientRect();
@@ -335,9 +339,13 @@ class FormInspector(BasePage):
             warnings.append("الشاشة فيها جدول أصناف/سطور — استخدمي «➕ قالب: إضافة صنف» أو «⏺ سجّلي خطواتك» للسطور")
 
         buttons = self.scan_buttons()
-        save = next((b["selector"] for b in buttons if b["id"].lower() in ("save", "btnsave")), "")
+        main = [b for b in buttons if b.get("visible") and not b.get("in_modal") and not b.get("in_table")]
+        save = next((b["selector"] for b in main if b["id"].lower() in ("save", "btnsave")), "")
         if not save:
-            save = next((b["selector"] for b in buttons if "حفظ" in b["text"] or "save" in b["text"].lower()), "")
+            save = next((b["selector"] for b in main if b["text"].strip() in ("حفظ", "Save", "save", "حفظ البيانات")), "")
+        if not save:
+            save = next((b["selector"] for b in main if ("حفظ" in b["text"] or "save" in b["text"].lower())
+                         and not re.search(r"جديد|طباع|new|print", b["text"], re.I)), "")
 
         shot = self.take_screenshot("inspect")
         return {

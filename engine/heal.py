@@ -149,8 +149,25 @@ def heal(r, cfg, tried):
                 time.sleep(1.5)
             except Exception as e:
                 did.append(f"«{b['text']}» ما اتداسش: {str(e).splitlines()[0][:80]}")
+    # «اختار الملفات ومن ثم رفعها»: a file is chosen but not uploaded -> press the page's upload button, or un-choose it
+    if "رفع" in text and "files_up" not in tried:
+        tried.add("files_up")
+        got = d.execute_script(r"""
+            var vis = function (e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+            var b = Array.from(document.querySelectorAll('button, a.btn, input[type=button]')).find(function (x) {
+              return vis(x) && /^(رفع|ارفع|تحميل الملفات|رفع الملفات|upload)/i.test((x.innerText || x.value || '').trim()); });
+            if (b) { b.click(); return 'دست «' + (b.innerText || b.value).trim() + '» عشان يرفع الملف اللي اتختار'; }
+            var n = 0;
+            document.querySelectorAll('input[type=file]').forEach(function (f) { if (f.files && f.files.length) { f.value = '';
+              f.dispatchEvent(new Event('change', {bubbles: true})); n++; } });
+            return n ? 'شلت الملف اللي اتختار ومترفعش (' + n + ')' : '';""") or ""
+        if got:
+            time.sleep(2)
+            r.accept_js_alert(timeout=1)
+            r.handle_swals(max_count=2, timeout=1.5, max_misses=1)
+            did.append(got)
     # files the page insists on
-    if any(w in text for w in ("الملفات", "ملف", "مرفق", "file")) and "files" not in tried:
+    if any(w in text for w in ("الملفات", "ملف", "مرفق", "file")) and "files" not in tried and "رفع" not in text:
         tried.add("files")
         for f in st.get("fields") or []:
             if f["kind"] == "file" and not f["files"]:
