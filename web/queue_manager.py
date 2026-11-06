@@ -205,6 +205,8 @@ class QueueManager:
     def _execute(self, task):
         try:                                            # a full disk makes every save fail
             from utils.disk_guard import free_space
+            from utils import storage
+            storage.auto_tick()                         # the saved cleanup policy (every few hours)
             free_space()
         except Exception:
             pass

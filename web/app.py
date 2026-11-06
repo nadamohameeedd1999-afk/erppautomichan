@@ -25,6 +25,8 @@ app.config.from_object(Config)
 # ==================== 📋 تقرير التشخيص: the server console + every error saved to data/logs (one text to copy) ====================
 from web import diagnostics
 diagnostics.install(app)
+from web.storage_api import bp as storage_bp
+app.register_blueprint(storage_bp)
 
 # ==================== Screen Builder (منشئ الشاشات) ====================
 from web.screens_api import bp as screens_bp

@@ -171,6 +171,12 @@ function editProfile(id, name, url, username, notes, activity, branch) {
                 {% if current_lang == 'ar' %}واتساب وتليجرام{% else %}WhatsApp & Telegram{% endif %}
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="storage-tab" data-bs-toggle="tab" data-bs-target="#storage" type="button" role="tab" onclick="stLoad()">
+                <i class="bi bi-hdd"></i>
+                {% if current_lang == 'ar' %}مساحة السيرفر{% else %}Server storage{% endif %}
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content" id="settingsTabContent">
@@ -704,6 +710,100 @@ function editProfile(id, name, url, username, notes, activity, branch) {
 </div>
 
 <!-- TAB: WhatsApp / Telegram (rendered here, moved into the tabs by JS below) -->
+<div class="tab-pane fade" id="storage" role="tabpanel" data-move-to="settingsTabContent">
+  <style>
+    .st-bar { height: 16px; border-radius: 9px; background: var(--g-hover, #eef3f3); overflow: hidden; }
+    .st-bar i { display: block; height: 100%; background: linear-gradient(90deg, #0F7C7A, #14a3a0); }
+    .st-bar i.warn { background: linear-gradient(90deg, #e67e22, #e74c3c); }
+    .st-row { display: grid; grid-template-columns: 28px 1fr 110px 110px 140px; gap: 8px; align-items: center; padding: 7px 4px; border-bottom: 1px solid var(--g-line, #e3ebea); font-size: 13.5px; }
+    .st-row.head { font-weight: 700; color: var(--g-muted, #6b7c7b); font-size: 12px; }
+    .st-row.keep { opacity: .65; }
+    .st-free { color: #c0392b; font-weight: 700; }
+  </style>
+  <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+      <div><h5 class="fw-bold mb-1"><i class="bi bi-hdd"></i> مساحة السيرفر</h5>
+        <div class="text-muted small">إيه اللي مالي ديسك السيرفر، وتنظيف آمن: صور / تقارير Allure / لوجات قديمة بس — <b>نتايج الاختبارات والإعدادات والاختبارات المتعرفة مش بتتمسح أبدًا</b>.</div></div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="stLoad()"><i class="bi bi-arrow-clockwise"></i> تحديث</button>
+    </div>
+    <div class="d-flex justify-content-between small mb-1"><span id="stUsed">…</span><span id="stFree"></span></div>
+    <div class="st-bar mb-3"><i id="stBarFill" style="width:0"></i></div>
+
+    <div class="st-row head"><span></span><span>النوع</span><span>الملفات</span><span>الحجم</span><span>هيتمسح</span></div>
+    <div id="stRows"></div>
+
+    <div class="d-flex flex-wrap gap-3 align-items-center mt-3">
+      <label class="d-flex align-items-center gap-2">امسحي اللي أقدم من
+        <select id="stDays" class="form-select form-select-sm" style="width:auto" onchange="stPreview()">
+          <option value="0">أي حاجة (ماعدا آخر ساعة)</option><option value="1">يوم</option><option value="3">3 أيام</option>
+          <option value="7">أسبوع</option><option value="14">أسبوعين</option><option value="30">شهر</option></select></label>
+      <label class="d-flex align-items-center gap-2">وسيبي آخر
+        <input id="stKeep" type="number" min="1" max="100" class="form-control form-control-sm" style="width:70px" onchange="stPreview()"> نسخة احتياطية تلقائية</label>
+      <label class="form-check ms-auto mb-0"><input class="form-check-input" type="checkbox" id="stBackup" checked>
+        <span class="form-check-label">📦 خدي نسخة احتياطية شاملة قبل المسح (كل الداتا من غير الصور)</span></label>
+      <button class="btn btn-danger" onclick="stClean()"><i class="bi bi-trash"></i> نظّفي دلوقتي <span id="stTotal"></span></button>
+    </div>
+    <div id="stMsg" class="mt-2"></div>
+  </div></div>
+
+  <div class="card border-0 shadow-sm"><div class="card-body">
+    <h6 class="fw-bold mb-2">🤖 تنظيف تلقائي</h6>
+    <div class="form-check form-switch mb-2">
+      <input class="form-check-input" type="checkbox" id="stAuto">
+      <label class="form-check-label" for="stAuto">نظّفي لوحدك كل 6 ساعات بنفس الاختيارات اللي فوق (الأنواع المتعلّم عليها + المدة + عدد النسخ)</label>
+    </div>
+    <div class="text-muted small mb-2">وكمان قبل أي اختبار، لو المساحة الفاضية قلت عن 300 MB، أقدم الصور واللوجات بتتمسح لوحدها علشان الاختبارات ماتقفش.</div>
+    <button class="btn btn-primary btn-sm" onclick="stSavePolicy()"><i class="bi bi-check-circle"></i> احفظي سياسة التنظيف</button>
+  </div></div>
+</div>
+<script>
+let ST = null;
+const stEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const mb = x => x >= 1024 ? (x / 1024).toFixed(2) + ' GB' : (x || 0).toFixed(1) + ' MB';
+function stCats() { return Array.from(document.querySelectorAll('.st-cat:checked')).map(x => x.value); }
+async function stLoad() {
+    ST = await fetch('/api/storage').then(r => r.json());
+    const used = ST.used_mb, tot = ST.total_mb, pct = tot ? used / tot * 100 : 0;
+    document.getElementById('stUsed').innerHTML = `مستخدم <b>${mb(used)}</b> من ${mb(tot)}`;
+    document.getElementById('stFree').innerHTML = `<span class="${ST.free_pct < 15 ? 'st-free' : ''}">فاضي ${mb(ST.free_mb)} (${ST.free_pct}%)</span>`;
+    const f = document.getElementById('stBarFill'); f.style.width = Math.min(100, pct) + '%'; f.classList.toggle('warn', ST.free_pct < 15);
+    const pol = ST.policy;
+    document.getElementById('stDays').value = String(pol.days); document.getElementById('stKeep').value = pol.keep_backups;
+    document.getElementById('stAuto').checked = !!pol.auto;
+    document.getElementById('stRows').innerHTML = ST.cats.map(c => `<div class="st-row ${c.clean ? '' : 'keep'}">
+        <span>${c.clean ? `<input type="checkbox" class="form-check-input st-cat" value="${c.key}" ${pol.cats.includes(c.key) ? 'checked' : ''} onchange="stPreview()">` : '🔒'}</span>
+        <span>${stEsc(c.label)}</span><span>${c.files.toLocaleString()}</span><span><b>${mb(c.mb)}</b></span><span id="stp_${c.key}" class="text-danger">${c.clean ? '…' : '—'}</span></div>`).join('');
+    stPreview();
+}
+async function stPreview() {
+    const body = {cats: stCats(), days: +document.getElementById('stDays').value, keep_backups: +document.getElementById('stKeep').value || 10};
+    const j = await fetch('/api/storage/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    let tot = 0;
+    (ST.cats || []).filter(c => c.clean).forEach(c => {
+        const p = (j.plan || {})[c.key], el = document.getElementById('stp_' + c.key);
+        if (el) el.textContent = !body.cats.includes(c.key) ? '—' : (p ? `${p.files.toLocaleString()} ملف · ${mb(p.mb)}` : 'مفيش');
+        if (p && body.cats.includes(c.key)) tot += p.mb;
+    });
+    document.getElementById('stTotal').textContent = tot ? `(${mb(tot)})` : '';
+}
+async function stClean() {
+    const body = {cats: stCats(), days: +document.getElementById('stDays').value, keep_backups: +document.getElementById('stKeep').value || 10,
+                  backup: document.getElementById('stBackup').checked};
+    if (!body.cats.length) { document.getElementById('stMsg').innerHTML = '<div class="alert alert-warning py-2">علّمي على نوع واحد على الأقل</div>'; return; }
+    if (!confirm('أمسح الملفات دي؟ نتايج الاختبارات والإعدادات مش هتتلمس.')) return;
+    const j = await fetch('/api/storage/clean', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    document.getElementById('stMsg').innerHTML = j.success ? `<div class="alert alert-success py-2">🧹 اتمسح ${j.files.toLocaleString()} ملف — فضي ${mb(j.mb)}${j.skipped_chrome ? ' · (كاش المتصفح اتساب لأن فيه متصفح مفتوح دلوقتي)' : ''}
+        ${j.backup ? `<br>📦 النسخة الاحتياطية: <a href="${stEsc(j.backup.url)}"><b>${stEsc(j.backup.name)}</b></a> — نزّليها على جهازك (لو فضلت على السيرفر بتاخد مساحة)` : ''}</div>`
+                                                        : `<div class="alert alert-danger py-2">${stEsc(j.error)}</div>`;
+    stLoad();
+}
+async function stSavePolicy() {
+    const body = {auto: document.getElementById('stAuto').checked, cats: stCats(), days: +document.getElementById('stDays').value, keep_backups: +document.getElementById('stKeep').value || 10};
+    const j = await fetch('/api/storage/policy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    document.getElementById('stMsg').innerHTML = j.success ? '<div class="alert alert-success py-2">✅ اتحفظت سياسة التنظيف</div>' : `<div class="alert alert-danger py-2">${stEsc(j.error)}</div>`;
+}
+</script>
+
 <div class="tab-pane fade" id="alerts" role="tabpanel" data-move-to="settingsTabContent">
     <div class="card border-0 shadow-sm"><div class="card-body">
         <h5 class="fw-bold mb-1"><i class="bi bi-whatsapp text-success"></i> تنبيهات واتساب وتليجرام</h5>

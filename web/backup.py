@@ -22,7 +22,7 @@ BACKUP_HOUR = int(os.getenv("BACKUP_HOUR", "3"))
 SHOT_DAYS = int(os.getenv("BACKUP_SCREENSHOT_DAYS", "3"))
 
 
-def _items(full=False):
+def _items(full=False, shots=True):
     """(path on disk, name inside the zip)"""
     out = []
     for root, arc in ((paths.SETTINGS_DIR, "data/settings"), (paths.RESULTS_DIR, "data/runs/results"),
@@ -32,9 +32,17 @@ def _items(full=False):
             for f in root.rglob("*"):
                 if f.is_file() and not f.name.endswith(".tmp"):
                     out.append((f, f"{arc}/{f.relative_to(root).as_posix()}"))
+    if paths.STATE_DIR.exists():                      # system health, recipes, leftovers… (not the browser profile / job logs)
+        for f in paths.STATE_DIR.rglob("*"):
+            rel = f.relative_to(paths.STATE_DIR).as_posix()
+            if f.is_file() and not rel.startswith(("chrome_profile", "screen_jobs")) and not f.name.endswith(".tmp"):
+                out.append((f, f"data/state/{rel}"))
+    for f in (paths.DATA_DIR / "history").rglob("*") if (paths.DATA_DIR / "history").exists() else []:
+        if f.is_file():
+            out.append((f, f"data/history/{f.relative_to(paths.DATA_DIR / 'history').as_posix()}"))
     if paths.SCHEDULES_FILE.exists():
         out.append((paths.SCHEDULES_FILE, "data/schedules.json"))
-    if paths.SCREENSHOTS_DIR.exists():
+    if shots and paths.SCREENSHOTS_DIR.exists():
         cutoff = time.time() - SHOT_DAYS * 86400
         for f in paths.SCREENSHOTS_DIR.glob("*.png"):
             if full or f.stat().st_mtime >= cutoff:
@@ -42,13 +50,13 @@ def _items(full=False):
     return out
 
 
-def create(kind="manual", full=False):
+def create(kind="manual", full=False, shots=True):
     paths.BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
     name = f"backup_{datetime.now():%Y%m%d_%H%M%S}_{kind}.zip"
     dest = paths.BACKUPS_DIR / name
     tmp = dest.with_suffix(".zip.tmp")
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-        for f, arc in _items(full):
+        for f, arc in _items(full, shots):
             try:
                 z.write(f, arc)
             except Exception:
