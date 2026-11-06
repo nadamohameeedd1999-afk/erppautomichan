@@ -203,6 +203,11 @@ class QueueManager:
         return stopped
 
     def _execute(self, task):
+        try:                                            # a full disk makes every save fail
+            from utils.disk_guard import free_space
+            free_space()
+        except Exception:
+            pass
         task_id = task["task_id"]
         log_file = LOGS_DIR / f"{task_id}.log"
         start_time = datetime.now()

@@ -94,6 +94,29 @@ def install(app):
         _append(SERVER_LOG, f"{datetime.now():%Y-%m-%d %H:%M:%S} EXC {request.method} {request.path}\n"
                 + "".join(traceback.format_exception(type(exception), exception, exception.__traceback__)))
     got_request_exception.connect(on_error, app, weak=False)
+
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(Exception)
+    def api_error(e):
+        """an API that breaks answers with the real reason (the page shows it) instead of a bare «500»"""
+        if isinstance(e, HTTPException):
+            return e
+        _append(SERVER_LOG, f"{datetime.now():%Y-%m-%d %H:%M:%S} EXC {request.method} {request.path}\n"
+                + "".join(traceback.format_exception(type(e), e, e.__traceback__)))
+        if request.path.startswith("/api/"):
+            why = f"{type(e).__name__}: {e}"
+            if isinstance(e, OSError) and getattr(e, "errno", None) == 28:
+                n = 0
+                try:
+                    from utils.disk_guard import free_space
+                    n = free_space()
+                except Exception:
+                    pass
+                why = ("مساحة الديسك على السيرفر كانت خلصت — " + (f"مسحت {n} صورة / لوج قديم، جربي تاني" if n else
+                       "امسحي تقارير قديمة أو كبّري المساحة على Railway"))
+            return jsonify({"success": False, "error": why[:500]}), 500
+        return f"<h3>حصل خطأ في السيرفر</h3><pre>{type(e).__name__}: {str(e)[:500]}</pre>", 500
     app.register_blueprint(bp)
 
 
