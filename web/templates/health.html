@@ -3,116 +3,158 @@
 
 {% block extra_css %}
 <style>
-    .hc { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); padding: 16px 18px; }
-    .kpi { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 14px; text-align: center; }
-    .kpi b { display: block; font-size: 26px; line-height: 1.2; }
-    .kpi span { color: var(--g-muted); font-size: 12px; }
-    .kpi.bad b { color: var(--g-bad, #dc3545); } .kpi.ok b { color: var(--g-ok, #198754); }
-    .muted { color: var(--g-muted); font-size: 12px; }
-    .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-    .chip.ok { background: rgba(52,211,153,.14); color: var(--g-ok, #198754); } .chip.bad { background: rgba(251,113,133,.14); color: var(--g-bad, #dc3545); }
-    .chip.none { background: var(--g-hover); color: var(--g-muted); }
-    .bars { display: flex; gap: 3px; align-items: flex-end; height: 46px; }
-    .bars i { flex: 1; min-width: 4px; max-width: 16px; background: var(--g-bad, #dc3545); opacity: .75; border-radius: 3px 3px 0 0; }
-    .bars i.z { background: var(--g-ok, #198754); height: 4px !important; }
-    #brk td { font-size: 13px; vertical-align: top; }
-    .ltr { direction: ltr; unicode-bidi: embed; }
+    .hx { --gap: 14px; }
+    .hx .card2 { border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); padding: 16px 18px; margin-bottom: var(--gap); }
+    .hx .muted { color: var(--g-muted); font-size: 12.5px; }
+    .hx .ltr { direction: ltr; unicode-bidi: embed; }
+    .hx h3 { margin: 0 0 4px; }
+    .hx .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: var(--gap); }
+
+    /* run panel */
+    .hx .run { display: grid; grid-template-columns: minmax(220px, 1.2fr) auto; gap: 14px; align-items: end; }
+    .hx .run label { font-weight: 700; font-size: 13px; margin-bottom: 6px; display: block; }
+    .hx .site-row { display: flex; gap: 8px; }
+    .hx .site-row select { flex: 1; min-width: 0; }
+    .hx .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .hx .actions .btn { white-space: nowrap; }
+    .hx .big { padding: 10px 18px; font-weight: 700; }
+    .hx .opts { margin-top: 12px; border-top: 1px dashed var(--g-line); padding-top: 10px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    .hx .opts .grp { display: flex; gap: 6px; align-items: center; }
+    .hx .opts input[type=date] { width: 150px; }
+    @media (max-width: 900px) { .hx .run { grid-template-columns: 1fr; } .hx .actions { justify-content: flex-start; } }
+
+    /* live progress */
+    .hx .prog { display: none; margin-top: 12px; border-radius: 12px; padding: 10px 14px; background: var(--g-hover); }
+    .hx .prog.on { display: block; }
+    .hx .prog .t { display: flex; gap: 10px; align-items: center; padding: 3px 0; font-size: 13.5px; }
+    .hx .spin { width: 14px; height: 14px; border: 2px solid var(--g-line); border-top-color: var(--g-accent, #0F7C7A); border-radius: 50%; animation: hxs 0.8s linear infinite; flex: none; }
+    @keyframes hxs { to { transform: rotate(360deg); } }
+
+    /* site switcher + result */
+    .hx .sites { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .hx .sites button { border: 1px solid var(--g-line); background: var(--g-panel); color: inherit; border-radius: 22px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+    .hx .sites button.on { background: var(--g-accent, #0F7C7A); border-color: transparent; color: #fff; font-weight: 700; }
+    .hx .res-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .hx .res-head .url { font-weight: 700; font-size: 15px; }
+    .hx .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .hx .kpi { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; text-align: center; }
+    .hx .kpi b { display: block; font-size: 24px; line-height: 1.25; }
+    .hx .kpi span { color: var(--g-muted); font-size: 12px; }
+    .hx .kpi.bad b { color: var(--g-bad, #dc3545); } .hx .kpi.ok b { color: var(--g-ok, #198754); }
+    .hx .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--g-line); margin-bottom: 12px; flex-wrap: wrap; }
+    .hx .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px; color: var(--g-muted); font-weight: 700; cursor: pointer; font-size: 13.5px; }
+    .hx .tabs button.on { color: inherit; border-bottom-color: var(--g-accent, #0F7C7A); }
+    .hx .tabs .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--g-hover); font-size: 11.5px; margin-inline-start: 4px; }
+    .hx .tabs .n.bad { background: rgba(251,113,133,.18); color: var(--g-bad, #dc3545); }
+    .hx table.t2 { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .hx table.t2 th { text-align: right; color: var(--g-muted); font-weight: 700; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--g-line); position: sticky; top: 0; background: var(--g-panel); }
+    .hx table.t2 td { padding: 7px 8px; border-bottom: 1px solid var(--g-line); vertical-align: top; }
+    .hx .scroll { max-height: 440px; overflow: auto; }
+    .hx .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .hx .chip.ok { background: rgba(52,211,153,.14); color: var(--g-ok, #198754); } .hx .chip.bad { background: rgba(251,113,133,.14); color: var(--g-bad, #dc3545); }
+    .hx .chip.none { background: var(--g-hover); color: var(--g-muted); }
+    .hx .empty { text-align: center; padding: 26px 10px; color: var(--g-muted); }
+    .hx .empty b { display: block; font-size: 15px; color: inherit; margin: 6px 0 4px; }
+    .hx .bars { display: flex; gap: 3px; align-items: flex-end; height: 34px; justify-content: center; }
+    .hx .bars i { flex: 1; min-width: 4px; max-width: 12px; background: var(--g-bad, #dc3545); opacity: .75; border-radius: 3px 3px 0 0; }
+    .hx .bars i.z { background: var(--g-ok, #198754); height: 4px !important; }
+
+    /* collapsible extras */
+    .hx details.card2 > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+    .hx details.card2 > summary::-webkit-details-marker { display: none; }
+    .hx details.card2 > summary::after { content: '▾'; color: var(--g-muted); }
+    .hx details.card2[open] > summary::after { content: '▴'; }
+    .hx details.card2[open] > summary { margin-bottom: 12px; }
+    .hx .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .hx .form-grid label { font-weight: 700; font-size: 13px; margin-bottom: 5px; display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="animate-in">
-    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+<div class="hx animate-in">
+    <div class="head">
         <div>
-            <h3 class="mb-1">🩺 صحة النظام</h3>
-            <div class="muted">يفتح كل شاشات المنيو والتقارير في دقايق ويطلعلك البايظ (500 / 404 / صفحة خطأ / رجوع لشاشة الدخول) —
-                ويبعت على تيليجرام / واتساب باللي باظ جديد واللي اتصلح. شغليه بعد كل تحديث للـ ERP أو جدوليه كل يوم.</div>
+            <h3>🩺 صحة النظام</h3>
+            <div class="muted">افحصي أي موقع (عندك أو عند عميل): كل الشاشات بتفتح ولا لأ، سرعتها الحقيقية، والحسابات متزنة ولا لأ — قراية بس، مفيش أي حفظ أو تعديل.</div>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <select id="runSites" class="form-select form-select-sm" style="width:auto" title="الموقع / العميل اللي هيتفحص"><option value="">الموقع النشط</option></select>
-            <a class="btn btn-sm btn-outline-secondary" href="/settings#profiles" title="ضيفي موقع العميل (الرابط + المستخدم + الباسورد)">＋ موقع عميل</a>
-            <button class="btn btn-primary" onclick="fullCheck()" title="كل الشاشات + السرعة الحقيقية لأبطأ الشاشات + مطابقة الحسابات — للموقع المختار"><i class="bi bi-search"></i> 🔎 فحص شامل للعميل</button>
-            <button class="btn btn-success" onclick="save(true)"><i class="bi bi-play-fill"></i> افحص النظام دلوقتي</button>
-            <a class="btn btn-outline-secondary" href="/schedule" title="اختاري «🩺 صحة النظام» في الجدولة"><i class="bi bi-calendar-week"></i> جدولة يومية</a>
-        </div>
-    </div>
-    <div id="msg"></div>
-
-    <div class="hc mb-3">
-        <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center">
-            <div><div class="fw-bold">⚖️ مطابقة الحسابات <span id="bLast"></span></div>
-                <div class="muted">من غير أي إعداد: يقرا ميزان المراجعة من الموقع ويتأكد إن مدين = دائن (أول المدة، حركة الفترة، الرصيد) وإن كل حساب أب = مجموع الفرعي</div></div>
-            <div class="d-flex gap-2 align-items-center">
-                <input id="bFrom" type="date" class="form-control form-control-sm" style="width:auto" title="من (فاضي = أول السنة)">
-                <input id="bTo" type="date" class="form-control form-control-sm" style="width:auto" title="إلى (فاضي = آخر السنة)">
-                <button class="btn btn-sm btn-success" onclick="runBooks()"><i class="bi bi-play-fill"></i> طابقي الحسابات</button>
-            </div>
-        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="/schedule"><i class="bi bi-calendar-week"></i> جدولة يومية</a>
     </div>
 
-    <div id="states"></div>
-
-    <div class="row g-3 mt-1">
-        <div class="col-lg-5"><div class="hc h-100">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="fw-bold">🧹 بيانات الاختبار الفاضلة <span id="cLast"></span></div>
-                <button class="btn btn-sm btn-success" onclick="runClean()"><i class="bi bi-trash"></i> امسحيهم</button>
+    <!-- 1) what to check and how -->
+    <div class="card2">
+        <div class="run">
+            <div>
+                <label>الموقع اللي هيتفحص</label>
+                <div class="site-row">
+                    <select id="runSites" class="form-select"><option value="">الموقع النشط</option></select>
+                    <a class="btn btn-outline-secondary" href="/settings" title="ضيفي موقع العميل: الرابط + مستخدم + باسورد">＋ موقع</a>
+                </div>
             </div>
-            <div class="muted mb-2">السجلات اللي الاختبار الآلي حفظها ومقدرش يحذفها (الحذف فشل / مش متختار / سجل الترقيم التاني)</div>
-            <div id="clean"></div>
-        </div></div>
-        <div class="col-lg-7"><div class="hc h-100">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="fw-bold">📈 الأخطاء المتكررة</div>
-                <select id="eDays" class="form-select form-select-sm" style="width:auto" onchange="loadErrors()"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="90">آخر 90 يوم</option></select>
+            <div class="actions">
+                <button class="btn btn-primary big" onclick="fullCheck()" title="كل الشاشات + السرعة الحقيقية لأبطأ الشاشات + مطابقة الحسابات">🔎 فحص شامل</button>
+                <button class="btn btn-outline-primary big" onclick="save(true)" title="كل الشاشات بتفتح ولا لأ (من غير قياس السرعة في المتصفح)">🩺 فحص الشاشات بس</button>
+                <button class="btn btn-outline-primary big" onclick="runBooks()" title="ميزان المراجعة: مدين = دائن والشجرة متطابقة">⚖️ الحسابات بس</button>
             </div>
-            <div id="errs"></div>
-        </div></div>
+        </div>
+        <div class="opts">
+            <span class="muted">فترة الحسابات:</span>
+            <span class="grp"><span class="muted">من</span><input id="bFrom" type="date" class="form-control form-control-sm"></span>
+            <span class="grp"><span class="muted">إلى</span><input id="bTo" type="date" class="form-control form-control-sm"></span>
+            <span class="muted">(فاضي = السنة الحالية)</span>
+            <span class="grp ms-auto"><span class="muted">شاشات تتقاس سرعتها في المتصفح:</span>
+                <input id="fDeep" type="number" min="1" max="200" class="form-control form-control-sm" style="width:80px" value="25"
+                    onchange="try { localStorage.setItem('hx_deep', this.value) } catch (e) {}"></span>
+        </div>
+        <div class="prog" id="prog"></div>
+        <div id="msg" class="mt-2"></div>
     </div>
 
-    <div class="hc mt-3">
-        <div class="fw-bold mb-2">⚙️ الإعدادات</div>
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label fw-bold">⛔ تخطّى أي رابط فيه</label>
+    <!-- 2) results -->
+    <div class="card2">
+        <div class="sites" id="siteTabs"></div>
+        <div id="result"><div class="empty">⏳ بحمّل…</div></div>
+    </div>
+
+    <!-- 3) extras -->
+    <details class="card2">
+        <summary>🧹 بيانات الاختبار الفاضلة <span id="cLast" class="ms-2"></span></summary>
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <div class="muted">السجلات اللي الاختبار الآلي حفظها ومقدرش يحذفها (الحذف فشل / مش متختار / سجل الترقيم التاني)</div>
+            <button class="btn btn-sm btn-success" onclick="runClean()"><i class="bi bi-trash"></i> امسحيهم</button>
+        </div>
+        <div id="clean"></div>
+    </details>
+
+    <details class="card2">
+        <summary>📈 الأخطاء المتكررة</summary>
+        <div class="d-flex justify-content-end mb-2">
+            <select id="eDays" class="form-select form-select-sm" style="width:auto" onchange="loadErrors()"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="90">آخر 90 يوم</option></select>
+        </div>
+        <div id="errs"></div>
+    </details>
+
+    <details class="card2">
+        <summary>⚙️ إعدادات الفحص</summary>
+        <div class="form-grid">
+            <div><label>⛔ تخطّى أي رابط فيه</label>
                 <textarea id="fSkip" class="form-control ltr" rows="3" placeholder="/Dashboard&#10;Export"></textarea>
-                <div class="muted">سطر لكل كلمة · بيتخطى دايمًا: <span class="ltr" id="defSkip"></span></div>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-bold">➕ روابط زيادة (مش في المنيو)</label>
-                <textarea id="fExtra" class="form-control ltr" rows="3" placeholder="/CashReceiptVoucher/AddEdit"></textarea>
-                <div class="muted">مثلًا صفحات الإضافة لأهم الشاشات علشان يتأكد إنها بتفتح</div>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">📊 التقارير</label>
-                <select id="fReports" class="form-select"><option value="1">افحص التقارير كمان</option><option value="0">الشاشات بس</option></select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">📋 فورمات الإضافة</label>
-                <select id="fForms" class="form-select"><option value="1">اقرا حقول الإضافة (للمقارنة قبل / بعد التحديث)</option><option value="0">لا (أسرع)</option></select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">❌ الاختبار يفشل لو</label>
-                <select id="fFail" class="form-select">
-                    <option value="any">فيه أي شاشة بايظة</option><option value="new">فيه شاشة باظت جديد بس</option><option value="never">مايفشلش (تقرير بس)</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">🐢 اعتبرها بايظة لو أبطأ من (ث)</label>
-                <input id="fSlow" type="number" min="0" step="1" class="form-control" placeholder="0 = لا">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">🐢 شاشات تتفتح في المتصفح لقياس السرعة الحقيقية</label>
-                <input id="fDeep" type="number" min="0" max="200" class="form-control" title="أبطأ N شاشة بتتفتح زي المستخدم وبنستنى بياناتها تحمل — 0 = لا">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">⚡ صفحات في نفس الوقت</label>
+                <div class="muted mt-1">سطر لكل كلمة · بيتخطى دايمًا: <span class="ltr" id="defSkip"></span> + أي لينك بيعمل حاجة (حذف / حفظ / اعتماد…)</div></div>
+            <div><label>➕ روابط زيادة (مش في المنيو)</label>
+                <textarea id="fExtra" class="form-control ltr" rows="3" placeholder="/CashReceiptVoucher/AddEdit"></textarea></div>
+            <div><label>📊 التقارير</label>
+                <select id="fReports" class="form-select"><option value="1">افحص التقارير كمان</option><option value="0">الشاشات بس</option></select></div>
+            <div><label>📋 فورمات الإضافة</label>
+                <select id="fForms" class="form-select"><option value="1">اقرا حقول الإضافة (للمقارنة قبل / بعد التحديث)</option><option value="0">لا (أسرع وأخف على الموقع)</option></select></div>
+            <div><label>❌ الاختبار يفشل لو</label>
+                <select id="fFail" class="form-select"><option value="any">فيه أي شاشة بايظة</option><option value="new">فيه شاشة باظت جديد بس</option><option value="never">مايفشلش (تقرير بس)</option></select></div>
+            <div><label>🐢 اعتبريها بايظة لو أبطأ من (ث)</label>
+                <input id="fSlow" type="number" min="0" step="1" class="form-control" placeholder="0 = لا"></div>
+            <div><label>⚡ صفحات في نفس الوقت</label>
                 <input id="fWorkers" type="number" min="1" max="16" class="form-control">
-            </div>
+                <div class="muted mt-1">قللي الرقم (3 مثلًا) على موقع عميل علشان الضغط يبقى أخف</div></div>
         </div>
-        <div class="mt-3 d-flex gap-2"><button class="btn btn-primary" onclick="save(false)"><i class="bi bi-check-circle"></i> حفظ</button>
-            <span class="muted align-self-center">النشاط والفرع بيتحددوا من الإعدادات ← مواقع الاختبار (موقع لكل نشاط / فرع) — واختاري «كل المواقع» وقت الفحص</span></div>
-    </div>
+        <div class="mt-3"><button class="btn btn-primary" onclick="save(false)"><i class="bi bi-check-circle"></i> حفظ الإعدادات</button></div>
+    </details>
 </div>
 {% endblock %}
 
@@ -120,150 +162,198 @@
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-let D = null;
+const RATE = x => x == null ? '—' : (x < 2 ? '🟢 سريعة' : (x < 5 ? '🟡 مقبولة' : (x < 10 ? '🟠 بطيئة' : '🔴 بطيئة جدًا')));
+const when = s => esc((s || '').slice(0, 16).replace('T', ' '));
+let D = null, CUR = 0, TAB = 'speed', TASKS = [];
+try { TASKS = JSON.parse(localStorage.getItem('hx_tasks') || '[]'); } catch (e) {}
 
+function msg(html, kind) { $('msg').innerHTML = html ? `<div class="alert alert-${kind || 'success'} py-2 mb-0">${html}</div>` : ''; }
+
+/* ---------------- results ---------------- */
 function paint() {
     const c = D.config;
     $('fSkip').value = (c.skip || []).join('\n'); $('fExtra').value = (c.extra || []).join('\n');
     $('fReports').value = c.reports === false ? '0' : '1'; $('fForms').value = c.forms === false ? '0' : '1'; $('fFail').value = c.fail_on || 'any';
-    $('fSlow').value = c.slow_seconds || ''; $('fWorkers').value = c.workers || 8; $('fDeep').value = c.deep_speed ?? 25;
+    $('fSlow').value = c.slow_seconds || ''; $('fWorkers').value = c.workers || 8;
     $('defSkip').textContent = (D.default_skip || []).join(' · ');
-    const last = D.last ? `<a class="chip ${D.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(D.last.run_id)}">${D.last.passed ? '✅ سليم' : '❌ فيه شاشات بايظة'}</a> <span class="muted">${esc(D.last.time)}</span>` : '';
-    if (!D.states.length) { $('states').innerHTML = `<div class="hc text-center py-4"><div style="font-size:40px">🩺</div><div class="fw-bold">لسه ما اتعملش فحص</div><div class="muted">دوسي «افحص النظام دلوقتي» — أول مرة بتبقى نقطة البداية</div>${last}</div>`; return; }
-    $('states').innerHTML = D.states.map(s => {
-        const hist = (s.history || []).slice(-40), mx = Math.max(1, ...hist.map(h => h.broken));
-        const ok = s.total - s.broken.length;
-        const mods = {};
-        s.broken.forEach(b => { mods[b.module || '—'] = (mods[b.module || '—'] || 0) + 1; });
-        return `<div class="hc mb-3">
-          <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
-            <div><span class="fw-bold ltr">${esc(s.base_url)}</span> ${s.activity || s.branch ? `<span class="chip none">🏢 ${esc(s.activity || 'أول نشاط')} · 📍 ${esc(s.branch || 'أول فرع')}</span>` : ''}
-                 <div class="muted">آخر فحص: ${esc((s.at || '').replace('T', ' '))}</div></div>
-            <div>${last}</div></div>
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-md-3"><div class="kpi"><b>${s.total}</b><span>شاشة اتفحصت</span></div></div>
-            <div class="col-6 col-md-3"><div class="kpi ok"><b>${ok}</b><span>سليمة</span></div></div>
-            <div class="col-6 col-md-3"><div class="kpi ${s.broken.length ? 'bad' : 'ok'}"><b>${s.broken.length}</b><span>بايظة</span></div></div>
-            <div class="col-6 col-md-3"><div class="kpi"><div class="bars" title="عدد البايظ في آخر ${hist.length} فحص">${hist.map(h => `<i class="${h.broken ? '' : 'z'}" style="height:${Math.max(8, h.broken / mx * 100)}%" title="${esc(h.at)} — ${h.broken} بايظة"></i>`).join('')}</div><span>البايظ في آخر الفحوصات</span></div></div>
-          </div>
-          <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-2">
-            <div class="muted">📋 فورمات الإضافة المقروءة: ${s.forms_count || 0}${s.compared_with ? ` · بيقارن بـ ${s.baseline_at ? '<b>📸 اللقطة قبل التحديث</b>' : 'آخر فحص'} (${esc((s.compared_with || '').slice(0, 16).replace('T', ' '))})` : ''}</div>
-            <button class="btn btn-sm btn-outline-primary" onclick="baseline('${esc(s.file)}')" title="قبل ما الـ ERP يتحدث: افحصي، وبعدين دوسي هنا. كل فحص بعد التحديث هيقولك إيه اللي اتغير عنها">📸 اعتبري آخر فحص «اللقطة قبل التحديث»</button>
-          </div>
-          ${(s.changes || []).length ? `<div class="fw-bold mt-2 mb-1">🔀 اللي اتغير (${s.changes.length})</div><div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>الرابط</th><th>التغيير</th></tr></thead><tbody>
-            ${s.changes.map(c => `<tr class="${c.ok === false ? 'table-danger' : (c.ok ? 'table-success' : '')}"><td class="fw-bold">${esc(c.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + c.path)}">${esc(c.path)}</a></td><td>${esc(c.what)}</td></tr>`).join('')}
-            </tbody></table></div>` : (s.compared_with ? '<div class="muted mb-2">🔀 مفيش تغيير في الشاشات والفورمات</div>' : '')}
-          ${speedBlock(s)}
-          ${s.broken.length ? `<div class="mb-2">${Object.entries(mods).sort((a, b) => b[1] - a[1]).map(([m, n]) => `<span class="chip bad me-1">${esc(m)}: ${n}</span>`).join('')}</div>
-          <div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الموديول</th><th>الشاشة</th><th>الرابط</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
-          ${s.broken.map(b => `<tr><td>${esc(b.module || '—')}</td><td class="fw-bold">${esc(b.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></td><td>${esc(b.why)}</td><td class="muted text-nowrap">${esc((b.since || '').slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
-          </tbody></table></div>
-          <button class="btn btn-sm btn-outline-secondary" onclick="copyList(${D.states.indexOf(s)})"><i class="bi bi-clipboard"></i> انسخي القايمة للمطورين</button>` : '<div class="text-center fw-bold" style="color:var(--g-ok,#198754)">✅ كل الشاشات بتفتح سليمة</div>'}
-        </div>`;
-    }).join('');
-}
-
-const RATE = x => x == null ? '—' : (x < 2 ? '🟢 سريعة' : (x < 5 ? '🟡 مقبولة' : (x < 10 ? '🟠 بطيئة' : '🔴 بطيئة جدًا')));
-function speedBlock(s) {
-    const ss = s.speed_stats || {}, sp = s.speed || [];
-    const rep = `<a class="btn btn-sm btn-primary" target="_blank" href="/health/report?file=${encodeURIComponent(s.file)}">📄 تقرير للعميل (طباعة / PDF)</a>`;
-    const books = s.books ? `<span class="chip ${s.books.ok ? 'ok' : 'bad'}">⚖️ ${s.books.ok ? 'الحسابات متزنة' : 'الحسابات مش متزنة'}</span>` : '';
-    if (!sp.length) return `<div class="d-flex gap-2 align-items-center mb-2">${rep} ${books}<span class="muted">السرعة الحقيقية ما اتقاستش في الفحص ده — شغلي «🔎 فحص شامل للعميل»</span></div>`;
-    return `<div class="hc mb-3" style="background:var(--g-hover)">
-      <div class="d-flex justify-content-between flex-wrap gap-2 mb-2"><div class="fw-bold">🐢 السرعة الحقيقية — الشاشة مفتوحة في المتصفح لحد ما بياناتها تحمل</div><div class="d-flex gap-2 align-items-center">${books}${rep}</div></div>
-      <div class="row g-2 mb-2">
-        <div class="col-6 col-md-3"><div class="kpi ${ss.load_median >= 5 ? 'bad' : 'ok'}"><b>${ss.load_median ?? '—'}</b><span>متوسط فتح الشاشة كاملة (ث)</span></div></div>
-        <div class="col-6 col-md-3"><div class="kpi ${ss.load_max >= 10 ? 'bad' : ''}"><b>${ss.load_max ?? '—'}</b><span>أبطأ شاشة (ث)</span></div></div>
-        <div class="col-6 col-md-3"><div class="kpi ${ss.load_over5 ? 'bad' : 'ok'}"><b>${ss.load_over5 || 0} / ${ss.measured || 0}</b><span>أبطأ من 5 ث</span></div></div>
-        <div class="col-6 col-md-3"><div class="kpi ${ss.ttfb_home >= 1.5 ? 'bad' : 'ok'}"><b>${ss.ttfb_home ?? '—'}</b><span>رد السيرفر على الرئيسية (ث)</span></div></div>
+    if (!D.states.length) {
+        $('siteTabs').innerHTML = '';
+        $('result').innerHTML = `<div class="empty"><div style="font-size:38px">🩺</div><b>لسه ما اتعملش فحص</b>اختاري الموقع ودوسي «🔎 فحص شامل»</div>`;
+        return;
+    }
+    CUR = Math.min(CUR, D.states.length - 1);
+    $('siteTabs').innerHTML = D.states.length > 1 ? D.states.map((s, i) => `<button class="${i === CUR ? 'on' : ''}" onclick="CUR=${i};paint()">
+        ${esc((s.base_url || '').replace(/^https?:\/\//, ''))}${s.activity || s.branch ? ' · ' + esc(s.activity || '') + ' ' + esc(s.branch || '') : ''}
+        ${s.broken.length ? ` <span class="chip bad">${s.broken.length}</span>` : ''}</button>`).join('') : '';
+    const s = D.states[CUR], ss = s.speed_stats || {}, sp = s.speed || [];
+    const hist = (s.history || []).slice(-30), mx = Math.max(1, ...hist.map(h => h.broken));
+    const changes = s.changes || [], books = s.books;
+    $('result').innerHTML = `
+      <div class="res-head">
+        <div><div class="url ltr">${esc(s.base_url)}</div>
+          <div class="muted">آخر فحص: ${when(s.at)}${s.activity || s.branch ? ` · 🏢 ${esc(s.activity || 'أول نشاط')} · 📍 ${esc(s.branch || 'أول فرع')}` : ''}</div></div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-sm btn-primary" target="_blank" href="/health/report?file=${encodeURIComponent(s.file)}">📄 تقرير للعميل (طباعة / PDF)</a>
+          ${s.broken.length ? `<button class="btn btn-sm btn-outline-secondary" onclick="copyList()"><i class="bi bi-clipboard"></i> انسخي البايظ للمطورين</button>` : ''}
+        </div>
       </div>
-      <div class="table-responsive" style="max-height:360px"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>التقييم</th><th>فتح كامل</th><th>رد السيرفر</th><th>أبطأ طلب بيانات</th></tr></thead><tbody>
-      ${sp.map(m => `<tr><td class="fw-bold">${esc(m.name)}<div class="muted ltr">${esc(m.path)}</div></td><td class="text-nowrap">${RATE(m.load)}${m.timeout ? ' ⏱️' : ''}</td>
-        <td class="fw-bold text-center">${m.load ?? '—'} ث</td><td class="text-center">${m.ttfb ?? '—'} ث</td>
-        <td>${(m.xhr || [])[0] ? `${(m.xhr[0].ms / 1000).toFixed(1)} ث <div class="muted ltr">${esc(m.xhr[0].url)}</div>` : '—'}</td></tr>`).join('')}
-      </tbody></table></div></div>`;
+      <div class="kpis">
+        <div class="kpi"><b>${s.total}</b><span>شاشة اتفحصت</span></div>
+        <div class="kpi ${s.broken.length ? 'bad' : 'ok'}"><b>${s.broken.length}</b><span>بايظة</span></div>
+        <div class="kpi ${(ss.load_median || 0) >= 5 ? 'bad' : (sp.length ? 'ok' : '')}"><b>${sp.length ? ss.load_median + ' ث' : '—'}</b><span>متوسط فتح الشاشة كاملة</span></div>
+        <div class="kpi ${ss.load_over5 ? 'bad' : (sp.length ? 'ok' : '')}"><b>${sp.length ? (ss.load_over5 || 0) + ' / ' + ss.measured : '—'}</b><span>شاشات أبطأ من 5 ث</span></div>
+        <div class="kpi ${books ? (books.ok ? 'ok' : 'bad') : ''}"><b>${books ? (books.ok ? '✓' : '✗') : '—'}</b><span>${books ? (books.ok ? 'الحسابات متزنة' : 'الحسابات مش متزنة') : 'الحسابات ما اتفحصتش'}</span></div>
+        <div class="kpi"><div class="bars" title="عدد البايظ في آخر الفحوصات">${hist.map(h => `<i class="${h.broken ? '' : 'z'}" style="height:${Math.max(8, h.broken / mx * 100)}%" title="${esc(h.at)} — ${h.broken} بايظة"></i>`).join('')}</div><span>البايظ في آخر الفحوصات</span></div>
+      </div>
+      <div class="tabs">
+        ${tabBtn('speed', '🐢 السرعة', sp.length, ss.load_over5)}
+        ${tabBtn('broken', '❌ الشاشات البايظة', s.broken.length, s.broken.length)}
+        ${tabBtn('books', '⚖️ الحسابات', books ? books.rows.filter(r => r.ok === false).length : 0, books && !books.ok)}
+        ${tabBtn('changes', '🔀 اللي اتغير', changes.length, changes.filter(c => c.ok === false).length)}
+      </div>
+      <div id="tabBody">${tabBody(s)}</div>`;
+}
+function tabBtn(k, t, n, bad) { return `<button class="${TAB === k ? 'on' : ''}" onclick="TAB='${k}';paint()">${t}${n ? `<span class="n ${bad ? 'bad' : ''}">${n}</span>` : ''}</button>`; }
+
+function tabBody(s) {
+    const ss = s.speed_stats || {}, sp = s.speed || [];
+    if (TAB === 'speed') {
+        if (!sp.length) return `<div class="empty"><b>السرعة الحقيقية ما اتقاستش في الفحص ده</b>دوسي «🔎 فحص شامل» — بيفتح أبطأ الشاشات في المتصفح زي المستخدم ويستنى بياناتها تحمل</div>`;
+        return `<div class="muted mb-2">رد السيرفر على الرئيسية: <b>${ss.ttfb_home ?? '—'} ث</b> · أبطأ شاشة: <b>${ss.load_max} ث</b> · متوسط رد السيرفر على كل الشاشات: <b>${ss.html_median ?? '—'} ث</b></div>
+          <div class="scroll"><table class="t2"><thead><tr><th>الشاشة</th><th>التقييم</th><th>فتح كامل</th><th>رد السيرفر</th><th>أبطأ طلب بيانات</th></tr></thead><tbody>
+          ${sp.map(m => `<tr><td><b>${esc(m.name)}</b><div class="muted ltr">${esc(m.path)}</div></td><td class="text-nowrap">${RATE(m.load)}${m.timeout ? ' ⏱️' : ''}</td>
+            <td class="text-nowrap"><b>${m.load ?? '—'} ث</b></td><td class="text-nowrap">${m.ttfb ?? '—'} ث</td>
+            <td>${(m.xhr || [])[0] ? `${(m.xhr[0].ms / 1000).toFixed(1)} ث <div class="muted ltr">${esc(m.xhr[0].url)}</div>` : '—'}</td></tr>`).join('')}
+          </tbody></table></div>`;
+    }
+    if (TAB === 'broken') {
+        if (!s.broken.length) return `<div class="empty"><b>✅ كل الشاشات بتفتح سليمة</b></div>`;
+        return `<div class="scroll"><table class="t2"><thead><tr><th>القسم</th><th>الشاشة</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
+          ${s.broken.map(b => `<tr><td>${esc(b.module || '—')}</td><td><b>${esc(b.name)}</b><div><a class="ltr muted" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></div></td>
+            <td>${esc(b.why)}</td><td class="muted text-nowrap">${when(b.since)}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+    if (TAB === 'books') {
+        const b = s.books;
+        if (!b) return `<div class="empty"><b>الحسابات ما اتفحصتش للموقع ده</b>دوسي «🔎 فحص شامل» أو «⚖️ الحسابات بس»</div>`;
+        return `<div class="muted mb-2">الفترة ${esc(b.from)} → ${esc(b.to)} · ${when(b.at)}</div>
+          <table class="t2"><thead><tr><th>النطاق</th><th>القاعدة</th><th>النتيجة</th><th></th></tr></thead><tbody>
+          ${b.rows.map(r => `<tr><td>${esc(r.cells[0])}</td><td>${esc(r.cells[1])}</td><td>${esc(r.cells[2])}</td><td>${r.ok ? '✅' : (r.ok === false ? '❌' : 'ℹ️')}</td></tr>`).join('')}</tbody></table>`;
+    }
+    const ch = s.changes || [];
+    return `<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <div class="muted">${s.compared_with ? `بيقارن بـ ${s.baseline_at ? '<b>📸 اللقطة قبل التحديث</b>' : 'آخر فحص'} (${when(s.compared_with)})` : 'أول فحص — مفيش حاجة يتقارن بيها'} · فورمات الإضافة المقروءة: ${s.forms_count || 0}</div>
+        <button class="btn btn-sm btn-outline-primary" onclick="baseline('${esc(s.file)}')" title="قبل تحديث الـ ERP: افحصي ودوسي هنا. الفحوصات اللي بعده هتقولك إيه اللي اتغير">📸 اعتبري آخر فحص «اللقطة قبل التحديث»</button></div>
+      ${ch.length ? `<div class="scroll"><table class="t2"><thead><tr><th>الشاشة</th><th>التغيير</th></tr></thead><tbody>
+        ${ch.map(c => `<tr><td><b>${esc(c.name)}</b><div class="muted ltr">${esc(c.path)}</div></td><td>${c.ok === false ? '⚠️ ' : ''}${esc(c.what)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty"><b>مفيش تغيير في الشاشات والفورمات</b></div>'}`;
 }
 
-async function fullCheck() {
-    const site = $('runSites').value || '';
-    const deep = $('fDeep').value === '' ? 25 : +$('fDeep').value;
-    const r = await fetch('/api/health/full', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({sites: site, config: {deep_speed: deep || 25}})}).then(r => r.json());
-    $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">🔎 الفحص الشامل دخل الطابور (${r.count} اختبار): كل الشاشات + السرعة الحقيقية لأبطأ ${deep || 25} شاشة + مطابقة الحسابات — <a href="/queue">تابعيه</a>. لما يخلص هيظهر هنا زرار «📄 تقرير للعميل».</div>`
-                                   : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
-}
-
-function copyList(i) {
-    const s = D.states[i];
+function copyList() {
+    const s = D.states[CUR];
     const t = `شاشات بايظة في ${s.base_url} (${(s.at || '').replace('T', ' ')}):\n` + s.broken.map(b => `- ${b.module ? b.module + ' / ' : ''}${b.name} — ${b.path} — ${b.why}`).join('\n');
-    navigator.clipboard.writeText(t).then(() => { $('msg').innerHTML = '<div class="alert alert-success py-2">اتنسخت ✅</div>'; });
+    navigator.clipboard.writeText(t).then(() => msg('اتنسخت ✅'));
 }
-
 async function baseline(file) {
     const r = await fetch('/api/health/baseline', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file})}).then(r => r.json());
-    $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">📸 اتحفظت كلقطة قبل التحديث (${esc(r.at)}) — بعد التحديث شغلي الفحص وهيقولك إيه اللي اتغير</div>`
-                                   : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+    msg(r.success ? `📸 اتحفظت كلقطة قبل التحديث (${esc(r.at)})` : esc(r.error), r.success ? 'success' : 'danger');
     load();
 }
+async function load() { D = await fetch('/api/health').then(r => r.json()); paint(); }
 
-async function runBooks() {
-    const r = await fetch('/api/books/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({config: {date_from: $('bFrom').value, date_to: $('bTo').value}, run: true, sites: $('runSites').value || ''})}).then(r => r.json());
-    $('msg').innerHTML = r.success ? '<div class="alert alert-success py-2">✅ المطابقة دخلت الطابور — <a href="/queue">تابعيها</a></div>' : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+/* ---------------- run + live progress ---------------- */
+function track(ids) {
+    TASKS = (ids || []).concat(TASKS).slice(0, 6);
+    try { localStorage.setItem('hx_tasks', JSON.stringify(TASKS)); } catch (e) {}
+    poll();
 }
-fetch('/api/books').then(r => r.json()).then(j => {
-    $('bFrom').value = j.config.date_from || ''; $('bTo').value = j.config.date_to || '';
-    if (j.last) $('bLast').innerHTML = `<a class="chip ${j.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(j.last.run_id)}">${j.last.passed ? '✅ متزن' : '❌ مش متزن'}</a> <span class="muted">${esc(j.last.time)}</span>`;
-});
-
-async function load() {
-    D = await fetch('/api/health').then(r => r.json());
-    paint();
+async function post(url, body) {
+    try {
+        const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const j = await r.json().catch(() => ({success: false, error: `السيرفر رد بخطأ ${r.status}`}));
+        if (!j.success) msg('❌ ' + esc(j.error || 'حصل خطأ'), 'danger');
+        return j;
+    } catch (e) { msg('❌ مقدرتش أوصل للسيرفر: ' + esc(e), 'danger'); return {}; }
 }
-
+async function fullCheck() {
+    msg('');
+    const deep = $('fDeep').value === '' ? 25 : +$('fDeep').value;
+    const r = await post('/api/health/full', {sites: $('runSites').value || '', config: {deep_speed: deep}});
+    if (r.success) track(r.task_ids);
+}
 async function save(run) {
     const lines = v => v.split('\n').map(x => x.trim()).filter(Boolean);
     const config = {skip: lines($('fSkip').value), extra: lines($('fExtra').value), reports: $('fReports').value === '1', forms: $('fForms').value === '1',
                     fail_on: $('fFail').value, slow_seconds: +$('fSlow').value || 0, workers: +$('fWorkers').value || 8,
-                    deep_speed: $('fDeep').value === '' ? 25 : +$('fDeep').value};
-    const r = await fetch('/api/health/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({config, run, sites: $('runSites').value || ''})}).then(r => r.json());
-    $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">${run ? `✅ الفحص دخل الطابور (${r.count || 1}) — هيخلص في دقايق، <a href="/queue">تابعيه</a>` : '✅ اتحفظ'}</div>`
-                                   : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
-    if (run) setTimeout(load, 4000);
+                    deep_speed: 0};                     // «فحص الشاشات بس» and the daily schedule: quick, no browser timing
+    const r = await post('/api/health/save', {config, run, sites: $('runSites').value || ''});
+    if (r.success && run) track(r.task_ids); else if (r.success) msg('✅ الإعدادات اتحفظت');
+}
+async function runBooks() {
+    msg('');
+    const r = await post('/api/books/save', {config: {date_from: $('bFrom').value, date_to: $('bTo').value}, run: true, sites: $('runSites').value || ''});
+    if (r.success) track(r.task_ids);
 }
 
-fetch('/api/sites').then(r => r.json()).then(j => {
-    const list = (j && j.sites) || [];
-    $('runSites').innerHTML = `<option value="">الموقع النشط</option>` + list.map(x => `<option value="${esc(x.id)}">${esc(x.name)} — ${esc((x.base_url || '').replace(/^https?:\/\//, ''))}</option>`).join('') +
-        (list.length > 1 ? `<option value="all">🌐 كل المواقع (${list.length})</option>` : '');
-}).catch(() => {});
+let LAST_DONE = '';
+async function poll() {
+    if (!TASKS.length) { $('prog').classList.remove('on'); return; }
+    let j;
+    try { j = await fetch('/api/health/tasks?ids=' + TASKS.join(',')).then(r => r.json()); } catch (e) { return; }
+    const list = (j.tasks || []).filter(t => t.status !== 'unknown');
+    const active = list.filter(t => ['queued', 'running', 'pending'].includes(t.status));
+    const done = list.filter(t => !['queued', 'running', 'pending'].includes(t.status));
+    if (!list.length) { $('prog').classList.remove('on'); return; }
+    $('prog').classList.add('on');
+    $('prog').innerHTML = list.map(t => {
+        if (t.status === 'running') return `<div class="t"><span class="spin"></span><b>شغال دلوقتي:</b> ${esc(t.name)} <span class="muted">— من ${esc((t.started || '').slice(11, 16))}، الفحص الشامل بياخد كام دقيقة</span></div>`;
+        if (t.status === 'queued' || t.status === 'pending') return `<div class="t">⏳ <b>مستني دوره (رقم ${t.place || '?'}):</b> ${esc(t.name)}${j.running && j.running.length ? ` <span class="muted">— شغال قبله: ${esc(j.running[0])}</span>` : ''}</div>`;
+        const ok = t.status === 'completed';
+        return `<div class="t">${ok ? '✅' : (t.status === 'stopped' ? '⏹️' : '❌')} <b>${ok ? 'خلص' : (t.status === 'stopped' ? 'اتوقف' : 'خلص وفيه مشاكل')}:</b> ${esc(t.name)}
+          <a class="ms-1" href="/reports/${esc(t.run_id)}">التفاصيل</a></div>`;
+    }).join('') + (active.length ? '' : `<div class="t muted"><button class="btn btn-sm btn-link p-0" onclick="TASKS=[];localStorage.removeItem('hx_tasks');poll()">إخفاء</button></div>`);
+    const sig = done.map(t => t.id).join(',');
+    if (sig !== LAST_DONE) { LAST_DONE = sig; load(); }
+}
+setInterval(poll, 3000);
+
+/* ---------------- extras ---------------- */
 async function loadClean() {
-    const j = await fetch('/api/cleanup').then(r => r.json());
-    if (j.last) $('cLast').innerHTML = `<a class="chip ${j.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(j.last.run_id)}">${j.last.passed ? '✅' : '❌'} آخر تنظيف</a>`;
-    $('clean').innerHTML = j.items.length ? `<div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>الرقم</th><th>ليه فضل</th><th></th></tr></thead><tbody>
-        ${j.items.map(x => `<tr><td class="fw-bold">${esc(x.screen)}<div class="muted ltr">${esc(x.site)}</div></td><td>${esc(x.no)}</td><td class="muted">${esc(x.why)}<br>${esc((x.at || '').slice(0, 16).replace('T', ' '))}</td>
+    const j = await fetch('/api/cleanup').then(r => r.json()).catch(() => ({items: []}));
+    $('cLast').innerHTML = j.items && j.items.length ? `<span class="chip bad">${j.items.length}</span>` : '';
+    $('clean').innerHTML = j.items && j.items.length ? `<div class="scroll"><table class="t2"><thead><tr><th>الشاشة</th><th>الرقم</th><th>ليه فضل</th><th></th></tr></thead><tbody>
+        ${j.items.map(x => `<tr><td><b>${esc(x.screen)}</b><div class="muted ltr">${esc(x.site)}</div></td><td>${esc(x.no)}</td><td class="muted">${esc(x.why)}<br>${when(x.at)}</td>
         <td><button class="btn btn-sm btn-link text-muted" title="شيليه من القايمة (اتمسح بإيدك)" onclick='forget(${JSON.stringify([x.site, x.list_url, x.no])})'>✖</button></td></tr>`).join('')}</tbody></table></div>`
-        : '<div class="text-center muted py-3">✅ مفيش سجلات اختبار فاضلة</div>';
+        : '<div class="empty"><b>✅ مفيش سجلات اختبار فاضلة</b></div>';
 }
 async function runClean() {
-    const r = await fetch('/api/cleanup/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sites: $('runSites').value || 'all'})}).then(r => r.json());
-    $('msg').innerHTML = r.success ? '<div class="alert alert-success py-2">🧹 التنظيف دخل الطابور — <a href="/queue">تابعيه</a></div>' : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
+    const r = await post('/api/cleanup/run', {sites: $('runSites').value || 'all'});
+    if (r.success) track(r.task_ids);
 }
 async function forget(k) {
     await fetch('/api/cleanup/forget', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items: [k]})});
     loadClean();
 }
 async function loadErrors() {
-    const j = await fetch('/api/errors?days=' + $('eDays').value).then(r => r.json());
+    const j = await fetch('/api/errors?days=' + $('eDays').value).then(r => r.json()).catch(() => ({total: 0}));
+    if (!j.total) { $('errs').innerHTML = '<div class="empty"><b>✅ مفيش أخطاء في الفترة دي</b></div>'; return; }
     const mx = Math.max(1, ...j.per_day.map(x => x.n));
-    $('errs').innerHTML = !j.total ? '<div class="text-center muted py-3">✅ مفيش أخطاء في الفترة دي</div>' : `
-      <div class="bars mb-2" style="height:40px">${j.per_day.map(x => `<i class="${x.n ? '' : 'z'}" style="height:${Math.max(8, x.n / mx * 100)}%" title="${x.d}: ${x.n} فشل"></i>`).join('')}</div>
+    $('errs').innerHTML = `
+      <div class="bars mb-2" style="height:40px;justify-content:stretch">${j.per_day.map(x => `<i class="${x.n ? '' : 'z'}" style="height:${Math.max(8, x.n / mx * 100)}%" title="${x.d}: ${x.n} فشل"></i>`).join('')}</div>
       <div class="mb-2">${j.kinds.map(([k, n]) => `<span class="chip bad me-1 mb-1">${esc(k)}: ${n}</span>`).join('')}</div>
-      <div class="table-responsive" style="max-height:420px"><table class="table table-sm" id="brk"><thead><tr><th>الخطأ</th><th>كام مرة</th><th>الاختبارات</th><th>آخر مرة</th></tr></thead><tbody>
+      <div class="scroll"><table class="t2"><thead><tr><th>الخطأ</th><th>كام مرة</th><th>الاختبارات</th><th>آخر مرة</th></tr></thead><tbody>
       ${j.groups.map(g => `<tr><td><div class="muted">${esc(g.kind)}</div><a href="/reports/${esc(g.run_id)}" title="${esc(g.example)}">${esc(g.sig)}</a></td><td class="fw-bold text-center">${g.count}</td>
         <td class="muted">${g.tests.map(esc).join('<br>')}</td><td class="muted text-nowrap">${esc(g.last)}<br>من ${esc(g.first)}</td></tr>`).join('')}</tbody></table></div>`;
 }
-load(); loadClean(); loadErrors();
+
+fetch('/api/sites').then(r => r.json()).then(j => {
+    const list = (j && j.sites) || [];
+    const act = list.find(x => x.active);
+    $('runSites').innerHTML = `<option value="">الموقع النشط${act ? ' — ' + esc(act.name) : ''}</option>` +
+        list.map(x => `<option value="${esc(x.id)}">${esc(x.name)} — ${esc((x.base_url || '').replace(/^https?:\/\//, ''))}</option>`).join('') +
+        (list.length > 1 ? `<option value="all">🌐 كل المواقع (${list.length})</option>` : '');
+}).catch(() => {});
+fetch('/api/books').then(r => r.json()).then(j => { $('bFrom').value = j.config.date_from || ''; $('bTo').value = j.config.date_to || ''; }).catch(() => {});
+try { if (localStorage.getItem('hx_deep')) $('fDeep').value = localStorage.getItem('hx_deep'); } catch (e) {}
+load(); poll(); loadClean(); loadErrors();
 </script>
 {% endblock %}

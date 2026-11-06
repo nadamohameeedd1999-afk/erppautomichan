@@ -340,7 +340,8 @@ def api_health_save():
     if d.get("run"):
         from web.queue_manager import get_manager
         from web import sites_api
-        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), saved["name_ar"], d.get("sites"), source="manual"))
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), saved["name_ar"], d.get("sites"), source="manual",
+                                            front=True))
     return jsonify(out)
 
 
@@ -384,7 +385,8 @@ def api_books_save():
     if d.get("run"):
         from web.queue_manager import get_manager
         from web import sites_api
-        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), saved["name_ar"], d.get("sites"), source="manual"))
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), saved["name_ar"], d.get("sites"), source="manual",
+                                            front=True))
     return jsonify(out)
 
 
@@ -508,9 +510,32 @@ def api_health_full():
         b = C.load(BOOKS_KEY)
     except C.ConfigError:
         b = C.save({"key": BOOKS_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات"})
-    out = sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"), source="manual")
-    out2 = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), "🔎 فحص شامل: مطابقة الحسابات", d.get("sites"), source="manual")
-    return jsonify({"success": True, "count": out["count"] + out2["count"]})
+    # first in the queue: a client is waiting — it does not wait behind a long list of other tests
+    out2 = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), "🔎 فحص شامل: مطابقة الحسابات", d.get("sites"),
+                                    source="manual", front=True)
+    out = sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"),
+                                   source="manual", front=True)
+    return jsonify({"success": True, "count": out["count"] + out2["count"], "task_ids": out["task_ids"] + out2["task_ids"]})
+
+
+@bp.route("/api/health/tasks")
+@auth.login_required
+def api_health_tasks():
+    """where the checks started from this page are: waiting (and their place), running, done"""
+    from web.queue_manager import get_manager
+    qm = get_manager()
+    st = qm.get_status()
+    order = [t.get("task_id") for t in st.get("queue") or []]
+    out = []
+    for tid in [x for x in (request.args.get("ids") or "").split(",") if x][:20]:
+        t = qm.get_task(tid) or {}
+        status = t.get("status") or "unknown"
+        if tid in order:
+            status = "queued"
+        out.append({"id": tid, "name": t.get("test_name", ""), "status": status, "place": (order.index(tid) + 1) if tid in order else 0,
+                    "started": t.get("started_at"), "run_id": t.get("run_id") or tid})
+    return jsonify({"success": True, "tasks": out, "running": [r.get("test_name") for r in st.get("running_all") or []],
+                    "waiting": st.get("queue_length", 0)})
 
 
 @bp.route("/health/report")

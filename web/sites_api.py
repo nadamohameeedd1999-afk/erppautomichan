@@ -51,14 +51,14 @@ def site_name(sid):
     return p["name"] if p else sid
 
 
-def queue_on_sites(qm, test_path, test_name, sites=None, source="manual", repeat=1, extra=None):
+def queue_on_sites(qm, test_path, test_name, sites=None, source="manual", repeat=1, extra=None, front=False):
     ids = resolve_sites(sites)
     stamp = datetime.now().strftime("%Y%m%d%H%M%S")
     task_ids, first = [], None
     for i, sid in enumerate(ids):
         tid = f"run_{stamp}{i:02d}{uuid.uuid4().hex[:3]}"
         name = test_name + (f" · {site_name(sid)}" if sid and len(ids) > 1 else "")
-        r = qm.add(tid, test_path, name, repeat=repeat, source=source,
+        r = qm.add(tid, test_path, name, repeat=repeat, source=source, front=front,
                    extra={**(extra or {}), "site": sid, "site_name": site_name(sid)})
         task_ids.append(tid)
         first = first or {**r, "task_id": tid}
