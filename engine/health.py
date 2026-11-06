@@ -230,12 +230,18 @@ def is_report(path):
     return bool(re.search(r"/report|_report|reports?/", path, re.I))
 
 
+# a link whose ACTION (2nd part of the path) does something instead of showing a screen: never opened (read-only check)
+ACTION_RE = re.compile(r"^/[^/?]+/(delete|remove|reset|clear|restore|backup|import|sync|recalc|rebuild|migrate|execute|run|post|approve|"
+                       r"reject|lock|unlock|generate|send|save|update|create|insert|close|cancel|logout|logoff|setbranch|change|toggle|mark)",
+                       re.I)
+
+
 def pick(links, cfg):
     skip = [s.lower() for s in (DEFAULT_SKIP + list(cfg.get("skip") or [])) if s]
     out = []
     for l in links:
         p = l["path"].lower()
-        if any(s in p for s in skip):
+        if any(s in p for s in skip) or ACTION_RE.match(l["path"]):
             continue
         if not cfg.get("reports", True) and is_report(l["path"]):
             continue
