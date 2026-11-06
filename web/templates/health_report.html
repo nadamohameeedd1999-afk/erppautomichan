@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تقرير سرعة وصحة النظام — {{ site_name }}</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --border: #D5E2E1; --text: #1C2B2A; --grey: #6B7C7B; }
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; @bottom-center { content: "صفحة " counter(page) " من " counter(pages); font: 10px "Microsoft Sans Serif", Tahoma, sans-serif; color: #6B7C7B; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f6f6; color: var(--text); font: 12px "Microsoft Sans Serif", Tahoma, Arial, sans-serif; }
+  .page { background: #fff; max-width: 1120px; margin: 16px auto; padding: 18px 22px 26px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .hdr { display: grid; grid-template-columns: 1fr 1.3fr 1fr; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 4px solid var(--teal); }
+  .co b { color: var(--dark); font-size: 16px; display: block; } .co span { color: var(--grey); display: block; margin-top: 2px; }
+  .ttl { text-align: center; } .ttl h1 { margin: 0; font-size: 22px; } .ttl div { color: var(--teal); font-weight: bold; margin-top: 3px; }
+  .who { text-align: left; line-height: 1.8; } .who span { color: var(--grey); } .who b { color: var(--text); }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px 22px; background: var(--light); border-radius: 10px; padding: 9px 14px; margin: 12px 0; }
+  .strip span { color: var(--grey); } .strip b { margin-inline-start: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; }
+  .kpi b { display: block; font-size: 20px; color: var(--dark); } .kpi span { color: var(--grey); font-size: 11px; }
+  .kpi.bad b { color: #c0392b; }
+  h2 { font-size: 14px; color: var(--dark); margin: 18px 0 6px; padding-inline-start: 8px; border-inline-start: 4px solid var(--teal); }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; }
+  th { background: var(--teal); color: #fff; font-weight: bold; padding: 7px 8px; text-align: right; font-size: 11.5px; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.n, th.n { text-align: center; white-space: nowrap; } .ltr { direction: ltr; unicode-bidi: embed; font-size: 11px; color: var(--grey); }
+  .note { color: var(--grey); font-size: 11px; margin-top: 4px; }
+  .verdict { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; line-height: 1.9; }
+  .bar { position: fixed; top: 10px; left: 10px; } .bar button { background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; }
+  .foot { text-align: center; color: var(--grey); font-size: 10px; margin-top: 18px; }
+  @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; max-width: none; padding: 0; } .bar, .foot { display: none; } }
+</style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+{% set ss = d.speed_stats or {} %}
+{% set sp = d.speed or [] %}
+{% set bk = (d.broken or {}) %}
+<div class="page">
+  <div class="hdr">
+    <div class="co"><b>{{ site_name }}</b><span class="ltr">{{ d.base_url }}</span>
+      {% if d.activity or d.branch %}<span>النشاط: {{ d.activity or 'الأول' }} · الفرع: {{ d.branch or 'الأول' }}</span>{% endif %}</div>
+    <div class="ttl"><h1>تقرير سرعة وصحة النظام</h1><div>System Speed &amp; Health Report</div></div>
+    <div class="who"><span>المستخدم:</span> <b>{{ user or '—' }}</b><br><span>تاريخ الطباعة:</span> <b>{{ printed }}</b></div>
+  </div>
+
+  <div class="strip">
+    <div><span>وقت الفحص:</span><b>{{ (d.at or '')[:16].replace('T', ' ') }}</b></div>
+    <div><span>الشاشات اللي اتفحصت:</span><b>{{ d.total }}</b></div>
+    <div><span>اتفتحت في المتصفح وانتظرنا بياناتها:</span><b>{{ ss.measured or 0 }}</b></div>
+    <div><span>مدة الفحص:</span><b>{{ ss.seconds if ss.seconds is not none else '—' }} ث</b></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b>{{ d.total - (bk|length) }}</b><span>شاشة بتفتح سليمة</span></div>
+    <div class="kpi {{ 'bad' if bk else '' }}"><b>{{ bk|length }}</b><span>شاشة بايظة</span></div>
+    <div class="kpi"><b>{{ ss.html_median if ss.html_median is not none else '—' }}</b><span>متوسط رد السيرفر على الشاشة (ث)</span></div>
+    <div class="kpi {{ 'bad' if (ss.load_median or 0) >= 5 else '' }}"><b>{{ ss.load_median if ss.load_median is not none else '—' }}</b><span>متوسط فتح الشاشة كاملة ببياناتها (ث)</span></div>
+    <div class="kpi {{ 'bad' if (ss.load_max or 0) >= 10 else '' }}"><b>{{ ss.load_max if ss.load_max is not none else '—' }}</b><span>أبطأ شاشة (ث)</span></div>
+    <div class="kpi {{ 'bad' if ss.load_over5 else '' }}"><b>{{ ss.load_over5 or 0 }}</b><span>شاشات أبطأ من 5 ث</span></div>
+  </div>
+
+  <div class="verdict">
+    <b>الخلاصة:</b>
+    {% if not sp %}
+      اتفحص فتح الشاشات بس (من غير قياس السرعة الحقيقية في المتصفح).
+    {% elif (ss.load_median or 0) >= 5 %}
+      🔴 البطء حقيقي: متوسط فتح الشاشة كاملة {{ ss.load_median }} ثانية، و{{ ss.load_over5 }} من {{ ss.measured }} شاشة اتقاست أبطأ من 5 ثواني.
+    {% elif ss.load_over5 %}
+      🟠 السرعة العامة مقبولة (المتوسط {{ ss.load_median }} ث)، لكن فيه {{ ss.load_over5 }} شاشة بطيئة فعلًا — موضحة تحت ومعاها طلب البيانات اللي واخد الوقت.
+    {% else %}
+      🟢 مفيش بطء ملحوظ وقت الفحص: متوسط فتح الشاشة {{ ss.load_median }} ث وأبطأ شاشة {{ ss.load_max }} ث.
+    {% endif %}
+    {% if ss.ttfb_home is not none %}<br>رد السيرفر على الصفحة الرئيسية: {{ ss.ttfb_home }} ث {{ '— السيرفر نفسه بطيء في الرد' if (ss.ttfb_home or 0) >= 1.5 else '— السيرفر بيرد بسرعة، والوقت بيروح في تحميل بيانات الشاشات' }}.{% endif %}
+    {% if books %}<br>الحسابات: {{ '🟢 ميزان المراجعة متزن والشجرة متطابقة' if books.ok else '🔴 فيه مشاكل في ميزان المراجعة — التفاصيل تحت' }} (الفترة {{ books['from'] }} → {{ books['to'] }}).{% endif %}
+    <div class="note">القياس اتعمل من سيرفر الاختبار، مش من جهاز العميل. لو الأرقام هنا كويسة والعميل بيشتكي، يبقى غالبًا من الإنترنت أو الجهاز عنده — والعكس، لو الأرقام هنا عالية يبقى البطء من السيرفر / الشاشة.</div>
+  </div>
+
+  {% if sp %}
+  <h2>🐢 السرعة الحقيقية — الشاشة مفتوحة في المتصفح لحد ما بياناتها تحمل</h2>
+  <table>
+    <tr><th>#</th><th>الشاشة</th><th>القسم</th><th class="n">التقييم</th><th class="n">فتح كامل (ث)</th><th class="n">رد السيرفر (ث)</th><th class="n">طلبات بيانات</th><th>أبطأ طلب بيانات</th><th class="n">صفوف</th></tr>
+    {% for m in sp %}
+    <tr><td class="n">{{ loop.index }}</td><td><b>{{ m.name }}</b><div class="ltr">{{ m.path }}</div></td><td>{{ m.module or '—' }}</td>
+      <td class="n">{{ rate(m.load) }}{{ ' ⏱️' if m.timeout else '' }}</td><td class="n"><b>{{ m.load if m.load is not none else '—' }}</b></td>
+      <td class="n">{{ m.ttfb if m.ttfb is not none else '—' }}</td><td class="n">{{ m.xhr_n or 0 }}</td>
+      <td>{% if m.xhr %}{{ '%.1f'|format(m.xhr[0].ms / 1000) }} ث <div class="ltr">{{ m.xhr[0].url }}</div>{% else %}—{% endif %}</td>
+      <td class="n">{{ m.rows if m.rows else '—' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if ss.slow_ajax %}
+  <h2>⏳ أبطأ طلبات البيانات (اللي بتأخر الشاشات)</h2>
+  <table>
+    <tr><th>#</th><th>الطلب</th><th>الشاشة</th><th class="n">الوقت (ث)</th><th class="n">الحجم (KB)</th></tr>
+    {% for x in ss.slow_ajax %}
+    <tr><td class="n">{{ loop.index }}</td><td class="ltr">{{ x.url }}</td><td>{{ x.screen }}</td><td class="n"><b>{{ '%.2f'|format(x.ms / 1000) }}</b></td><td class="n">{{ x.kb or '—' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if broken %}
+  <h2>❌ شاشات بايظة</h2>
+  <table>
+    <tr><th>#</th><th>الشاشة</th><th>القسم</th><th>السبب</th><th class="n">بايظة من</th></tr>
+    {% for b in broken %}
+    <tr><td class="n">{{ loop.index }}</td><td><b>{{ b.name }}</b><div class="ltr">{{ b.path }}</div></td><td>{{ b.module or '—' }}</td><td>{{ b.why }}</td><td class="n">{{ (b.since or '')[:16].replace('T', ' ') or '—' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if books %}
+  <h2>⚖️ مطابقة الحسابات — ميزان المراجعة ({{ books['from'] }} → {{ books['to'] }})</h2>
+  <table>
+    <tr><th>النطاق</th><th>القاعدة</th><th>النتيجة</th><th class="n">الحالة</th></tr>
+    {% for r in books.rows %}
+    <tr><td>{{ r.cells[0] }}</td><td>{{ r.cells[1] }}</td><td>{{ r.cells[2] }}</td><td class="n">{{ '✅' if r.ok else ('❌' if r.ok == false else 'ℹ️') }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if slow_html %}
+  <h2>🕐 أبطأ 25 شاشة في رد السيرفر (من كل الشاشات)</h2>
+  <table>
+    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">رد السيرفر (ث)</th><th class="n">التقييم</th></tr>
+    {% for x in slow_html %}
+    <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td><td class="n"><b>{{ x.sec }}</b></td><td class="n">{{ rate(x.sec) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  <div class="foot">صفحة 1 من 1 — بيتقسم تلقائي وقت الطباعة</div>
+</div>
+</body>
+</html>

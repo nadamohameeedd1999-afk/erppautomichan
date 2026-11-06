@@ -137,6 +137,73 @@ def set_baseline(site_file=None):
     return d["baseline"]["at"]
 
 
+READY_JS = r"""
+const vis = e => { const r = e.getBoundingClientRect(); const st = getComputedStyle(e);
+  return r.width > 0 && r.height > 0 && st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0'; };
+const loaders = Array.from(document.querySelectorAll('#preloader, #status, .loader, .loading, .spinner-border, .dataTables_processing, .blockUI, #pleasewait, .k-loading-mask'))
+  .filter(vis).length;
+return {ready: document.readyState === 'complete', active: (window.jQuery && jQuery.active) || 0, loaders: loaders};
+"""
+
+PERF_JS = r"""
+const nav = performance.getEntriesByType('navigation')[0] || {};
+const xhr = performance.getEntriesByType('resource').filter(r => r.initiatorType === 'xmlhttprequest' || r.initiatorType === 'fetch')
+  .map(r => ({url: r.name.replace(location.origin, '').slice(0, 160), ms: Math.round(r.duration), kb: Math.round((r.transferSize || 0) / 1024)}))
+  .sort((a, b) => b.ms - a.ms);
+const res = performance.getEntriesByType('resource');
+let rows = 0; document.querySelectorAll('table').forEach(t => { if (!t.closest('.modal')) rows = Math.max(rows, t.querySelectorAll('tbody tr').length); });
+return {ttfb: Math.round((nav.responseStart || 0) - (nav.requestStart || 0)), dom: Math.round(nav.domContentLoadedEventEnd || 0),
+        load: Math.round(nav.loadEventEnd || 0), html_kb: Math.round((nav.transferSize || 0) / 1024),
+        files: res.length, files_kb: Math.round(res.reduce((t, r) => t + (r.transferSize || 0), 0) / 1024),
+        xhr: xhr.slice(0, 8), xhr_n: xhr.length, rows: rows, title: document.title.slice(0, 80),
+        error: /server error|runtime error|exception/i.test((document.body && document.body.innerText || '').slice(0, 3000))};
+"""
+
+
+def rate(sec):
+    if sec is None:
+        return "—"
+    return "🟢 سريعة" if sec < 2 else ("🟡 مقبولة" if sec < 5 else ("🟠 بطيئة" if sec < 10 else "🔴 بطيئة جدًا"))
+
+
+def measure_real(driver, base, link, max_wait=60):
+    """open the screen in the real browser like a user and wait until it is really usable:
+    page loaded + no ajax running + no loader on screen -> seconds, the server's first answer, every ajax call"""
+    t0 = time.time()
+    try:
+        driver.get(base + link["path"])
+    except Exception as e:
+        return {**link, "error": f"مفتحتش: {str(e).splitlines()[0][:120]}", "load": None}
+    t_nav = time.time() - t0
+    calm, end = 0, time.time() + max_wait
+    while time.time() < end:
+        try:
+            st = driver.execute_script(READY_JS) or {}
+        except Exception:
+            st = {}
+        if st.get("ready") and not st.get("active") and not st.get("loaders"):
+            calm += 1
+            if calm >= 2:
+                break
+        else:
+            calm = 0
+        time.sleep(0.4)
+    total = time.time() - t0 - (0.4 if calm >= 2 else 0)
+    try:
+        perf = driver.execute_script(PERF_JS) or {}
+    except Exception:
+        perf = {}
+    return {**link, "load": round(total, 1), "nav": round(t_nav, 1), "timeout": time.time() >= end,
+            "ttfb": round((perf.get("ttfb") or 0) / 1000, 2), "html_kb": perf.get("html_kb"), "files": perf.get("files"),
+            "files_kb": perf.get("files_kb"), "xhr": perf.get("xhr") or [], "xhr_n": perf.get("xhr_n", 0), "rows": perf.get("rows", 0),
+            "error": "صفحة خطأ" if perf.get("error") else ""}
+
+
+def _pct(vals, q):
+    vals = sorted(v for v in vals if v is not None)
+    return vals[min(len(vals) - 1, int(len(vals) * q))] if vals else None
+
+
 def _site_key():
     from config.settings import BASE_URL, ACTIVITY, BRANCH
     return hashlib.sha1(f"{BASE_URL}|{ACTIVITY}|{BRANCH}".encode()).hexdigest()[:10]
@@ -243,6 +310,33 @@ def run_health(driver, credentials, cfg, result=None):
             forms.update(driver.execute_async_script(FORMS_JS, screens[i:i + 200], int(cfg.get("workers") or 8)) or {})
     secs = round(time.time() - t0, 1)
 
+    # 🐢 السرعة الحقيقية: the slowest screens (by the server's answer) opened in the real browser, waiting for their data
+    speed, deep_n = [], int(cfg.get("deep_speed", 25) or 0)
+    if deep_n:
+        ok_links = sorted((l for l in todo if (res.get(l["path"]) or {}).get("s") == 200), key=lambda l: -(res[l["path"]].get("ms") or 0))
+        sample = [{"path": "/Home", "name": "الصفحة الرئيسية", "module": ""}] + list(cfg.get("speed_paths_links") or []) + ok_links[:deep_n]
+        seen_p = set()
+        logger.info(f"🐢 بفتح أبطأ {deep_n} شاشة في المتصفح زي المستخدم بالظبط وبستنى بياناتها تحمل")
+        for l in sample:
+            if l["path"] in seen_p:
+                continue
+            seen_p.add(l["path"])
+            m = measure_real(driver, base, {"path": l["path"], "name": l["name"], "module": l.get("module", "")})
+            m["html"] = round(((res.get(l["path"]) or {}).get("ms") or 0) / 1000, 2) or None
+            speed.append(m)
+            slow_x = (m.get("xhr") or [{}])[0]
+            logger.info(f"   {rate(m.get('load'))} {m.get('load')} ث — {l['name']}"
+                        + (f" · أبطأ طلب بيانات {slow_x.get('ms', 0) / 1000:.1f} ث ({slow_x.get('url', '')[:60]})" if slow_x.get("url") else ""))
+    html_secs = [round(((r.get("ms") or 0) / 1000), 2) for r in res.values() if r.get("s") == 200]
+    speed_stats = {"html_median": _pct(html_secs, 0.5), "html_p90": _pct(html_secs, 0.9), "html_max": max(html_secs) if html_secs else None,
+                   "html_over5": sum(1 for x in html_secs if x >= 5), "measured": len(speed),
+                   "load_median": _pct([m.get("load") for m in speed], 0.5), "load_max": max([m.get("load") or 0 for m in speed], default=None),
+                   "load_over5": sum(1 for m in speed if (m.get("load") or 0) >= 5), "ttfb_home": (speed[0].get("ttfb") if speed else None),
+                   "seconds": secs}
+    xhr_all = sorted(({**x, "screen": m["name"]} for m in speed for x in (m.get("xhr") or [])), key=lambda x: -x["ms"])[:15]
+    speed_stats["slow_ajax"] = xhr_all
+    times = {p: (r.get("ms") or 0) for p, r in res.items()}
+
     slow_ms = int(float(cfg.get("slow_seconds") or 0) * 1000)
     broken = {}
     for l in todo:
@@ -274,7 +368,8 @@ def run_health(driver, credentials, cfg, result=None):
              "changes": [{"path": p, "what": w, "ok": ok} for p, w, ok in changes]
                         + [{"path": p, "what": "➖ اللينك اتشال من المنيو", "ok": None} for p in gone_links]
                         + [{"path": p, "what": "➕ شاشة جديدة في المنيو", "ok": None} for p in new_links],
-             "compared_with": (ref or {}).get("at") if ref else None}
+             "compared_with": (ref or {}).get("at") if ref else None,
+             "times": times, "speed": sorted(speed, key=lambda m: -(m.get("load") or 0)), "speed_stats": speed_stats}
     if prev.get("baseline"):
         state["baseline"] = prev["baseline"]
     _save_state(state)
@@ -290,6 +385,13 @@ def run_health(driver, credentials, cfg, result=None):
     for c in state["changes"]:
         n_, m_ = nm.get(c["path"], ((prev.get("names") or {}).get(c["path"], c["path"]), ""))
         rows.append({"cells": ["🔀 اتغيرت", m_ or "—", n_, c["path"], c["what"], "—"], "ok": c["ok"]})
+    for m in sorted(speed, key=lambda m: -(m.get("load") or 0)):
+        if (m.get("load") or 0) >= 5 or m.get("timeout"):
+            x = (m.get("xhr") or [{}])[0]
+            rows.append({"cells": ["🐢 بطيئة", m.get("module") or "—", m["name"], m["path"],
+                                   f"{rate(m.get('load'))}: {m.get('load')} ث لحد ما الشاشة اشتغلت (رد السيرفر {m.get('ttfb')} ث)"
+                                   + (f" · أبطأ طلب بيانات {x['ms'] / 1000:.1f} ث: {x['url'][:70]}" if x.get("url") else "")
+                                   + (" · ⏱️ مخلصتش في 60 ث" if m.get("timeout") else ""), "—"], "ok": False if (m.get("load") or 0) >= 10 else None})
     times = sorted(r.get("ms", 0) for r in res.values() if r.get("s") == 200)
     med = times[len(times) // 2] / 1000 if times else 0
     slowest = sorted(((r.get("ms", 0), p) for p, r in res.items() if r.get("s") == 200), reverse=True)[:5]
@@ -298,6 +400,10 @@ def run_health(driver, credentials, cfg, result=None):
             f" (🆕 {len(new)} · ✅ اتصلحت {len(fixed)}) · متوسط الفتح {med:.1f} ث")
     if slowest:
         note += "\n🐢 أبطأ شاشات: " + "، ".join(f"{names.get(p, p)} ({ms / 1000:.1f} ث)" for ms, p in slowest)
+    if speed:
+        ss = speed_stats
+        note += (f"\n🐢 السرعة الحقيقية (فتحت {len(speed)} شاشة في المتصفح وانتظرت بياناتها): المتوسط {ss['load_median']} ث · الأبطأ {ss['load_max']} ث"
+                 f" · {ss['load_over5']} شاشة أبطأ من 5 ث · رد السيرفر على الرئيسية {ss['ttfb_home']} ث")
     if forms:
         note += f"\n📋 قريت فورم الإضافة في {sum(1 for x in forms.values() if x.get('f') is not None)} شاشة"
         if state["compared_with"]:

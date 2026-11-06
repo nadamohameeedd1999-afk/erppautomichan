@@ -196,7 +196,8 @@ def normalize(cfg):
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],
                     "reports": bool(cfg.get("reports", True)), "forms": bool(cfg.get("forms", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
                     "slow_seconds": max(0.0, float(cfg.get("slow_seconds", 0) or 0)),
-                    "workers": max(1, min(16, int(cfg.get("workers", 8) or 8))), "menu_page": _url(cfg.get("menu_page")) or "/Home"})
+                    "workers": max(1, min(16, int(cfg.get("workers", 8) or 8))),
+                    "deep_speed": max(0, min(200, int(cfg.get("deep_speed", 25) if cfg.get("deep_speed") is not None else 25))), "menu_page": _url(cfg.get("menu_page")) or "/Home"})
     return out
 
 

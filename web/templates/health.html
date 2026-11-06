@@ -29,7 +29,9 @@
                 ويبعت على تيليجرام / واتساب باللي باظ جديد واللي اتصلح. شغليه بعد كل تحديث للـ ERP أو جدوليه كل يوم.</div>
         </div>
         <div class="d-flex gap-2 align-items-center">
-            <select id="runSites" class="form-select form-select-sm d-none" style="width:auto"></select>
+            <select id="runSites" class="form-select form-select-sm" style="width:auto" title="الموقع / العميل اللي هيتفحص"><option value="">الموقع النشط</option></select>
+            <a class="btn btn-sm btn-outline-secondary" href="/settings#profiles" title="ضيفي موقع العميل (الرابط + المستخدم + الباسورد)">＋ موقع عميل</a>
+            <button class="btn btn-primary" onclick="fullCheck()" title="كل الشاشات + السرعة الحقيقية لأبطأ الشاشات + مطابقة الحسابات — للموقع المختار"><i class="bi bi-search"></i> 🔎 فحص شامل للعميل</button>
             <button class="btn btn-success" onclick="save(true)"><i class="bi bi-play-fill"></i> افحص النظام دلوقتي</button>
             <a class="btn btn-outline-secondary" href="/schedule" title="اختاري «🩺 صحة النظام» في الجدولة"><i class="bi bi-calendar-week"></i> جدولة يومية</a>
         </div>
@@ -100,6 +102,10 @@
                 <input id="fSlow" type="number" min="0" step="1" class="form-control" placeholder="0 = لا">
             </div>
             <div class="col-md-3">
+                <label class="form-label fw-bold">🐢 شاشات تتفتح في المتصفح لقياس السرعة الحقيقية</label>
+                <input id="fDeep" type="number" min="0" max="200" class="form-control" title="أبطأ N شاشة بتتفتح زي المستخدم وبنستنى بياناتها تحمل — 0 = لا">
+            </div>
+            <div class="col-md-3">
                 <label class="form-label fw-bold">⚡ صفحات في نفس الوقت</label>
                 <input id="fWorkers" type="number" min="1" max="16" class="form-control">
             </div>
@@ -120,7 +126,7 @@ function paint() {
     const c = D.config;
     $('fSkip').value = (c.skip || []).join('\n'); $('fExtra').value = (c.extra || []).join('\n');
     $('fReports').value = c.reports === false ? '0' : '1'; $('fForms').value = c.forms === false ? '0' : '1'; $('fFail').value = c.fail_on || 'any';
-    $('fSlow').value = c.slow_seconds || ''; $('fWorkers').value = c.workers || 8;
+    $('fSlow').value = c.slow_seconds || ''; $('fWorkers').value = c.workers || 8; $('fDeep').value = c.deep_speed ?? 25;
     $('defSkip').textContent = (D.default_skip || []).join(' · ');
     const last = D.last ? `<a class="chip ${D.last.passed ? 'ok' : 'bad'}" href="/reports/${esc(D.last.run_id)}">${D.last.passed ? '✅ سليم' : '❌ فيه شاشات بايظة'}</a> <span class="muted">${esc(D.last.time)}</span>` : '';
     if (!D.states.length) { $('states').innerHTML = `<div class="hc text-center py-4"><div style="font-size:40px">🩺</div><div class="fw-bold">لسه ما اتعملش فحص</div><div class="muted">دوسي «افحص النظام دلوقتي» — أول مرة بتبقى نقطة البداية</div>${last}</div>`; return; }
@@ -147,6 +153,7 @@ function paint() {
           ${(s.changes || []).length ? `<div class="fw-bold mt-2 mb-1">🔀 اللي اتغير (${s.changes.length})</div><div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>الرابط</th><th>التغيير</th></tr></thead><tbody>
             ${s.changes.map(c => `<tr class="${c.ok === false ? 'table-danger' : (c.ok ? 'table-success' : '')}"><td class="fw-bold">${esc(c.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + c.path)}">${esc(c.path)}</a></td><td>${esc(c.what)}</td></tr>`).join('')}
             </tbody></table></div>` : (s.compared_with ? '<div class="muted mb-2">🔀 مفيش تغيير في الشاشات والفورمات</div>' : '')}
+          ${speedBlock(s)}
           ${s.broken.length ? `<div class="mb-2">${Object.entries(mods).sort((a, b) => b[1] - a[1]).map(([m, n]) => `<span class="chip bad me-1">${esc(m)}: ${n}</span>`).join('')}</div>
           <div class="table-responsive"><table class="table table-sm" id="brk"><thead><tr><th>الموديول</th><th>الشاشة</th><th>الرابط</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
           ${s.broken.map(b => `<tr><td>${esc(b.module || '—')}</td><td class="fw-bold">${esc(b.name)}</td><td><a class="ltr" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></td><td>${esc(b.why)}</td><td class="muted text-nowrap">${esc((b.since || '').slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
@@ -154,6 +161,36 @@ function paint() {
           <button class="btn btn-sm btn-outline-secondary" onclick="copyList(${D.states.indexOf(s)})"><i class="bi bi-clipboard"></i> انسخي القايمة للمطورين</button>` : '<div class="text-center fw-bold" style="color:var(--g-ok,#198754)">✅ كل الشاشات بتفتح سليمة</div>'}
         </div>`;
     }).join('');
+}
+
+const RATE = x => x == null ? '—' : (x < 2 ? '🟢 سريعة' : (x < 5 ? '🟡 مقبولة' : (x < 10 ? '🟠 بطيئة' : '🔴 بطيئة جدًا')));
+function speedBlock(s) {
+    const ss = s.speed_stats || {}, sp = s.speed || [];
+    const rep = `<a class="btn btn-sm btn-primary" target="_blank" href="/health/report?file=${encodeURIComponent(s.file)}">📄 تقرير للعميل (طباعة / PDF)</a>`;
+    const books = s.books ? `<span class="chip ${s.books.ok ? 'ok' : 'bad'}">⚖️ ${s.books.ok ? 'الحسابات متزنة' : 'الحسابات مش متزنة'}</span>` : '';
+    if (!sp.length) return `<div class="d-flex gap-2 align-items-center mb-2">${rep} ${books}<span class="muted">السرعة الحقيقية ما اتقاستش في الفحص ده — شغلي «🔎 فحص شامل للعميل»</span></div>`;
+    return `<div class="hc mb-3" style="background:var(--g-hover)">
+      <div class="d-flex justify-content-between flex-wrap gap-2 mb-2"><div class="fw-bold">🐢 السرعة الحقيقية — الشاشة مفتوحة في المتصفح لحد ما بياناتها تحمل</div><div class="d-flex gap-2 align-items-center">${books}${rep}</div></div>
+      <div class="row g-2 mb-2">
+        <div class="col-6 col-md-3"><div class="kpi ${ss.load_median >= 5 ? 'bad' : 'ok'}"><b>${ss.load_median ?? '—'}</b><span>متوسط فتح الشاشة كاملة (ث)</span></div></div>
+        <div class="col-6 col-md-3"><div class="kpi ${ss.load_max >= 10 ? 'bad' : ''}"><b>${ss.load_max ?? '—'}</b><span>أبطأ شاشة (ث)</span></div></div>
+        <div class="col-6 col-md-3"><div class="kpi ${ss.load_over5 ? 'bad' : 'ok'}"><b>${ss.load_over5 || 0} / ${ss.measured || 0}</b><span>أبطأ من 5 ث</span></div></div>
+        <div class="col-6 col-md-3"><div class="kpi ${ss.ttfb_home >= 1.5 ? 'bad' : 'ok'}"><b>${ss.ttfb_home ?? '—'}</b><span>رد السيرفر على الرئيسية (ث)</span></div></div>
+      </div>
+      <div class="table-responsive" style="max-height:360px"><table class="table table-sm" id="brk"><thead><tr><th>الشاشة</th><th>التقييم</th><th>فتح كامل</th><th>رد السيرفر</th><th>أبطأ طلب بيانات</th></tr></thead><tbody>
+      ${sp.map(m => `<tr><td class="fw-bold">${esc(m.name)}<div class="muted ltr">${esc(m.path)}</div></td><td class="text-nowrap">${RATE(m.load)}${m.timeout ? ' ⏱️' : ''}</td>
+        <td class="fw-bold text-center">${m.load ?? '—'} ث</td><td class="text-center">${m.ttfb ?? '—'} ث</td>
+        <td>${(m.xhr || [])[0] ? `${(m.xhr[0].ms / 1000).toFixed(1)} ث <div class="muted ltr">${esc(m.xhr[0].url)}</div>` : '—'}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+}
+
+async function fullCheck() {
+    const site = $('runSites').value || '';
+    const deep = $('fDeep').value === '' ? 25 : +$('fDeep').value;
+    const r = await fetch('/api/health/full', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sites: site, config: {deep_speed: deep || 25}})}).then(r => r.json());
+    $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">🔎 الفحص الشامل دخل الطابور (${r.count} اختبار): كل الشاشات + السرعة الحقيقية لأبطأ ${deep || 25} شاشة + مطابقة الحسابات — <a href="/queue">تابعيه</a>. لما يخلص هيظهر هنا زرار «📄 تقرير للعميل».</div>`
+                                   : `<div class="alert alert-danger py-2">${esc(r.error)}</div>`;
 }
 
 function copyList(i) {
@@ -187,7 +224,8 @@ async function load() {
 async function save(run) {
     const lines = v => v.split('\n').map(x => x.trim()).filter(Boolean);
     const config = {skip: lines($('fSkip').value), extra: lines($('fExtra').value), reports: $('fReports').value === '1', forms: $('fForms').value === '1',
-                    fail_on: $('fFail').value, slow_seconds: +$('fSlow').value || 0, workers: +$('fWorkers').value || 8};
+                    fail_on: $('fFail').value, slow_seconds: +$('fSlow').value || 0, workers: +$('fWorkers').value || 8,
+                    deep_speed: $('fDeep').value === '' ? 25 : +$('fDeep').value};
     const r = await fetch('/api/health/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({config, run, sites: $('runSites').value || ''})}).then(r => r.json());
     $('msg').innerHTML = r.success ? `<div class="alert alert-success py-2">${run ? `✅ الفحص دخل الطابور (${r.count || 1}) — هيخلص في دقايق، <a href="/queue">تابعيه</a>` : '✅ اتحفظ'}</div>`
@@ -197,10 +235,8 @@ async function save(run) {
 
 fetch('/api/sites').then(r => r.json()).then(j => {
     const list = (j && j.sites) || [];
-    if (list.length < 2) return;
-    $('runSites').innerHTML = `<option value="">الموقع النشط</option>` + list.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') +
-        `<option value="all">🌐 كل المواقع (${list.length})</option>`;
-    $('runSites').classList.remove('d-none');
+    $('runSites').innerHTML = `<option value="">الموقع النشط</option>` + list.map(x => `<option value="${esc(x.id)}">${esc(x.name)} — ${esc((x.base_url || '').replace(/^https?:\/\//, ''))}</option>`).join('') +
+        (list.length > 1 ? `<option value="all">🌐 كل المواقع (${list.length})</option>` : '');
 }).catch(() => {});
 async function loadClean() {
     const j = await fetch('/api/cleanup').then(r => r.json());

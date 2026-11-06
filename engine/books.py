@@ -93,6 +93,15 @@ def run_books(driver, credentials, cfg, result=None):
         logger.info(f"⚖️ {where}: {len(r['data'])} حساب في {time.time() - t0:.1f} ث")
     result["detail"] = {"title": "⚖️ مطابقة الحسابات — ميزان المراجعة", "columns": ["النطاق", "القاعدة", "النتيجة"],
                         "rows": rows_out, "note": f"الفترة {frm} → {to} · من بيانات «ميزان المراجعة بالمستويات» على الموقع نفسه"}
+    try:                                           # kept per site for the client's speed & health report
+        from engine.health import _site_key, STATE
+        import json as _j
+        from datetime import datetime as _dt
+        STATE.mkdir(parents=True, exist_ok=True)
+        (STATE / f"books_{_site_key()}.json").write_text(_j.dumps({"at": _dt.now().isoformat(timespec="seconds"), "from": frm, "to": to,
+                                                                   "rows": rows_out, "ok": not fails}, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
     if fails:
         e = AssertionError("مطابقة الحسابات: " + str(len(fails)) + " مشكلة\n   " + "\n   ".join(fails[:10])
                            + "\n   (لو مدين ≠ دائن في حركة الفترة يبقى فيه قيد مش متزن اتحفظ — راجعي القيود اللي اتعملت في الفترة)")
