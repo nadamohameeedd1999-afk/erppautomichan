@@ -166,7 +166,13 @@ const xhr = performance.getEntriesByType('resource').filter(r => r.initiatorType
   .sort((a, b) => b.ms - a.ms);
 const res = performance.getEntriesByType('resource');
 let rows = 0; document.querySelectorAll('table').forEach(t => { if (!t.closest('.modal')) rows = Math.max(rows, t.querySelectorAll('tbody tr').length); });
+const xr = performance.getEntriesByType('resource').filter(r => r.initiatorType === 'xmlhttprequest' || r.initiatorType === 'fetch');
+const lastEnd = Math.max(nav.loadEventEnd || 0, ...xr.map(r => r.responseEnd || 0));
+const sels = Array.from(document.querySelectorAll('select')).map(s => ({id: s.id || s.name || '', n: s.options.length})).sort((a, b) => b.n - a.n);
+const inl = Array.from(document.scripts).filter(s => !s.src).reduce((t, s) => t + s.text.length, 0);
 return {ttfb: Math.round((nav.responseStart || 0) - (nav.requestStart || 0)), dom: Math.round(nav.domContentLoadedEventEnd || 0),
+        all_done: Math.round(lastEnd), page_kb: Math.round((nav.decodedBodySize || 0) / 1024), options: document.querySelectorAll('option').length,
+        top_select: sels[0] || null, inline_js_kb: Math.round(inl / 1024), dom_nodes: document.getElementsByTagName('*').length,
         load: Math.round(nav.loadEventEnd || 0), html_kb: Math.round((nav.transferSize || 0) / 1024),
         files: res.length, files_kb: Math.round(res.reduce((t, r) => t + (r.transferSize || 0), 0) / 1024),
         xhr: xhr.slice(0, 8), xhr_n: xhr.length, rows: rows, title: document.title.slice(0, 80),
@@ -207,7 +213,20 @@ def measure_real(driver, base, link, max_wait=60):
         perf = driver.execute_script(PERF_JS) or {}
     except Exception:
         perf = {}
-    return {**link, "load": round(total, 1), "nav": round(t_nav, 1), "timeout": time.time() >= end,
+    why = []
+    if (perf.get("page_kb") or 0) >= 1000:
+        why.append(f"الصفحة تقيلة {perf['page_kb'] / 1024:.1f} MB")
+    ts = perf.get("top_select") or {}
+    if (ts.get("n") or 0) >= 2000:
+        why.append(f"قايمة «{ts.get('id')}» فيها {ts['n']:,} اختيار جوه الصفحة")
+    if (perf.get("inline_js_kb") or 0) >= 500:
+        why.append(f"{perf['inline_js_kb']} KB كود JavaScript جوه الصفحة")
+    if (perf.get("xhr_n") or 0) >= 10:
+        why.append(f"{perf['xhr_n']} طلب بيانات وقت الفتح (السيرفر بيردّ عليهم واحد ورا التاني لنفس المستخدم)")
+    total = max(total, (perf.get("all_done") or 0) / 1000)        # until the last data request answered
+    return {**link, "load": round(total, 1), "nav": round(t_nav, 1), "timeout": time.time() >= end, "why": why,
+            "dom_ready": round((perf.get("dom") or 0) / 1000, 1), "all_done": round((perf.get("all_done") or 0) / 1000, 1),
+            "page_kb": perf.get("page_kb"), "options": perf.get("options"),
             "ttfb": round((perf.get("ttfb") or 0) / 1000, 2), "html_kb": perf.get("html_kb"), "files": perf.get("files"),
             "files_kb": perf.get("files_kb"), "xhr": perf.get("xhr") or [], "xhr_n": perf.get("xhr_n", 0), "rows": perf.get("rows", 0),
             "error": "صفحة خطأ" if perf.get("error") else ""}
@@ -347,6 +366,17 @@ def run_health(driver, credentials, cfg, result=None):
         logger.info(f"📋 بقرا فورم الإضافة في {len(screens)} شاشة (علشان المقارنة قبل / بعد التحديث)")
         for i in range(0, len(screens), 200):
             forms.update(driver.execute_async_script(FORMS_JS, screens[i:i + 200], int(cfg.get("workers") or 8)) or {})
+    # 🔁 a slow answer is measured 2 more times: a one-off spike (seen on a real site: 21 s, then 1.2 s and 1.2 s) is not «slow»
+    slow_p = [p_ for p_, r in res.items() if r.get("s") == 200 and (r.get("ms") or 0) >= 3000][:40]
+    if slow_p:
+        logger.info(f"🔁 بعيد قياس {len(slow_p)} صفحة بطيئة مرتين كمان علشان أتأكد إنه بطء ثابت مش لحظة")
+        again = [driver.execute_async_script(FETCH_JS, slow_p, 1) or {}, driver.execute_async_script(FETCH_JS, slow_p, 1) or {}]
+        for p_ in slow_p:
+            tries = [res[p_].get("ms") or 0] + [(a.get(p_) or {}).get("ms") or 0 for a in again]
+            med = sorted(tries)[1]
+            res[p_]["tries"] = tries
+            res[p_]["spike"] = med < 3000
+            res[p_]["ms"] = med
     secs = round(time.time() - t0, 1)
 
     # 🐢 السرعة الحقيقية: the slowest screens (by the server's answer) opened in the real browser, waiting for their data
@@ -389,6 +419,8 @@ def run_health(driver, credentials, cfg, result=None):
     xhr_all = sorted(({**x, "screen": m["name"]} for m in speed for x in (m.get("xhr") or [])), key=lambda x: -x["ms"])[:15]
     speed_stats["slow_ajax"] = xhr_all
     speed_stats["data"] = data_stats
+    speed_stats["spikes"] = [{"path": p_, "name": next((l["name"] for l in todo if l["path"] == p_), p_), "tries": r.get("tries")}
+                             for p_, r in res.items() if r.get("spike")][:20]
     times = {p: (r.get("ms") or 0) for p, r in res.items()}
     rows_of = {p: {"rows": r.get("rows") or 0, "report": bool(r.get("report"))} for p, r in res.items() if r.get("s") == 200}
 

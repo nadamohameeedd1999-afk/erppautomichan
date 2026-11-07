@@ -93,15 +93,27 @@
   {% if sp %}
   <h2>🐢 السرعة الحقيقية — الشاشة مفتوحة في المتصفح لحد ما بياناتها تحمل</h2>
   <table>
-    <tr><th>#</th><th>الشاشة</th><th>القسم</th><th class="n">التقييم</th><th class="n">فتح كامل (ث)</th><th class="n">رد السيرفر (ث)</th><th class="n">طلبات بيانات</th><th>أبطأ طلب بيانات</th><th class="n">صفوف</th></tr>
+    <tr><th>#</th><th>الشاشة</th><th class="n">التقييم</th><th class="n">جاهزة للشغل (ث)</th><th class="n">رد السيرفر (ث)</th><th class="n">طلبات بيانات</th><th>أبطأ طلب بيانات</th><th>ليه بتاخد الوقت ده</th></tr>
     {% for m in sp %}
-    <tr><td class="n">{{ loop.index }}</td><td><b>{{ m.name }}</b><div class="ltr">{{ m.path }}</div></td><td>{{ m.module or '—' }}</td>
+    <tr><td class="n">{{ loop.index }}</td><td><b>{{ m.name }}</b><div class="ltr">{{ m.path }}</div></td>
       <td class="n">{{ rate(m.load) }}{{ ' ⏱️' if m.timeout else '' }}</td><td class="n"><b>{{ m.load if m.load is not none else '—' }}</b></td>
       <td class="n">{{ m.ttfb if m.ttfb is not none else '—' }}</td><td class="n">{{ m.xhr_n or 0 }}</td>
       <td>{% if m.xhr %}{{ '%.1f'|format(m.xhr[0].ms / 1000) }} ث <div class="ltr">{{ m.xhr[0].url }}</div>{% else %}—{% endif %}</td>
-      <td class="n">{{ m.rows if m.rows else '—' }}</td></tr>
+      <td>{{ (m.why or [])|join(' · ') or '—' }}</td></tr>
     {% endfor %}
   </table>
+  {% endif %}
+
+  {% if ss.spikes %}
+  <h2>⚡ بطء لحظي (اتقاس 3 مرات — مرة بطيئة ومرتين عاديين)</h2>
+  <table>
+    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">القياسات (ث)</th></tr>
+    {% for x in ss.spikes %}
+    <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td>
+      <td class="n">{{ (x.tries or [])|map('float')|map('round', 0)|map('int')|join(' / ') }} ms</td></tr>
+    {% endfor %}
+  </table>
+  <div class="note">البطء اللحظي ممكن يكون ضغط على السيرفر في اللحظة دي (مستخدمين تانيين / نسخ احتياطي) — لو بيتكرر في نفس الوقت كل يوم يبقى ده سبب شكوى العميل.</div>
   {% endif %}
 
   {% if ss.slow_ajax %}
