@@ -43,11 +43,11 @@ return out;
 FETCH_JS = r"""
 const [paths, workers, done] = [arguments[0], arguments[1], arguments[arguments.length - 1]];
 const ERR = /(server error in|runtime error|unhandled exception|an error occurred while processing|sqlexception|stack trace:|exception details|حدث خطأ غير متوقع|خطأ في الخادم)/i;
-const out = {}; let i = 0;
+const out = {}; let i = 0; const P = new DOMParser();
 async function one(p) {
   const t0 = performance.now();
   try {
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 45000);
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 30000);
     const r = await fetch(p, {credentials: 'include', signal: ctl.signal}); const html = await r.text(); clearTimeout(timer);
     const login = /\/login/i.test(new URL(r.url).pathname) && !/\/login/i.test(p);
     const body = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ');
@@ -55,7 +55,21 @@ async function one(p) {
     let err = '';
     if (m) { const k = body.indexOf(m[0]); err = body.slice(Math.max(0, k - 40), k + 220).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
     const title = ((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 120);
-    out[p] = {s: r.status, ms: Math.round(performance.now() - t0), login, err, title, size: html.length};
+    const ms = Math.round(performance.now() - t0);
+    // the screen's data: lists here are rendered by the server -> rows are in the page itself
+    let rows = 0, report = /DevExpress|dxrd-|dxbl-|ReportViewer|dx-designer/i.test(html), empty = false;
+    if (r.ok && !login && !err) {
+      const d = P.parseFromString(html, 'text/html');
+      const root = d.querySelector('.content-wrapper, .page-content, main, #content, .main-content, .content') || d.body;
+      root.querySelectorAll('table').forEach(t => { if (!t.closest('.modal')) rows = Math.max(rows, t.querySelectorAll('tbody tr').length); });
+      const ctrl = p.split('?')[0].replace(/\/(index)?$/i, '').toLowerCase();
+      const links = Array.from(root.querySelectorAll('a[href]')).map(a => a.getAttribute('href') || '')
+        .filter(h => /addedit|\/create\b|\/add\b|\/new\b/i.test(h) && !/todotask|presencestatus|delete|remove/i.test(h));
+      const a = links.find(h => h.toLowerCase().indexOf(ctrl + '/') >= 0);
+      if (a) { try { const u = new URL(a, location.origin + p); var addLink = u.pathname + u.search; } catch (e) {} }
+      empty = /لا توجد بيانات|لا يوجد بيانات|no data available|no records|لا توجد سجلات/i.test((root.textContent || '').slice(0, 20000)) && rows <= 1;
+    }
+    out[p] = {s: r.status, ms, login, err, title, size: html.length, rows, report, empty, add: (typeof addLink !== 'undefined' && addLink) || ''};
   } catch (e) { out[p] = {s: 0, ms: Math.round(performance.now() - t0), err: String(e).slice(0, 160)}; }
 }
 async function w() { while (i < paths.length) { await one(paths[i++]); } }
@@ -306,34 +320,67 @@ def run_health(driver, credentials, cfg, result=None):
     res = {}
     for i in range(0, len(todo), 200):                       # chunks: keeps the browser call short and shows progress
         part = [l["path"] for l in todo[i:i + 200]]
-        res.update(driver.execute_async_script(FETCH_JS, part, int(cfg.get("workers") or 8)) or {})
+        # ONE page at a time: the ERP serves one request per login session at a time, so opening pages in parallel only
+        # makes each one wait for the others (measured: 3-7x slower per page, the same total) -> fake «slow» numbers
+        res.update(driver.execute_async_script(FETCH_JS, part, 1) or {})
         logger.info(f"   … {min(i + 200, len(todo))}/{len(todo)}")
+    # ➕ صفحات الإضافة: every screen's «إضافة جديد» page is its own page (own link, own server code) — open it too
+    # (open + read only, nothing is filled or saved)
+    add_of = {}
+    if cfg.get("adds", True):
+        for l in list(todo):
+            a = (res.get(l["path"]) or {}).get("add")
+            if a and a not in res and a not in add_of.values():
+                add_of[l["path"]] = a
+        if add_of:
+            logger.info(f"➕ بفتح صفحة الإضافة لـ {len(add_of)} شاشة (فتح بس — من غير ما أملى أو أحفظ حاجة)")
+            names_ = {l["path"]: l for l in todo}
+            add_paths = list(add_of.values())
+            for i in range(0, len(add_paths), 200):
+                res.update(driver.execute_async_script(FETCH_JS, add_paths[i:i + 200], 1) or {})
+            for sp_, a in add_of.items():
+                base_l = names_[sp_]
+                todo.append({"path": a, "name": f"➕ إضافة — {base_l['name']}", "module": base_l.get("module", ""), "is_add": True})
     forms = {}
-    if cfg.get("forms", True):
-        screens = [l["path"] for l in todo if not is_report(l["path"]) and l["path"] in res and res[l["path"]].get("s") == 200]
+    if cfg.get("forms", True) and not int(cfg.get("deep_speed") or 0):   # the client speed check stays light and quick
+        screens = [l["path"] for l in todo if not l.get("is_add") and not is_report(l["path"]) and l["path"] in res and res[l["path"]].get("s") == 200]
         logger.info(f"📋 بقرا فورم الإضافة في {len(screens)} شاشة (علشان المقارنة قبل / بعد التحديث)")
         for i in range(0, len(screens), 200):
             forms.update(driver.execute_async_script(FORMS_JS, screens[i:i + 200], int(cfg.get("workers") or 8)) or {})
     secs = round(time.time() - t0, 1)
 
     # 🐢 السرعة الحقيقية: the slowest screens (by the server's answer) opened in the real browser, waiting for their data
-    speed, deep_n = [], int(cfg.get("deep_speed", 25) or 0)
+    speed, deep_n = [], int(cfg.get("deep_speed") or 0)
     if deep_n:
-        ok_links = sorted((l for l in todo if (res.get(l["path"]) or {}).get("s") == 200), key=lambda l: -(res[l["path"]].get("ms") or 0))
-        sample = [{"path": "/Home", "name": "الصفحة الرئيسية", "module": ""}] + list(cfg.get("speed_paths_links") or []) + ok_links[:deep_n]
+        ok_links = sorted((l for l in todo if (res.get(l["path"]) or {}).get("s") == 200 and not l.get("is_add")),
+                          key=lambda l: -(res[l["path"]].get("ms") or 0))
+        ok_adds = sorted((l for l in todo if (res.get(l["path"]) or {}).get("s") == 200 and l.get("is_add")),
+                         key=lambda l: -(res[l["path"]].get("ms") or 0))
+        sample = ([{"path": "/Home", "name": "الصفحة الرئيسية", "module": ""}] + list(cfg.get("speed_paths_links") or [])
+                  + ok_links[:deep_n] + ok_adds[:max(5, deep_n // 2)])
         seen_p = set()
         logger.info(f"🐢 بفتح أبطأ {deep_n} شاشة في المتصفح زي المستخدم بالظبط وبستنى بياناتها تحمل")
         for l in sample:
             if l["path"] in seen_p:
                 continue
             seen_p.add(l["path"])
-            m = measure_real(driver, base, {"path": l["path"], "name": l["name"], "module": l.get("module", "")})
+            m = measure_real(driver, base, {"path": l["path"], "name": l["name"], "module": l.get("module", ""), "is_add": bool(l.get("is_add"))})
             m["html"] = round(((res.get(l["path"]) or {}).get("ms") or 0) / 1000, 2) or None
             speed.append(m)
             slow_x = (m.get("xhr") or [{}])[0]
             logger.info(f"   {rate(m.get('load'))} {m.get('load')} ث — {l['name']}"
                         + (f" · أبطأ طلب بيانات {slow_x.get('ms', 0) / 1000:.1f} ث ({slow_x.get('url', '')[:60]})" if slow_x.get("url") else ""))
     html_secs = [round(((r.get("ms") or 0) / 1000), 2) for r in res.values() if r.get("s") == 200]
+    add_set = set(add_of.values())
+    okr = [r for p_, r in res.items() if p_ not in add_set and r.get("s") == 200 and not r.get("err") and not r.get("login")]
+    data_stats = {"with_data": sum(1 for r in okr if (r.get("rows") or 0) > 0 and not r.get("report")),
+                  "empty": sum(1 for r in okr if not r.get("report") and (r.get("rows") or 0) == 0),
+                  "reports": sum(1 for r in okr if r.get("report")),
+                  "adds_total": len(add_set),
+                  "adds_ok": sum(1 for a in add_set if (res.get(a) or {}).get("s") == 200 and not (res.get(a) or {}).get("err")
+                                 and not (res.get(a) or {}).get("login")),
+                  "buckets": {"lt1": sum(1 for x in html_secs if x < 1), "1_3": sum(1 for x in html_secs if 1 <= x < 3),
+                              "3_5": sum(1 for x in html_secs if 3 <= x < 5), "gt5": sum(1 for x in html_secs if x >= 5)}}
     speed_stats = {"html_median": _pct(html_secs, 0.5), "html_p90": _pct(html_secs, 0.9), "html_max": max(html_secs) if html_secs else None,
                    "html_over5": sum(1 for x in html_secs if x >= 5), "measured": len(speed),
                    "load_median": _pct([m.get("load") for m in speed], 0.5), "load_max": max([m.get("load") or 0 for m in speed], default=None),
@@ -341,7 +388,9 @@ def run_health(driver, credentials, cfg, result=None):
                    "seconds": secs}
     xhr_all = sorted(({**x, "screen": m["name"]} for m in speed for x in (m.get("xhr") or [])), key=lambda x: -x["ms"])[:15]
     speed_stats["slow_ajax"] = xhr_all
+    speed_stats["data"] = data_stats
     times = {p: (r.get("ms") or 0) for p, r in res.items()}
+    rows_of = {p: {"rows": r.get("rows") or 0, "report": bool(r.get("report"))} for p, r in res.items() if r.get("s") == 200}
 
     slow_ms = int(float(cfg.get("slow_seconds") or 0) * 1000)
     broken = {}
@@ -375,9 +424,16 @@ def run_health(driver, credentials, cfg, result=None):
                         + [{"path": p, "what": "➖ اللينك اتشال من المنيو", "ok": None} for p in gone_links]
                         + [{"path": p, "what": "➕ شاشة جديدة في المنيو", "ok": None} for p in new_links],
              "compared_with": (ref or {}).get("at") if ref else None,
-             "times": times, "speed": sorted(speed, key=lambda m: -(m.get("load") or 0)), "speed_stats": speed_stats}
+             "times": times, "rows_of": rows_of, "speed": sorted(speed, key=lambda m: -(m.get("load") or 0)), "speed_stats": speed_stats}
     if prev.get("baseline"):
         state["baseline"] = prev["baseline"]
+    if speed:
+        state["speed_at"] = now
+    elif prev.get("speed"):                     # a quick check keeps the last real-speed measure (and says when it was)
+        state["speed"], state["speed_at"] = prev["speed"], prev.get("speed_at") or prev.get("at")
+        state["speed_stats"] = {**(prev.get("speed_stats") or {}), "data": speed_stats.get("data"),
+                                "html_median": speed_stats.get("html_median"), "html_p90": speed_stats.get("html_p90"),
+                                "html_max": speed_stats.get("html_max"), "html_over5": speed_stats.get("html_over5")}
     _save_state(state)
 
     rows = []

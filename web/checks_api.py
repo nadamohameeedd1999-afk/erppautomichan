@@ -276,6 +276,7 @@ def api_auto_try():
 
 # ======================================================== 🩺 صحة النظام (every screen of the menu, broken ones + alerts)
 HEALTH_KEY = "system_health"
+FULL_KEY = "system_health_full"
 
 
 def _health_cfg():
@@ -504,7 +505,9 @@ def api_health_full():
     from web import sites_api
     d = request.get_json(silent=True) or {}
     h = _health_cfg()
-    hc = {**C.public(h), **(d.get("config") or {}), "key": HEALTH_KEY, "type": "health", "name_ar": "🩺 صحة النظام — كل الشاشات"}
+    # the full check runs as its own saved check (deep speed on) — the daily «صحة النظام» keeps its own quick settings
+    hc = {**C.public(h), **(d.get("config") or {}), "key": FULL_KEY, "type": "health", "name_ar": "🔎 فحص شامل — الشاشات والسرعة"}
+    hc["deep_speed"] = int(hc.get("deep_speed") or 25)
     h = C.save(hc)
     try:
         b = C.load(BOOKS_KEY)
@@ -513,7 +516,7 @@ def api_health_full():
     # first in the queue: a client is waiting — it does not wait behind a long list of other tests
     out2 = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), "🔎 فحص شامل: مطابقة الحسابات", d.get("sites"),
                                     source="manual", front=True)
-    out = sites_api.queue_on_sites(get_manager(), C.test_path_for(HEALTH_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"),
+    out = sites_api.queue_on_sites(get_manager(), C.test_path_for(FULL_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"),
                                    source="manual", front=True)
     return jsonify({"success": True, "count": out["count"] + out2["count"], "task_ids": out["task_ids"] + out2["task_ids"]})
 
@@ -563,6 +566,7 @@ def health_report():
     since = d.get("since") or {}
     broken = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
     return render_template("health_report.html", d=d, books=books, site_name=site_name or d.get("base_url"), broken=broken,
-                           slow_html=[{"path": p, "name": names.get(p, p), "sec": round(ms / 1000, 2)} for ms, p in slow_html],
+                           slow_html=[{"path": p, "name": names.get(p, p), "sec": round(ms / 1000, 2),
+                                       **((d.get("rows_of") or {}).get(p) or {})} for ms, p in slow_html],
                            rate=health.rate, user=((auth.current_user() or {}).get("full_name") or (auth.current_user() or {}).get("username") or ""),
                            printed=_dt.now().strftime("%Y-%m-%d %H:%M"))

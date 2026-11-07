@@ -49,6 +49,7 @@
     <div><span>وقت الفحص:</span><b>{{ (d.at or '')[:16].replace('T', ' ') }}</b></div>
     <div><span>الشاشات اللي اتفحصت:</span><b>{{ d.total }}</b></div>
     <div><span>اتفتحت في المتصفح وانتظرنا بياناتها:</span><b>{{ ss.measured or 0 }}</b></div>
+    <div><span>طريقة القياس:</span><b>صفحة صفحة (زي المستخدم)</b></div>
     <div><span>مدة الفحص:</span><b>{{ ss.seconds if ss.seconds is not none else '—' }} ث</b></div>
   </div>
 
@@ -76,6 +77,18 @@
     {% if books %}<br>الحسابات: {{ '🟢 ميزان المراجعة متزن والشجرة متطابقة' if books.ok else '🔴 فيه مشاكل في ميزان المراجعة — التفاصيل تحت' }} (الفترة {{ books['from'] }} → {{ books['to'] }}).{% endif %}
     <div class="note">القياس اتعمل من سيرفر الاختبار، مش من جهاز العميل. لو الأرقام هنا كويسة والعميل بيشتكي، يبقى غالبًا من الإنترنت أو الجهاز عنده — والعكس، لو الأرقام هنا عالية يبقى البطء من السيرفر / الشاشة.</div>
   </div>
+
+  {% set ds = ss.data or {} %}
+  {% if ds %}
+  <h2>📦 الشاشات وبياناتها (كل الشاشات — اتفتحت صفحة صفحة زي المستخدم)</h2>
+  <table>
+    <tr><th>صفحات «إضافة جديد» بتفتح</th><th>شاشات فيها بيانات اتحملت</th><th>شاشات فاضية (مفيش سجلات)</th><th>صفحات تقارير (البيانات بتتحمل بعد اختيار الفلاتر)</th>
+        <th class="n">أقل من 1 ث</th><th class="n">1 — 3 ث</th><th class="n">3 — 5 ث</th><th class="n">أكتر من 5 ث</th></tr>
+    <tr><td class="n"><b>{{ ds.adds_ok or 0 }}</b> من {{ ds.adds_total or 0 }}</td><td class="n"><b>{{ ds.with_data }}</b></td><td class="n">{{ ds.empty }}</td><td class="n">{{ ds.reports }}</td>
+        <td class="n">{{ ds.buckets.lt1 }}</td><td class="n">{{ ds.buckets['1_3'] }}</td><td class="n">{{ ds.buckets['3_5'] }}</td>
+        <td class="n"><b>{{ ds.buckets.gt5 }}</b></td></tr>
+  </table>
+  {% endif %}
 
   {% if sp %}
   <h2>🐢 السرعة الحقيقية — الشاشة مفتوحة في المتصفح لحد ما بياناتها تحمل</h2>
@@ -122,11 +135,12 @@
   {% endif %}
 
   {% if slow_html %}
-  <h2>🕐 أبطأ 25 شاشة في رد السيرفر (من كل الشاشات)</h2>
+  <h2>🕐 أبطأ 25 شاشة في رد السيرفر (الصفحة ببياناتها، من كل الشاشات)</h2>
   <table>
-    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">رد السيرفر (ث)</th><th class="n">التقييم</th></tr>
+    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">رد السيرفر (ث)</th><th class="n">التقييم</th><th class="n">البيانات</th></tr>
     {% for x in slow_html %}
-    <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td><td class="n"><b>{{ x.sec }}</b></td><td class="n">{{ rate(x.sec) }}</td></tr>
+    <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td><td class="n"><b>{{ x.sec }}</b></td><td class="n">{{ rate(x.sec) }}</td>
+      <td class="n">{{ 'تقرير' if x.report else ('صفحة إضافة' if '➕' in x.name else ((x.rows ~ ' صف') if x.rows else 'فاضية')) }}</td></tr>
     {% endfor %}
   </table>
   {% endif %}

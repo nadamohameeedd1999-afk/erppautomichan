@@ -54,6 +54,10 @@ def analyse(rows, tol=0.01):
             s = sum(_n(x.get(k)) for x in ch)
             if abs(s - _n(p.get(k))) > tol:
                 bad.append(f"{p.get('Code')} {p.get('ArName')}: {'مدين' if k == 'Debit' else 'دائن'} {_n(p.get(k)):,.2f} ومجموع الفرعي {s:,.2f}")
+    if all(_n(x.get(k)) == 0 for x in top for _, d, c in PAIRS for k in (d, c)):
+        out = [("📥 فيه حركة في الفترة؟", False, f"كل الأرصدة والحركة رجعت صفر لـ {len(rows)} حساب — يا الفترة مفيهاش قيود، يا الميزان ما اتقراش صح"
+                                                 " (جربي فترة تانية أو افتحي ميزان المراجعة بإيدك) — مينفعش نقول إنه متزن")]
+        return out, top
     out.append(("الحساب الأب = مجموع الحسابات الفرعية", not bad,
                 f"{len(rows)} حساب سليم" if not bad else f"{len(bad)} حساب مش متطابق: " + " | ".join(bad[:8])))
     # where the difference is: the main groups (assets, liabilities, …) with their own movement
