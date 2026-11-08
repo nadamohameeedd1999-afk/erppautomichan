@@ -122,20 +122,37 @@ class QueueManager:
         except Exception:
             return task.get("test_path", "")
 
+    @staticmethod
+    def _site(task):
+        if os.getenv("SAME_SITE_PARALLEL") == "1":      # each test has its own ERP user -> allow
+            return task.get("task_id")
+        sid = task.get("site") or ""
+        if not sid:
+            try:
+                from web import test_sites_helper as ts
+                sid = ts.load_all().get("active_profile") or ""
+            except Exception:
+                pass
+        return sid
+
     def _pump(self):
         """start queued tasks while there are free workers"""
         started = []
         with self.lock:
             busy = {self._screen(t) for t in self.running.values()}
+            # one test per site at a time: the ERP keeps ONE session per user, a second login kicks the first one out.
+            # Two different sites (test site + a client, or two clients) run side by side.
+            sites = {self._site(t) for t in self.running.values()}
             i = 0
             while len(self.running) < self.workers() and i < len(self.queue):
                 t = self.queue[i]
-                if self._screen(t) in busy:          # same screen already running -> wait
+                if self._screen(t) in busy or self._site(t) in sites:      # same screen / same site already running -> wait
                     i += 1
                     continue
                 self.queue.pop(i)
                 self.running[t["task_id"]] = t
                 busy.add(self._screen(t))
+                sites.add(self._site(t))
                 started.append(t)
         for t in started:
             threading.Thread(target=self._execute, args=(t,), daemon=True).start()

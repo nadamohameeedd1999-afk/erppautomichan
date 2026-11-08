@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}مقارنة البيئات - {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <h4 class="fw-bold mb-1">🔁 مقارنة بيئتين</h4>
+  <div class="text-muted small mb-3">آخر فحص صحة نظام لكل موقع جنب بعض (قراءة بس): موقع الاختبار مقابل نظام العميل — إيه الشاشات والحقول المختلفة قبل التحديث أو لما حاجة تشتغل هنا ومتشتغلش هناك.</div>
+  <form class="d-flex gap-2 flex-wrap align-items-center mb-3" method="get">
+    {% for nm, cur in [('a', a), ('b', b)] %}
+    <select class="form-select form-select-sm" name="{{ nm }}" style="max-width:360px">
+      {% for s in states %}<option value="{{ s.file }}" {{ 'selected' if s.file == cur }}>{{ s.site }}{% if s.activity or s.branch %} · {{ s.activity }} {{ s.branch }}{% endif %} — {{ (s.at or '')[:16].replace('T', ' ') }}</option>{% endfor %}
+    </select>{% if nm == 'a' %}<span>مقابل</span>{% endif %}
+    {% endfor %}
+    <button class="btn btn-sm btn-primary">قارني</button>
+  </form>
+  {% if err %}<div class="alert alert-danger">{{ err }}</div>{% endif %}
+  {% if states|length < 2 %}<div class="alert alert-info">محتاجة فحص صحة نظام على موقعين على الأقل — شغّلي «فحص الشاشات» على موقع الاختبار وعلى موقع العميل.</div>{% endif %}
+  {% if r %}
+  <div class="row g-2 mb-3">
+    <div class="col-md-6"><div class="border rounded p-2"><b>أ:</b> <span dir="ltr">{{ r.a.site }}</span><div class="small text-muted">{{ r.a.total }} شاشة · {{ r.a.broken }} بايظة · {{ (r.a.at or '')[:16].replace('T', ' ') }}</div></div></div>
+    <div class="col-md-6"><div class="border rounded p-2"><b>ب:</b> <span dir="ltr">{{ r.b.site }}</span><div class="small text-muted">{{ r.b.total }} شاشة · {{ r.b.broken }} بايظة · {{ (r.b.at or '')[:16].replace('T', ' ') }}</div></div></div>
+  </div>
+  <div class="small text-muted mb-2">{{ r.common }} شاشة موجودة في الاتنين</div>
+  {% macro lst(title, rows, side) %}<div class="col-lg-6"><div class="border rounded p-2 h-100"><b>{{ title }}</b> <span class="badge bg-secondary">{{ rows|length }}</span>
+    <ul class="small mb-0 mt-1" style="max-height:260px;overflow:auto">{% for x in rows %}<li>{{ x.name }} <span class="text-muted" dir="ltr">{{ x.path }}</span>{% if x.why %}<div class="text-danger">{{ x.why[:120] }}</div>{% endif %}</li>{% else %}<li class="text-muted list-unstyled">مفيش</li>{% endfor %}</ul></div></div>{% endmacro %}
+  <div class="row g-2 mb-3">{{ lst('شاشات في أ بس', r.only_a) }}{{ lst('شاشات في ب بس', r.only_b) }}</div>
+  <div class="row g-2 mb-3">{{ lst('بايظة في أ وسليمة في ب', r.broken_a) }}{{ lst('بايظة في ب وسليمة في أ', r.broken_b) }}</div>
+  <h6 class="fw-bold">فورمات الإضافة المختلفة ({{ r.forms|length }})</h6>
+  <div class="table-responsive mb-3"><table class="table table-sm"><thead><tr><th>الشاشة</th><th>حقول في أ بس</th><th>حقول في ب بس</th><th>إجباري في أ بس</th><th>إجباري في ب بس</th></tr></thead><tbody>
+    {% for f in r.forms %}<tr><td><b>{{ f.name }}</b><div class="small text-muted" dir="ltr">{{ f.path }}</div></td><td>{{ f.only_a|join('، ') or '—' }}</td><td>{{ f.only_b|join('، ') or '—' }}</td><td>{{ f.req_a|join('، ') or '—' }}</td><td>{{ f.req_b|join('، ') or '—' }}</td></tr>
+    {% else %}<tr><td colspan="5" class="text-muted">الفورمات المشتركة متطابقة (أو ما اتقرتش في الفحصين)</td></tr>{% endfor %}</tbody></table></div>
+  <h6 class="fw-bold">نفس الشاشة وسرعتها مختلفة جدًا ({{ r.speed|length }})</h6>
+  <div class="table-responsive"><table class="table table-sm"><thead><tr><th>الشاشة</th><th>أ (ث)</th><th>ب (ث)</th></tr></thead><tbody>
+    {% for s in r.speed %}<tr><td>{{ s.name }} <span class="small text-muted" dir="ltr">{{ s.path }}</span></td><td class="{{ 'text-danger fw-bold' if s.a > s.b }}">{{ s.a }}</td><td class="{{ 'text-danger fw-bold' if s.b > s.a }}">{{ s.b }}</td></tr>
+    {% else %}<tr><td colspan="3" class="text-muted">مفيش فرق كبير (الضعف وأكتر وفوق 1.5 ث)</td></tr>{% endfor %}</tbody></table></div>
+  {% endif %}
+</div>
+{% endblock %}

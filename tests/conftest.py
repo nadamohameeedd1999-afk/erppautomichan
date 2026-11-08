@@ -257,7 +257,8 @@ def _attach_failure_screenshot(driver, test_name):
         from datetime import datetime
         from config.settings import SCREENSHOTS_DIR
 
-        png = driver.get_screenshot_as_png()
+        from utils.mask import shot
+        png = shot(driver, driver.get_screenshot_as_png)
         safe = re.sub(r"[^\w\-]", "_", test_name)
         allure.attach(png, name=f"FAILED_{safe}", attachment_type=allure.attachment_type.PNG)
         path = SCREENSHOTS_DIR / f"FAILED_{safe}_{datetime.now():%Y%m%d_%H%M%S}.png"

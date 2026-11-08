@@ -642,6 +642,22 @@ def api_readiness():
     return jsonify({"success": True, "sites": readiness.all_sites()})
 
 
+@bp.route("/env-compare")
+@auth.login_required
+def env_compare_page():
+    """🔁 two sites side by side (Opkey-style environment drift)"""
+    from engine import env_compare
+    st = env_compare.states()
+    a, b = request.args.get("a") or (st[0]["file"] if st else ""), request.args.get("b") or (st[1]["file"] if len(st) > 1 else "")
+    res, err = None, ""
+    if a and b and a != b:
+        try:
+            res = env_compare.compare(a, b)
+        except Exception as e:
+            err = str(e)
+    return render_template("env_compare.html", states=st, a=a, b=b, r=res, err=err)
+
+
 @bp.route("/readiness")
 @auth.login_required
 def readiness_page():

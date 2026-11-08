@@ -73,7 +73,8 @@ class BasePage:
             self.driver.set_script_timeout(120)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = SCREENSHOTS_DIR / f"{name}_{timestamp}.png"
-            self.driver.save_screenshot(str(filepath))
+            from utils.mask import shot              # 🙈 a client's data is blurred in the picture
+            shot(self.driver, lambda: self.driver.save_screenshot(str(filepath)))
             logger.info(f"Screenshot: {filepath}")
             return str(filepath)
         except Exception as e:

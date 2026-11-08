@@ -59,9 +59,10 @@ def test_queue_same_screen_waits(monkeypatch):
     started = []
     monkeypatch.setattr(QueueManager, "_execute", lambda self, t: started.append(t["task_id"]))
     S = "tests/smoke/test_screen_smoke.py::test_screen_opens"
-    qm.add("a", f"{S}[sales_invoice]", "a")
-    qm.add("b", f"{S}[sales_invoice]", "b")          # same screen -> waits
-    qm.add("c", f"{S}[cash_receipt]", "c")
+    qm.add("a", f"{S}[sales_invoice]", "a", extra={"site": "s1"})
+    qm.add("b", f"{S}[sales_invoice]", "b", extra={"site": "s2"})          # same screen -> waits
+    qm.add("d", f"{S}[stock]", "d", extra={"site": "s1"})                  # same site -> waits (one ERP session per user)
+    qm.add("c", f"{S}[cash_receipt]", "c", extra={"site": "s2"})
     import time
     time.sleep(0.3)
-    assert sorted(qm.running) == ["a", "c"] and [t["task_id"] for t in qm.queue] == ["b"]
+    assert sorted(qm.running) == ["a", "c"] and [t["task_id"] for t in qm.queue] == ["b", "d"]
