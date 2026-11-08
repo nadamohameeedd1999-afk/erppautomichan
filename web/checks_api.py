@@ -565,6 +565,25 @@ def api_test_data_set():
         td.SITE = None
 
 
+@bp.route("/api/screen-library")
+@auth.login_required
+def api_screen_library():
+    from engine import screen_library
+    return jsonify({"success": True, "screens": screen_library.report()})
+
+
+@bp.route("/api/screen-library/apply", methods=["POST"])
+@auth.login_required
+def api_screen_library_apply():
+    from engine import screen_library
+    key = (request.get_json(silent=True) or {}).get("key")
+    try:
+        ch = screen_library.apply(key)
+        return jsonify({"success": True, "applied": len(ch), "screens": screen_library.report()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
 @bp.route("/api/heals")
 @auth.login_required
 def api_heals():
@@ -613,6 +632,71 @@ def api_health_full():
     out = sites_api.queue_on_sites(get_manager(), C.test_path_for(FULL_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"),
                                    source="manual", front=True)
     return jsonify({"success": True, "count": out["count"] + out2["count"], "task_ids": out["task_ids"] + out2["task_ids"]})
+
+
+@bp.route("/api/readiness")
+@auth.login_required
+def api_readiness():
+    """🚦 readiness score + verdict for every checked site"""
+    from engine import readiness
+    return jsonify({"success": True, "sites": readiness.all_sites()})
+
+
+@bp.route("/readiness")
+@auth.login_required
+def readiness_page():
+    """🚦 one printable page per site: go / no-go and why (approved report design)"""
+    from engine import readiness
+    from datetime import datetime as _dt
+    from web import settings_helper
+    sc = settings_helper.load_site_config()
+    u = auth.current_user() or {}
+    return render_template("readiness.html", sites=readiness.all_sites(), co={"name": sc.get("company_name_ar") or "",
+                           "cr": sc.get("company_cr") or "", "vat": sc.get("company_vat") or "", "logo": sc.get("logo_filename") or ""},
+                           user=u.get("full_name") or u.get("username") or "", printed=_dt.now().strftime("%Y-%m-%d %H:%M"))
+
+
+def _deploy_token_ok():
+    import os
+    import hmac
+    want = os.getenv("DEPLOY_TOKEN") or ""
+    got = request.headers.get("X-Deploy-Token") or request.args.get("token") or ""
+    return bool(want) and hmac.compare_digest(want, got)
+
+
+@bp.route("/api/deploy-hook", methods=["POST"])
+def api_deploy_hook():
+    """🚀 release gate: the ERP's deploy calls this after publishing to the test site (header X-Deploy-Token =
+    the DEPLOY_TOKEN variable). It queues the full check first in line; then poll GET /api/deploy-hook/status."""
+    if not _deploy_token_ok():
+        return jsonify({"success": False, "error": "token"}), 403
+    C = _C()
+    from web.queue_manager import get_manager
+    from web import sites_api
+    d = request.get_json(silent=True) or {}
+    hc = {**C.public(_health_cfg()), "key": FULL_KEY, "type": "health", "name_ar": "🔎 فحص شامل — الشاشات والسرعة"}
+    hc["deep_speed"] = int(hc.get("deep_speed") or 25)
+    C.save(hc)
+    C.save({"key": BOOKS_FULL_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات — كل الفترات"})
+    a = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_FULL_KEY), "🚀 بعد النشر: الحسابات", d.get("sites"), source="deploy", front=True)
+    b = sites_api.queue_on_sites(get_manager(), C.test_path_for(FULL_KEY), "🚀 بعد النشر: الشاشات والسرعة", d.get("sites"), source="deploy", front=True)
+    return jsonify({"success": True, "task_ids": b["task_ids"] + a["task_ids"], "version": d.get("version", "")})
+
+
+@bp.route("/api/deploy-hook/status")
+def api_deploy_hook_status():
+    """{done, verdict: go | care | no, score} — the deploy waits for done, then publishes to clients only on «go»"""
+    if not _deploy_token_ok():
+        return jsonify({"success": False, "error": "token"}), 403
+    from web.queue_manager import get_manager
+    from engine import readiness
+    qm = get_manager()
+    ids = [x for x in (request.args.get("ids") or "").split(",") if x]
+    done = all((qm.get_task(t) or {}).get("status") in ("completed", "failed", "error", "stopped", "done") for t in ids) if ids else True
+    sites = readiness.all_sites()
+    top = sites[0] if sites else None
+    return jsonify({"success": True, "done": done, "verdict": top and top["verdict"], "score": top and top["score"],
+                    "verdict_text": top and top["verdict_text"], "notes": top and top["notes"]})
 
 
 @bp.route("/api/health/tasks")

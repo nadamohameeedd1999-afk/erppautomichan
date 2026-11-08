@@ -103,6 +103,13 @@
     </div>
 
     <div class="card at-card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="slToggle()">
+            <span>📚 مكتبة الشاشات <span class="chip none" id="slCount">—</span> <span class="muted">— تعريف كل شاشة مقارن بالفورم على الموقع دلوقتي، والتحديث بضغطة بيوصل لكل الاختبارات اللي بتستخدمها</span></span>
+            <i class="bi bi-chevron-down" id="slIcon"></i></div>
+        <div class="card-body" id="slBody" style="display:none"><div id="slList" class="muted">…</div></div>
+    </div>
+
+    <div class="card at-card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="hlToggle()">
             <span>🩹 الإصلاحات التلقائية <span class="chip none" id="hlCount">—</span> <span class="muted">— حقول الـ id بتاعها اتغير والاختبار لقاها بالاسم وكمّل</span></span>
             <i class="bi bi-chevron-down" id="hlIcon"></i></div>
@@ -136,6 +143,27 @@
 
 {% block extra_js %}
 <script>
+let SL = null;
+function slToggle() { const b = document.getElementById('slBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';
+    document.getElementById('slIcon').className = 'bi bi-chevron-' + (open ? 'up' : 'down'); if (open) slLoad(); }
+async function slLoad() { const r = await fetch('/api/screen-library').then(r => r.json()); SL = r.screens || []; slPaint(); }
+async function slApply(key) {
+    const r = await fetch('/api/screen-library/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key})}).then(r => r.json());
+    if (!r.success) { alert(r.error); return; } SL = r.screens; slPaint();
+}
+function slPaint() {
+    const ch = SL.filter(s => s.status === 'changed');
+    document.getElementById('slCount').textContent = ch.length ? ch.length + ' اتغيرت' : SL.length;
+    document.getElementById('slList').innerHTML = SL.length ? SL.map(s => `<div class="border rounded p-2 mb-2">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><b>${tdEsc(s.name)}</b>
+          ${s.status === 'changed' ? `<button class="btn btn-sm btn-primary" onclick="slApply('${tdEsc(s.key)}')" title="القديم بيتحفظ في السجل">حدّثي التعريف (${s.changes.length})</button>`
+            : (s.status === 'ok' ? '<span class="text-success small">✅ مطابق للموقع</span>' : `<span class="muted small">${tdEsc(s.note)}</span>`)}</div>
+        ${s.status === 'changed' ? `<ul class="mb-0 mt-1 small">${s.changes.map(c => `<li>${tdEsc(c.text)}</li>`).join('')}</ul>` : ''}
+        ${s.at ? `<div class="muted small">حسب فحص ${tdEsc((s.at || '').replace('T', ' ').slice(0, 16))} على ${tdEsc(s.site || '')}</div>` : ''}</div>`).join('')
+      : 'مفيش شاشات متعرفة في منشئ الاختبارات لسه.';
+}
+document.addEventListener('DOMContentLoaded', () => fetch('/api/screen-library').then(r => r.json()).then(r => { SL = r.screens || [];
+    const n = SL.filter(s => s.status === 'changed').length; document.getElementById('slCount').textContent = n ? n + ' اتغيرت' : SL.length; }));
 let HL = null;
 async function hlLoad() { const r = await fetch('/api/heals').then(r => r.json()); HL = r.heals || []; hlPaint(); }
 function hlToggle() { const b = document.getElementById('hlBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';

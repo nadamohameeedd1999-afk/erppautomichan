@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>جاهزية الإصدار</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --border: #D5E2E1; --text: #1C2B2A; --grey: #6B7C7B; }
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; @bottom-center { content: "صفحة " counter(page) " من " counter(pages); font: 10px "Microsoft Sans Serif", Tahoma, sans-serif; color: #6B7C7B; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f6f6; color: var(--text); font: 12px "Microsoft Sans Serif", Tahoma, Arial, sans-serif; }
+  .page { background: #fff; max-width: 1120px; margin: 16px auto; padding: 18px 22px 26px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .hdr { display: grid; grid-template-columns: 1fr 1.3fr 1fr; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 4px solid var(--teal); }
+  .co b { color: var(--dark); font-size: 16px; display: block; } .co span { color: var(--grey); display: block; margin-top: 2px; }
+  .ttl { text-align: center; } .ttl h1 { margin: 0; font-size: 22px; } .ttl div { color: var(--teal); font-weight: bold; margin-top: 3px; }
+  .who { text-align: left; line-height: 1.8; } .who span { color: var(--grey); } .who b { color: var(--text); }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px 22px; background: var(--light); border-radius: 10px; padding: 9px 14px; margin: 12px 0; }
+  .strip span { color: var(--grey); } .strip b { margin-inline-start: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; }
+  .kpi b { display: block; font-size: 20px; color: var(--dark); } .kpi span { color: var(--grey); font-size: 11px; }
+  .kpi.bad b { color: #c0392b; }
+  h2 { font-size: 14px; color: var(--dark); margin: 18px 0 6px; padding-inline-start: 8px; border-inline-start: 4px solid var(--teal); }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; }
+  th { background: var(--teal); color: #fff; font-weight: bold; padding: 7px 8px; text-align: right; font-size: 11.5px; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.n, th.n { text-align: center; white-space: nowrap; } .ltr { direction: ltr; unicode-bidi: embed; font-size: 11px; color: var(--grey); }
+  .note { color: var(--grey); font-size: 11px; margin-top: 4px; }
+  .verdict { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; line-height: 1.9; }
+  .bar { position: fixed; top: 10px; left: 10px; } .bar button { background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; }
+  .foot { text-align: center; color: var(--grey); font-size: 10px; margin-top: 18px; }
+  @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; max-width: none; padding: 0; } .bar, .foot { display: none; } }
+  .bar { top: auto; bottom: 14px; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shots figure { margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+  .shots img { width: 100%; display: block; } .shots figcaption { padding: 5px 8px; font-size: 11px; background: var(--light); }
+  .shots figure.bad { border-color: #c0392b; } .shots figure.bad figcaption { background: #fdecea; }
+  .ok { color: #1e8449; font-weight: bold; } .no { color: #c0392b; font-weight: bold; }
+  .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; page-break-inside: avoid; }
+  .sign div { border-top: 1px solid var(--text); padding-top: 6px; text-align: center; color: var(--grey); }
+  .co img { max-height: 46px; display: block; margin-bottom: 4px; }
+  .log td { font-size: 11px; padding: 3px 8px; }
+  .site { page-break-after: always; } .site:last-child { page-break-after: auto; }
+  .big { display: flex; align-items: center; gap: 18px; margin: 12px 0; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border); }
+  .big .n { font-size: 44px; font-weight: bold; color: var(--dark); } .big .v { font-size: 22px; font-weight: bold; }
+  .big.go { background: #eaf7ef; } .big.care { background: #fff7e6; } .big.no { background: #fdecea; }
+  .bar2 { height: 8px; background: var(--light); border-radius: 4px; overflow: hidden; } .bar2 i { display: block; height: 100%; background: var(--teal); }
+</style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+{% for s in sites %}
+<div class="page site">
+  <div class="hdr">
+    <div class="co">{% if co.logo %}<img src="{{ url_for('media', filename=co.logo) }}" alt="">{% endif %}
+      <b>{{ co.name or site_name }}</b>{% if co.cr %}<span>س.ت: {{ co.cr }}</span>{% endif %}{% if co.vat %}<span>الرقم الضريبي: {{ co.vat }}</span>{% endif %}</div>
+    <div class="ttl"><h1>تقرير جاهزية الإصدار</h1><div>Release Readiness — Go / No-Go</div></div>
+    <div class="who"><span>المستخدم:</span> <b>{{ user or '—' }}</b><br><span>تاريخ الطباعة:</span> <b>{{ printed }}</b></div>
+  </div>
+  <div class="strip">
+    <div><span>الموقع:</span><b>{{ s.site_name or '—' }}</b></div>
+    <div><span>الرابط:</span><b class="ltr">{{ s.site or '—' }}</b></div>
+    <div><span>آخر فحص:</span><b>{{ (s.at or '')[:16].replace('T', ' ') or '—' }}</b></div>
+  </div>
+  <div class="big {{ s.verdict }}"><div class="n">{{ s.score }}<span style="font-size:18px">/100</span></div><div class="v">{{ s.verdict_text }}</div></div>
+  {% if s.notes %}<div class="verdict">{% for n in s.notes %}<div>{{ n }}</div>{% endfor %}</div>{% endif %}
+  <h2>الدرجة جاية منين</h2>
+  <table>
+    <tr><th>البند</th><th class="n">الوزن</th><th class="n">الدرجة</th><th style="width:30%"></th><th>التفاصيل</th></tr>
+    {% for p in s.parts %}
+    <tr><td><b>{{ p.name }}</b></td><td class="n">{{ p.max }}</td><td class="n"><b>{{ p.got }}</b></td>
+      <td><div class="bar2"><i style="width:{{ (100 * p.got / p.max) | round }}%"></i></div></td><td>{{ p.text }}</td></tr>
+    {% endfor %}
+  </table>
+  <div class="note">≥ 90 ينفع ينزل · 75–89 ينزل بحذر · أقل من 75 متنشرش — ولو فيه شاشة حرجة بايظة أو الحسابات مش متزنة: متنشرش مهما كانت الدرجة.</div>
+  <div class="sign"><div>نفّذه: أداة أتمتة اختبارات ERP</div><div>مدير التطوير: ....................</div><div>قرار النشر والتاريخ: ....................</div></div>
+</div>
+{% else %}
+<div class="page"><h2>مفيش فحص صحة نظام لسه — شغّلي «🔎 فحص شامل» من صفحة صحة النظام</h2></div>
+{% endfor %}
+</body>
+</html>

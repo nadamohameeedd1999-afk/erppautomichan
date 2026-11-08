@@ -91,7 +91,8 @@ function fields(d) {
     const k = e.id || e.name; if (!k || f[k]) return;
     const l = e.id ? d.querySelector('label[for="' + e.id + '"]') : null;
     const lab = (txt(l) || e.getAttribute('placeholder') || '').slice(0, 40);
-    f[k] = {l: lab.replace(/\s*\*$/, ''), r: !!(e.required || e.hasAttribute('data-val-required') || /\*\s*$/.test(lab))};
+    f[k] = {l: lab.replace(/\s*\*$/, ''), r: !!(e.required || e.hasAttribute('data-val-required') || /\*\s*$/.test(lab)),
+            t: e.tagName === 'SELECT' ? 'select' : (t === 'checkbox' ? 'checkbox' : (t === 'date' || /date|تاريخ/i.test(k + lab) ? 'date' : (e.tagName === 'TEXTAREA' ? 'textarea' : 'text')))};
   });
   return f;
 }

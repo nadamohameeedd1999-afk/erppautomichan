@@ -195,6 +195,7 @@ function paint() {
           <div class="muted">آخر فحص: ${when(s.at)}${s.activity || s.branch ? ` · 🏢 ${esc(s.activity || 'أول نشاط')} · 📍 ${esc(s.branch || 'أول فرع')}` : ''}</div></div>
         <div class="d-flex gap-2 flex-wrap">
           <a class="btn btn-sm btn-primary" target="_blank" href="/health/report?file=${encodeURIComponent(s.file)}">📄 تقرير للعميل (طباعة / PDF)</a>
+          <a class="btn btn-sm btn-outline-primary" target="_blank" href="/readiness" title="درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش (زي Opkey Release Advisor)">🚦 جاهزية الإصدار</a>
           ${s.broken.length ? `<button class="btn btn-sm btn-outline-secondary" onclick="copyList()"><i class="bi bi-clipboard"></i> انسخي البايظ للمطورين</button>` : ''}
         </div>
       </div>
