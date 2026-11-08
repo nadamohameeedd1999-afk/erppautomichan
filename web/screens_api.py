@@ -391,6 +391,34 @@ def api_dataset_upload():
     return jsonify({"success": True, "name": name, "rows": len(rows), "columns": list(rows[0].keys())})
 
 
+@bp.route("/api/datasets/combos", methods=["POST"])
+@auth.login_required
+def api_dataset_combos():
+    """🧮 build a data file from a combinations table (Tosca-style test case design)"""
+    import csv
+    import re as _re
+    from engine import combos
+    d = request.get_json(silent=True) or {}
+    try:
+        rows, total = combos.build(d.get("table") or {}, d.get("method") or "linear")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    if d.get("preview"):
+        return jsonify({"success": True, "rows": rows[:50], "count": len(rows), "total": total})
+    name = _re.sub(r"[^\w.\-\u0600-\u06FF ]", "_", (d.get("name") or "توافيق").strip()) or "توافيق"
+    name = name if name.lower().endswith(".csv") else name + ".csv"
+    dest = _dataset_dir() / name
+    if dest.exists():
+        from config.storage import to_trash
+        to_trash(dest)
+    cols = list(rows[0].keys())
+    with open(dest, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        w.writerows(rows)
+    return jsonify({"success": True, "name": name, "count": len(rows), "total": total, "columns": cols})
+
+
 @bp.route("/api/screens/discover", methods=["POST"])
 @auth.login_required
 def api_discover():

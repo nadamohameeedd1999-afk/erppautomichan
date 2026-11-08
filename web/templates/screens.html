@@ -322,6 +322,7 @@
                         <div class="input-group input-group-sm">
                             <select class="form-select" id="fDataFile"><option value="">— من غير ملف (تشغيلة واحدة) —</option></select>
                             <label class="btn btn-outline-primary mb-0">رفع<input type="file" accept=".xlsx,.csv" hidden onchange="uploadDataset(this)"></label>
+                            <button class="btn btn-outline-primary" type="button" onclick="openCombos()" title="اكتبي قيم كل حقل والأداة تطلّع أقل عدد صفوف يغطيهم (زي Tosca)">🧮 توافيق</button>
                         </div>
                         <div class="flow-hint">كل صف = تشغيلة. أسماء الأعمدة = اسم الحقل أو الـ id (زي «العميل» أو CustomerId)، وكل عمود يبقى متغير <code>{var:اسم_العمود}</code>.</div>
                     </div>
@@ -352,6 +353,26 @@
 </div>
 
 <!-- running modal (used by runner.js) -->
+<div class="modal fade" id="comboModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">🧮 جدول التوافيق — أقل صفوف تغطي كل القيم</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="small text-muted mb-2">لكل حقل اكتبي القيم اللي عايزة تجربيها مفصولة بفاصلة (أول قيمة = العادية). اسم الحقل زي ما هو في الشاشة أو الـ id. الناتج ملف بيانات كل صف فيه تشغيلة.</div>
+      <div id="comboRows"></div>
+      <button class="btn btn-sm btn-outline-secondary mb-3" type="button" onclick="comboAdd()">+ حقل</button>
+      <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+        <label><input type="radio" name="cmbM" value="linear" checked onchange="comboPreview()"> توسع خطي <span class="text-muted small">(كل قيمة مرة — الأقل)</span></label>
+        <label><input type="radio" name="cmbM" value="pairwise" onchange="comboPreview()"> كل زوجين مع بعض <span class="text-muted small">(يمسك أخطاء التركيبات)</span></label>
+        <label><input type="radio" name="cmbM" value="all" onchange="comboPreview()"> كل التوافيق <span class="text-muted small">(لحد 500)</span></label>
+      </div>
+      <div class="input-group input-group-sm mb-2" style="max-width:360px"><span class="input-group-text">اسم الملف</span><input class="form-control" id="comboName" value="توافيق"></div>
+      <div id="comboOut" class="small"></div>
+      <datalist id="comboFields"></datalist>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">إلغاء</button><button class="btn btn-primary btn-sm" onclick="comboSave()">اعملي الملف واستخدميه</button></div>
+  </div></div>
+</div>
+
 <div class="modal fade" id="runningModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -1464,6 +1485,49 @@ async function loadDatasets(sel) {
     $('fDataFile').innerHTML = '<option value="">— من غير ملف (تشغيلة واحدة) —</option>' +
         (r.files || []).map(f => `<option value="${esc(f.name)}" ${f.name === cur ? 'selected' : ''}>${esc(f.name)} (${f.rows} صف)</option>`).join('');
     $('chainList').innerHTML = CREATE_OPTS.map(o => `<option value="${esc(o.key)}">${esc(o.name)}</option>`).join('');
+}
+function comboAdd(name, vals) {
+    const d = document.createElement('div'); d.className = 'input-group input-group-sm mb-1 combo-row';
+    d.innerHTML = `<input class="form-control" style="max-width:200px" list="comboFields" placeholder="الحقل (مثال: العميل)" value="${esc(name || '')}" oninput="comboPreview()">
+        <input class="form-control" placeholder="القيم مفصولة بفاصلة: نقدي, آجل, شيك" value="${esc(vals || '')}" oninput="comboPreview()">
+        <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove();comboPreview()">✕</button>`;
+    $('comboRows').appendChild(d);
+}
+function comboTable() {
+    const t = {};
+    document.querySelectorAll('#comboRows .combo-row').forEach(r => { const [a, b] = r.querySelectorAll('input');
+        const k = a.value.trim(), vs = b.value.split(/[,،]/).map(x => x.trim()).filter(Boolean); if (k && vs.length) t[k] = vs; });
+    return t;
+}
+function openCombos() {
+    try { $('comboFields').innerHTML = (buildScreenConfig().fields || []).map(f => `<option value="${esc(f.label || f.id)}">`).join(''); } catch (e) {}
+    if (!$('comboRows').children.length) { comboAdd(); comboAdd(); }
+    comboPreview();
+    bootstrap.Modal.getOrCreateInstance($('comboModal')).show();
+}
+let _cmbT;
+function comboPreview() {
+    clearTimeout(_cmbT);
+    _cmbT = setTimeout(async () => {
+        const table = comboTable();
+        if (!Object.keys(table).length) { $('comboOut').innerHTML = ''; return; }
+        const method = document.querySelector('input[name=cmbM]:checked').value;
+        const r = await fetch('/api/datasets/combos', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({table, method, preview: true})}).then(r => r.json());
+        if (!r.success) { $('comboOut').innerHTML = `<span class="text-danger">${esc(r.error)}</span>`; return; }
+        const cols = Object.keys(r.rows[0] || {});
+        $('comboOut').innerHTML = `<b>${r.count} صف</b> بدل ${r.total} لو جربنا كل التوافيق
+          <div class="table-responsive mt-1" style="max-height:240px"><table class="table table-sm mb-0"><thead><tr><th>#</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+          <tbody>${r.rows.map((x, i) => `<tr><td>${i + 1}</td>${cols.map(c => `<td>${esc(x[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    }, 250);
+}
+async function comboSave() {
+    const method = document.querySelector('input[name=cmbM]:checked').value;
+    const r = await fetch('/api/datasets/combos', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({table: comboTable(), method, name: $('comboName').value})}).then(r => r.json());
+    if (!r.success) { alert('❌ ' + r.error); return; }
+    await loadDatasets(r.name);
+    bootstrap.Modal.getOrCreateInstance($('comboModal')).hide();
+    $('saveState').textContent = `🧮 اتعمل «${r.name}»: ${r.count} صف (بدل ${r.total}) — احفظي الاختبار وشغّليه، كل صف تشغيلة`;
 }
 async function uploadDataset(inp) {
     const f = inp.files[0]; if (!f) return;
