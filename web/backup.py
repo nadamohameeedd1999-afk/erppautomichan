@@ -30,7 +30,7 @@ def _items(full=False, shots=True):
                       (paths.SCENARIOS_DIR, "defs/scenarios"), (paths.DEFS_DIR / "checks", "defs/checks"), (paths.DATA_DIR / "datasets", "data/datasets")):
         if root.exists():
             for f in root.rglob("*"):
-                if f.is_file() and not f.name.endswith(".tmp"):
+                if f.is_file() and not f.name.endswith(".tmp") and f.name != "secret_key":   # the key never travels with the encrypted passwords
                     out.append((f, f"{arc}/{f.relative_to(root).as_posix()}"))
     if paths.STATE_DIR.exists():                      # system health, recipes, leftovers… (not the browser profile / job logs)
         for f in paths.STATE_DIR.rglob("*"):

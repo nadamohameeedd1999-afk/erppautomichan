@@ -27,6 +27,10 @@ SECRET_KEYS = ("telegram_token", "wa_token")
 
 def load_config():
     c = load_json(ALERTS_FILE, {}) or {}
+    from utils.secret_box import decrypt
+    for k in SECRET_KEYS:
+        if c.get(k):
+            c[k] = decrypt(c[k])
     c.setdefault("notify_on", "change")
     c.setdefault("dashboard_url", os.getenv("PUBLIC_URL") or (("https://" + os.getenv("RAILWAY_PUBLIC_DOMAIN")) if os.getenv("RAILWAY_PUBLIC_DOMAIN") else ""))
     return c
@@ -38,7 +42,8 @@ def save_config(new):
         if k in SECRET_KEYS and (not v or str(v).startswith("•")):
             continue                                   # «•••• متسجل» -> keep the saved secret
         cur[k] = v
-    save_json(ALERTS_FILE, cur)
+    from utils.secret_box import encrypt
+    save_json(ALERTS_FILE, {**cur, **{k: encrypt(cur.get(k) or "") for k in SECRET_KEYS}})
     return cur
 
 

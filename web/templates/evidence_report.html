@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>إثبات تنفيذ — {{ report.test_name or report.run_id }}</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --border: #D5E2E1; --text: #1C2B2A; --grey: #6B7C7B; }
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; @bottom-center { content: "صفحة " counter(page) " من " counter(pages); font: 10px "Microsoft Sans Serif", Tahoma, sans-serif; color: #6B7C7B; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f6f6; color: var(--text); font: 12px "Microsoft Sans Serif", Tahoma, Arial, sans-serif; }
+  .page { background: #fff; max-width: 1120px; margin: 16px auto; padding: 18px 22px 26px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .hdr { display: grid; grid-template-columns: 1fr 1.3fr 1fr; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 4px solid var(--teal); }
+  .co b { color: var(--dark); font-size: 16px; display: block; } .co span { color: var(--grey); display: block; margin-top: 2px; }
+  .ttl { text-align: center; } .ttl h1 { margin: 0; font-size: 22px; } .ttl div { color: var(--teal); font-weight: bold; margin-top: 3px; }
+  .who { text-align: left; line-height: 1.8; } .who span { color: var(--grey); } .who b { color: var(--text); }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px 22px; background: var(--light); border-radius: 10px; padding: 9px 14px; margin: 12px 0; }
+  .strip span { color: var(--grey); } .strip b { margin-inline-start: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; }
+  .kpi b { display: block; font-size: 20px; color: var(--dark); } .kpi span { color: var(--grey); font-size: 11px; }
+  .kpi.bad b { color: #c0392b; }
+  h2 { font-size: 14px; color: var(--dark); margin: 18px 0 6px; padding-inline-start: 8px; border-inline-start: 4px solid var(--teal); }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; }
+  th { background: var(--teal); color: #fff; font-weight: bold; padding: 7px 8px; text-align: right; font-size: 11.5px; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.n, th.n { text-align: center; white-space: nowrap; } .ltr { direction: ltr; unicode-bidi: embed; font-size: 11px; color: var(--grey); }
+  .note { color: var(--grey); font-size: 11px; margin-top: 4px; }
+  .verdict { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; line-height: 1.9; }
+  .bar { position: fixed; top: 10px; left: 10px; } .bar button { background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; }
+  .foot { text-align: center; color: var(--grey); font-size: 10px; margin-top: 18px; }
+  @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; max-width: none; padding: 0; } .bar, .foot { display: none; } }
+  .bar { top: auto; bottom: 14px; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shots figure { margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+  .shots img { width: 100%; display: block; } .shots figcaption { padding: 5px 8px; font-size: 11px; background: var(--light); }
+  .shots figure.bad { border-color: #c0392b; } .shots figure.bad figcaption { background: #fdecea; }
+  .ok { color: #1e8449; font-weight: bold; } .no { color: #c0392b; font-weight: bold; }
+  .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; page-break-inside: avoid; }
+  .sign div { border-top: 1px solid var(--text); padding-top: 6px; text-align: center; color: var(--grey); }
+  .co img { max-height: 46px; display: block; margin-bottom: 4px; }
+  .log td { font-size: 11px; padding: 3px 8px; }
+</style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+{% set failed_n = (report.failed or 0) + (report.errors or 0) %}
+<div class="page">
+  <div class="hdr">
+    <div class="co">{% if co.logo %}<img src="{{ url_for('media', filename=co.logo) }}" alt="">{% endif %}
+      <b>{{ co.name or site_name }}</b>
+      {% if co.cr %}<span>س.ت: {{ co.cr }}</span>{% endif %}{% if co.vat %}<span>الرقم الضريبي: {{ co.vat }}</span>{% endif %}</div>
+    <div class="ttl"><h1>تقرير إثبات تنفيذ اختبار</h1><div>Test Execution Evidence</div></div>
+    <div class="who"><span>المستخدم:</span> <b>{{ user or '—' }}</b><br><span>تاريخ الطباعة:</span> <b>{{ printed }}</b></div>
+  </div>
+
+  <div class="strip">
+    <div><span>الاختبار:</span><b>{{ report.test_name or report.test_path or '—' }}</b></div>
+    <div><span>الموقع:</span><b>{{ report.site_name or site_url or '—' }}</b></div>
+    <div><span>بدأ:</span><b>{{ (report.started_at or '')[:16].replace('T', ' ') or '—' }}</b></div>
+    <div><span>المدة:</span><b>{{ report.duration_seconds or 0 }} ث</b></div>
+    <div><span>رقم التشغيل:</span><b class="ltr">{{ report.run_id }}</b></div>
+    <div><span>المصدر:</span><b>{{ {'manual': 'يدوي', 'schedule': 'جدولة', 'retry': 'إعادة'}.get(report.source, report.source or '—') }}</b></div>
+  </div>
+
+  <div class="kpis" style="grid-template-columns: repeat(4, 1fr)">
+    <div class="kpi {{ 'bad' if failed_n else '' }}"><b>{{ 'ناجح' if not failed_n else 'فاشل' }}</b><span>النتيجة</span></div>
+    <div class="kpi"><b>{{ report.total or 0 }}</b><span>اختبار</span></div>
+    <div class="kpi"><b>{{ report.passed or 0 }}</b><span>نجح</span></div>
+    <div class="kpi {{ 'bad' if failed_n else '' }}"><b>{{ failed_n }}</b><span>فشل</span></div>
+  </div>
+
+  {% if why or ai %}
+  <h2>سبب الفشل</h2>
+  {% for w in [why, ai] if w %}
+  <div class="verdict"><b>{{ w.kind_label }}</b> — {{ w.title }} <span style="color:var(--grey);font-size:11px">({{ 'تحليل Claude' if w.source == 'ai' else 'تحليل تلقائي' }})</span><br>
+    {{ w.why }}{% if w.fix %}<br><span style="color:var(--grey)">المطلوب:</span> {{ w.fix }}{% endif %}</div>
+  {% endfor %}
+  {% endif %}
+
+  {% if report.tests %}
+  <h2>الاختبارات اللي اتنفذت</h2>
+  <table>
+    <tr><th class="n">#</th><th>الاختبار</th><th class="n">النتيجة</th><th class="n">المدة (ث)</th><th>الرسالة</th></tr>
+    {% for t in report.tests %}
+    <tr><td class="n">{{ loop.index }}</td><td>{{ t.name }}</td>
+      <td class="n">{% if t.outcome == 'passed' %}<span class="ok">ناجح</span>{% else %}<span class="no">فاشل</span>{% endif %}</td>
+      <td class="n">{{ t.duration }}</td><td style="white-space:pre-wrap">{{ (t.message or '—')[:600] }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if check and check.detail %}
+  <h2>{{ check.detail.title }}</h2>
+  <table>
+    <tr><th class="n">#</th>{% for c in check.detail.columns %}<th>{{ c }}</th>{% endfor %}<th class="n">الحالة</th></tr>
+    {% for r in check.detail.rows %}
+    <tr><td class="n">{{ loop.index }}</td>{% for c in r.cells %}<td>{{ c if c not in (none, '') else '—' }}</td>{% endfor %}
+      <td class="n">{% if r.ok %}<span class="ok">✓</span>{% elif r.ok == false %}<span class="no">✗</span>{% else %}—{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% if check.detail.note %}<div class="note">{{ check.detail.note }}</div>{% endif %}
+  {% endif %}
+
+  {% if steps %}
+  <h2>سجل الخطوات ({{ steps|length }})</h2>
+  <table class="log">
+    <tr><th class="n">الوقت</th><th>الخطوة</th></tr>
+    {% for s in steps %}<tr><td class="n ltr">{{ s.time }}</td><td class="{{ 'no' if s.level == 'error' else '' }}">{{ s.text }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+
+  {% if shots %}
+  <h2>الصور ({{ shots|length }})</h2>
+  <div class="shots">
+    {% for s in shots %}
+    <figure class="{{ 'bad' if 'FAILED_' in s.file else '' }}"><img src="{{ url_for('serve_screenshot', filename=s.file) }}" alt="{{ s.label }}">
+      <figcaption>{{ loop.index }}. {{ s.label }}</figcaption></figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="sign">
+    <div>نفّذه: أداة أتمتة اختبارات ERP</div>
+    <div>راجعه: ....................</div>
+    <div>الاعتماد والتاريخ: ....................</div>
+  </div>
+  <div class="foot">صفحة 1 من 1 — بيتقسم تلقائي وقت الطباعة</div>
+</div>
+</body>
+</html>

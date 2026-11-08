@@ -105,15 +105,17 @@
   {% endif %}
 
   {% if ss.spikes %}
-  <h2>⚡ بطء لحظي (اتقاس 3 مرات — مرة بطيئة ومرتين عاديين)</h2>
+  <h2>⚡ بطيئة مرة وسريعة مرة (اتقاست 3 مرات ورا بعض)</h2>
   <table>
-    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">القياسات (ث)</th></tr>
+    <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">القياسات (ث)</th><th>المعنى</th></tr>
     {% for x in ss.spikes %}
     <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td>
-      <td class="n">{{ (x.tries or [])|map('float')|map('round', 0)|map('int')|join(' / ') }} ms</td></tr>
+      <td class="n">{% for t in (x.tries or []) %}{{ '%.1f'|format(t / 1000) }}{{ ' / ' if not loop.last }}{% endfor %}</td>
+      <td>{{ '🐢 أول فتح بطيء وبعده سريع: السيرفر بيجهّز بيانات الصفحة أول مرة (كاش) — اللي بيفتحها أول مرة بعد فترة هيستنى الوقت ده'
+             if x.first_slow else 'بطء لحظي: غالبًا ضغط على السيرفر في اللحظة دي' }}</td></tr>
     {% endfor %}
   </table>
-  <div class="note">البطء اللحظي ممكن يكون ضغط على السيرفر في اللحظة دي (مستخدمين تانيين / نسخ احتياطي) — لو بيتكرر في نفس الوقت كل يوم يبقى ده سبب شكوى العميل.</div>
+  <div class="note">لو نفس الصفحات بتطلع بطيئة أول مرة في كل فحص، يبقى ده غالبًا اللي العميل بيحس بيه الصبح أو بعد فترة من غير استخدام — والحل عند المطورين (تحميل القوايم الكبيرة بالبحث بدل ما تتبني كلها في الصفحة، وتسخين الكاش).</div>
   {% endif %}
 
   {% if ss.slow_ajax %}
@@ -147,12 +149,38 @@
   {% endif %}
 
   {% if slow_html %}
-  <h2>🕐 أبطأ 25 شاشة في رد السيرفر (الصفحة ببياناتها، من كل الشاشات)</h2>
+  <h2>🕐 أبطأ 25 شاشة في رد السيرفر (الشاشات والتقارير — من غير صفحات الإضافة)</h2>
   <table>
     <tr><th>#</th><th>الشاشة</th><th>الرابط</th><th class="n">رد السيرفر (ث)</th><th class="n">التقييم</th><th class="n">البيانات</th></tr>
     {% for x in slow_html %}
     <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td><td class="n"><b>{{ x.sec }}</b></td><td class="n">{{ rate(x.sec) }}</td>
       <td class="n">{{ 'تقرير' if x.report else ('صفحة إضافة' if '➕' in x.name else ((x.rows ~ ' صف') if x.rows else 'فاضية')) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% if slow_adds %}
+  <h2>➕ أبطأ صفحات الإضافة في رد السيرفر</h2>
+  <table>
+    <tr><th>#</th><th>صفحة الإضافة</th><th>الرابط</th><th class="n">رد السيرفر (ث)</th><th class="n">التقييم</th></tr>
+    {% for x in slow_adds %}
+    <tr><td class="n">{{ loop.index }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td><td class="n"><b>{{ x.sec }}</b></td><td class="n">{{ rate(x.sec) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if all_screens %}
+  {% set n_list = all_screens|selectattr('kind', 'equalto', 'list')|list|length %}
+  {% set n_rep = all_screens|selectattr('kind', 'equalto', 'report')|list|length %}
+  {% set n_add = all_screens|selectattr('kind', 'equalto', 'add')|list|length %}
+  <h2>📋 كل الشاشات اللي اتفتحت ({{ all_screens|length }}: {{ n_list }} شاشة · {{ n_rep }} تقرير · {{ n_add }} صفحة إضافة)</h2>
+  <table>
+    <tr><th>#</th><th>القسم</th><th>الشاشة</th><th>الرابط</th><th class="n">النوع</th><th class="n">رد السيرفر (ث)</th><th class="n">البيانات</th><th class="n">الحالة</th></tr>
+    {% for x in all_screens %}
+    <tr><td class="n">{{ loop.index }}</td><td>{{ x.module or '—' }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td>
+      <td class="n">{{ {'list': 'شاشة', 'report': 'تقرير', 'add': 'إضافة'}[x.kind] }}</td>
+      <td class="n">{{ x.sec if x.sec else '—' }}</td>
+      <td class="n">{{ '—' if x.kind != 'list' or not x.ok else ((x.rows ~ ' صف') if x.rows else 'فاضية') }}</td>
+      <td class="n">{{ '✅' if x.ok else '❌' }}</td></tr>
     {% endfor %}
   </table>
   {% endif %}

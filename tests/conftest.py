@@ -166,6 +166,7 @@ def _crash_safe(drv, options):
                     pass
             kill_orphan_chrome()
             fresh = webdriver.Chrome(service=_get_service(), options=options)
+            _lock_if_client(fresh)
             drv.session_id, drv.command_executor = fresh.session_id, fresh.command_executor
             drv.service = fresh.service
             try:
@@ -180,10 +181,22 @@ def _crash_safe(drv, options):
     return drv
 
 
+def _lock_if_client(d):
+    """🔒 a client's live system: every page gets the write blocker (engine/guard.py)"""
+    try:
+        from engine.guard import lock_browser
+        if lock_browser(d):
+            logger.info("🔒 نظام عميل — المتصفح مقفول على القراءة بس (أي حفظ / حذف بيتلغي)")
+    except Exception as e:
+        logger.warning(f"read-only lock: {e}")
+
+
 def _create_driver(options):
     kill_orphan_chrome()
     service = _get_service()
-    return _crash_safe(webdriver.Chrome(service=service, options=options), options)
+    d = webdriver.Chrome(service=service, options=options)
+    _lock_if_client(d)
+    return _crash_safe(d, options)
 
 
 @pytest.fixture(scope="function")
@@ -196,6 +209,7 @@ def driver(request):
     if USE_GRID:
         try:
             driver = webdriver.Remote(command_executor=SELENIUM_HUB, options=options)
+            _lock_if_client(driver)
             logger.success("✅ Grid")
         except Exception as e:
             logger.error(f"Grid failed: {e}")

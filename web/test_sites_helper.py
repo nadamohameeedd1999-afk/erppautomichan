@@ -16,12 +16,40 @@ def _load_json(path, default=None):
     return load_json(path, default)
 
 def _save_json(path, data):
+    """passwords go to disk encrypted («enc:…»), never as plain text"""
     from config.storage import save_json
-    save_json(path, data)
+    from utils.secret_box import encrypt
+    out = {**data, "profiles": [{**{k: v for k, v in p.items() if k != "kind_set"}, "password": encrypt(p.get("password") or ""),
+                                 "kind": p.get("kind_set", p.get("kind")) if p.get("kind_set", p.get("kind")) in ("test", "client") else ""}
+                                for p in data.get("profiles", [])]}
+    save_json(path, out)
+
+
+def site_kind(p):
+    """«test» = our test site (add / edit / delete allowed) · «client» = a client's live system: read only.
+    Not set yet: a URL with «test» / «demo» / «staging» in it is a test site, anything else is treated as a client."""
+    k = (p or {}).get("kind")
+    if k in ("test", "client"):
+        return k
+    import re
+    return "test" if re.search(r"test|demo|staging|sandbox|localhost|127\.0\.0\.1", (p or {}).get("base_url", ""), re.I) else "client"
+
 
 def load_all():
-    data = _load_json(TEST_SITES_FILE, {"active_profile": None, "profiles": []})
-    return data or {"active_profile": None, "profiles": []}
+    """profiles with their passwords decrypted (for the program only — pages never show them)"""
+    from utils.secret_box import decrypt, is_encrypted
+    data = _load_json(TEST_SITES_FILE, {"active_profile": None, "profiles": []}) or {"active_profile": None, "profiles": []}
+    plain = any(p.get("password") and not is_encrypted(p["password"]) for p in data.get("profiles", []))
+    for p in data.get("profiles", []):
+        p["password"] = decrypt(p.get("password") or "")
+        p["kind_set"] = p.get("kind") if p.get("kind") in ("test", "client") else ""     # what the user picked ("" = automatic)
+        p["kind"] = site_kind(p)
+    if plain:
+        try:
+            _save_json(TEST_SITES_FILE, data)          # first run after the update: encrypt the old plain passwords
+        except Exception:
+            pass
+    return data
 
 
 def get_active_profile():
@@ -35,7 +63,7 @@ def get_active_profile():
     return None
 
 
-def add_profile(name, base_url, username, password, notes="", activity="", branch=""):
+def add_profile(name, base_url, username, password, notes="", activity="", branch="", kind=""):
     data = load_all()
     import uuid
     new_id = "p_" + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:4]     # unique even when two are added in one second
@@ -48,6 +76,7 @@ def add_profile(name, base_url, username, password, notes="", activity="", branc
         "notes": notes,
         "activity": activity,      # النشاط اللي يتختار في شاشة الدخول (فاضي = أول نشاط)
         "branch": branch,          # الفرع (فاضي = أول فرع)
+        "kind": kind if kind in ("test", "client") else "",   # test = إضافة وحذف مسموح · client = قراءة بس
         "created_at": datetime.now().isoformat(),
     }
     data.setdefault("profiles", []).append(profile)
@@ -74,6 +103,8 @@ def update_profile(profile_id, **kwargs):
             for k in ("activity", "branch"):
                 if k in kwargs:
                     p[k] = kwargs[k]
+            if "kind" in kwargs:
+                p["kind_set"] = kwargs["kind"] if kwargs["kind"] in ("test", "client") else ""
             p["updated_at"] = datetime.now().isoformat()
             _save_json(TEST_SITES_FILE, data)
             return True, p

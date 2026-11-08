@@ -57,6 +57,9 @@ class LoginPage(BasePage):
             True لو نجح، False لو فشل
         """
         logger.info(f"محاولة اختيار أول عنصر في [{label}] (id={select2_id})")
+        if not want and not self.driver.find_elements(By.CSS_SELECTOR, f"#{select2_id}, #select2-{select2_id}-container"):
+            logger.info(f"⏭️ مفيش [{label}] في شاشة الدخول على الموقع ده — بكمل")      # e.g. aquapure: no 15 s wait for nothing
+            return True
         
         try:
             # ═══ 1) فتح الـ dropdown ═══

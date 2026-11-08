@@ -1,102 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('settings') }} - {{ site_name }}
-<!-- Add/Edit Profile Modal -->
-<div class="modal fade" id="addProfileModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('settings_test_sites_save') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-plus-circle"></i>
-                        <span id="modalTitleText">إضافة موقع جديد</span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="profile_id" id="profile_id_field">
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">الاسم (للتمييز)</label>
-                        <input type="text" name="name" id="name_field" class="form-control" required
-                               placeholder="Production / Staging / Test">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold"><i class="bi bi-link-45deg"></i> رابط الموقع</label>
-                        <input type="url" name="base_url" id="base_url_field" class="form-control"
-                               dir="ltr" required placeholder="https://example.com">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold"><i class="bi bi-person"></i> اسم المستخدم</label>
-                        <input type="text" name="username" id="username_field" class="form-control"
-                               dir="ltr" required autocomplete="off">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold"><i class="bi bi-lock"></i> كلمة المرور</label>
-                        <div class="input-group">
-                            <input type="password" name="password" id="password_field"
-                                   class="form-control" dir="ltr" autocomplete="new-password">
-                            <button class="btn btn-outline-secondary" type="button"
-                                    onclick="togglePwd('password_field', this)">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        <div class="form-text" id="pwdHint" style="display:none;">اتركها فاضية للإبقاء على الباسورد الحالي</div>
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col"><label class="form-label fw-bold">🏢 النشاط</label>
-                            <input type="text" name="activity" id="activity_field" class="form-control" placeholder="فاضي = أول نشاط (مثال: شركة النخبة)"></div>
-                        <div class="col"><label class="form-label fw-bold">📍 الفرع</label>
-                            <input type="text" name="branch" id="branch_field" class="form-control" placeholder="فاضي = أول فرع (مثال: الفرع ٢)"></div>
-                        <div class="form-text">علشان تختبري كل نشاط / فرع: اعملي موقع لكل واحد بنفس الرابط واختاري «كل المواقع» وقت التشغيل.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">ملاحظات</label>
-                        <textarea name="notes" id="notes_field" class="form-control" rows="2"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle"></i> حفظ
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-function togglePwd(id, btn) {
-    const input = document.getElementById(id);
-    const icon = btn.querySelector('i');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'bi bi-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'bi bi-eye';
-    }
-}
-
-function editProfile(id, name, url, username, notes, activity, branch) {
-    document.getElementById('profile_id_field').value = id;
-    if (document.getElementById('activity_field')) { document.getElementById('activity_field').value = activity || ''; document.getElementById('branch_field').value = branch || ''; }
-    document.getElementById('name_field').value = name;
-    document.getElementById('base_url_field').value = url;
-    document.getElementById('username_field').value = username;
-    document.getElementById('password_field').value = '';
-    document.getElementById('notes_field').value = notes;
-    document.getElementById('pwdHint').style.display = 'block';
-    document.getElementById('modalTitleText').textContent = 'تعديل موقع';
-    new bootstrap.Modal(document.getElementById('addProfileModal')).show();
-}
-</script>
-{% endblock %}
+{% block title %}{{ t('settings') }} - {{ site_name }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -584,12 +488,12 @@ function editProfile(id, name, url, username, notes, activity, branch) {
                                         </form>
                                         {% endif %}
                                     </td>
-                                    <td class="fw-bold">{{ p.name }}</td>
+                                    <td class="fw-bold">{{ p.name }} {% if p.kind == 'client' %}<span class="badge bg-warning text-dark" title="فتح وقراءة بس — أي حفظ أو حذف بيتمنع">🔒 عميل</span>{% else %}<span class="badge bg-info text-dark" title="مسموح إضافة وتعديل وحذف">🧪 اختبار</span>{% endif %}</td>
                                     <td><code dir="ltr">{{ p.base_url }}</code></td>
                                     <td dir="ltr">{{ p.username }}{% if p.activity or p.branch %}<div class="small text-muted" dir="rtl">🏢 {{ p.activity or 'أول نشاط' }} · 📍 {{ p.branch or 'أول فرع' }}</div>{% endif %}</td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-primary"
-                                                onclick="editProfile('{{ p.id }}', '{{ p.name }}', '{{ p.base_url }}', '{{ p.username }}', '{{ p.notes or "" }}', '{{ p.activity or "" }}', '{{ p.branch or "" }}')">
+                                                onclick="editProfile('{{ p.id }}', '{{ p.name }}', '{{ p.base_url }}', '{{ p.username }}', '{{ p.notes or "" }}', '{{ p.activity or "" }}', '{{ p.branch or "" }}', '{{ p.kind_set or "" }}')">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <form method="POST" action="{{ url_for('settings_test_sites_delete', profile_id=p.id) }}"
@@ -1024,6 +928,14 @@ async function sendTestEmail() {
                         <div class="form-text">علشان تختبري كل نشاط / فرع: اعملي موقع لكل واحد بنفس الرابط واختاري «كل المواقع» وقت التشغيل.</div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label fw-bold">🔒 نوع الموقع</label>
+                        <select name="kind" id="kind_field" class="form-select">
+                            <option value="">تلقائي (الرابط فيه test / demo = اختبار، غير كده = عميل)</option>
+                            <option value="test">🧪 موقع اختبار — مسموح إضافة وتعديل وحذف</option>
+                            <option value="client">🔒 نظام عميل شغال — فتح وقراءة بس، أي حفظ أو حذف بيتمنع</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">ملاحظات</label>
                         <textarea name="notes" id="notes_field" class="form-control" rows="2"></textarea>
                     </div>
@@ -1052,8 +964,9 @@ function togglePwd(id, btn) {
     }
 }
 
-function editProfile(id, name, url, username, notes, activity, branch) {
+function editProfile(id, name, url, username, notes, activity, branch, kind) {
     document.getElementById('profile_id_field').value = id;
+    if (document.getElementById('kind_field')) document.getElementById('kind_field').value = kind || '';
     if (document.getElementById('activity_field')) { document.getElementById('activity_field').value = activity || ''; document.getElementById('branch_field').value = branch || ''; }
     document.getElementById('name_field').value = name;
     document.getElementById('base_url_field').value = url;

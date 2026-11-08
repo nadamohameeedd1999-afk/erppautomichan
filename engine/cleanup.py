@@ -49,6 +49,8 @@ def forget(index_keys):
 def run_cleanup(driver, credentials, cfg, result=None):
     from engine.screen_runner import run_screen, login
     result = result if result is not None else {}
+    from engine.guard import require_write
+    require_write("تنظيف بيانات الاختبار")
     login(driver, credentials)
     items = load_all()
     mine = [x for x in items if x["site"] == _base()]

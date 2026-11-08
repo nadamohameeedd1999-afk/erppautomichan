@@ -405,6 +405,9 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
     """Runs the flow. Returns a result dict; raises AssertionError on failure."""
     cfg = key_or_cfg if isinstance(key_or_cfg, dict) else screen_config.load(key_or_cfg)
     cfg = screen_config.normalize(cfg)
+    if save and cfg.get("operation", "add") not in ("print", "view"):
+        from engine.guard import require_write
+        require_write({"add": "إضافة", "edit": "تعديل", "delete": "حذف"}.get(cfg.get("operation", "add"), "حفظ") + " — " + str(cfg.get("name_ar") or cfg["key"]))
     driver.implicitly_wait(0)   # the engine uses explicit waits; implicit waits slow every "is it there?" check
     r = ScreenRunner(driver, cfg)
     result = {"key": cfg["key"], "saved": False, "steps": [], "alerts": r.alerts,

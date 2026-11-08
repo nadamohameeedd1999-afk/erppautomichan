@@ -47,6 +47,8 @@ from web.monthly_report import bp as monthly_bp
 app.register_blueprint(checks_bp)
 app.register_blueprint(sites_bp)
 app.register_blueprint(monthly_bp)
+from utils.secret_box import migrate_once as _encrypt_secrets
+_encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
 from web import scheduler as _scheduler
 _scheduler.start()
 
@@ -299,6 +301,41 @@ def report_detail(run_id):
     return render_template("report_detail.html", report=report, screenshots=screenshots, check=load_detail(run_id),
                            shots=shots, log_lines=log_lines, why=why, ai=ai, ai_on=explain.ai_available(),
                            failed=not insights.run_passed(report))
+
+
+_STEP_RE = __import__("re").compile(r"(\d\d:\d\d:\d\d) \| (INFO|SUCCESS|WARNING|ERROR)\s*\| (?:[\w.]+:\w+:\d+ \| )?(.*)")
+_STEP_SKIP = __import__("re").compile(r"^=+$|^─+|Starting Chrome|Docker mode|Chrome started|Open: .*/Login|بدء تسجيل الدخول|^-+$")
+
+
+@app.route("/reports/<run_id>/evidence")
+@auth.login_required
+def report_evidence(run_id):
+    """📑 Test Execution Evidence (like Worksoft's audit reports): every step, every screenshot, the verdict,
+    and a sign-off block — in the approved report design, ready to print / save as PDF for the client or an auditor."""
+    report = next((s for s in data_helper.load_summaries() if s.get("run_id") == run_id), None)
+    if not report:
+        return redirect(url_for("reports"))
+    from web import explain, insights
+    from engine.check_runner import load_detail
+    from datetime import datetime as _dt
+    shots = [{"file": f, "label": data_helper.screenshot_label(f)} for f in data_helper.get_screenshots_for_run(run_id, report)]
+    log = data_helper.read_run_log(run_id)
+    steps = []
+    for l in log:
+        m = _STEP_RE.search(l["text"])
+        if m and not _STEP_SKIP.search(m.group(3).strip()):
+            steps.append({"time": m.group(1), "text": m.group(3).strip()[:300], "level": l["level"]})
+    why = ai = None
+    if not insights.run_passed(report):
+        why = explain.for_run(insights.first_failure_message(report), [l["text"] for l in log])
+        ai = explain.cached_ai(run_id)
+    sc = settings_helper.load_site_config()
+    co = {"name": sc.get("company_name_ar") or "", "cr": sc.get("company_cr") or "", "vat": sc.get("company_vat") or "",
+          "logo": sc.get("logo_filename") or ""}
+    u = auth.current_user() or {}
+    return render_template("evidence_report.html", report=report, shots=shots, steps=steps[-400:], why=why, ai=ai,
+                           check=load_detail(run_id), co=co, site_url="", user=u.get("full_name") or u.get("username") or "",
+                           printed=_dt.now().strftime("%Y-%m-%d %H:%M"))
 
 
 @app.route("/api/explain/<run_id>", methods=["POST"])

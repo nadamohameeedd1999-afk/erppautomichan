@@ -234,7 +234,7 @@ def build(hours=24, parts=None, max_failed=15, log_lines=120):
         L.append(_sec(SECTIONS["setup"]))
         try:
             du = shutil.disk_usage(paths.DATA_DIR)
-            disk = f"{du.free / 2**30:.1f} GB فاضي من {du.total / 2**30:.1f} GB"
+            disk = f"{du.free / 2**20:,.0f} MB فاضي من {du.total / 2**20:,.0f} MB" + (" ⚠️ المساحة صغيرة — كبّري الـ Volume من Railway" if du.total < 2 * 2**30 else "")
         except Exception:
             disk = "?"
         mem = ""
@@ -329,10 +329,17 @@ def build(hours=24, parts=None, max_failed=15, log_lines=120):
     if "server" in parts:
         L.append(_sec(SECTIONS["server"]))
         lines = _since_lines(_tail(SERVER_LOG.with_suffix(".log.1"), 3000) + _tail(SERVER_LOG, 6000), since)
-        errs = [x for x in lines if re.search(r" ERR | EXC |Traceback|Error|Exception|❌|\b50\d\b", x)]
+        access = re.compile(r'"(GET|POST|PUT|DELETE|PATCH|HEAD) \S+ HTTP/[\d.]+" (\d{3})')      # werkzeug writes every request to stderr
+
+        def _is_err(x):
+            m = access.search(x)
+            if m:
+                return m.group(2).startswith("5")
+            return bool(re.search(r" EXC |Traceback|Error|Exception|❌", x))
+        errs = [x for x in lines if _is_err(x)]
         L.append(f"{len(lines)} سطر في الفترة · منهم {len(errs)} سطر خطأ")
-        noisy = re.compile(r'"(GET|POST) /(static|api/(queue|status|live|screens/jobs|runs/active)|favicon)')
-        quiet = [x for x in lines if not noisy.search(x)]
+        noisy = re.compile(r'"(GET|POST) /(static|api/(queue|status|live|screens/jobs|runs/active|run-center|health/tasks|diagnostics)|favicon)')
+        quiet = [x for x in lines if not noisy.search(x) and not (access.search(x) and not _is_err(x))]
         L += [x.rstrip() for x in quiet[-600:]]
 
     if "client" in parts:

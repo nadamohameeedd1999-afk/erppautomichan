@@ -15,7 +15,11 @@ CONFIG_FILE = paths.settings_file("email_config.json")
 
 def load_config():
     from config.storage import load_json
-    return load_json(CONFIG_FILE, None)
+    from utils.secret_box import decrypt
+    c = load_json(CONFIG_FILE, None)
+    if c and c.get("sender_password"):
+        c["sender_password"] = decrypt(c["sender_password"])
+    return c
 
 
 def send_test_notification(summary, test_name="", changed=False):

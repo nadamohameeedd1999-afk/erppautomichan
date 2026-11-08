@@ -29,8 +29,19 @@ def _read_active_profile():
 def _get(key, env_key, default=""):
     profile = _read_active_profile()
     if profile and profile.get(key):
+        if key == "password":
+            from utils.secret_box import decrypt
+            return decrypt(profile[key]) or os.getenv(env_key, default)
         return profile[key]
     return os.getenv(env_key, default)
+
+
+def _site_kind():
+    p = _read_active_profile()
+    if not p:
+        return os.getenv("SITE_KIND", "test")
+    from web.test_sites_helper import site_kind
+    return site_kind(p)
 
 
 # ==================== Site ====================
@@ -39,6 +50,8 @@ USERNAME = _get("username", "LOGIN_USERNAME", "erpadmin")
 PASSWORD = _get("password", "LOGIN_PASSWORD", "")
 ACTIVITY = _get("activity", "LOGIN_ACTIVITY", "")      # النشاط في شاشة الدخول (فاضي = أول نشاط)
 BRANCH = _get("branch", "LOGIN_BRANCH", "")            # الفرع (فاضي = أول فرع)
+SITE_KIND = _site_kind()                               # test = موقع اختبار · client = نظام عميل شغال
+READ_ONLY = SITE_KIND == "client"                      # 🔒 على نظام العميل: فتح وقراءة بس — مفيش حفظ ولا حذف
 
 LOGIN_URL = BASE_URL + "/Login"
 SALES_INVOICE_LIST_URL = BASE_URL + "/SalesInvoice"

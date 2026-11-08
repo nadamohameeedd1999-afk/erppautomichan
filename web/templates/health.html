@@ -100,7 +100,7 @@
             <span class="muted">فترة الحسابات:</span>
             <span class="grp"><span class="muted">من</span><input id="bFrom" type="date" class="form-control form-control-sm"></span>
             <span class="grp"><span class="muted">إلى</span><input id="bTo" type="date" class="form-control form-control-sm"></span>
-            <span class="muted">(فاضي = السنة الحالية)</span>
+            <span class="muted">(فاضي = كل القيود لحد آخر السنة — «🔎 فحص شامل» بيقرا كل القيود دايمًا)</span>
             <span class="grp ms-auto"><span class="muted">شاشات تتقاس سرعتها في المتصفح:</span>
                 <input id="fDeep" type="number" min="1" max="200" class="form-control form-control-sm" style="width:80px" value="25"
                     onchange="try { localStorage.setItem('hx_deep', this.value) } catch (e) {}"></span>
@@ -207,6 +207,7 @@ function paint() {
         <div class="kpi"><div class="bars" title="عدد البايظ في آخر الفحوصات">${hist.map(h => `<i class="${h.broken ? '' : 'z'}" style="height:${Math.max(8, h.broken / mx * 100)}%" title="${esc(h.at)} — ${h.broken} بايظة"></i>`).join('')}</div><span>البايظ في آخر الفحوصات</span></div>
       </div>
       <div class="tabs">
+        ${tabBtn('all', '📋 كل الشاشات', (s.all || []).length, 0)}
         ${tabBtn('speed', '🐢 السرعة', sp.length, ss.load_over5)}
         ${tabBtn('broken', '❌ الشاشات البايظة', s.broken.length, s.broken.length)}
         ${tabBtn('books', '⚖️ الحسابات', books ? books.rows.filter(r => r.ok === false).length : 0, books && !books.ok)}
@@ -225,6 +226,26 @@ function tabBody(s) {
           ${sp.map(m => `<tr><td><b>${esc(m.name)}</b><div class="muted ltr">${esc(m.path)}</div></td><td class="text-nowrap">${RATE(m.load)}${m.timeout ? ' ⏱️' : ''}</td>
             <td class="text-nowrap"><b>${m.load ?? '—'} ث</b></td><td class="text-nowrap">${m.ttfb ?? '—'} ث</td>
             <td>${(m.xhr || [])[0] ? `${(m.xhr[0].ms / 1000).toFixed(1)} ث <div class="muted ltr">${esc(m.xhr[0].url)}</div>` : '—'}</td></tr>`).join('')}
+          </tbody></table></div>`;
+    }
+    if (TAB === 'all') {
+        const all = s.all || [];
+        if (!all.length) return `<div class="empty"><b>مفيش قايمة شاشات للفحص ده</b>شغّلي فحص جديد</div>`;
+        const q = (window.AQ || '').trim(), K = window.AK || '';
+        const rows = all.filter(x => (!K || x.kind === K) && (!q || (x.name + ' ' + x.path + ' ' + x.module).includes(q)));
+        const kn = {list: 'شاشة', report: 'تقرير', add: 'إضافة'};
+        const cnt = k => all.filter(x => x.kind === k).length;
+        return `<div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+            <input class="form-control form-control-sm" style="max-width:260px" placeholder="🔍 دوري على شاشة / رابط" value="${esc(q)}"
+              oninput="window.AQ=this.value;clearTimeout(window._aqT);window._aqT=setTimeout(()=>{paint();const i=document.querySelector('#tabBody input');i.focus();i.setSelectionRange(i.value.length,i.value.length)},300)">
+            ${[['', 'الكل', all.length], ['list', 'شاشات', cnt('list')], ['report', 'تقارير', cnt('report')], ['add', 'صفحات إضافة', cnt('add')]].map(([k, t, n]) =>
+              `<button class="btn btn-sm ${K === k ? 'btn-primary' : 'btn-outline-secondary'}" onclick="window.AK='${k}';paint()">${t} (${n})</button>`).join('')}
+            <span class="muted">${rows.length} معروضة</span></div>
+          <div class="scroll"><table class="t2"><thead><tr><th>القسم</th><th>الشاشة</th><th>النوع</th><th>رد السيرفر</th><th>البيانات</th><th>الحالة</th></tr></thead><tbody>
+          ${rows.map(x => `<tr><td class="muted">${esc(x.module || '—')}</td><td><b>${esc(x.name)}</b><div><a class="ltr muted" target="_blank" href="${esc(s.base_url + x.path)}">${esc(x.path)}</a></div></td>
+            <td class="text-nowrap">${kn[x.kind]}</td><td class="text-nowrap">${x.sec != null ? RATE(x.sec) + ' ' + x.sec + ' ث' : '—'}</td>
+            <td class="text-nowrap">${x.kind !== 'list' || !x.ok ? '—' : (x.rows ? x.rows + ' صف' : 'فاضية')}</td>
+            <td>${x.ok ? '✅' : '❌ ' + esc(x.why || '')}</td></tr>`).join('')}
           </tbody></table></div>`;
     }
     if (TAB === 'broken') {

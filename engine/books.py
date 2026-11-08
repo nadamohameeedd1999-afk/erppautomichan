@@ -72,7 +72,8 @@ def run_books(driver, credentials, cfg, result=None):
     driver.get(BASE_URL.rstrip("/") + "/Home")
     driver.set_script_timeout(180)
     y = date.today().year
-    frm, to = cfg.get("date_from") or f"{y}-01-01", cfg.get("date_to") or f"{y}-12-31"
+    # empty = everything up to the end of this year (a fixed old «to» date silently hid every newer entry -> all zeros)
+    frm, to = cfg.get("date_from") or f"{y - 10}-01-01", cfg.get("date_to") or f"{y}-12-31"
     tmpl = cfg.get("url") or DEFAULT_URL
     rows_out, fails = [], []
     deps = [""] + list(cfg.get("departments") or [])

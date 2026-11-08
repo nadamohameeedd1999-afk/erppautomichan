@@ -376,6 +376,7 @@ def run_health(driver, credentials, cfg, result=None):
             med = sorted(tries)[1]
             res[p_]["tries"] = tries
             res[p_]["spike"] = med < 3000
+            res[p_]["first_slow"] = med < 3000 and tries[0] >= 3000 and max(tries[1:]) < 3000
             res[p_]["ms"] = med
     secs = round(time.time() - t0, 1)
 
@@ -419,7 +420,8 @@ def run_health(driver, credentials, cfg, result=None):
     xhr_all = sorted(({**x, "screen": m["name"]} for m in speed for x in (m.get("xhr") or [])), key=lambda x: -x["ms"])[:15]
     speed_stats["slow_ajax"] = xhr_all
     speed_stats["data"] = data_stats
-    speed_stats["spikes"] = [{"path": p_, "name": next((l["name"] for l in todo if l["path"] == p_), p_), "tries": r.get("tries")}
+    speed_stats["spikes"] = [{"path": p_, "name": next((l["name"] for l in todo if l["path"] == p_), p_), "tries": r.get("tries"),
+                              "first_slow": bool(r.get("first_slow"))}
                              for p_, r in res.items() if r.get("spike")][:20]
     times = {p: (r.get("ms") or 0) for p, r in res.items()}
     rows_of = {p: {"rows": r.get("rows") or 0, "report": bool(r.get("report"))} for p, r in res.items() if r.get("s") == 200}
@@ -449,9 +451,11 @@ def run_health(driver, credentials, cfg, result=None):
     paths_now = [l["path"] for l in todo]
     gone_links = [p for p in (ref or {}).get("paths", []) if p not in set(paths_now)] if ref else []
     new_links = [p for p in paths_now if p not in set((ref or {}).get("paths", []))] if ref and ref.get("paths") else []
+    if ref and not any("/addedit" in x.lower() for x in ref.get("paths") or []):
+        new_links = [p for p in new_links if "/addedit" not in p.lower()]      # the old snapshot never had add pages: not «new in the menu»
     state = {"at": now, "base_url": base, "activity": ACTIVITY, "branch": BRANCH, "total": len(todo),
              "broken": broken, "since": since, "history": hist, "forms": forms, "paths": paths_now,
-             "names": {l["path"]: l["name"] for l in todo},
+             "names": {l["path"]: l["name"] for l in todo}, "modules": {l["path"]: l.get("module", "") for l in todo},
              "changes": [{"path": p, "what": w, "ok": ok} for p, w, ok in changes]
                         + [{"path": p, "what": "➖ اللينك اتشال من المنيو", "ok": None} for p in gone_links]
                         + [{"path": p, "what": "➕ شاشة جديدة في المنيو", "ok": None} for p in new_links],

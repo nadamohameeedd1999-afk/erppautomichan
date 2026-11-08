@@ -293,6 +293,22 @@ def health_page():
     return render_template("health.html")
 
 
+def _all_screens(d):
+    """every screen the check opened -> [{path, name, module, sec, rows, kind, ok}] (by module, then name)"""
+    names, mods, times, rows_of = d.get("names") or {}, d.get("modules") or {}, d.get("times") or {}, d.get("rows_of") or {}
+    broken = d.get("broken") or {}
+    out = []
+    for p in (d.get("paths") or list(names)):
+        r = rows_of.get(p) or {}
+        nm = names.get(p, p)
+        kind = "add" if ("➕" in nm or "/addedit" in p.lower()) else ("report" if r.get("report") else "list")
+        out.append({"path": p, "name": nm.replace("➕ إضافة — ", ""), "module": mods.get(p, "") or (broken.get(p) or {}).get("module", ""),
+                    "sec": round((times.get(p) or 0) / 1000, 2) or None, "rows": r.get("rows") or 0, "kind": kind, "ok": p not in broken,
+                    "why": (broken.get(p) or {}).get("why", "")})
+    out.sort(key=lambda x: (x["module"] or "ي", x["kind"] == "add", x["name"]))
+    return out
+
+
 @bp.route("/api/health")
 @auth.login_required
 def api_health():
@@ -310,7 +326,8 @@ def api_health():
         for c in d.get("changes") or []:
             c["name"] = names.get(c["path"], c["path"])
         d["baseline_at"] = (d.get("baseline") or {}).get("at")
-        for k in ("forms", "paths", "names", "baseline", "history_full", "times"):
+        d["all"] = _all_screens(d)
+        for k in ("forms", "paths", "names", "baseline", "history_full", "times", "rows_of", "modules"):
             d.pop(k, None)
         bf = health.STATE / f.name.replace("health_", "books_")
         try:
@@ -360,6 +377,7 @@ def api_health_baseline():
 
 # ======================================================== ⚖️ مطابقة الحسابات (trial balance, no setup)
 BOOKS_KEY = "books_check"
+BOOKS_FULL_KEY = "books_check_full"
 
 
 @bp.route("/api/books")
@@ -509,12 +527,10 @@ def api_health_full():
     hc = {**C.public(h), **(d.get("config") or {}), "key": FULL_KEY, "type": "health", "name_ar": "🔎 فحص شامل — الشاشات والسرعة"}
     hc["deep_speed"] = int(hc.get("deep_speed") or 25)
     h = C.save(hc)
-    try:
-        b = C.load(BOOKS_KEY)
-    except C.ConfigError:
-        b = C.save({"key": BOOKS_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات"})
+    # the full check reads ALL entries up to today (no stale dates from the «الحسابات بس» box)
+    C.save({"key": BOOKS_FULL_KEY, "type": "books", "name_ar": "⚖️ مطابقة الحسابات — كل الفترات"})
     # first in the queue: a client is waiting — it does not wait behind a long list of other tests
-    out2 = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_KEY), "🔎 فحص شامل: مطابقة الحسابات", d.get("sites"),
+    out2 = sites_api.queue_on_sites(get_manager(), C.test_path_for(BOOKS_FULL_KEY), "🔎 فحص شامل: مطابقة الحسابات", d.get("sites"),
                                     source="manual", front=True)
     out = sites_api.queue_on_sites(get_manager(), C.test_path_for(FULL_KEY), "🔎 فحص شامل: الشاشات والسرعة", d.get("sites"),
                                    source="manual", front=True)
@@ -562,11 +578,15 @@ def health_report():
         pass
     times = d.get("times") or {}
     names = d.get("names") or {}
-    slow_html = sorted(((ms, p) for p, ms in times.items() if ms), reverse=True)[:25]
+    is_add = lambda p: "/addedit" in p.lower() or "➕" in names.get(p, "")
+    slow_html = sorted(((ms, p) for p, ms in times.items() if ms and not is_add(p)), reverse=True)[:25]
+    slow_adds = sorted(((ms, p) for p, ms in times.items() if ms and is_add(p)), reverse=True)[:15]
     since = d.get("since") or {}
     broken = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
     return render_template("health_report.html", d=d, books=books, site_name=site_name or d.get("base_url"), broken=broken,
                            slow_html=[{"path": p, "name": names.get(p, p), "sec": round(ms / 1000, 2),
                                        **((d.get("rows_of") or {}).get(p) or {})} for ms, p in slow_html],
+                           slow_adds=[{"path": p, "name": names.get(p, p).replace("➕ إضافة — ", ""), "sec": round(ms / 1000, 2)} for ms, p in slow_adds],
+                           all_screens=_all_screens(d),
                            rate=health.rate, user=((auth.current_user() or {}).get("full_name") or (auth.current_user() or {}).get("username") or ""),
                            printed=_dt.now().strftime("%Y-%m-%d %H:%M"))

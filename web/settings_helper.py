@@ -40,13 +40,17 @@ def load_site_config():
         "logo_filename": "",
         "favicon_filename": "",
     }
-    data = _load_json(SITE_CONFIG, {})
-    return {**default, **(data or {})}
+    data = _load_json(SITE_CONFIG, {}) or {}
+    from utils.secret_box import decrypt
+    if data.get("anthropic_api_key"):
+        data["anthropic_api_key"] = decrypt(data["anthropic_api_key"])
+    return {**default, **data}
 
 
 def save_site_config(config):
+    from utils.secret_box import encrypt
     config["updated_at"] = datetime.now().isoformat()
-    _save_json(SITE_CONFIG, config)
+    _save_json(SITE_CONFIG, {**config, "anthropic_api_key": encrypt(config.get("anthropic_api_key") or "")})
 
 
 # ==================== Users ====================
@@ -243,6 +247,8 @@ def load_email_config():
         "notify_on": "failure",
     }
     data = _load_json(EMAIL_CONFIG_FILE, {}) or {}
+    from utils.secret_box import decrypt
+    data["sender_password"] = decrypt(data.get("sender_password") or "")
     return {**default, **data}
 
 
@@ -251,5 +257,6 @@ def save_email_config(config):
     if not config.get("sender_password"):
         config["sender_password"] = old.get("sender_password", "")
     config["updated_at"] = datetime.now().isoformat()
-    _save_json(EMAIL_CONFIG_FILE, config)
+    from utils.secret_box import encrypt
+    _save_json(EMAIL_CONFIG_FILE, {**config, "sender_password": encrypt(config.get("sender_password") or "")})
     return True
