@@ -185,6 +185,31 @@ def _fail_shot(summary):
         return None
 
 
+def _why_text(summary):
+    """🧠 failure root cause in the alert itself (idea: Worksoft / Opkey AI failure analysis):
+    the rule-based reason always; Claude's analysis too when a key is set (saved, shown on the run page and the evidence report)"""
+    try:
+        from web import explain, insights, data_helper
+        run_id = summary.get("run_id")
+        msg = insights.first_failure_message(summary)
+        log = [l["text"] for l in data_helper.read_run_log(run_id)]
+        w = None
+        if explain.ai_available() and load_config().get("ai_on_failure", True):
+            try:
+                shot = _fail_shot(summary)
+                w = explain.cached_ai(run_id) or explain.ask_ai(run_id, msg, log, shot)
+            except Exception as e:
+                print(f"[alerts] ai: {e}", flush=True)
+        w = w or explain.for_run(msg, log)
+        if not w:
+            return ""
+        return (f"\n\n🧠 {w.get('kind_label', '')} — {w.get('title', '')}\n{(w.get('why') or '')[:400]}"
+                + (f"\n✅ الحل: {(w.get('fix') or '')[:300]}" if w.get("fix") else ""))
+    except Exception as e:
+        print(f"[alerts] why: {e}", flush=True)
+        return ""
+
+
 def _wanted(mode, passed, changed):
     return mode == "always" or (mode == "change" and changed) or (mode == "failure" and not passed)
 
@@ -201,6 +226,8 @@ def on_run_finished(summary):
     link = (cfg.get("dashboard_url") or "").rstrip("/")
     link = f"{link}/reports/{summary.get('run_id')}" if link else ""
     text = _text(summary, passed, changed, link)
+    if not passed:
+        text += _why_text(summary)
     name = summary.get("test_name") or ""
     try:
         from config import emailer

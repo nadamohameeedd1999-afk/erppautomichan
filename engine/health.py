@@ -329,6 +329,8 @@ def run_health(driver, credentials, cfg, result=None):
     for u in cfg.get("extra") or []:
         links.append({"path": u, "name": u, "module": "إضافي"})
     todo = pick(links, cfg)
+    from engine import risk
+    todo = risk.order(todo)                          # ⚖️ the most important screens first (Tosca-style risk-based order)
     logger.info(f"🩺 لقيت {len(links)} لينك في المنيو — هفتح {len(todo)} شاشة")
     if not todo:
         e = AssertionError("صحة النظام: مالقيتش ولا لينك في المنيو بعد الدخول (اتأكدي إن الدخول تم وإن المنيو بيظهر في الصفحة الرئيسية)")
@@ -456,6 +458,8 @@ def run_health(driver, credentials, cfg, result=None):
     state = {"at": now, "base_url": base, "activity": ACTIVITY, "branch": BRANCH, "total": len(todo),
              "broken": broken, "since": since, "history": hist, "forms": forms, "paths": paths_now,
              "names": {l["path"]: l["name"] for l in todo}, "modules": {l["path"]: l.get("module", "") for l in todo},
+             "risk": {**{k: v for k, v in risk.coverage([(l["path"], l["name"], l.get("module", "")) for l in todo], set(broken)).items() if k != "lost"},
+                      "lost": risk.coverage([(l["path"], l["name"], l.get("module", "")) for l in todo], set(broken))["lost"][:30]},
              "changes": [{"path": p, "what": w, "ok": ok} for p, w, ok in changes]
                         + [{"path": p, "what": "➖ اللينك اتشال من المنيو", "ok": None} for p in gone_links]
                         + [{"path": p, "what": "➕ شاشة جديدة في المنيو", "ok": None} for p in new_links],

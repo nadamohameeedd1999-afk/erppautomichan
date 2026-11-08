@@ -293,6 +293,26 @@ def health_page():
     return render_template("health.html")
 
 
+def _with_risk(rows):
+    """add the risk weight / level to screens and sort heaviest first (Tosca-style)"""
+    from engine import risk
+    man = risk._manual()
+    for r in rows:
+        r["w"] = risk.weight(r["path"], r.get("name", ""), r.get("module", ""), man)
+        r["level"] = risk.level(r["w"])
+    rows.sort(key=lambda r: (-r["w"], r.get("module") or "", r.get("name") or ""))
+    return rows
+
+
+def _risk_of(d):
+    """risk coverage for a saved check (computed again for checks saved before this feature)"""
+    if d.get("risk"):
+        return d["risk"]
+    from engine import risk
+    names, mods = d.get("names") or {}, d.get("modules") or {}
+    return risk.coverage([(p, names.get(p, p), mods.get(p, "")) for p in (d.get("paths") or list(names))], set(d.get("broken") or {}))
+
+
 def _all_screens(d):
     """every screen the check opened -> [{path, name, module, sec, rows, kind, ok}] (by module, then name)"""
     names, mods, times, rows_of = d.get("names") or {}, d.get("modules") or {}, d.get("times") or {}, d.get("rows_of") or {}
@@ -305,6 +325,11 @@ def _all_screens(d):
         out.append({"path": p, "name": nm.replace("➕ إضافة — ", ""), "module": mods.get(p, "") or (broken.get(p) or {}).get("module", ""),
                     "sec": round((times.get(p) or 0) / 1000, 2) or None, "rows": r.get("rows") or 0, "kind": kind, "ok": p not in broken,
                     "why": (broken.get(p) or {}).get("why", "")})
+    from engine import risk
+    man = risk._manual()
+    for x in out:
+        x["w"] = risk.weight(x["path"], x["name"], x["module"], man)
+        x["level"] = risk.level(x["w"])
     out.sort(key=lambda x: (x["module"] or "ي", x["kind"] == "add", x["name"]))
     return out
 
@@ -326,6 +351,7 @@ def api_health():
         for c in d.get("changes") or []:
             c["name"] = names.get(c["path"], c["path"])
         d["baseline_at"] = (d.get("baseline") or {}).get("at")
+        d["risk"] = _risk_of(d)
         d["all"] = _all_screens(d)
         for k in ("forms", "paths", "names", "baseline", "history_full", "times", "rows_of", "modules"):
             d.pop(k, None)
@@ -334,8 +360,7 @@ def api_health():
             d["books"] = json.loads(bf.read_text(encoding="utf-8")) if bf.exists() else None
         except Exception:
             d["books"] = None
-        d["broken"] = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
-        d["broken"].sort(key=lambda b: (b.get("module") or "", b.get("name") or ""))
+        d["broken"] = _with_risk([{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()])
         states.append(d)
     states.sort(key=lambda d: d.get("at") or "", reverse=True)
     C = _C()
@@ -582,11 +607,11 @@ def health_report():
     slow_html = sorted(((ms, p) for p, ms in times.items() if ms and not is_add(p)), reverse=True)[:25]
     slow_adds = sorted(((ms, p) for p, ms in times.items() if ms and is_add(p)), reverse=True)[:15]
     since = d.get("since") or {}
-    broken = [{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()]
+    broken = _with_risk([{"path": p, **b, "since": since.get(p, "")} for p, b in (d.get("broken") or {}).items()])
     return render_template("health_report.html", d=d, books=books, site_name=site_name or d.get("base_url"), broken=broken,
                            slow_html=[{"path": p, "name": names.get(p, p), "sec": round(ms / 1000, 2),
                                        **((d.get("rows_of") or {}).get(p) or {})} for ms, p in slow_html],
                            slow_adds=[{"path": p, "name": names.get(p, p).replace("➕ إضافة — ", ""), "sec": round(ms / 1000, 2)} for ms, p in slow_adds],
-                           all_screens=_all_screens(d),
+                           all_screens=_all_screens(d), rk=_risk_of(d),
                            rate=health.rate, user=((auth.current_user() or {}).get("full_name") or (auth.current_user() or {}).get("username") or ""),
                            printed=_dt.now().strftime("%Y-%m-%d %H:%M"))

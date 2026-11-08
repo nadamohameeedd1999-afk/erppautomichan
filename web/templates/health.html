@@ -199,6 +199,7 @@ function paint() {
         </div>
       </div>
       <div class="kpis">
+        <div class="kpi ${s.risk && s.risk.pct != null ? (s.risk.pct < 95 ? 'bad' : 'ok') : ''}" title="الشاشات السليمة موزونة بأهميتها (فاتورة البيع أتقل من شاشة تعريف) — زي Tosca"><b>${s.risk && s.risk.pct != null ? s.risk.pct + '%' : '—'}</b><span>تغطية المخاطر</span></div>
         <div class="kpi"><b>${s.total}</b><span>شاشة اتفحصت</span></div>
         <div class="kpi ${s.broken.length ? 'bad' : 'ok'}"><b>${s.broken.length}</b><span>بايظة</span></div>
         <div class="kpi ${(ss.load_median || 0) >= 5 ? 'bad' : (sp.length ? 'ok' : '')}"><b>${sp.length ? ss.load_median + ' ث' : '—'}</b><span>متوسط فتح الشاشة كاملة</span></div>
@@ -241,17 +242,17 @@ function tabBody(s) {
             ${[['', 'الكل', all.length], ['list', 'شاشات', cnt('list')], ['report', 'تقارير', cnt('report')], ['add', 'صفحات إضافة', cnt('add')]].map(([k, t, n]) =>
               `<button class="btn btn-sm ${K === k ? 'btn-primary' : 'btn-outline-secondary'}" onclick="window.AK='${k}';paint()">${t} (${n})</button>`).join('')}
             <span class="muted">${rows.length} معروضة</span></div>
-          <div class="scroll"><table class="t2"><thead><tr><th>القسم</th><th>الشاشة</th><th>النوع</th><th>رد السيرفر</th><th>البيانات</th><th>الحالة</th></tr></thead><tbody>
+          <div class="scroll"><table class="t2"><thead><tr><th>القسم</th><th>الشاشة</th><th>النوع</th><th>رد السيرفر</th><th>البيانات</th><th>الأهمية</th><th>الحالة</th></tr></thead><tbody>
           ${rows.map(x => `<tr><td class="muted">${esc(x.module || '—')}</td><td><b>${esc(x.name)}</b><div><a class="ltr muted" target="_blank" href="${esc(s.base_url + x.path)}">${esc(x.path)}</a></div></td>
             <td class="text-nowrap">${kn[x.kind]}</td><td class="text-nowrap">${x.sec != null ? RATE(x.sec) + ' ' + x.sec + ' ث' : '—'}</td>
             <td class="text-nowrap">${x.kind !== 'list' || !x.ok ? '—' : (x.rows ? x.rows + ' صف' : 'فاضية')}</td>
-            <td>${x.ok ? '✅' : '❌ ' + esc(x.why || '')}</td></tr>`).join('')}
+            <td class="text-nowrap">${esc(x.level || '')}</td><td>${x.ok ? '✅' : '❌ ' + esc(x.why || '')}</td></tr>`).join('')}
           </tbody></table></div>`;
     }
     if (TAB === 'broken') {
         if (!s.broken.length) return `<div class="empty"><b>✅ كل الشاشات بتفتح سليمة</b></div>`;
-        return `<div class="scroll"><table class="t2"><thead><tr><th>القسم</th><th>الشاشة</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
-          ${s.broken.map(b => `<tr><td>${esc(b.module || '—')}</td><td><b>${esc(b.name)}</b><div><a class="ltr muted" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></div></td>
+        return `<div class="muted mb-2">مترتبة من الأخطر للأقل (أهمية الشاشة × استخدامها)</div><div class="scroll"><table class="t2"><thead><tr><th>الخطورة</th><th>القسم</th><th>الشاشة</th><th>السبب</th><th>بايظة من</th></tr></thead><tbody>
+          ${s.broken.map(b => `<tr><td class="text-nowrap"><b class="${['حرج', 'عالي'].includes(b.level) ? 'text-danger' : ''}">${esc(b.level || '')}</b> <span class="muted">${b.w || ''}/25</span></td><td>${esc(b.module || '—')}</td><td><b>${esc(b.name)}</b><div><a class="ltr muted" target="_blank" href="${esc(s.base_url + b.path)}">${esc(b.path)}</a></div></td>
             <td>${esc(b.why)}</td><td class="muted text-nowrap">${when(b.since)}</td></tr>`).join('')}</tbody></table></div>`;
     }
     if (TAB === 'books') {

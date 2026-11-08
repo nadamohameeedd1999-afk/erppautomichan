@@ -53,7 +53,8 @@
     <div><span>مدة الفحص:</span><b>{{ ss.seconds if ss.seconds is not none else '—' }} ث</b></div>
   </div>
 
-  <div class="kpis">
+  <div class="kpis" style="grid-template-columns: repeat(7, 1fr)">
+    <div class="kpi {{ 'bad' if rk and rk.pct is not none and rk.pct < 95 else '' }}"><b>{{ (rk.pct ~ '%') if rk and rk.pct is not none else '—' }}</b><span>تغطية المخاطر (موزونة بأهمية الشاشة)</span></div>
     <div class="kpi"><b>{{ d.total - (bk|length) }}</b><span>شاشة بتفتح سليمة</span></div>
     <div class="kpi {{ 'bad' if bk else '' }}"><b>{{ bk|length }}</b><span>شاشة بايظة</span></div>
     <div class="kpi"><b>{{ ss.html_median if ss.html_median is not none else '—' }}</b><span>متوسط رد السيرفر على الشاشة (ث)</span></div>
@@ -131,9 +132,9 @@
   {% if broken %}
   <h2>❌ شاشات بايظة</h2>
   <table>
-    <tr><th>#</th><th>الشاشة</th><th>القسم</th><th>السبب</th><th class="n">بايظة من</th></tr>
+    <tr><th>#</th><th class="n">الخطورة</th><th>الشاشة</th><th>القسم</th><th>السبب</th><th class="n">بايظة من</th></tr>
     {% for b in broken %}
-    <tr><td class="n">{{ loop.index }}</td><td><b>{{ b.name }}</b><div class="ltr">{{ b.path }}</div></td><td>{{ b.module or '—' }}</td><td>{{ b.why }}</td><td class="n">{{ (b.since or '')[:16].replace('T', ' ') or '—' }}</td></tr>
+    <tr><td class="n">{{ loop.index }}</td><td class="n"><b style="color:{{ '#c0392b' if b.level in ('حرج', 'عالي') else 'inherit' }}">{{ b.level }}</b><div class="ltr">{{ b.w }}/25</div></td><td><b>{{ b.name }}</b><div class="ltr">{{ b.path }}</div></td><td>{{ b.module or '—' }}</td><td>{{ b.why }}</td><td class="n">{{ (b.since or '')[:16].replace('T', ' ') or '—' }}</td></tr>
     {% endfor %}
   </table>
   {% endif %}
@@ -174,13 +175,13 @@
   {% set n_add = all_screens|selectattr('kind', 'equalto', 'add')|list|length %}
   <h2>📋 كل الشاشات اللي اتفتحت ({{ all_screens|length }}: {{ n_list }} شاشة · {{ n_rep }} تقرير · {{ n_add }} صفحة إضافة)</h2>
   <table>
-    <tr><th>#</th><th>القسم</th><th>الشاشة</th><th>الرابط</th><th class="n">النوع</th><th class="n">رد السيرفر (ث)</th><th class="n">البيانات</th><th class="n">الحالة</th></tr>
+    <tr><th>#</th><th>القسم</th><th>الشاشة</th><th>الرابط</th><th class="n">النوع</th><th class="n">رد السيرفر (ث)</th><th class="n">البيانات</th><th class="n">الأهمية</th><th class="n">الحالة</th></tr>
     {% for x in all_screens %}
     <tr><td class="n">{{ loop.index }}</td><td>{{ x.module or '—' }}</td><td>{{ x.name }}</td><td class="ltr">{{ x.path }}</td>
       <td class="n">{{ {'list': 'شاشة', 'report': 'تقرير', 'add': 'إضافة'}[x.kind] }}</td>
       <td class="n">{{ x.sec if x.sec else '—' }}</td>
       <td class="n">{{ '—' if x.kind != 'list' or not x.ok else ((x.rows ~ ' صف') if x.rows else 'فاضية') }}</td>
-      <td class="n">{{ '✅' if x.ok else '❌' }}</td></tr>
+      <td class="n">{{ x.level }}</td><td class="n">{{ '✅' if x.ok else '❌' }}</td></tr>
     {% endfor %}
   </table>
   {% endif %}
