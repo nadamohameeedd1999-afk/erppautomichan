@@ -528,6 +528,59 @@ def api_errors():
                     "per_day": [{"d": d, "n": per_day.get(d, 0)} for d in days_list]})
 
 
+def _td_site():
+    """📦 the test-data store of the site picked on the page (or the active one)"""
+    from engine import test_data
+    from web import test_sites_helper as ts
+    d = ts.load_all()
+    sid = request.args.get("site") or (request.get_json(silent=True) or {}).get("site") or d.get("active_profile")
+    p = next((x for x in d.get("profiles", []) if x.get("id") == sid), None)
+    test_data.SITE = test_data.site_key_of(p) if p else None
+    return test_data, p
+
+
+@bp.route("/api/test-data")
+@auth.login_required
+def api_test_data():
+    td, p = _td_site()
+    try:
+        return jsonify({"success": True, "site": (p or {}).get("name", ""), "kind": (p or {}).get("kind", ""), "kinds": td.summary()})
+    finally:
+        td.SITE = None
+
+
+@bp.route("/api/test-data", methods=["POST"])
+@auth.login_required
+def api_test_data_set():
+    td, p = _td_site()
+    b = request.get_json(silent=True) or {}
+    a = b.get("action")
+    try:
+        td.set_value(b.get("kind"), b.get("value", ""), manual=True if a == "add" else None,
+                     blocked={"block": True, "unblock": False}.get(a), remove=a == "remove")
+        return jsonify({"success": True, "kinds": td.summary()})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        td.SITE = None
+
+
+@bp.route("/api/heals")
+@auth.login_required
+def api_heals():
+    from engine import self_heal
+    return jsonify({"success": True, "heals": self_heal.listing()})
+
+
+@bp.route("/api/heals/undo", methods=["POST"])
+@auth.login_required
+def api_heals_undo():
+    from engine import self_heal
+    b = request.get_json(silent=True) or {}
+    self_heal.undo(b.get("old"), b.get("new"))
+    return jsonify({"success": True, "heals": self_heal.listing()})
+
+
 @bp.route("/api/auto-test/recipes", methods=["DELETE"])
 @auth.login_required
 def api_recipes_reset():

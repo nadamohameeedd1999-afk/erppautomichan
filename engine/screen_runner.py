@@ -511,11 +511,23 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
         ok = save_with_healing(r, cfg, result)
         result["screenshots"].append(_shot(r, f"{cfg['key']}_after_save"))
         if not ok:
+            try:
+                from engine import test_data
+                from engine.heal import server_error
+                if not server_error(r.failure_reason() or ""):        # the ERP refused the data (not a crash): -1 for these values
+                    test_data.learn(r.filler.steps, cfg["fields"], False)
+            except Exception:
+                pass
             e = AssertionError(
                 f"الحفظ ما نجحش ({cfg['name_ar']}). URL: {driver.current_url}\n   {r.failure_reason()}" + explain_failure(result))
             e.partial_result = {**result, "steps": r.filler.steps}
             raise e
         result["saved"] = True
+        try:
+            from engine import test_data              # 📦 these list values really saved on this site: +1
+            test_data.learn(r.filler.steps, cfg["fields"], True)
+        except Exception:
+            pass
 
     if cfg["verify"]["new_first_row"]:
         with allure.step("التأكد إن صف جديد ظهر في القايمة"):

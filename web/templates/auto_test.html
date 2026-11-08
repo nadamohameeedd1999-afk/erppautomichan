@@ -87,6 +87,28 @@
         </div>
     </div>
 
+    <div class="card at-card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="tdToggle()">
+            <span>📦 بيانات الاختبار للموقع <b id="tdSite"></b> <span class="muted">— العملاء / الأصناف / الخزن اللي بتنجح، والاختبار بيختار منها بدل أول اختيار في القايمة</span></span>
+            <i class="bi bi-chevron-down" id="tdIcon"></i></div>
+        <div class="card-body" id="tdBody" style="display:none">
+            <div class="muted mb-2">بتتعلم لوحدها: كل حفظ نجح بيضيف القيم اللي اتستخدمت (+1) وكل رفض من الـ ERP (-1). ضيفي بإيدك قيم مضمونة (بتتجرب الأول)، أو امنعي قيمة (عميل موقوف، خزنة مقفولة). القيمة المحجوزة لاختبار شغال مش بتتاخد لاختبار تاني.</div>
+            <div class="d-flex gap-2 flex-wrap mb-2">
+                <select class="form-select form-select-sm" id="tdKind" style="max-width:180px"></select>
+                <input class="form-control form-control-sm" id="tdVal" style="max-width:280px" placeholder="القيمة زي ما هي في القايمة (مثال: 11 - الريادة)">
+                <button class="btn btn-sm btn-primary" onclick="tdSet(document.getElementById('tdKind').value, document.getElementById('tdVal').value, 'add')">+ ضيفي</button>
+            </div>
+            <div id="tdList"></div>
+        </div>
+    </div>
+
+    <div class="card at-card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="hlToggle()">
+            <span>🩹 الإصلاحات التلقائية <span class="chip none" id="hlCount">—</span> <span class="muted">— حقول الـ id بتاعها اتغير والاختبار لقاها بالاسم وكمّل</span></span>
+            <i class="bi bi-chevron-down" id="hlIcon"></i></div>
+        <div class="card-body" id="hlBody" style="display:none"><div id="hlList" class="muted">…</div></div>
+    </div>
+
     <div class="card at-card sticky-run">
         <div class="card-body d-flex gap-2 flex-wrap align-items-center">
             <button class="btn btn-success" onclick="runSelected()"><i class="bi bi-play-fill"></i> شغّلي الاختبار الآلي للمحدد</button>
@@ -114,6 +136,44 @@
 
 {% block extra_js %}
 <script>
+let HL = null;
+async function hlLoad() { const r = await fetch('/api/heals').then(r => r.json()); HL = r.heals || []; hlPaint(); }
+function hlToggle() { const b = document.getElementById('hlBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';
+    document.getElementById('hlIcon').className = 'bi bi-chevron-' + (open ? 'up' : 'down'); if (open) hlLoad(); }
+async function hlUndo(old, nw) { const r = await fetch('/api/heals/undo', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({old, new: nw})}).then(r => r.json()); HL = r.heals; hlPaint(); }
+function hlPaint() {
+    const live = HL.filter(h => !h.undone);
+    document.getElementById('hlCount').textContent = live.length;
+    document.getElementById('hlList').innerHTML = HL.length ? `<table class="table table-sm align-middle mb-0"><thead><tr><th>الحقل</th><th>كان</th><th>بقى</th><th>اتلقى بـ</th><th>مرات</th><th>أول مرة</th><th></th></tr></thead><tbody>
+      ${HL.map(h => `<tr class="${h.undone ? 'text-muted text-decoration-line-through' : ''}"><td>${tdEsc(h.label)}</td><td dir="ltr">${tdEsc(h.old)}</td><td dir="ltr"><b>${tdEsc(h.new)}</b></td>
+        <td class="small">${tdEsc(h.how)}</td><td>${h.count || 1}</td><td class="small">${tdEsc(h.at)}</td>
+        <td>${h.undone ? '' : `<button class="btn btn-sm btn-outline-danger" data-o="${tdEsc(h.old)}" data-n="${tdEsc(h.new)}" onclick="hlUndo(this.dataset.o, this.dataset.n)" title="لو الإصلاح غلط: الاختبار هيرجع يدور على الـ id القديم">تراجعي</button>`}</td></tr>`).join('')}
+      </tbody></table>` : 'مفيش إصلاحات لحد دلوقتي — كل الحقول لاقيها بالـ id بتاعها.';
+}
+document.addEventListener('DOMContentLoaded', () => fetch('/api/heals').then(r => r.json()).then(r => { HL = r.heals || []; document.getElementById('hlCount').textContent = HL.filter(h => !h.undone).length; }));
+let TD = null;
+function tdEsc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
+function tdToggle() { const b = document.getElementById('tdBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';
+    document.getElementById('tdIcon').className = 'bi bi-chevron-' + (open ? 'up' : 'down'); if (open && !TD) tdLoad(); }
+async function tdLoad() { const r = await fetch('/api/test-data').then(r => r.json()); TD = r.kinds || []; document.getElementById('tdSite').textContent = r.site || ''; tdPaint(); }
+async function tdSet(kind, value, action) {
+    if (!String(value || '').trim()) return;
+    const r = await fetch('/api/test-data', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({kind, value, action})}).then(r => r.json());
+    if (r.success) { TD = r.kinds; tdPaint(); if (action === 'add') document.getElementById('tdVal').value = ''; } else alert(r.error);
+}
+function tdPaint() {
+    const sel = document.getElementById('tdKind');
+    if (!sel.options.length) sel.innerHTML = TD.map(k => `<option value="${k.kind}">${tdEsc(k.label)}</option>`).join('');
+    const rows = TD.filter(k => k.values.length);
+    document.getElementById('tdList').innerHTML = rows.length ? rows.map(k => `<div class="mb-2"><b>${tdEsc(k.label)}</b> <span class="muted">(${k.values.length})</span><div class="d-flex flex-wrap gap-1 mt-1">
+        ${k.values.map(v => `<span class="badge ${v.blocked ? 'bg-secondary' : (v.manual ? 'bg-primary' : (v.score > 0 ? 'bg-success' : 'bg-warning text-dark'))}" style="font-weight:500"
+            title="اتحفظ ${v.ok} · اترفض ${v.fail}${v.last ? ' · آخر مرة ' + tdEsc(v.last) : ''}${v.held ? ' · محجوز لاختبار شغال' : ''}">
+            ${v.manual ? '✋ ' : ''}${v.held ? '🔒 ' : ''}${tdEsc(v.value)} <span style="opacity:.8">✓${v.ok} ✗${v.fail}</span>
+            <a href="#" class="text-white ms-1" title="${v.blocked ? 'إلغاء المنع' : 'امنعيها'}" data-k="${k.kind}" data-v="${tdEsc(v.value)}" data-a="${v.blocked ? 'unblock' : 'block'}" onclick="event.preventDefault();tdSet(this.dataset.k, this.dataset.v, this.dataset.a)">${v.blocked ? '↺' : '⛔'}</a>
+            <a href="#" class="text-white" title="امسحيها" data-k="${k.kind}" data-v="${tdEsc(v.value)}" onclick="event.preventDefault();tdSet(this.dataset.k, this.dataset.v, 'remove')">✕</a></span>`).join('')}
+        </div></div>`).join('') : '<div class="muted">لسه مفيش — هتتملى لوحدها مع أول اختبارات بتحفظ، أو ضيفي قيم بإيدك.</div>';
+}
+
 const WAY_KEYS = {{ ways.keys() | list | tojson }};
 const SCN_KEYS = ['first'];
 const $ = id => document.getElementById(id);

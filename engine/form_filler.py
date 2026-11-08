@@ -126,14 +126,29 @@ class FormFiller:
     # ---------- locating ----------
     def _find(self, field, timeout=10):
         fid = field["id"]
+        if not fid.startswith("css:") and not self.driver.find_elements(By.ID, fid):
+            from engine import self_heal                 # 🩹 a heal learned before on this site
+            new = self_heal.known(fid)
+            if new and self.driver.find_elements(By.ID, new):
+                field["id"] = fid = new
         by = (By.CSS_SELECTOR, fid[4:]) if fid.startswith("css:") else (By.ID, fid)
         try:
             return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(by))
         except TimeoutException:
+            from engine import self_heal                 # 🩹 renamed? look for it by its label
+            new = self_heal.try_heal(self.driver, field)
+            if new:
+                field["id"] = new
+                return self.driver.find_element(By.ID, new)
             raise FieldFillError(field, "الحقل مش موجود في الصفحة (اتأكد من الـ id)")
 
     def _present(self, field, timeout=3):
         fid = field["id"]
+        if not fid.startswith("css:") and not self.driver.find_elements(By.ID, fid):
+            from engine import self_heal
+            new = self_heal.known(fid)
+            if new and self.driver.find_elements(By.ID, new):
+                field["id"] = fid = new
         by = (By.CSS_SELECTOR, fid[4:]) if fid.startswith("css:") else (By.ID, fid)
         end = time.time() + timeout
         while time.time() < end:
@@ -217,6 +232,13 @@ class FormFiller:
         has_options = self.wait_for_real_options(field, field.get("timeout", 15))
         pairs = self._option_pairs(sid)
         texts = [t for t, _ in pairs]
+
+        if strategy in ("first", "random") and not str(wanted or "").strip() and has_options:
+            from engine import test_data                # 📦 a value known to work on this site (and not used by another test)
+            idx = test_data.pick(field, texts)
+            if idx >= 0:
+                chosen = self.driver.execute_script(SET_INDEX_JS, sid, idx)
+                return self._confirm_select(field, chosen)
 
         if strategy == "random":
             # كل تشغيل يختار حاجة مختلفة: من القيم المكتوبة (مفصولة بفاصلة) أو من كل الاختيارات
