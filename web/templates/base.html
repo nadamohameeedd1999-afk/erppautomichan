@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 {% set ar = current_lang == 'ar' %}
 {% set ep = request.endpoint or '' %}
-{% set page_title = (self.title()|striptags).split(' - ')[0] %}
+{% set page_title = nav_page_title or (self.title()|striptags).split(' - ')[0] %}
 {% set ui = ui_theme %}
 {% set ui_light = ui in ('teal', 'minimal') %}
 <html lang="{{ current_lang }}" dir="{{ text_dir }}" data-ui="{{ ui }}" data-theme="{{ 'light' if ui_light else 'dark' }}" data-bs-theme="{{ 'light' if ui_light else 'dark' }}">
@@ -34,31 +34,15 @@
             <span><b>{{ site_name }}</b><small>{{ site_config.company_name_ar if (ar and site_config.company_name_ar) else ('ERP Test Automation' if not ar else 'أتمتة اختبارات ERP') }}</small></span>
         </a>
         <nav class="g-nav">
-            <div class="sec">{{ 'العمل اليومي' if ar else 'Daily work' }}</div>
-            {{ item(('index',), url_for('index'), 'bi-grid-1x2', 'الرئيسية' if ar else 'Home') }}
-            {{ item(('tests',), url_for('tests'), 'bi-clipboard-check', t('tests')) }}
-            {{ item(('screens.screens_page', 'screens.scenarios_page'), url_for('screens.screens_page'), 'bi-tools', 'منشئ الاختبارات' if ar else 'Test Builder') }}
-            {{ item(('checks.auto_page',), url_for('checks.auto_page'), 'bi-robot', 'الاختبار الآلي' if ar else 'Automatic test') }}
-            {{ item(('diag.page',), url_for('diag.page'), 'bi-clipboard-pulse', 'تقرير التشخيص' if ar else 'Diagnostics') }}
-            {{ item(('checks.health_page',), url_for('checks.health_page'), 'bi-heart-pulse', 'صحة النظام' if ar else 'System health') }}
-            {{ item(('checks.checks_page',), url_for('checks.checks_page'), 'bi-diagram-3', 'اختبارات متقدمة' if ar else 'Advanced tests') }}
-            {{ item(('ops.run_center',), url_for('ops.run_center'), 'bi-play-circle', 'مركز التشغيل' if ar else 'Run Center', '<span class="cnt d-none" id="navRunBadge"></span>') }}
-            {{ item(('ops.schedule_page',), url_for('ops.schedule_page'), 'bi-calendar-week', t('schedule')) }}
-
-            <div class="sec">{{ 'المتابعة' if ar else 'Monitoring' }}</div>
-            {{ item(('reports', 'report_detail', 'ops.daily_report_page', 'ops.discovery_report_page'), url_for('reports'), 'bi-bar-chart-line', t('reports')) }}
-            {{ item(('ops.compare_page',), url_for('ops.compare_page'), 'bi-arrow-left-right', 'المقارنة' if ar else 'Compare') }}
-            {{ item(('autohealth.page',), url_for('autohealth.page'), 'bi-activity', 'صحة الأتمتة' if ar else 'Automation health') }}
-            {{ item(('sites.sites_page', 'monthly.monthly_page'), url_for('sites.sites_page'), 'bi-buildings', 'العملاء والمواقع' if ar else 'Clients & sites') }}
-            {{ item(('live_viewer',), url_for('live_viewer'), 'bi-broadcast', 'بث مباشر' if ar else 'Live', '<span class="live-dot d-none" id="navLiveDot"></span>') }}
-
-            <div class="sec">{{ 'الإدارة' if ar else 'Admin' }}</div>
-            {{ item(('settings',), url_for('settings'), 'bi-gear', t('settings')) }}
-            {{ item(('users',), url_for('users'), 'bi-people', 'المستخدمين' if ar else 'Users') }}
-            {{ item(('ops.backups_page',), url_for('ops.backups_page'), 'bi-shield-check', 'النسخ الاحتياطي' if ar else 'Backups') }}
-            {% if current_user and current_user.role == 'admin' %}
-            {{ item(('audit_page',), url_for('audit_page'), 'bi-journal-text', 'سجل النشاط' if ar else 'Activity log') }}
+            {% for sk, sar, sen, its in nav_sections %}
+            <div class="sec">{{ sar if ar else sen }}</div>
+            {% for it in its %}
+            {% if not (it|length > 8 and it[8]) or (current_user and current_user.role == 'admin') %}
+            {{ item(it[1], it[2], it[3], it[4] if ar else it[5],
+                    '<span class="cnt d-none" id="navRunBadge"></span>' if it[0] == 'queue' else ('<span class="live-dot d-none" id="navLiveDot"></span>' if it[0] == 'live' else '')) }}
             {% endif %}
+            {% endfor %}
+            {% endfor %}
         </nav>
         {% if current_user %}
         <div class="g-foot">
@@ -76,7 +60,7 @@
         <header class="g-top">
             <button class="g-ib g-burger" onclick="gSide(true)" aria-label="menu"><i class="bi bi-list"></i></button>
             <div class="ttl">
-                <div class="crumb">{{ site_name }}</div>
+                <div class="crumb">{{ site_name }}{% if nav_section_title %} · {{ nav_section_title }}{% endif %}</div>
                 <h1>{{ page_title }}</h1>
             </div>
             <div class="g-search" onclick="gPal(true)"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
@@ -147,7 +131,6 @@ function gSide(open) {
         {icon: 'bi bi-compass', name: AR ? 'اكتشف شاشات النظام' : 'Discover system screens', url: '/screens?discover=1'},
         {icon: 'bi bi-diagram-3', name: AR ? 'سيناريو جديد' : 'New scenario', url: '/scenarios'},
         {icon: 'bi bi-file-earmark-pdf', name: AR ? 'التقرير اليومي' : 'Daily report', url: '/reports/daily'},
-        {icon: 'bi bi-list-task', name: AR ? 'طابور التشغيل' : 'Run queue', url: '/queue'},
         {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
         {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
         {icon: 'bi bi-robot', name: AR ? 'الاختبار الآلي الكامل لشاشة' : 'Automatic full test', url: '/auto-test'},

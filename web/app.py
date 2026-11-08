@@ -49,6 +49,10 @@ app.register_blueprint(sites_bp)
 app.register_blueprint(monthly_bp)
 from web.automation_health import bp as _autohealth_bp
 app.register_blueprint(_autohealth_bp)
+from web import nav as _nav
+app.register_blueprint(_nav.bp)
+from web.reset_api import bp as _reset_bp
+app.register_blueprint(_reset_bp)
 from utils.secret_box import migrate_once as _encrypt_secrets
 _encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
 from web import scheduler as _scheduler
@@ -125,6 +129,9 @@ def inject_globals():
         "ui_theme": _pick(request.args.get("ui"), site_config.get("ui_theme"), UI_THEMES, "glass"),
         "now_year": datetime.now().year,
         "login_style": _pick(request.args.get("login"), site_config.get("login_style"), LOGIN_STYLES, "terminal"),
+        "nav_sections": _nav.SECTIONS,
+        "nav_page_title": _nav.page_meta(request.endpoint or "", lang)[0],
+        "nav_section_title": _nav.page_meta(request.endpoint or "", lang)[1],
     }
 
 

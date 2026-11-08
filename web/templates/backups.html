@@ -56,6 +56,18 @@
                     <button class="btn btn-outline-danger w-100" onclick="restoreUpload()"><i class="bi bi-arrow-counterclockwise"></i> استرجعي من الملف</button>
                 </div>
             </div>
+            {% if current_user and current_user.role == 'admin' %}
+            <div class="card bk-card mb-3" style="border:1px solid rgba(229,72,77,.45) !important">
+                <div class="card-header text-danger">🧨 {{ 'بداية جديدة — امسحي كل حاجة' if current_lang == 'ar' else 'Fresh start — wipe everything' }}</div>
+                <div class="card-body">
+                    <div class="muted mb-2">{{ 'بيمسح بيانات اللوحة نفسها عشان تجربي من الأول. قبل المسح بتتعمل نسخة احتياطية كاملة تقدري ترجعيها من هنا. حسابك بيفضل، ومفيش أي حاجة بتتمسح على مواقع الـ ERP.' if current_lang == 'ar' else 'Clears the dashboard’s own data so you can start over. A full backup is made first (restorable here). Your account stays, and nothing on any ERP site is touched.' }}</div>
+                    <div id="rsGroups" class="mb-2"></div>
+                    <input class="form-control form-control-sm mb-2" id="rsConfirm" placeholder="{{ 'اكتبي «امسح» للتأكيد' if current_lang == 'ar' else 'Type RESET to confirm' }}">
+                    <button class="btn btn-danger w-100" onclick="factoryReset()"><i class="bi bi-exclamation-octagon"></i> {{ 'خدي نسخة احتياطية وامسحي المختار' if current_lang == 'ar' else 'Back up, then wipe the selected' }}</button>
+                    <div id="rsOut" class="small mt-2"></div>
+                </div>
+            </div>
+            {% endif %}
             <div class="card bk-card">
                 <div class="card-header">🗑️ سلة المحذوفات</div>
                 <div class="card-body pt-2" id="trashBox"></div>
@@ -68,7 +80,29 @@
 {% block extra_js %}
 <script>
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KIND = { auto: 'أوتوماتيك', manual: 'يدوي', 'before-restore': 'قبل استرجاع' };
+const KIND = { auto: 'أوتوماتيك', manual: 'يدوي', 'before-restore': 'قبل استرجاع', 'before-reset': 'قبل البداية الجديدة' };
+const RS_AR = {{ 'true' if current_lang == 'ar' else 'false' }};
+const RS = [['runs', 'التشغيلات والتقارير والصور واللوج', 'Runs, reports, screenshots, logs', true],
+            ['state', 'نتايج صحة النظام والحسابات + اللي الأداة اتعلمته (الوصفات، بيانات الاختبار، الإصلاحات)', 'Health / accounts results + what the tool learned (recipes, test data, heals)', true],
+            ['schedules', 'الجدولة', 'Schedules', true],
+            ['defs', 'تعريفات الاختبارات (الشاشات، السيناريوهات، الدورات، ملفات البيانات)', 'Test definitions (screens, scenarios, cycles, data files)', false],
+            ['sites', 'المواقع وكلمات السر', 'Sites & passwords', false],
+            ['settings', 'الإعدادات (التنبيهات، الإيميل، مفتاح Claude، المظهر وبيانات الشركة)', 'Settings (alerts, email, Claude key, look & company)', false],
+            ['users', 'كل المستخدمين ما عدا حسابي', 'Every user except me', false]];
+if (document.getElementById('rsGroups')) document.getElementById('rsGroups').innerHTML = RS.map(([k, a, e, on]) =>
+    `<label class="d-block small"><input type="checkbox" class="rs" value="${k}" ${on ? 'checked' : ''}> ${RS_AR ? a : e}</label>`).join('') +
+    `<label class="d-block small mt-1"><input type="checkbox" onchange="document.querySelectorAll('.rs').forEach(c => c.checked = this.checked)"> <b>${RS_AR ? 'كل حاجة — زي ما يكون المشروع جديد' : 'Everything — as if brand new'}</b></label>`;
+async function factoryReset() {
+    const groups = [...document.querySelectorAll('.rs:checked')].map(c => c.value);
+    const out = document.getElementById('rsOut');
+    if (!groups.length) { out.innerHTML = '<span class="text-danger">' + (RS_AR ? 'اختاري حاجة' : 'Pick something') + '</span>'; return; }
+    out.textContent = RS_AR ? '⏳ باخد نسخة احتياطية كاملة وبعدين بمسح…' : '⏳ Backing up, then wiping…';
+    const r = await fetch('/api/factory-reset', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({groups, confirm: document.getElementById('rsConfirm').value})}).then(r => r.json()).catch(e => ({success: false, error: String(e)}));
+    if (!r.success) { out.innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; return; }
+    out.innerHTML = `<span class="text-success">✅ ${RS_AR ? 'اتمسح — النسخة الاحتياطية' : 'Done — backup'}: <b class="ltr">${esc(r.backup)}</b></span>`;
+    setTimeout(() => location.href = groups.includes('sites') ? '/settings#test-sites' : '/', 1800);
+}
 async function load() {
     const d = await fetch('/api/backups').then(r => r.json());
     document.getElementById('bkHour').textContent = d.hour;

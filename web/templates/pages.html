@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ 'كل الصفحات' if current_lang == 'ar' else 'All pages' }} - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .pg-sec { margin-bottom: 22px; } .pg-sec h5 { font-weight: 800; margin-bottom: 10px; }
+  .pg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .pg { display: flex; gap: 12px; padding: 14px; border: 1px solid var(--g-line); border-radius: 14px; background: var(--g-panel); color: var(--g-text); text-decoration: none; }
+  .pg:hover { border-color: var(--g-acc); } .pg i { font-size: 24px; color: var(--g-acc); } .pg b { display: block; } .pg small { color: var(--g-muted); line-height: 1.6; }
+</style>
+{% endblock %}
+{% block content %}
+{% set ar = current_lang == 'ar' %}
+<div class="container-fluid py-3">
+  <p class="text-muted">{{ 'كل صفحات المشروع مرتبة زي القايمة الجانبية — اسم كل صفحة وبتعمل إيه. ودوري على أي حاجة بـ Ctrl K.' if ar else 'Every page of the project, in the same order as the side menu — what each one does. Search anything with Ctrl K.' }}</p>
+  {% for sk, sar, sen, its in sections %}
+  <div class="pg-sec"><h5>{{ sar if ar else sen }}</h5>
+    <div class="pg-grid">
+      {% for it in its %}
+      {% if not (it|length > 8 and it[8]) or (current_user and current_user.role == 'admin') %}
+      <a class="pg" href="{{ it[2] }}"><i class="bi {{ it[3] }}"></i><div><b>{{ it[4] if ar else it[5] }}</b><small>{{ it[6] if ar else it[7] }}</small></div></a>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
