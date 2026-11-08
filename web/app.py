@@ -93,6 +93,8 @@ def media(filename):
 # ==================== permissions + activity log ====================
 app.before_request(auth.check_permission)
 app.after_request(auth.audit_request)
+from web import i18n_runtime as _i18n_rt
+app.after_request(_i18n_rt.after_request)            # 🌐 English: every page / script / JSON through one dictionary
 
 
 @app.route("/audit")
