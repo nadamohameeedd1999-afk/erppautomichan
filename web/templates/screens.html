@@ -364,6 +364,7 @@
         <label><input type="radio" name="cmbM" value="linear" checked onchange="comboPreview()"> توسع خطي <span class="text-muted small">(كل قيمة مرة — الأقل)</span></label>
         <label><input type="radio" name="cmbM" value="pairwise" onchange="comboPreview()"> كل زوجين مع بعض <span class="text-muted small">(يمسك أخطاء التركيبات)</span></label>
         <label><input type="radio" name="cmbM" value="all" onchange="comboPreview()"> كل التوافيق <span class="text-muted small">(لحد 500)</span></label>
+        <label title="اكتبي المدى كده: 1..100 — بيجرب الحدود اللي لازم تتحفظ واللي لازم تترفض (أسلوب ISTQB)"><input type="radio" name="cmbM" value="boundary" onchange="comboPreview()"> قيم حدودية <span class="text-muted small">(1..100 ← 0 و1 و2 و99 و100 و101 والفاضي)</span></label>
       </div>
       <div class="input-group input-group-sm mb-2" style="max-width:360px"><span class="input-group-text">اسم الملف</span><input class="form-control" id="comboName" value="توافيق"></div>
       <div id="comboOut" class="small"></div>

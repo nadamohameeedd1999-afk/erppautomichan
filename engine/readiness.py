@@ -17,6 +17,32 @@ from datetime import datetime, timedelta
 from config import paths
 
 
+def sonar_gate():
+    """🔍 SonarQube quality gate of the ERP's own code (idea: SonarSource quality gates) — optional:
+    SONAR_URL + SONAR_PROJECT (+ SONAR_TOKEN) variables. -> {"status": OK|WARN|ERROR, "failed": [...]} or None"""
+    import os
+    url, proj = (os.getenv("SONAR_URL") or "").rstrip("/"), os.getenv("SONAR_PROJECT") or ""
+    if not url or not proj:
+        return None
+    import base64
+    import urllib.parse
+    import urllib.request
+    req = urllib.request.Request(f"{url}/api/qualitygates/project_status?projectKey={urllib.parse.quote(proj)}")
+    tok = os.getenv("SONAR_TOKEN") or ""
+    if tok:
+        req.add_header("Authorization", "Basic " + base64.b64encode(f"{tok}:".encode()).decode())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            ps = json.loads(r.read().decode()).get("projectStatus") or {}
+    except Exception as e:
+        return {"status": "?", "failed": [f"مقدرتش أوصل لـ SonarQube: {str(e)[:120]}"]}
+    names = {"new_reliability_rating": "الاعتمادية", "new_security_rating": "الأمان", "new_maintainability_rating": "قابلية الصيانة",
+             "new_coverage": "تغطية الكود بالاختبارات", "new_duplicated_lines_density": "التكرار", "new_security_hotspots_reviewed": "نقاط الأمان"}
+    failed = [f"{names.get(c.get('metricKey'), c.get('metricKey'))}: {c.get('actualValue')} (المطلوب {c.get('comparator')} {c.get('errorThreshold')})"
+              for c in ps.get("conditions") or [] if c.get("status") == "ERROR"]
+    return {"status": ps.get("status") or "?", "failed": failed}
+
+
 def _health_files():
     return sorted(paths.STATE_DIR.glob("health_*.json"), key=lambda f: -f.stat().st_mtime)
 
@@ -72,7 +98,14 @@ def for_state(d, site_name=""):
     req = [c for c in d.get("changes") or [] if "بقى إجباري" in c.get("what", "") or "مش بيفتح" in c.get("what", "")]
     parts.append(("التغييرات", 10, 0 if req else 10, f"{len(req)} تغيير مؤثر عن اللقطة" if req else "مفيش تغيير مؤثر"))
 
-    score = round(sum(p[2] for p in parts))
+    sq = sonar_gate()
+    if sq is not None:
+        st = sq["status"]
+        parts.append(("جودة كود الـ ERP (SonarQube)", 10, 10 if st == "OK" else (5 if st in ("WARN", "?") else 0),
+                      "بوابة الجودة ناجحة" if st == "OK" else ("؛ ".join(sq["failed"][:4]) or st)))
+        if st == "ERROR":
+            notes.append("⛔ بوابة جودة الكود في SonarQube فاشلة: " + "؛ ".join(sq["failed"][:3]))
+    score = round(100 * sum(p[2] for p in parts) / sum(p[1] for p in parts))
     if crit:
         notes.insert(0, f"⛔ {len(crit)} شاشة حرجة بايظة: " + "، ".join(names.get(p, p) for p in crit[:6]))
     blocked = bool(crit) or any(n.startswith("⛔") for n in notes)

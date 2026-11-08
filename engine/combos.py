@@ -54,7 +54,47 @@ def everything(table, cap=500):
     return out
 
 
-METHODS = {"linear": linear, "pairwise": pairwise, "all": everything}
+EXPECT = "المتوقع"      # a column the data runner reads: «رفض» = this row must be rejected by the ERP
+
+
+def _num(x):
+    x = float(x)
+    return int(x) if x == int(x) else x
+
+
+def boundary(table):
+    """ISTQB boundary value analysis + equivalence classes (idea: AT*SQA / ISTQB test design techniques).
+    A field written as «min..max» (e.g. 1..100) gives: min, min+1, max-1, max (must save) and min-1, max+1 (must be
+    rejected); «..max» / «min..» work too. Other fields keep their first value. -> rows with an «المتوقع» column."""
+    base, rows = {}, []
+    ranges = {}
+    for c, vs in table.items():
+        v = vs[0]
+        if ".." in v and len(vs) == 1:
+            lo, hi = (x.strip() for x in v.split("..", 1))
+            ranges[c] = (float(lo) if lo else None, float(hi) if hi else None)
+            base[c] = str(_num(ranges[c][0] if lo else (ranges[c][1] if hi else 1)))
+        else:
+            base[c] = v
+    rows.append({**base, EXPECT: "حفظ"})
+    for c, (lo, hi) in ranges.items():
+        step = 1
+        ok_vals = [x for x in ([lo, lo + step] if lo is not None else []) + ([hi - step, hi] if hi is not None else [])]
+        bad_vals = ([lo - step] if lo is not None else []) + ([hi + step] if hi is not None else [])
+        for v in dict.fromkeys(ok_vals):
+            if str(_num(v)) != base[c]:
+                rows.append({**base, c: str(_num(v)), EXPECT: "حفظ"})
+        for v in bad_vals:
+            rows.append({**base, c: str(_num(v)), EXPECT: "رفض"})
+        rows.append({**base, c: "", EXPECT: "رفض"})          # empty = the «missing» class
+    for c, vs in table.items():                              # the other values of list-like fields, once each
+        if c not in ranges:
+            for v in vs[1:]:
+                rows.append({**base, c: v, EXPECT: "حفظ"})
+    return rows
+
+
+METHODS = {"linear": linear, "pairwise": pairwise, "all": everything, "boundary": boundary}
 
 
 def build(table, method="linear"):
@@ -62,6 +102,8 @@ def build(table, method="linear"):
     table = {k: list(dict.fromkeys(v)) for k, v in table.items() if v}
     if not table:
         raise ValueError("اكتبي حقل واحد على الأقل وقيمه")
+    if method == "boundary" and not any(".." in v[0] for v in table.values()):
+        raise ValueError("القيم الحدودية: اكتبي المدى في حقل واحد على الأقل بالشكل 1..100")
     rows = METHODS.get(method, linear)(table)
     total = 1
     for v in table.values():

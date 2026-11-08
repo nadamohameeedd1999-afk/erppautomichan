@@ -611,13 +611,20 @@ def _apply_row(cfg, row):
     from engine.text_match import normalize as _n
     c = json.loads(json.dumps(cfg))
     cols = {_n(k): v for k, v in row.items()}
+    exp = next((v for k, v in row.items() if _n(k) in (_n("المتوقع"), "expected", "expect")), "")
+    reject = _n(exp) in (_n("رفض"), "reject", "error", _n("خطأ"))
     for f in c["fields"]:
         for k in (f["id"], f["label"]):
+            if _n(k) in cols and cols[_n(k)] == "" and reject and f["kind"] not in ("select", "select2", "checkbox", "file"):
+                f["value"], f["strategy"], f["optional"], f["soft"] = "", "fixed", False, False   # the «empty» class: left blank on purpose
+                break
             if _n(k) in cols and cols[_n(k)] != "":
                 f["value"] = cols[_n(k)]
                 if f["strategy"] in ("first", "keep", "today", "unique", "random"):
                     f["strategy"] = "fixed"
                 break
+    if reject:
+        c["expect_error"] = "*"                         # this row must be refused by the ERP (boundary / invalid value)
     for k, v in row.items():
         RUN_VARS[k] = v
     return c
