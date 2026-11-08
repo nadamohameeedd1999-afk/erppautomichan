@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}صحة الأتمتة - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .ah-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .ah-kpi { border: 1px solid var(--g-line); border-radius: 12px; padding: 12px; text-align: center; background: var(--g-panel); }
+  .ah-kpi b { font-size: 24px; display: block; } .ah-kpi span { color: var(--g-muted); font-size: 12px; }
+  .ah-kpi.bad b { color: #e5484d; } .ah-kpi.ok b { color: #30a46c; }
+  .ah-card { border: 1px solid var(--g-line); border-radius: 12px; background: var(--g-panel); margin-bottom: 14px; }
+  .ah-card h6 { padding: 12px 14px 0; font-weight: 800; } .ah-card .hint { color: var(--g-muted); font-size: 12px; padding: 0 14px 6px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 1px; } .dot.ok { background: #30a46c; } .dot.no { background: #e5484d; }
+</style>
+{% endblock %}
+{% block content %}
+{% macro dots(t) %}{% for o in t.dots %}<span class="dot {{ 'ok' if o else 'no' }}"></span>{% endfor %}{% endmacro %}
+{% macro row(t, extra) %}<tr><td><b>{{ t.name }}</b>{% if t.site %}<div class="small text-muted">{{ t.site }}</div>{% endif %}</td>
+  <td class="text-nowrap">{{ dots(t) }}</td><td>{{ extra }}</td>
+  <td class="small text-nowrap"><a href="/reports/{{ t.last_run }}">{{ t.last_at }}</a></td></tr>{% endmacro %}
+<div class="container-fluid py-3">
+  <h4 class="fw-bold mb-1">📈 صحة الأتمتة</h4>
+  <div class="text-muted small mb-3">آخر {{ h.days }} يوم: الاختبارات اللي محتاجة اهتمام — مش النظام، الاختبارات نفسها (زي «Automation Insights» في Worksoft)</div>
+  <div class="ah-kpis">
+    <div class="ah-kpi {{ 'ok' if (h.pass_pct or 0) >= 90 else 'bad' }}"><b>{{ h.pass_pct if h.pass_pct is not none else '—' }}%</b><span>نسبة النجاح</span></div>
+    <div class="ah-kpi"><b>{{ h.tests }}</b><span>اختبار اتشغل</span></div>
+    <div class="ah-kpi"><b>{{ h.runs }}</b><span>تشغيلة</span></div>
+    <div class="ah-kpi {{ 'bad' if h.failing else 'ok' }}"><b>{{ h.failing|length }}</b><span>بيفشل</span></div>
+    <div class="ah-kpi {{ 'bad' if h.flaky else 'ok' }}"><b>{{ h.flaky|length }}</b><span>متذبذب</span></div>
+    <div class="ah-kpi {{ 'bad' if h.slower else 'ok' }}"><b>{{ h.slower|length }}</b><span>بقى أبطأ</span></div>
+    <div class="ah-kpi"><b>{{ h.idle|length }}</b><span>ما اتشغلش من أسبوع</span></div>
+  </div>
+  <div class="row g-3">
+    <div class="col-lg-6"><div class="ah-card"><h6>❌ بيفشل</h6><div class="hint">مترتب بعدد مرات الفشل ورا بعض — الأول = بيفشل دلوقتي ومن زمان</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
+      {% for t in h.failing %}{{ row(t, ('فشل ' ~ t.streak ~ ' مرة ورا بعض' if t.streak else 'آخر مرة نجح') ~ ' · نجاح ' ~ t.pass_pct ~ '%') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
+      </tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="ah-card"><h6>〰️ متذبذب</h6><div class="hint">بينجح مرة ويفشل مرة من غير تغيير — غالبًا توقيت أو بيانات، مش النظام</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
+      {% for t in h.flaky %}{{ row(t, t.flips ~ ' تقلبات في آخر 10') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
+      </tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="ah-card"><h6>🐢 بقى أبطأ</h6><div class="hint">متوسط المدة في النص التاني من الفترة مقارنة بالنص الأول (+25% أو أكتر)</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
+      {% for t in h.slower %}{{ row(t, '+' ~ t.slower_pct ~ '% · متوسط ' ~ t.avg ~ ' ث') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
+      </tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="ah-card"><h6>💤 ما اتشغلش من أسبوع أو أكتر</h6><div class="hint">اختبار مش بيتشغل = مش بيحمي حاجة — ضيفيه للجدولة أو امسحيه</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
+      {% for t in h.idle %}{{ row(t, 'من ' ~ t.idle_days ~ ' يوم') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
+      </tbody></table></div></div></div>
+  </div>
+  <div class="ah-card"><h6>كل الاختبارات</h6>
+    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>الاختبار</th><th>آخر 10</th><th>تشغيلات</th><th>النجاح</th><th>متوسط المدة</th><th>آخر مرة</th></tr></thead><tbody>
+    {% for t in h.all %}<tr><td><b>{{ t.name }}</b>{% if t.site %}<div class="small text-muted">{{ t.site }}</div>{% endif %}</td><td class="text-nowrap">{{ dots(t) }}</td>
+      <td>{{ t.runs }}</td><td>{{ t.pass_pct }}%</td><td>{{ t.avg if t.avg is not none else '—' }} ث</td><td class="small"><a href="/reports/{{ t.last_run }}">{{ t.last_at }}</a></td></tr>
+    {% else %}<tr><td class="text-muted">لسه مفيش تشغيلات</td></tr>{% endfor %}
+    </tbody></table></div></div>
+</div>
+{% endblock %}

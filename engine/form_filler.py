@@ -83,6 +83,18 @@ return t.join('|');
 """
 
 
+_NOTE_RE = re.compile(r"ملاحظ|بيان|شرح|وصف|note|remark|desc|comment|memo", re.I)
+
+
+def _mark(field, value):
+    """notes / descriptions written by a test carry «[AUTO-TEST run]» so anyone (and the cleanup) can tell test records
+    from real ones at a glance"""
+    if not _NOTE_RE.search(f"{field.get('label') or ''} {field.get('id') or ''}") or "AUTO-TEST" in str(value):
+        return value
+    import os
+    return f"{value} [AUTO-TEST {os.getenv('RUN_ID', '')[-12:]}]".replace(" ]", "]")
+
+
 def _date_format(field):
     fmt = field.get("format") or ""
     if fmt:
@@ -233,7 +245,7 @@ class FormFiller:
         pairs = self._option_pairs(sid)
         texts = [t for t, _ in pairs]
 
-        if strategy in ("first", "random") and not str(wanted or "").strip() and has_options:
+        if strategy == "first" and has_options:      # «random» stays random (the stubborn tester uses it to try OTHER options)
             from engine import test_data                # 📦 a value known to work on this site (and not used by another test)
             idx = test_data.pick(field, texts)
             if idx >= 0:
@@ -303,7 +315,7 @@ class FormFiller:
             from engine.smart_values import value_for
             got = value_for(field)
             if got:
-                return got
+                return _mark(field, got)
             s = "unique"                       # the name says nothing -> a unique value
         if s == "unique":
             self._counter += 1

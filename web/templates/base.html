@@ -48,6 +48,7 @@
             <div class="sec">{{ 'المتابعة' if ar else 'Monitoring' }}</div>
             {{ item(('reports', 'report_detail', 'ops.daily_report_page', 'ops.discovery_report_page'), url_for('reports'), 'bi-bar-chart-line', t('reports')) }}
             {{ item(('ops.compare_page',), url_for('ops.compare_page'), 'bi-arrow-left-right', 'المقارنة' if ar else 'Compare') }}
+            {{ item(('autohealth.page',), url_for('autohealth.page'), 'bi-activity', 'صحة الأتمتة' if ar else 'Automation health') }}
             {{ item(('sites.sites_page', 'monthly.monthly_page'), url_for('sites.sites_page'), 'bi-buildings', 'العملاء والمواقع' if ar else 'Clients & sites') }}
             {{ item(('live_viewer',), url_for('live_viewer'), 'bi-broadcast', 'بث مباشر' if ar else 'Live', '<span class="live-dot d-none" id="navLiveDot"></span>') }}
 

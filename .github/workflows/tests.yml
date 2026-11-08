@@ -1,0 +1,39 @@
+# ✅ Runs the tool's own tests on every push / pull request (phase 2 of the plan):
+#    1) every Python file compiles   2) unit tests   3) the full engine tests against the fake ERP (Chrome)
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SECRET_KEY: ci-only-not-secret
+      DATA_DIR: ${{ github.workspace }}/_ci_data
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Compile everything
+        run: python -m compileall -q engine web config utils tests selftest
+      - name: Unit tests
+        run: python -m pytest -q selftest/test_units.py
+      - name: Chrome + driver
+        uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          install-chromedriver: true
+      - name: Engine tests on the fake ERP
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          CHROMEDRIVER_PATH: ${{ steps.chrome.outputs.chromedriver-path }}
+          HEADLESS: "1"
+        run: |
+          sudo apt-get install -y xvfb >/dev/null
+          xvfb-run -a python -m pytest -q selftest/test_engine_mock.py

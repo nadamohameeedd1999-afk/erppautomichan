@@ -47,6 +47,8 @@ from web.monthly_report import bp as monthly_bp
 app.register_blueprint(checks_bp)
 app.register_blueprint(sites_bp)
 app.register_blueprint(monthly_bp)
+from web.automation_health import bp as _autohealth_bp
+app.register_blueprint(_autohealth_bp)
 from utils.secret_box import migrate_once as _encrypt_secrets
 _encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
 from web import scheduler as _scheduler
