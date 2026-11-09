@@ -66,3 +66,18 @@ def test_queue_same_screen_waits(monkeypatch):
     import time
     time.sleep(0.3)
     assert sorted(qm.running) == ["a", "c"] and [t["task_id"] for t in qm.queue] == ["b", "d"]
+
+
+def test_reconcile_control_accounts():
+    from engine import reconcile as R
+    tb = [{"Id": 1, "ParentId": 0, "Code": "1", "ArName": "الأصول", "BalanceDebit": 9, "BalanceCredit": 0},
+          {"Id": 3481, "ParentId": 1, "Code": "10102", "ArName": "الذمم المدينة التجارية", "BalanceDebit": 254599.39, "BalanceCredit": 0},
+          {"Id": 3482, "ParentId": 3481, "Code": "1010201", "ArName": "العملاء المحليين", "BalanceDebit": 254347.22, "BalanceCredit": 0},
+          {"Id": 3621, "ParentId": 1, "Code": "2010303", "ArName": "مخصصات العملاء", "BalanceDebit": 0, "BalanceCredit": 0},
+          {"Id": 3551, "ParentId": 2, "Code": "20101", "ArName": "الذمم الدائنة التجارية", "BalanceDebit": 0, "BalanceCredit": 202204.6},
+          {"Id": 3552, "ParentId": 3551, "Code": "2010101", "ArName": "الموردين المحليين", "BalanceDebit": 0, "BalanceCredit": 202204.6}]
+    res = R.compare(tb, {"customers": ([{"Total": 254599.39}], "", ""),
+                         "vendors": ([{"Balance": 253057.5}], "", "")})
+    assert res[0][1] is True and "10102" in res[0][2]
+    assert res[1][1] is False and "20101" in res[1][2] and "+50,852.90" in res[1][2]
+    assert R.compare(tb, {"customers": (None, "", "404")})[0][1] is None

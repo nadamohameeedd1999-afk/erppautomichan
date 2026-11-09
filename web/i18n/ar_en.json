@@ -3052,5 +3052,15 @@
 "يوم)، ونسبة النجاح": "days), and the pass rate",
 "يوم: الاختبارات اللي محتاجة اهتمام — مش النظام، الاختبارات نفسها (زي": "days: the tests that need attention — not the system, the tests themselves (like",
 "يونيو": "June",
-"ييجي قبله في الترتيب": "comes before it in the order"
+"ييجي قبله في الترتيب": "comes before it in the order",
+"أعمار الديون = حساب المراقبة": "aging = control account",
+"أعمار ديون العملاء - الفواتير": "Customer aging - invoices",
+"أعمار ديون الموردين - الحركات المالية": "Vendor aging - financial movements",
+"مطابقة الأرصدة الفرعية": "Sub-ledger reconciliation",
+"كل الشركة — اليوم": "Whole company — today",
+"طرف": "parties",
+"الأسباب المعتادة: قيد اتعمل على حساب المراقبة مباشرة من غير عميل/مورد، رصيد افتتاحي مش مربوط بطرف، أو سندات قبض/صرف ودفعات مقدمة مش مخصصة على فواتير": "Usual causes: an entry posted straight to the control account without a customer/vendor, an opening balance not linked to a party, or receipts/payments and advances not allocated to invoices",
+"مقدرتش أقرا الميزان لتاريخ": "Couldn't read the trial balance for",
+"مالقيتش حساب مراقبة لـ": "Didn't find a control account for ",
+"في الميزان — حطي كوده في الإعدادات (control_codes)": "in the trial balance — set its code in the settings (control_codes)"
 }

@@ -96,6 +96,15 @@ def run_books(driver, credentials, cfg, result=None):
             groups = " · ".join(f"{x.get('Code')} {x.get('ArName')}: {_n(x.get('Debit')) - _n(x.get('Credit')):+,.2f}" for x in top)
             rows_out.append({"cells": [where, "🔎 صافي الحركة لكل مجموعة", groups], "ok": None})
         logger.info(f"⚖️ {where}: {len(r['data'])} حساب في {time.time() - t0:.1f} ث")
+    if cfg.get("reconcile", True):                # sub-ledgers (customers / vendors aging) vs their control accounts
+        try:
+            from engine import reconcile
+            for rule, ok, text in reconcile.run(driver, FETCH_JS, cfg):
+                rows_out.append({"cells": ["كل الشركة — اليوم", rule, text], "ok": ok})
+                if ok is False:
+                    fails.append(f"{rule}: {text}")
+        except Exception as e:
+            rows_out.append({"cells": ["كل الشركة — اليوم", "🔗 مطابقة الأرصدة الفرعية", f"اتخطيت: {e}"[:200]], "ok": None})
     result["detail"] = {"title": "⚖️ مطابقة الحسابات — ميزان المراجعة", "columns": ["النطاق", "القاعدة", "النتيجة"],
                         "rows": rows_out, "note": f"الفترة {frm} → {to} · من بيانات «ميزان المراجعة بالمستويات» على الموقع نفسه"}
     try:                                           # kept per site for the client's speed & health report
