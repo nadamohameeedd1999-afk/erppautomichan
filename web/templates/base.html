@@ -139,6 +139,9 @@ function gSide(open) {
         {icon: 'bi bi-speedometer2', name: AR ? 'سرعة الشاشات' : 'Screen speed', url: '/checks?new=perf'},
         {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},
     ].map(c => ({...c, kind: AR ? 'أمر' : 'action'}));
+    // pages that live inside a bigger page (not in the side menu) — still found by search
+    {% for sk, sar, sen, its in nav_all_sections %}{% for it in its %}{% if it[0] in ['map', 'compare', 'autohealth', 'diag', 'envcmp'] %}
+    BASE.push({icon: 'bi {{ it[3] }}', name: {{ (it[4] if ar else it[5])|tojson }}, url: '{{ it[2] }}', kind: AR ? 'صفحة' : 'page'});{% endif %}{% endfor %}{% endfor %}
     let ITEMS = BASE.concat(CMDS), loaded = false, sel = 0, shown = [];
     async function loadScreens() {
         if (loaded) return; loaded = true;

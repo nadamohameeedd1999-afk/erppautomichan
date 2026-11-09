@@ -141,7 +141,7 @@ def inject_globals():
         "ui_theme": _pick(request.args.get("ui"), site_config.get("ui_theme"), UI_THEMES, "glass"),
         "now_year": datetime.now().year,
         "login_style": _pick(request.args.get("login"), site_config.get("login_style"), LOGIN_STYLES, "terminal"),
-        "nav_sections": _nav.SECTIONS,
+        "nav_sections": _nav.menu_sections(), "nav_all_sections": _nav.SECTIONS,
         "nav_page_title": _nav.page_meta(request.endpoint or "", lang)[0],
         "nav_section_title": _nav.page_meta(request.endpoint or "", lang)[1],
     }

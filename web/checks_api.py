@@ -250,6 +250,44 @@ def api_auto_save():
     return jsonify({"success": True, "saved": saved, "queued": len(ids)})
 
 
+# ======================================================== 📚 مكتبة الاختبارات الجاهزة
+@bp.route("/api/test-library")
+@auth.login_required
+def api_test_library():
+    C = _C()
+    from engine import test_library as L, health
+    autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
+    st = health.load_state()
+    menu = st.get("paths") or []
+    return jsonify({"success": True, "items": L.items(autos, _last_results(), menu)})
+
+
+@bp.route("/api/test-library/apply", methods=["POST"])
+@auth.login_required
+def api_test_library_apply():
+    """add the chosen library screens + save their automatic test (optionally queue them)"""
+    C = _C()
+    from engine import test_library as L
+    from web.queue_manager import get_manager
+    from web import sites_api
+    d = request.get_json(silent=True) or {}
+    keys = [x[0] for x in L.LIBRARY] if d.get("all") else [k for k in d.get("keys") or [] if any(x[0] == k for x in L.LIBRARY)]
+    if not keys:
+        return jsonify({"success": False, "error": "اختاري شاشة واحدة على الأقل"}), 400
+    autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
+    saved, ids = [], []
+    for k in keys:
+        sk, it = L.ensure_screen(k)
+        try:
+            c = C.save(_auto_cfg(sk, it[1], {"ways": it[5]}, autos.get(sk)))
+        except C.ConfigError as e:
+            return jsonify({"success": False, "error": f"{it[1]}: {e}"}), 400
+        saved.append(c["key"])
+        if d.get("run"):
+            ids += sites_api.queue_on_sites(get_manager(), C.test_path_for(c["key"]), c["name_ar"], d.get("sites"), source="manual")["task_ids"]
+    return jsonify({"success": True, "saved": saved, "queued": len(ids)})
+
+
 @bp.route("/api/auto-test/try", methods=["POST"])
 @auth.login_required
 def api_auto_try():

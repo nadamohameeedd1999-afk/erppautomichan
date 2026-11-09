@@ -65,6 +65,21 @@ SECTIONS = [
 ]
 
 
+# reachable (search Ctrl K, «all pages», links inside other pages) but not in the side menu — each one belongs to a bigger page:
+#   compare + automation health -> tabs on «Reports» · diagnostics + all pages -> «Settings» · environment compare -> «Release readiness»
+HIDDEN = {"map", "compare", "autohealth", "diag", "envcmp"}
+
+
+def menu_sections():
+    """the side menu: SECTIONS without the HIDDEN pages (and without a section left empty)"""
+    out = []
+    for sk, sar, sen, its in SECTIONS:
+        keep = [it for it in its if it[0] not in HIDDEN]
+        if keep:
+            out.append((sk, sar, sen, keep))
+    return out
+
+
 def items():
     for sk, sar, sen, its in SECTIONS:
         for it in its:

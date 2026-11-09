@@ -30,6 +30,7 @@
             <div class="text-muted">الاختبارات بتشتغل لوحدها في المواعيد اللي تحدديها — من جوه الداشبورد نفسه.
                 <span class="muted">التوقيت: {{ tz }} · الساعة دلوقتي <span id="nowTxt"></span></span></div>
         </div>
+        <button class="btn btn-success" onclick="dailyPreset()" title="كل يوم 6:30 الصبح: صحة الشاشات + الحسابات والقيود + الـ API + الصلاحيات + كل الاختبارات الآلية المتحفظة"><i class="bi bi-magic"></i> الفحص اليومي الجاهز</button>
         <button class="btn btn-primary" onclick="openForm()"><i class="bi bi-plus-lg"></i> جدولة جديدة</button>
     </div>
 
@@ -114,6 +115,12 @@
 
 {% block extra_js %}
 <script>
+async function dailyPreset() {
+    const t = prompt('الساعة كام كل يوم؟ (بتوقيت القاهرة)', '06:30'); if (!t) return;
+    const r = await fetch('/api/schedules/daily-preset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({time: t})}).then(r => r.json());
+    if (!r.success) { alert(r.error); return; }
+    alert(`✅ اتعملت «الفحص اليومي الجاهز» — ${r.count} اختبار كل يوم الساعة ${t}`); location.reload();
+}
 const DAY_NAMES = {{ day_names | tojson }};      // 0=Mon … 6=Sun
 const DAY_ORDER = [5, 6, 0, 1, 2, 3, 4];          // السبت الأول
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

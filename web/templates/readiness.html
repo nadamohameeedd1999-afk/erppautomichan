@@ -48,7 +48,9 @@
 </style>
 </head>
 <body>
-<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+<div class="bar"><a href="/health" style="background:#fff;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:7px 12px;text-decoration:none">↩ صحة النظام</a>
+  <a href="/env-compare" style="background:#fff;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:7px 12px;text-decoration:none">🔁 مقارنة بيئتين</a>
+  <button onclick="print()">🖨️ طباعة / PDF</button></div>
 {% for s in sites %}
 <div class="page site">
   <div class="hdr">

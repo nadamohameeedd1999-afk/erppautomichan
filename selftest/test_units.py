@@ -106,3 +106,37 @@ def test_sod_conflicts():
     assert fails == ["a — A (مالية): إنشاء مورد + الدفع له"]          # user's own right + his group's right
     assert any(r["ok"] is True and r["cells"][0].startswith("b") for r in rows)
     assert sod.analyse(d, {"allow": ["a|vendor_pay"]})[1] == []
+
+
+def test_journal_check_rows():
+    from engine import journal_check as J
+
+    class D:
+        def __init__(self, r): self.r = r
+        def execute_async_script(self, *a): return self.r
+    bad = [{"id": 1, "doc": "151148", "type": "سندات استلام المخازن", "op": "12070", "date": "2026-11-04", "user": "erpadmin",
+            "posted": False, "d": 115679.646, "c": 0, "n": 1, "acc": ["1010301001 مخزون خام"], "diff": 115679.65},
+           {"id": 2, "doc": "1", "type": "التحويلات النقدية", "op": "320", "date": "2026-10-22", "user": "erpadmin",
+            "posted": True, "d": 0, "c": 100, "n": 1, "acc": [], "diff": -100}]
+    rows, fails = J.run(D({"ok": True, "lines": 580, "entries": 199, "bad": bad}), "2016-01-01", "2026-12-31")
+    assert rows[0]["ok"] is False and "2 قيد من 199" in rows[0]["cells"][2] and "+115,579.65" in rows[0]["cells"][2]
+    assert "151148" in rows[1]["cells"][1] and len(fails) == 1
+    rows, fails = J.run(D({"ok": True, "lines": 10, "entries": 4, "bad": []}), "a", "b")
+    assert rows[0]["ok"] is True and not fails
+    assert J.run(D({"s": 404, "err": "x"}), "a", "b")[0][0]["ok"] is None
+
+
+def test_test_library(tmp_path, monkeypatch):
+    from engine import test_library as L
+    import config.screens_catalog as SC
+    store = {"screens": []}
+    monkeypatch.setattr(L, "discovered", lambda: list(store["screens"]))
+    monkeypatch.setattr(L, "save_discovered", lambda s: store.update(screens=s))
+    monkeypatch.setattr(L, "all_pages", lambda: {"x_inv": {"url": "/SalesInvoice"}, **{s["key"]: {"url": s["url"]} for s in store["screens"]}})
+    assert len(L.LIBRARY) == 20 and len({x[0] for x in L.LIBRARY}) == 20
+    assert L.ensure_screen("sales_invoice")[0] == "x_inv"                 # already in the project: reused
+    sk, it = L.ensure_screen("vendors")
+    assert sk == "lib_vendors" and store["screens"][0]["url"] == "/Vendor"
+    assert L.ensure_screen("vendors")[0] == "lib_vendors"                 # not added twice
+    its = L.items({"x_inv": {"key": "auto_x_inv"}}, {}, ["/SalesInvoice"])
+    assert its[0]["test"] == "auto_x_inv" and its[0]["in_menu"] is True

@@ -95,6 +95,14 @@ def run_books(driver, credentials, cfg, result=None):
         if not all(ok for _, ok, _ in checks[:3]):
             groups = " · ".join(f"{x.get('Code')} {x.get('ArName')}: {_n(x.get('Debit')) - _n(x.get('Credit')):+,.2f}" for x in top)
             rows_out.append({"cells": [where, "🔎 صافي الحركة لكل مجموعة", groups], "ok": None})
+        if not dep and cfg.get("journals", True):  # 🧾 which entries exactly (document type, number, date, gap)
+            try:
+                from engine import journal_check
+                j_rows, j_fails = journal_check.run(driver, frm, to)
+                rows_out += j_rows
+                fails += j_fails
+            except Exception as e:
+                rows_out.append({"cells": ["🧾 القيود", "القيود اللي مش متزنة", f"اتخطيت: {e}"[:200]], "ok": None})
         logger.info(f"⚖️ {where}: {len(r['data'])} حساب في {time.time() - t0:.1f} ث")
     if cfg.get("reconcile", True):                # sub-ledgers (customers / vendors aging) vs their control accounts
         try:

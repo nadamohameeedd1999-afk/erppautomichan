@@ -39,6 +39,21 @@
         </div>
     </div>
 
+    <div class="card at-card mb-3" id="libCard">
+        <div class="card-header"><span>📚 المكتبة الجاهزة — أهم 20 شاشة في NQ ERP (فلوس، مخزون، بيانات أساسية)</span>
+            <span class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="libApply(false)" title="بيضيف الشاشة لو مش موجودة ويحفظ اختبارها الآلي — من غير تشغيل"><i class="bi bi-save"></i> ضيفي المحدد</button>
+                <button class="btn btn-sm btn-success" onclick="libApply(true)"><i class="bi bi-play-fill"></i> ضيفي وشغّلي المحدد</button>
+            </span></div>
+        <div class="card-body pt-2">
+            <div class="muted mb-2">كل شاشة: إضافة ← تعديل ← طباعة ← حذف على نفس السجل، والمختبر العنيد شغال. على نظام العميل الحماية بتوقف أي حفظ — شغّليها على موقع الاختبار.</div>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+                <thead><tr><th><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.libck').forEach(c => c.checked = this.checked)"></th>
+                    <th>الشاشة</th><th>الدورة</th><th>الأهمية</th><th>الاختبار</th><th>آخر نتيجة</th><th>ملاحظة</th></tr></thead>
+                <tbody id="libRows"><tr><td colspan="7" class="muted">جاري التحميل…</td></tr></tbody></table></div>
+        </div>
+    </div>
+
     <div class="card at-card mb-3">
         <div class="card-header"><span>1️⃣ يختبر إيه — الإعدادات دي بتتطبق على الشاشات اللي هتختاريها</span></div>
         <div class="card-body">
@@ -143,6 +158,30 @@
 
 {% block extra_js %}
 <script>
+let LIB = [];
+async function libLoad() {
+    const r = await fetch('/api/test-library').then(r => r.json()).catch(() => ({items: []}));
+    LIB = r.items || [];
+    document.getElementById('libRows').innerHTML = LIB.map(x => `<tr>
+        <td><input type="checkbox" class="form-check-input libck" value="${tdEsc(x.key)}" ${x.test ? '' : 'checked'}></td>
+        <td><b>${tdEsc(x.name)}</b><div class="muted ltr">${tdEsc(x.url)}</div></td>
+        <td class="small">${tdEsc(x.cycle)}</td>
+        <td>${x.risk === 1 ? '<span class="chip bad">عالية</span>' : x.risk === 2 ? '<span class="chip none">متوسطة</span>' : '<span class="chip none">عادية</span>'}</td>
+        <td class="small">${x.test ? '✅ متحفظ' : '<span class="muted">لسه</span>'}${x.in_menu === false ? '<div class="text-warning small">مش في منيو الموقع</div>' : ''}</td>
+        <td>${x.last ? `<a href="/reports/${tdEsc(x.last.run_id)}" class="chip ${x.last.passed ? 'ok' : 'bad'}">${x.last.passed ? '✅ نجح' : '❌ فشل'}</a>` : '<span class="chip none">—</span>'}</td>
+        <td class="muted">${tdEsc(x.note)}</td></tr>`).join('');
+}
+async function libApply(run) {
+    const keys = [...document.querySelectorAll('.libck:checked')].map(c => c.value);
+    if (!keys.length) { alert('اختاري شاشة واحدة على الأقل'); return; }
+    if (run && !confirm(`هيتشغل الاختبار الآلي لـ ${keys.length} شاشة (بيضيف ويعدل ويحذف سجل اختبار) — على موقع الاختبار بس. نكمل؟`)) return;
+    const sites = (document.getElementById('runSites') || {}).value || '';
+    const r = await fetch('/api/test-library/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({keys, run, sites})}).then(r => r.json());
+    if (!r.success) { alert(r.error); return; }
+    alert(run ? `✅ اتحفظ ${r.saved.length} اختبار ودخل الطابور ${r.queued} — تابعي من مركز التشغيل` : `✅ اتحفظ ${r.saved.length} اختبار`);
+    libLoad(); if (typeof load === 'function') load();
+}
+document.addEventListener('DOMContentLoaded', libLoad);
 let SL = null;
 function slToggle() { const b = document.getElementById('slBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';
     document.getElementById('slIcon').className = 'bi bi-chevron-' + (open ? 'up' : 'down'); if (open) slLoad(); }

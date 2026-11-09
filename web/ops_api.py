@@ -189,6 +189,32 @@ def api_sched_save():
     return jsonify({"success": True, "schedule": _sched_view(s)})
 
 
+@bp.route("/api/schedules/daily-preset", methods=["POST"])
+@auth.login_required
+def api_sched_daily_preset():
+    """📅 one click: every morning — the screens check, the books (+ unbalanced entries + reconciliation), the API,
+    the permissions, and every saved automatic test — on the active site (or the one chosen)"""
+    from engine import checks as C
+    d = request.get_json(silent=True) or {}
+    fixed = [("system_health", "health", "🩺 صحة النظام — كل الشاشات"), ("books_check", "books", "⚖️ مطابقة الحسابات"),
+             ("api_check", "api", "🔌 اختبار الـ API"), ("sod_check", "sod", "🛡️ الصلاحيات والفصل بين المهام")]
+    targets = []
+    for key, typ, name in fixed:
+        if not C.exists(key):
+            C.save(C.normalize({"key": key, "type": typ, "name_ar": name}))
+        targets.append({"path": C.test_path_for(key), "name": name})
+    if d.get("autos", True):
+        for c in C.list_all():
+            if c.get("type") == "auto" and not c.get("error"):
+                targets.append({"path": C.test_path_for(c["key"]), "name": c.get("name_ar") or c["key"]})
+    try:
+        s = scheduler.upsert({"id": "sch_daily_ready", "name": "📅 الفحص اليومي الجاهز", "enabled": True, "mode": "list",
+                              "targets": targets, "times": [d.get("time") or "06:30"], "days": [], "repeat": 1, "site": d.get("site") or ""})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    return jsonify({"success": True, "schedule": _sched_view(s), "count": len(targets)})
+
+
 @bp.route("/api/schedules/<sch_id>", methods=["DELETE"])
 @auth.login_required
 def api_sched_delete(sch_id):

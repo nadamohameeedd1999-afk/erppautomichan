@@ -24,6 +24,11 @@
             {{ t('settings') }}
         </h1>
         <p class="text-muted mb-0">{{ t('settings_subtitle') }}</p>
+        <div class="d-flex gap-2 flex-wrap mt-2">
+            <a class="btn btn-sm btn-outline-secondary" href="/diagnostics"><i class="bi bi-clipboard-pulse"></i> تقرير التشخيص (للدعم)</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/pages"><i class="bi bi-signpost-split"></i> كل الصفحات</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/audit"><i class="bi bi-journal-text"></i> سجل النشاط</a>
+        </div>
     </div>
 
     <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
