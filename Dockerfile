@@ -13,7 +13,7 @@ WORKDIR /app
 
 # ===== System deps =====
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget gnupg unzip curl ca-certificates \
+    wget gnupg unzip curl ca-certificates tzdata \
     xvfb x11vnc novnc websockify xdotool fonts-noto-core \
     supervisor \
     fonts-liberation \
@@ -95,6 +95,7 @@ EOF
 
 # ===== ENV =====
 ENV PORT=5000
+ENV TZ=Africa/Cairo
 ENV FLASK_ENV=production
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUTF8=1

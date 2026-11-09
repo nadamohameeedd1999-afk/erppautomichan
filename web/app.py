@@ -6,6 +6,14 @@ import os
 from pathlib import Path
 from datetime import datetime
 
+# 🕒 one clock for everything: the run times, the logs and the browser (Railway runs in UTC -> «من 2 ساعة» for a run 5 minutes ago)
+os.environ.setdefault("TZ", os.getenv("SCHEDULE_TZ", "Africa/Cairo"))
+try:
+    import time as _time
+    _time.tzset()
+except AttributeError:                                       # Windows: no tzset, the PC's own clock is already local
+    pass
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))

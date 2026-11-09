@@ -277,6 +277,9 @@ def pick(links, cfg):
         p = l["path"].lower()
         if any(s in p for s in skip) or ACTION_RE.match(l["path"]):
             continue
+        from engine.discover import is_junk
+        if is_junk(l.get("name")):                      # a notification counter / «view all», not a screen
+            continue
         if not cfg.get("reports", True) and is_report(l["path"]):
             continue
         out.append(l)
@@ -340,12 +343,12 @@ def run_health(driver, credentials, cfg, result=None):
     driver.set_script_timeout(60 * 30)
     t0 = time.time()
     res = {}
-    for i in range(0, len(todo), 200):                       # chunks: keeps the browser call short and shows progress
-        part = [l["path"] for l in todo[i:i + 200]]
+    for i in range(0, len(todo), 50):                        # chunks: keeps the browser call short and shows progress
+        part = [l["path"] for l in todo[i:i + 50]]
         # ONE page at a time: the ERP serves one request per login session at a time, so opening pages in parallel only
         # makes each one wait for the others (measured: 3-7x slower per page, the same total) -> fake «slow» numbers
         res.update(driver.execute_async_script(FETCH_JS, part, 1) or {})
-        logger.info(f"   … {min(i + 200, len(todo))}/{len(todo)}")
+        logger.info(f"   … {min(i + 50, len(todo))}/{len(todo)} ({time.time() - t0:.0f} ث)")
     # ➕ صفحات الإضافة: every screen's «إضافة جديد» page is its own page (own link, own server code) — open it too
     # (open + read only, nothing is filled or saved)
     add_of = {}

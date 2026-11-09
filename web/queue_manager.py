@@ -402,8 +402,11 @@ class QueueManager:
                 ph = t.get(phase) or {}
                 if ph.get("outcome") in ("failed", "error"):
                     crash = ph.get("crash") or {}
-                    msg = crash.get("message") or (ph.get("longrepr") or "")
-                    return str(msg)[-800:]
+                    if crash.get("message"):        # the assertion text: its START says what failed (the end is the long detail)
+                        m = str(crash["message"])
+                        m = m.split(": ", 1)[1] if m.split(": ", 1)[0] in ("AssertionError", "ReadOnlySite", "Failed") else m
+                        return m[:1200]
+                    return str(ph.get("longrepr") or "")[-800:]
             return ""
 
         summary = {

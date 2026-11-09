@@ -98,8 +98,18 @@ Promise.all(Array.from({length: workers}, w)).then(() => done(out));
 DEFAULT_SKIP = ["login", "tickets"]          # + whatever the user adds (sign-out links are never opened anyway)
 
 
+# links that are not screens: notification counters / «view all» / action buttons in the top bar
+JUNK_NAME = re.compile(r"^(الكل|all|view all.*|عرض الكل|إلغاء الحركة|قراءة الخبر|recover)$|^يوجد\s*:|^تم إنشاء|:\s*\d+$|^\d+$", re.I)
+
+
+def is_junk(name):
+    return bool(JUNK_NAME.search((name or "").strip()))
+
+
 def skip_word(path, name, skip):
     """the skip word this link matches ('' = keep it)"""
+    if is_junk(name):
+        return "إشعار / مش شاشة"
     p, n = (path or "").lower(), (name or "").lower()
     for w in skip or ():
         w = str(w).strip().lower()

@@ -3181,5 +3181,6 @@
 "يقدر يضيف موظف أو يغير راتبه ويصرفه": "Can add an employee or change his salary and pay it",
 "يقدر يعمل قيد ويطابقه في تسوية البنك بنفسه": "Can post an entry and match it in the bank reconciliation himself",
 "يقدر يعمل مورد وهمي ويصرف له فلوس من غير ما حد تاني يشوف": "Can create a fake vendor and pay him without anyone else seeing",
-"يقدر ينزّل السعر ويبيع بيه": "Can lower the price and sell at it"
+"يقدر ينزّل السعر ويبيع بيه": "Can lower the price and sell at it",
+"إشعار / مش شاشة": "notification / not a screen"
 }
