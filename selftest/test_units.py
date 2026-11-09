@@ -140,3 +140,12 @@ def test_test_library(tmp_path, monkeypatch):
     assert L.ensure_screen("vendors")[0] == "lib_vendors"                 # not added twice
     its = L.items({"x_inv": {"key": "auto_x_inv"}}, {}, ["/SalesInvoice"])
     assert its[0]["test"] == "auto_x_inv" and its[0]["in_menu"] is True
+
+
+def test_screen_word_picks_option():
+    from engine import auto_test as A
+    A.set_hint("سند القبض")
+    f = A.build_fields([{"id": "ad", "kind": "select", "label": "التوجيهات المحاسبية", "options": ["2 - دفع", "1 - قبض"], "required": True, "visible": True},
+                        {"id": "b", "kind": "select", "label": "الفرع", "options": ["01 - الفرع الاول"], "required": True, "visible": True}], "all", "first")[0]
+    assert (f[0]["strategy"], f[0]["value"]) == ("fixed", "1 - قبض") and f[1]["strategy"] == "first"
+    A.set_hint("")

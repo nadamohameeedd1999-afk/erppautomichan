@@ -123,6 +123,10 @@ def _strategy(f, scenario, editing=False):
         return ("check", "") if scenario == "edge" else ("keep", "")
     if pre and not editing:                                  # a number the system fills (voucher no., rate…)
         return ("keep", "")
+    lab0 = f"{f.get('label', '')} {f['id']}"
+    if scenario != "edge" and re.search(r"خصم|discount|دفعات مقدم|دفعة مقدم|advance|paid|مدفوع|مسدد|ضمان", lab0, re.I):
+        # discounts / advances / paid amounts: a random number here makes the invoice invalid (paid > total…) -> 0
+        return ("fixed", "0")
     if kind == "number":
         if scenario == "edge":
             return ("fixed", "999999")
@@ -140,6 +144,32 @@ def _strategy(f, scenario, editing=False):
     if kind == "textarea":
         return ("fixed", "اختبار آلي — " + ("عشوائي {rand} " if scenario == "random" else "") + "{ts}")
     return ("unique", ("آلي-{rand}-{ts}" if scenario == "random" else "آلي-{ts}"))
+
+
+# 🎯 the screen's own word picks the right option: «سند القبض» -> «قبض» in «التوجيهات المحاسبية» (not the first: «دفع»)
+_HINT = {"words": []}
+_STOP = {"سند", "سندات", "فواتير", "فاتورة", "طلب", "امر", "أمر", "اوامر", "أوامر", "عرض", "شاشة", "متعدد", "قيود", "قيد"}
+
+
+def set_hint(screen_name):
+    words = []
+    for w in re.split(r"[\s\-—/()]+", screen_name or ""):
+        w = re.sub(r"^(وال|بال|ال)", "", w.strip())
+        if len(w) >= 3 and w not in _STOP:
+            words.append(w)
+    _HINT["words"] = words
+    return words
+
+
+def _hinted(f):
+    """the option (text) of this list that carries the screen's word, or ''"""
+    words = _HINT["words"]
+    if not words or f.get("kind") not in ("select", "select2"):
+        return ""
+    for o in f.get("options") or []:
+        if any(w in str(o) for w in words):
+            return str(o)
+    return ""
 
 
 def build_fields(read, mode, scenario, builder=None, editing=False):
@@ -172,10 +202,14 @@ def build_fields(read, mode, scenario, builder=None, editing=False):
             st, val = b["strategy"], b["value"]
         else:
             st, val = _strategy(f, scenario, editing)
+            if st == "first" and _hinted(f):
+                st, val = "fixed", _hinted(f)
         dep = f.get("depends_on") if f.get("depends_on") in ids else None
         out.append({"id": f["id"], "label": f.get("label") or f["id"], "kind": f["kind"], "strategy": st, "value": val,
                     "required": bool(f.get("required")) and st != "keep", "depends_on": dep,
-                    "soft": not f.get("required"),          # an optional field that can't be filled is noted, not fatal
+                    # an optional field that can't be filled is noted, not fatal — and so is a «required» list that is EMPTY
+                    # when the form opens (it's required only after another choice: project -> sub item); the save says if it matters
+                    "soft": not f.get("required") or (f["kind"] in ("select", "select2") and "options" in f and not f.get("options")),
                     "format": (fixed.get(f["id"]) or {}).get("format", ""), "timeout": 15, "wait_after": 0.5})
         ids.add(f["id"])
     return out, req
@@ -386,6 +420,7 @@ def run_auto(driver, credentials, cfg, result=None):
         raise e
 
     base = _base(info, insp)
+    set_hint(info["name"])
     mode = cfg.get("fields_mode", "all")
     flds, req = build_fields(read, mode if req_labels else "all", "first", info["builder"])
     edit_flds, _ = build_fields(read, mode if req_labels else "all", "random", None, editing=True)

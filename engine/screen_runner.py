@@ -277,7 +277,10 @@ class ScreenRunner(BasePage):
                   if (!String(e.value || '').trim()) { var n = lbl(e); if (n && emptyReq.indexOf(n) === -1) emptyReq.push(n); }
                 });
                 document.querySelectorAll('.toast, .toast-message, .toastr, .noty_body, .notifyjs-corner, .alert').forEach(function(e){
-                  var t = (e.innerText || '').replace(/\s+/g, ' ').trim(); if (t && vis(e) && toasts.indexOf(t) === -1) toasts.push(t);
+                  if (/alert-(info|light|secondary|primary)/.test(e.className || '')) return;      // a fixed hint box, not a reply to save
+                  var t = (e.innerText || '').replace(/\s+/g, ' ').trim();
+                  if (/تختار الملفات اولا|ومن ثم رفعها|choose (the )?files first/i.test(t)) return;   // the attachments box's own instructions
+                  if (t && vis(e) && toasts.indexOf(t) === -1) toasts.push(t);
                 });
                 return {invalid: invalid.slice(0, 15), emptyReq: emptyReq.slice(0, 15), toasts: toasts.slice(0, 5)};
             """) or {}

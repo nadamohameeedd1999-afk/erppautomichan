@@ -83,7 +83,8 @@ def readable(url):
 def _norm(url):
     """same endpoint with other values = one endpoint; dates become today's date"""
     u = url if url.startswith("/") else ("/" + urlsplit(url).path.lstrip("/") + (("?" + urlsplit(url).query) if urlsplit(url).query else ""))
-    u = re.sub(r"\b(20\d\d)-(\d\d)-(\d\d)\b", date.today().isoformat(), u)
+    # only an «up to» date becomes today (a «from» date stays — from=today&to=today would read one day only)
+    u = re.sub(r"(?i)([?&](?:to|todate|date_to|dateto|enddate)=)20\d\d-\d\d-\d\d", lambda m: m.group(1) + date.today().isoformat(), u)
     return re.sub(r"([?&])_=\d+", r"\1", u).rstrip("?&")
 
 

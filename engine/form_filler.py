@@ -368,6 +368,12 @@ class FormFiller:
                 raise FieldFillError(field, f"الـ id ده مش خانة كتابة (ده عنصر {actual.split(':')[1]}) — "
                                             "اتأكدي إنه id الحقل نفسه")
         if actual.strip() != value.strip():
+            # a zero that the page shows as empty (computed discount / amount boxes) is the same value
+            try:
+                if float(value.replace(",", "") or "x") == 0 and actual.strip() in ("", "0", "0.0", "0.00", "0.000"):
+                    return actual
+            except ValueError:
+                pass
             # number inputs may reformat (200 -> 200.00)
             try:
                 if float(actual.replace(",", "")) == float(value.replace(",", "")):
