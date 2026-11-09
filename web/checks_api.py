@@ -434,6 +434,40 @@ def api_books_save():
     return jsonify(out)
 
 
+# ======================================================== 🔌 اختبار الـ API (+ الحمل)
+API_KEY = "api_check"
+
+
+@bp.route("/api/api-check")
+@auth.login_required
+def api_api_check():
+    C = _C()
+    try:
+        cfg = C.load(API_KEY)
+    except C.ConfigError:
+        cfg = C.normalize({"key": API_KEY, "type": "api", "name_ar": "🔌 اختبار الـ API"})
+    return jsonify({"success": True, "config": C.public(cfg), "last": _last_results().get(API_KEY)})
+
+
+@bp.route("/api/api-check/save", methods=["POST"])
+@auth.login_required
+def api_api_check_save():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    try:
+        old = C.load(API_KEY) if C.exists(API_KEY) else {}
+        saved = C.save({**old, **(d.get("config") or {}), "key": API_KEY, "type": "api", "name_ar": "🔌 اختبار الـ API"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    out = {"success": True}
+    if d.get("run"):
+        from web.queue_manager import get_manager
+        from web import sites_api
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(API_KEY), saved["name_ar"], d.get("sites"), source="manual",
+                                            front=True))
+    return jsonify(out)
+
+
 # ======================================================== 🧹 تنظيف بيانات الاختبار
 CLEAN_KEY = "test_data_cleanup"
 

@@ -30,6 +30,7 @@ TYPES = {
     "auto": ("🤖", "الاختبار الآلي", "شاشة واحدة بكل الطرق: إضافة، تعديل، حذف، طباعة، واختبارات الرفض"),
     "perf": ("⚡", "سرعة الشاشات", "يقيس وقت فتح كل شاشة وينبه لو بقت أبطأ من العادي"),
     "books": ("⚖️", "مطابقة الحسابات", "يقرا ميزان المراجعة من الموقع نفسه ويتأكد: مدين = دائن (أول المدة، الحركة، الرصيد) وكل حساب أب = مجموع الفرعي"),
+    "api": ("🔌", "اختبار الـ API", "ينادي طلبات البيانات اللي الشاشات بتعملها (قراءة بس): 200، JSON، السرعة، والحقول زي آخر مرة — + اختبار حمل على مواقع الاختبار"),
     "cleanup": ("🧹", "تنظيف بيانات الاختبار", "يحذف السجلات اللي الاختبارات عملتها ومقدرتش تحذفها"),
     "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
 }
@@ -191,6 +192,13 @@ def normalize(cfg):
         out.update({"date_from": str(cfg.get("date_from") or "").strip(), "date_to": str(cfg.get("date_to") or "").strip(),
                     "url": str(cfg.get("url") or "").strip(), "departments": _list(cfg.get("departments")),
                     "tol": max(0.0, float(cfg.get("tol", 0.01) or 0.01))})
+    elif typ == "api":
+        out.update({"endpoints": [x for x in (_url(u) for u in _list(cfg.get("endpoints"))) if x],
+                    "from_health": bool(cfg.get("from_health", True)), "limit": max(1, min(300, int(cfg.get("limit", 80) or 80))),
+                    "max_ms": max(200.0, float(cfg.get("max_ms", 3000) or 3000)),
+                    "load_users": max(0, min(50, int(cfg.get("load_users", 0) or 0))), "load_rounds": max(1, min(10, int(cfg.get("load_rounds", 3) or 3))),
+                    "load_endpoints": max(1, min(20, int(cfg.get("load_endpoints", 5) or 5))),
+                    "load_p95_ms": max(200.0, float(cfg.get("load_p95_ms", 5000) or 5000))})
 
     elif typ == "health":
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],

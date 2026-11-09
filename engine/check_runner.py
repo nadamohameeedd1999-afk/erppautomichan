@@ -347,6 +347,9 @@ def run_check(driver, credentials, cfg):
         elif cfg["type"] == "books":
             from engine.books import run_books
             run_books(driver, credentials, cfg, result=result)
+        elif cfg["type"] == "api":
+            from engine.api_check import run_api
+            run_api(driver, credentials, cfg, result=result)
         elif cfg["type"] == "health":
             from engine.health import run_health
             run_health(driver, credentials, cfg, result=result)

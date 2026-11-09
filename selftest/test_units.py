@@ -81,3 +81,17 @@ def test_reconcile_control_accounts():
     assert res[0][1] is True and "10102" in res[0][2]
     assert res[1][1] is False and "20101" in res[1][2] and "+50,852.90" in res[1][2]
     assert R.compare(tb, {"customers": (None, "", "404")})[0][1] is None
+
+
+def test_api_check_safe_and_contract():
+    from engine import api_check as A
+    st = {"speed": [{"name": "أعمار", "xhr": [{"url": "/CustomerInvoiceAgingN/GetSummary?todate=2025-01-01"},
+                                              {"url": "/VendorInvoiceAgingN/SaveLayout"}, {"url": "/Home/SetBranch?id=1"},
+                                              {"url": "/CustomerInvoiceAgingN/GetSummary?todate=2024-02-02"}]}]}
+    eps = A.endpoints({"seeds": False}, st)
+    assert [e["url"].split("?")[0] for e in eps] == ["/CustomerInvoiceAgingN/GetSummary"]
+    base = {"ms": 100, "json": True, "top": [], "row": ["Total", "customerid"]}
+    ok, txt, _ = A.judge(eps[0], {"s": 200, "ms": 90, "json": True, "n": 3, "shape": {"top": [], "row": ["customerid"]}}, base, {})
+    assert ok is False and "Total" in txt
+    assert A.judge(eps[0], {"s": 200, "ms": 90, "json": True, "n": 3, "shape": {"top": [], "row": ["Total", "customerid"]}}, base, {})[0] is True
+    assert A.judge(eps[0], {"s": 500, "err": "x"}, base, {})[0] is False

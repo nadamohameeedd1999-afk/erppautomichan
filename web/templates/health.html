@@ -93,7 +93,8 @@
             <div class="actions">
                 <button class="btn btn-primary big" onclick="fullCheck()" title="كل الشاشات + السرعة الحقيقية لأبطأ الشاشات + مطابقة الحسابات">🔎 فحص شامل</button>
                 <button class="btn btn-outline-primary big" onclick="save(true)" title="كل الشاشات بتفتح ولا لأ (من غير قياس السرعة في المتصفح)">🩺 فحص الشاشات بس</button>
-                <button class="btn btn-outline-primary big" onclick="runBooks()" title="ميزان المراجعة: مدين = دائن والشجرة متطابقة">⚖️ الحسابات بس</button>
+                <button class="btn btn-outline-primary big" onclick="runBooks()" title="ميزان المراجعة: مدين = دائن والشجرة متطابقة + العملاء والموردين = حساباتهم">⚖️ الحسابات بس</button>
+                <button class="btn btn-outline-primary big" onclick="runApi()" title="طلبات البيانات اللي الشاشات بتعملها (قراءة بس): بترد؟ JSON؟ سريعة؟ الحقول زي آخر مرة؟ — شغّلي فحص الشاشات مرة الأول">🔌 الـ API</button>
             </div>
         </div>
         <div class="opts">
@@ -101,6 +102,8 @@
             <span class="grp"><span class="muted">من</span><input id="bFrom" type="date" class="form-control form-control-sm"></span>
             <span class="grp"><span class="muted">إلى</span><input id="bTo" type="date" class="form-control form-control-sm"></span>
             <span class="muted">(فاضي = كل القيود لحد آخر السنة — «🔎 فحص شامل» بيقرا كل القيود دايمًا)</span>
+            <span class="grp"><span class="muted">🏋️ حمل الـ API (مواقع الاختبار بس):</span>
+                <input id="aUsers" type="number" min="0" max="50" class="form-control form-control-sm" style="width:70px" value="0" title="عدد الطلبات في نفس اللحظة — 0 = من غير اختبار حمل"></span>
             <span class="grp ms-auto"><span class="muted">شاشات تتقاس سرعتها في المتصفح:</span>
                 <input id="fDeep" type="number" min="1" max="200" class="form-control form-control-sm" style="width:80px" value="25"
                     onchange="try { localStorage.setItem('hx_deep', this.value) } catch (e) {}"></span>
@@ -316,6 +319,12 @@ async function save(run) {
 async function runBooks() {
     msg('');
     const r = await post('/api/books/save', {config: {date_from: $('bFrom').value, date_to: $('bTo').value}, run: true, sites: $('runSites').value || ''});
+    if (r.success) track(r.task_ids);
+}
+
+async function runApi() {
+    msg('');
+    const r = await post('/api/api-check/save', {config: {load_users: +$('aUsers').value || 0}, run: true, sites: $('runSites').value || ''});
     if (r.success) track(r.task_ids);
 }
 
