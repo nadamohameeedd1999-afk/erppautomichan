@@ -159,6 +159,7 @@ function slPaint() {
           ${s.status === 'changed' ? `<button class="btn btn-sm btn-primary" onclick="slApply('${tdEsc(s.key)}')" title="القديم بيتحفظ في السجل">حدّثي التعريف (${s.changes.length})</button>`
             : (s.status === 'ok' ? '<span class="text-success small">✅ مطابق للموقع</span>' : `<span class="muted small">${tdEsc(s.note)}</span>`)}</div>
         ${s.status === 'changed' ? `<ul class="mb-0 mt-1 small">${s.changes.map(c => `<li>${tdEsc(c.text)}</li>`).join('')}</ul>` : ''}
+        ${(s.duplicate_of || []).length ? `<div class="small text-warning">🧹 مكررة مع: ${s.duplicate_of.map(tdEsc).join('، ')} — نفس رابط الإضافة؛ امسحي واحدة من منشئ الاختبارات</div>` : ''}
         ${s.at ? `<div class="muted small">حسب فحص ${tdEsc((s.at || '').replace('T', ' ').slice(0, 16))} على ${tdEsc(s.site || '')}</div>` : ''}</div>`).join('')
       : 'مفيش شاشات متعرفة في منشئ الاختبارات لسه.';
 }

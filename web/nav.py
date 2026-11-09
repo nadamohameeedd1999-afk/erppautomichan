@@ -43,7 +43,7 @@ SECTIONS = [
          "موقع الاختبار مقابل نظام العميل: الشاشات والحقول والسرعة", "Test site vs client system: screens, fields, speed"),
     ]),
     ("results", "النتائج والتقارير", "Results", [
-        ("reports", ["reports", "report_detail", "ops.daily_report_page", "ops.discovery_report_page"], "/reports", "bi-bar-chart-line",
+        ("reports", ["reports", "report_detail", "ops.daily_report_page", "ops.discovery_report_page", "docs.test_summary"], "/reports", "bi-bar-chart-line",
          "التقارير", "Reports", "نتيجة كل تشغيلة + تقرير إثبات التنفيذ + اليومي", "Every run's result + evidence report + daily report"),
         ("compare", ["ops.compare_page"], "/compare", "bi-intersect", "مقارنة التشغيلات", "Compare runs",
          "تشغيلتين جنب بعض: إيه اللي اتغير", "Two runs side by side: what changed"),

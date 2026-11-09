@@ -53,6 +53,8 @@ from web import nav as _nav
 app.register_blueprint(_nav.bp)
 from web.reset_api import bp as _reset_bp
 app.register_blueprint(_reset_bp)
+from web.docs_api import bp as _docs_bp
+app.register_blueprint(_docs_bp)
 from utils.secret_box import migrate_once as _encrypt_secrets
 _encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
 from web import scheduler as _scheduler
@@ -344,7 +346,9 @@ def report_evidence(run_id):
     co = {"name": sc.get("company_name_ar") or "", "cr": sc.get("company_cr") or "", "vat": sc.get("company_vat") or "",
           "logo": sc.get("logo_filename") or ""}
     u = auth.current_user() or {}
+    from web.docs_api import approval_of
     return render_template("evidence_report.html", report=report, shots=shots, steps=steps[-400:], why=why, ai=ai,
+                           approval=approval_of(run_id, report), can_approve=(u.get("role") != "viewer"),
                            check=load_detail(run_id), co=co, site_url="", user=u.get("full_name") or u.get("username") or "",
                            printed=_dt.now().strftime("%Y-%m-%d %H:%M"))
 

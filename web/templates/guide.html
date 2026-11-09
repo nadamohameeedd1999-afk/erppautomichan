@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="{{ current_lang or 'ar' }}" dir="{{ 'ltr' if current_lang == 'en' else 'rtl' }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دليل الخطوات — {{ report.test_name }}</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --border: #D5E2E1; --text: #1C2B2A; --grey: #6B7C7B; }
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; @bottom-center { content: "صفحة " counter(page) " من " counter(pages); font: 10px "Microsoft Sans Serif", Tahoma, sans-serif; color: #6B7C7B; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f6f6; color: var(--text); font: 12px "Microsoft Sans Serif", Tahoma, Arial, sans-serif; }
+  .page { background: #fff; max-width: 1120px; margin: 16px auto; padding: 18px 22px 26px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .hdr { display: grid; grid-template-columns: 1fr 1.3fr 1fr; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 4px solid var(--teal); }
+  .co b { color: var(--dark); font-size: 16px; display: block; } .co span { color: var(--grey); display: block; margin-top: 2px; }
+  .ttl { text-align: center; } .ttl h1 { margin: 0; font-size: 22px; } .ttl div { color: var(--teal); font-weight: bold; margin-top: 3px; }
+  .who { text-align: left; line-height: 1.8; } .who span { color: var(--grey); } .who b { color: var(--text); }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px 22px; background: var(--light); border-radius: 10px; padding: 9px 14px; margin: 12px 0; }
+  .strip span { color: var(--grey); } .strip b { margin-inline-start: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; }
+  .kpi b { display: block; font-size: 20px; color: var(--dark); } .kpi span { color: var(--grey); font-size: 11px; }
+  .kpi.bad b { color: #c0392b; }
+  h2 { font-size: 14px; color: var(--dark); margin: 18px 0 6px; padding-inline-start: 8px; border-inline-start: 4px solid var(--teal); }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; } tr { page-break-inside: avoid; }
+  th { background: var(--teal); color: #fff; font-weight: bold; padding: 7px 8px; text-align: right; font-size: 11.5px; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.n, th.n { text-align: center; white-space: nowrap; } .ltr { direction: ltr; unicode-bidi: embed; font-size: 11px; color: var(--grey); }
+  .note { color: var(--grey); font-size: 11px; margin-top: 4px; }
+  .verdict { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; line-height: 1.9; }
+  .bar { position: fixed; top: 10px; left: 10px; } .bar button { background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; }
+  .foot { text-align: center; color: var(--grey); font-size: 10px; margin-top: 18px; }
+  @media print { body { background: #fff; } .page { box-shadow: none; margin: 0; max-width: none; padding: 0; } .bar, .foot { display: none; } }
+  .bar { top: auto; bottom: 14px; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shots figure { margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+  .shots img { width: 100%; display: block; } .shots figcaption { padding: 5px 8px; font-size: 11px; background: var(--light); }
+  .shots figure.bad { border-color: #c0392b; } .shots figure.bad figcaption { background: #fdecea; }
+  .ok { color: #1e8449; font-weight: bold; } .no { color: #c0392b; font-weight: bold; }
+  .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; page-break-inside: avoid; }
+  .sign div { border-top: 1px solid var(--text); padding-top: 6px; text-align: center; color: var(--grey); }
+  .co img { max-height: 46px; display: block; margin-bottom: 4px; }
+  .log td { font-size: 11px; padding: 3px 8px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); page-break-inside: avoid; }
+  .step .n { min-width: 30px; height: 30px; border-radius: 50%; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+  .step.title { border: 0; } .step.title b { font-size: 15px; color: var(--dark); }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--light); color: var(--dark); font-weight: bold; }
+  .rec { padding: 12px 16px; border-radius: 10px; font-weight: bold; font-size: 15px; margin: 10px 0; }
+  .rec.go { background: #eaf7ef; } .rec.care { background: #fff7e6; } .rec.no { background: #fdecea; }
+</style>
+</head><body>
+<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+<div class="page">
+  <div class="hdr">
+    <div class="co">{% if co.logo %}<img src="{{ url_for('media', filename=co.logo) }}" alt="">{% endif %}
+      <b>{{ co.name or site_name }}</b>{% if co.cr %}<span>س.ت: {{ co.cr }}</span>{% endif %}{% if co.vat %}<span>الرقم الضريبي: {{ co.vat }}</span>{% endif %}</div>
+    <div class="ttl"><h1>دليل الخطوات</h1><div>Step-by-step guide</div></div>
+    <div class="who"><span>المستخدم:</span> <b>{{ user or '—' }}</b><br><span>تاريخ الطباعة:</span> <b>{{ printed }}</b></div>
+  </div>
+  <div class="strip"><div><span>العملية:</span><b>{{ report.test_name or '—' }}</b></div><div><span>الموقع:</span><b>{{ report.site_name or '—' }}</b></div>
+    <div><span>اتسجلت من تشغيلة:</span><b>{{ (report.started_at or '')[:16].replace('T', ' ') }}</b></div></div>
+  {% if not passed %}<div class="verdict">⚠️ التشغيلة دي ما نجحتش — الخطوات لحد ما وقفت بس. الأفضل تطلّعي الدليل من تشغيلة ناجحة.</div>{% endif %}
+  <h2>الخطوات</h2>
+  {% set ns = namespace(n=0) %}
+  {% for s in steps %}
+    {% if s.kind == 'title' %}<div class="step title"><b>📄 افتحي شاشة «{{ s.text }}» ← دوسي «إضافة»</b></div>
+    {% else %}{% set ns.n = ns.n + 1 %}
+    <div class="step"><div class="n">{{ ns.n }}</div><div>
+      {% if s.kind == 'field' %}في خانة <span class="tag">{{ s.label }}</span> اختاري / اكتبي: <b>{{ s.value }}</b>
+      {% elif s.kind == 'button' %}دوسي زرار <span class="tag">{{ s.label }}</span>
+      {% elif s.kind == 'save' %}دوسي <span class="tag">حفظ</span> — السجل هيظهر أول القايمة
+      {% elif s.kind == 'number' %}النظام بيدي المستند رقم <b>{{ s.value }}</b>{% endif %}
+    </div></div>{% endif %}
+  {% else %}<div class="note">مفيش خطوات متسجلة في لوج التشغيلة دي (التشغيلات القديمة أو الفحوصات مش بتسجل الحقول).</div>{% endfor %}
+  {% if shots %}<h2>الصور</h2><div class="shots">{% for s in shots %}<figure><img src="{{ url_for('serve_screenshot', filename=s.file) }}" alt=""><figcaption>{{ loop.index }}. {{ s.label }}</figcaption></figure>{% endfor %}</div>{% endif %}
+  <div class="note">الدليل ده اتعمل لوحده من اختبار ناجح، فهو بيتحدّث مع كل نسخة جديدة من النظام — ينفع يتبعت للعميل أو يتغذى بيه المدرب الذكي.</div>
+</div></body></html>

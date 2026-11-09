@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "NQ Test Recorder",
+  "version": "1.0.0",
+  "description": "Record what you do on NQ ERP and send it to the test automation dashboard as a test — سجّلي خطواتك على الـ ERP وابعتيها للوحة كاختبار",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "NQ Test Recorder"
+  }
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+ body { width: 320px; font: 13px Tahoma, Arial; margin: 0; color: #1C2B2A; }
+ header { background: #0F7C7A; color: #fff; padding: 10px 12px; font-weight: bold; }
+ main { padding: 10px 12px; } label { display: block; margin: 6px 0 2px; color: #555; }
+ input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #D5E2E1; border-radius: 6px; }
+ button { width: 100%; margin-top: 8px; padding: 8px; border: 0; border-radius: 8px; background: #0F7C7A; color: #fff; font-weight: bold; cursor: pointer; }
+ button.sec { background: #E7F3F2; color: #0A5654; } #out { margin-top: 8px; min-height: 18px; }
+ .ok { color: #1e8449; } .no { color: #c0392b; }
+</style></head>
+<body>
+<header>⏺ NQ Test Recorder — سجّلي خطواتك</header>
+<main>
+  <label>Dashboard link / رابط اللوحة</label><input id="dash" placeholder="https://nqautotesting.up.railway.app">
+  <label>Recorder token / كود التسجيل (RECORDER_TOKEN)</label><input id="tok" type="password">
+  <label>Test name / اسم الاختبار</label><input id="name" placeholder="سند قبض — عميل">
+  <button id="start">⏺ Start / ابدئي التسجيل على الصفحة دي</button>
+  <button id="send" class="sec">📤 Send / ابعتي الخطوات للوحة</button>
+  <div id="out"></div>
+  <div style="color:#777;font-size:11px;margin-top:8px">Open the ERP «add» page first. Clicking «Save» on the screen does not save — it only ends the recording. / افتحي صفحة «إضافة» الأول. «حفظ» على الشاشة مش بيحفظ — بيوقف التسجيل بس.</div>
+</main>
+<script src="popup.js"></script>
+</body></html>

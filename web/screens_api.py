@@ -391,6 +391,57 @@ def api_dataset_upload():
     return jsonify({"success": True, "name": name, "rows": len(rows), "columns": list(rows[0].keys())})
 
 
+@bp.route("/api/recorder/import", methods=["POST", "OPTIONS"])
+def api_recorder_import():
+    """⏺ steps recorded by the Chrome extension (chrome_extension/) -> a new screen test definition
+    (ideas: Worksoft Business Capture, Opkey recorder). Auth: header X-Recorder-Token = RECORDER_TOKEN."""
+    import hmac
+    import re as _re
+    from urllib.parse import urlparse
+    origin = request.headers.get("Origin", "")
+    cors = {"Access-Control-Allow-Origin": origin or "*", "Access-Control-Allow-Headers": "Content-Type, X-Recorder-Token",
+            "Access-Control-Allow-Methods": "POST, OPTIONS"}
+    if request.method == "OPTIONS":
+        return ("", 204, cors)
+    want = os.getenv("RECORDER_TOKEN") or ""
+    if not want or not hmac.compare_digest(want, request.headers.get("X-Recorder-Token", "")):
+        return jsonify({"success": False, "error": "token"}), 403, cors
+    from engine import recorder
+    d = request.get_json(silent=True) or {}
+    items = recorder.convert(d.get("events") or [])
+    fields = [it["field"] for it in items if it.get("type") == "field" and (it["field"].get("id") or "")]
+    flows, last_field = [], ""
+    for it in items:
+        if it.get("type") == "field" and it["field"].get("id"):
+            last_field = it["field"]["id"]
+        elif it.get("type") == "action" and it.get("steps"):
+            flows.append({"name": it.get("label") or "إجراء", "after": last_field, "steps": it["steps"]})
+    if not fields and not flows:
+        return jsonify({"success": False, "error": "مفيش خطوات تتحول لاختبار"}), 400, cors
+    u = urlparse(d.get("url") or "")
+    add_url = u.path + (("?" + u.query) if u.query else "")
+    list_url = _re.sub(r"/(AddEdit|Add|Create|New)(/.*)?$", "", u.path, flags=_re.I) or u.path
+    name = (d.get("name") or d.get("title") or "اختبار متسجل").strip()[:80]
+    base = _re.sub(r"[^a-z0-9]+", "_", list_url.strip("/").split("/")[-1].lower()).strip("_") or "recorded"
+    sc = _cfg()
+    key, n = f"rec_{base}"[:40], 2
+    while (sc.SCREENS_DIR / f"{key}.json").exists():
+        key, n = f"rec_{base}_{n}"[:44], n + 1
+    cfg = {"key": key, "name_ar": name, "list_url": list_url, "add_url": add_url, "operation": "add",
+           "fields": fields or [{"id": "__none__", "strategy": "keep", "kind": "hidden"}], "flows": flows,
+           "notes": "اتسجل من إضافة Chrome"}
+    try:
+        cfg = sc.normalize(cfg)
+        sc.save(cfg)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400, cors
+    try:
+        auth.audit("recorder_import", key)
+    except Exception:
+        pass
+    return jsonify({"success": True, "key": key, "name": name, "fields": len(fields), "actions": len(flows)}), 200, cors
+
+
 @bp.route("/api/datasets/combos", methods=["POST"])
 @auth.login_required
 def api_dataset_combos():

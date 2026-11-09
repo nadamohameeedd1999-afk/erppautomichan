@@ -79,7 +79,28 @@ def report():
         rows.append({"key": cfg["key"], "name": cfg.get("name_ar"), "status": "changed" if ch else "ok", "changes": ch,
                      "at": lv.get("at"), "site": lv.get("site")})
     rows.sort(key=lambda r: {"changed": 0, "unknown": 2}.get(r["status"], 1))
+    dup = duplicates()
+    for r in rows:
+        r["duplicate_of"] = dup.get(r["key"], [])
     return rows
+
+
+def duplicates():
+    """🧹 screens defined twice (idea: Tosca agents «avoid duplicates»): same add link, or same list link + same fields
+    -> {key: [other keys]}"""
+    groups = {}
+    for cfg in screen_config.list_all():
+        if cfg.get("error"):
+            continue
+        sig = ((cfg.get("add_url") or cfg.get("list_url") or "").split("?")[0].lower().rstrip("/"), cfg.get("operation", "add"))
+        if sig[0]:
+            groups.setdefault(sig, []).append(cfg["key"])
+    out = {}
+    for keys in groups.values():
+        if len(keys) > 1:
+            for k in keys:
+                out[k] = [x for x in keys if x != k]
+    return out
 
 
 def apply(key):

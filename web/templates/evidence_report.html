@@ -43,7 +43,16 @@
 </style>
 </head>
 <body>
-<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button></div>
+<div class="bar"><button onclick="print()">🖨️ طباعة / PDF</button>
+  <button onclick="location.href='/reports/{{ report.run_id }}/guide'">📘 دليل الخطوات</button>
+  {% if can_approve %}<button onclick="approveIt()">✍️ {{ 'اعتماد تاني' if approval else 'اعتماد التقرير' }}</button>{% endif %}</div>
+<script>
+async function approveIt() {
+  const note = prompt('ملاحظة مع الاعتماد (اختياري)') ?? null; if (note === null) return;
+  const r = await fetch('/api/reports/{{ report.run_id }}/approve', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({note})}).then(r => r.json());
+  if (r.success) location.reload(); else alert(r.error);
+}
+</script>
 {% set failed_n = (report.failed or 0) + (report.errors or 0) %}
 <div class="page">
   <div class="hdr">
@@ -120,10 +129,12 @@
   </div>
   {% endif %}
 
+  {% if approval %}<div class="verdict" style="border-color:{{ '#c0392b' if approval.changed else 'var(--teal)' }}">✍️ <b>معتمد</b> من {{ approval.by }} بتاريخ {{ approval.at }}{% if approval.note %} — {{ approval.note }}{% endif %}
+    {% if approval.changed %}<br><b style="color:#c0392b">⚠️ بيانات التشغيلة اتغيرت بعد الاعتماد</b>{% endif %}</div>{% endif %}
   <div class="sign">
     <div>نفّذه: أداة أتمتة اختبارات ERP</div>
-    <div>راجعه: ....................</div>
-    <div>الاعتماد والتاريخ: ....................</div>
+    <div>راجعه: {{ approval.by if approval else '....................' }}</div>
+    <div>الاعتماد والتاريخ: {{ approval.at if approval else '....................' }}</div>
   </div>
   <div class="foot">صفحة 1 من 1 — بيتقسم تلقائي وقت الطباعة</div>
 </div>
