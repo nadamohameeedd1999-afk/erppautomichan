@@ -468,6 +468,40 @@ def api_api_check_save():
     return jsonify(out)
 
 
+# ======================================================== 🛡️ الصلاحيات والفصل بين المهام
+SOD_KEY = "sod_check"
+
+
+@bp.route("/api/sod")
+@auth.login_required
+def api_sod():
+    C = _C()
+    try:
+        cfg = C.load(SOD_KEY)
+    except C.ConfigError:
+        cfg = C.normalize({"key": SOD_KEY, "type": "sod", "name_ar": "🛡️ الصلاحيات والفصل بين المهام"})
+    return jsonify({"success": True, "config": C.public(cfg), "last": _last_results().get(SOD_KEY)})
+
+
+@bp.route("/api/sod/save", methods=["POST"])
+@auth.login_required
+def api_sod_save():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    try:
+        old = C.load(SOD_KEY) if C.exists(SOD_KEY) else {}
+        saved = C.save({**old, **(d.get("config") or {}), "key": SOD_KEY, "type": "sod", "name_ar": "🛡️ الصلاحيات والفصل بين المهام"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    out = {"success": True}
+    if d.get("run"):
+        from web.queue_manager import get_manager
+        from web import sites_api
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(SOD_KEY), saved["name_ar"], d.get("sites"), source="manual",
+                                            front=True))
+    return jsonify(out)
+
+
 # ======================================================== 🧹 تنظيف بيانات الاختبار
 CLEAN_KEY = "test_data_cleanup"
 

@@ -49,7 +49,7 @@
     </div>
 
     <div class="row g-3 mb-3">
-        {% for k, t in types.items() if k not in ('auto', 'health', 'books', 'cleanup', 'api') %}
+        {% for k, t in types.items() if k not in ('auto', 'health', 'books', 'cleanup', 'api', 'sod') %}
         <div class="col-md-6 col-xl-3">
             <div class="tcard">
                 <div class="d-flex align-items-center gap-2"><span class="ic">{{ t[0] }}</span><span class="fw-bold fs-6">{{ t[1] }}</span></div>
@@ -160,6 +160,7 @@ async function loadList() {
                      c.type === 'auto' ? `الشاشة «${esc(c.screen)}» · ${c.ways.length} طريقة` :
                      c.type === 'cleanup' ? 'سجلات الاختبار الفاضلة' :
                      c.type === 'books' ? 'ميزان المراجعة: مدين = دائن + الشجرة' :
+                     c.type === 'sod' ? 'صلاحيات كل المستخدمين: التعارض بين المهام' + (c.allow && c.allow.length ? ` · ${c.allow.length} استثناء` : '') :
                      c.type === 'api' ? 'طلبات البيانات بتاعة الشاشات (قراءة بس)' + (c.load_users ? ` · حمل ${c.load_users}×${c.load_rounds}` : '') :
                      c.type === 'health' ? 'كل شاشات المنيو' + (c.reports ? ' والتقارير' : '') :
                      c.type === 'perf' ? (c.all_pages ? 'كل الشاشات' : c.pages.length + ' شاشة') + ` · ينبه لو أبطأ ${c.factor}×` : '';
@@ -212,7 +213,7 @@ async function openNew(type, tpl) {
 }
 async function openEdit(key) {
     if ((LIST.find(x => x.key === key) || {}).type === 'auto') { location.href = '/auto-test?key=' + encodeURIComponent(key); return; }
-    if (['health', 'books', 'cleanup', 'api'].includes((LIST.find(x => x.key === key) || {}).type)) { location.href = '/health'; return; }
+    if (['health', 'books', 'cleanup', 'api', 'sod'].includes((LIST.find(x => x.key === key) || {}).type)) { location.href = '/health'; return; }
     await opts();
     const r = await fetch('/api/checks/' + encodeURIComponent(key)).then(r => r.json());
     if (!r.success) return alert(r.error);

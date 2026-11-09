@@ -95,3 +95,14 @@ def test_api_check_safe_and_contract():
     assert ok is False and "Total" in txt
     assert A.judge(eps[0], {"s": 200, "ms": 90, "json": True, "n": 3, "shape": {"top": [], "row": ["Total", "customerid"]}}, base, {})[0] is True
     assert A.judge(eps[0], {"s": 500, "err": "x"}, base, {})[0] is False
+
+
+def test_sod_conflicts():
+    from engine import sod
+    d = {"users": [{"user": "a", "name": "A", "group": "مالية", "priv": {"الموردين": ["اضافة"]}},
+                   {"user": "b", "name": "B", "group": "", "priv": {"فواتير البيع-مبيعات": ["عرض"]}}],
+         "roles": [{"name": "مالية", "priv": {"سند الدفع": ["اضافة"]}}]}
+    rows, fails = sod.analyse(d)
+    assert fails == ["a — A (مالية): إنشاء مورد + الدفع له"]          # user's own right + his group's right
+    assert any(r["ok"] is True and r["cells"][0].startswith("b") for r in rows)
+    assert sod.analyse(d, {"allow": ["a|vendor_pay"]})[1] == []

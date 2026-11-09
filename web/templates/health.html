@@ -95,6 +95,7 @@
                 <button class="btn btn-outline-primary big" onclick="save(true)" title="كل الشاشات بتفتح ولا لأ (من غير قياس السرعة في المتصفح)">🩺 فحص الشاشات بس</button>
                 <button class="btn btn-outline-primary big" onclick="runBooks()" title="ميزان المراجعة: مدين = دائن والشجرة متطابقة + العملاء والموردين = حساباتهم">⚖️ الحسابات بس</button>
                 <button class="btn btn-outline-primary big" onclick="runApi()" title="طلبات البيانات اللي الشاشات بتعملها (قراءة بس): بترد؟ JSON؟ سريعة؟ الحقول زي آخر مرة؟ — شغّلي فحص الشاشات مرة الأول">🔌 الـ API</button>
+                <button class="btn btn-outline-primary big" onclick="runSod()" title="مين يقدر يعمل الدورة كلها لوحده (مورد + دفع، بيع + تحصيل، جرد + صرف) ومين يقدر يعدل الصلاحيات — قراءة بس">🛡️ الصلاحيات</button>
             </div>
         </div>
         <div class="opts">
@@ -325,6 +326,12 @@ async function runBooks() {
 async function runApi() {
     msg('');
     const r = await post('/api/api-check/save', {config: {load_users: +$('aUsers').value || 0}, run: true, sites: $('runSites').value || ''});
+    if (r.success) track(r.task_ids);
+}
+
+async function runSod() {
+    msg('');
+    const r = await post('/api/sod/save', {config: {}, run: true, sites: $('runSites').value || ''});
     if (r.success) track(r.task_ids);
 }
 
