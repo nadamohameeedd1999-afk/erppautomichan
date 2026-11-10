@@ -191,6 +191,9 @@ def build_fields(read, mode, scenario, builder=None, editing=False):
             if b["strategy"] == "keep":
                 continue
             dep = b.get("depends_on") if b.get("depends_on") in ids else None
+            rb = next((f for f in read if f["id"] == b["id"]), None)
+            if b["strategy"] == "first" and rb and _hinted(rb):     # the builder said «first option» — the screen's word is better
+                b = {**b, "strategy": "fixed", "value": _hinted(rb)}
             out.append({**b, "depends_on": dep, "soft": not b.get("required"), "optional": b["id"] not in live})
             ids.add(b["id"])
         usable = [f for f in usable if f["id"] not in ids]
@@ -380,6 +383,35 @@ def check_numbering(driver, credentials, plan, RUN_VARS, result):
     return "\n".join(lines), ok, why
 
 
+def _form_cache(screen, hours=24.0, save=None):
+    """⚡ the form read of this screen on this site — reused for a day (a changed form shows up as a failed fill,
+    and the stubborn tester then reads it again: the cache is dropped on any failed add)"""
+    import json as _json
+    from engine.health import STATE, _site_key
+    f = STATE / "form_cache" / f"{_site_key()}__{re.sub(r'[^A-Za-z0-9_]+', '_', screen)}.json"
+    if save is not None:
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            keep = {k: v for k, v in save.items() if k != "screenshot"}
+            f.write_text(_json.dumps({"t": time.time(), "insp": keep}, ensure_ascii=False, default=str), encoding="utf-8")
+        except Exception:
+            pass
+        return None
+    if save is None and hours == -1:                   # drop
+        f.unlink(missing_ok=True)
+        return None
+    if not hours or not f.exists():
+        return None
+    try:
+        d = _json.loads(f.read_text(encoding="utf-8"))
+        age = time.time() - d["t"]
+        if age > hours * 3600 or not d["insp"].get("fields"):
+            return None
+        return {**d["insp"], "_age": f"من {int(age // 3600)} س {int(age % 3600 // 60)} د"}
+    except Exception:
+        return None
+
+
 def run_auto(driver, credentials, cfg, result=None):
     from engine.screen_runner import run_screen, login, RUN_VARS
     from engine.form_filler import FieldFillError
@@ -396,8 +428,14 @@ def run_auto(driver, credentials, cfg, result=None):
 
     # ---- read the add form on this site (required fields come from this client's own setup)
     t0 = time.time()
+    cached = _form_cache(cfg["screen"], hours=float(cfg.get("form_cache_hours", 24) or 0))
     try:
-        insp = FormInspector(driver).inspect(info["list_url"], info["add_url"], info["add_button"], find_dependencies=True)
+        if cached:                                 # ⚡ the same form read in the last day: skip the ~100 s of reading + dependency tries
+            insp = cached
+            logger.info(f"⚡ قراية الفورم من آخر مرة ({cached.get('_age', '')}) — من غير ما أقراه تاني")
+        else:
+            insp = FormInspector(driver).inspect(info["list_url"], info["add_url"], info["add_button"], find_dependencies=True)
+            _form_cache(cfg["screen"], save=insp)
     except Exception as e:
         rows.append({"cells": [0, "📖 قراءة الشاشة", f"مقدرتش أفتح فورم الإضافة: {type(e).__name__}: {str(e).splitlines()[0][:200]}",
                                round(time.time() - t0, 1)], "ok": BAD})
@@ -474,6 +512,8 @@ def run_auto(driver, credentials, cfg, result=None):
           except Exception as e:
             res, ok, err = {}, BAD, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
         result["screenshots"] += [x for x in (res.get("screenshots") or []) if x][-3:]
+        if way == "add" and ok != OK and cached:
+            _form_cache(cfg["screen"], hours=-1)            # the form may have changed: read it fresh next time
         if way == "add" and RUN_VARS.get("saved_no") and RUN_VARS.get("saved_no") != before:
             RUN_VARS["auto_no"] = RUN_VARS["saved_no"]
         if way == "edit" and ok and RUN_VARS.get("saved_no"):

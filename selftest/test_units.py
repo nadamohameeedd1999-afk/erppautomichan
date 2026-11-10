@@ -149,3 +149,10 @@ def test_screen_word_picks_option():
                         {"id": "b", "kind": "select", "label": "الفرع", "options": ["01 - الفرع الاول"], "required": True, "visible": True}], "all", "first")[0]
     assert (f[0]["strategy"], f[0]["value"]) == ("fixed", "1 - قبض") and f[1]["strategy"] == "first"
     A.set_hint("")
+
+
+def test_stubborn_stops_on_business_rule():
+    from engine.stubborn import business_rule
+    assert business_rule("رسالة خطأ: تم تجاوز الحد الائتماني للعميل") == "حد الائتمان"
+    assert business_rule("لا يمكن الحفظ: الحساب (1010201001) طبيعته مدينة، والحركة المسجلة عليه دائنة.") == "طبيعة الحساب"
+    assert business_rule("حقول إجبارية لسه فاضية: بناء على") == ""

@@ -141,6 +141,26 @@ def other_options(planned):
             for f in planned]
 
 
+# the ERP refusing on a business rule: another way of filling the same form won't change the answer -> stop at once
+RULES = [
+    (r"الحد الائتماني|حد ائتماني|credit limit", "حد الائتمان"),
+    (r"طبيعته (مدينة|دائنة)|طبيعة الحساب", "طبيعة الحساب"),
+    (r"الفترة (المحاسبية )?(مقفلة|مغلقة)|period (is )?closed", "الفترة مقفلة"),
+    (r"رصيد(ه)? (غير كاف|لا يكفي)|الكمية (غير|لا) (متاحة|تكفي)|insufficient", "الرصيد / الكمية مش كفاية"),
+    (r"(ليس لديك|لا تملك|مالكش) صلاحي|not authori[sz]ed|permission", "الصلاحيات"),
+    (r"قيد غير متزن|حساب غير محدد|التوجيه المحاسبي", "التوجيه المحاسبي / حساب مش متحدد"),
+    (r"اختا?ر الاصناف|اختر الأصناف|ادخال التفاصيل كاملة|إدخال التفاصيل|اضف صنف|أضف صنف", "لازم سطور / أصناف — سجّلي خطوة «إضافة صنف» مرة من منشئ الاختبارات"),
+]
+
+
+def business_rule(err):
+    import re as _re
+    for rx, name in RULES:
+        if _re.search(rx, err or "", _re.I):
+            return name
+    return ""
+
+
 def verdict(attempts):
     """-> (kind, line) for the final row when nothing saved"""
     from engine.heal import server_error
@@ -224,6 +244,13 @@ def add_stubbornly(driver, credentials, info, base, plan_add, read, mode, builde
         attempts.append({"name": name, "err": err, "reason": reason, "tech": res.get("tech_errors") or []})
         if server_error(err + " " + " ".join(res.get("tech_errors") or [])):
             lines.append("⛔ وقفت المحاولات: ده خطأ تقني من الـ ERP نفسه، تغيير البيانات مش هيحله")
+            break
+        rule = business_rule(err)
+        if rule:
+            lines.append(f"⛔ وقفت المحاولات: الـ ERP رفض بقاعدة عمل ({rule}) — تغيير البيانات مش هيحلها، دي محتاجة مراجعة في الـ ERP أو إعداداته")
+            break
+        if len(attempts) >= 2 and attempts[-1]["reason"] == attempts[-2]["reason"] and "رسالة خطأ" in attempts[-1]["reason"]:
+            lines.append("⛔ وقفت المحاولات: نفس رسالة الـ ERP مرتين ورا بعض بطريقتين مختلفتين — مش هتتغير بالمحاولة")
             break
         if name.startswith("📌"):
             forget_recipe(info)                            # the recipe stopped working -> learn a new one

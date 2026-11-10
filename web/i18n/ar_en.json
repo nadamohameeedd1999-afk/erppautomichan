@@ -3238,5 +3238,17 @@
 "مش متزن — مجموع الفرق": "unbalanced — total difference",
 "مش مرحّل": "not posted",
 "مقدرتش أقرا «تقرير مراجعة قيود اليومية»": "Couldn't read «journal entries review report»",
-"نفس ملاحظة الاستلام: قيد بطرف واحد اتكرر على موقع الاختبار": "Same note as receiving: one-sided entries happened on the test site"
+"نفس ملاحظة الاستلام: قيد بطرف واحد اتكرر على موقع الاختبار": "Same note as receiving: one-sided entries happened on the test site",
+"وقفت المحاولات: الـ": "Stopped the attempts: the",
+"رفض بقاعدة عمل": "refused on a business rule",
+"تغيير البيانات مش هيحلها، دي محتاجة مراجعة في الـ": "changing the data won't fix it, it needs a review in the",
+"أو إعداداته": "or its settings",
+"وقفت المحاولات: نفس رسالة الـ": "Stopped the attempts: the same message from the",
+"مرتين ورا بعض بطريقتين مختلفتين — مش هتتغير بالمحاولة": "twice in a row with two different ways — retrying won't change it",
+"قراية الفورم من آخر مرة": "Form read from last time",
+"من غير ما أقراه تاني": "without reading it again",
+"حد الائتمان": "credit limit",
+"طبيعة الحساب": "account nature",
+"الفترة مقفلة": "period closed",
+"الرصيد / الكمية مش كفاية": "balance / quantity not enough"
 }
