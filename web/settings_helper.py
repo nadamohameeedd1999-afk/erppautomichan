@@ -256,7 +256,12 @@ def save_email_config(config):
     old = load_email_config()
     if not config.get("sender_password"):
         config["sender_password"] = old.get("sender_password", "")
+    if config.get("api_key") is None or config.get("api_key") == "":
+        config["api_key"] = old.get("api_key", "")              # empty box = keep the saved key
+    if config.get("api_key") == "-":
+        config["api_key"] = ""                                  # «-» clears it (back to SMTP)
     config["updated_at"] = datetime.now().isoformat()
     from utils.secret_box import encrypt
-    _save_json(EMAIL_CONFIG_FILE, {**config, "sender_password": encrypt(config.get("sender_password") or "")})
+    _save_json(EMAIL_CONFIG_FILE, {**config, "sender_password": encrypt(config.get("sender_password") or ""),
+                                   "api_key": encrypt(config.get("api_key") or "")})
     return True

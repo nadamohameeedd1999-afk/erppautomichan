@@ -19,7 +19,59 @@ def load_config():
     c = load_json(CONFIG_FILE, None)
     if c and c.get("sender_password"):
         c["sender_password"] = decrypt(c["sender_password"])
+    if c and c.get("api_key"):
+        c["api_key"] = decrypt(c["api_key"])
     return c
+
+
+# 📮 Railway (Free / Hobby) blocks outbound SMTP (Errno 101 «Network is unreachable»). An email service over HTTPS
+# works everywhere: Brevo (key «xkeysib-…», sends from your own Gmail after one confirm click — 300 a day free)
+# or Resend (key «re_…», needs your own domain to send to anyone).
+def _api_key(config):
+    import os
+    return (config.get("api_key") or os.getenv("BREVO_API_KEY") or os.getenv("RESEND_API_KEY") or "").strip()
+
+
+def _deliver(config, recipients, subject, html, files=()):
+    """send through the HTTPS API when a key is set, otherwise SMTP -> raises on failure"""
+    import base64
+    key = _api_key(config)
+    sender = (config.get("sender_email") or "").strip()
+    files = [Path(f) for f in files if f]
+    if key:
+        import requests
+        att = [(f.name, base64.b64encode(f.read_bytes()).decode()) for f in files]
+        if key.startswith("re_"):
+            body = {"from": config.get("api_from") or f"ERP Tests <onboarding@resend.dev>", "to": recipients, "subject": subject,
+                    "html": html, "reply_to": sender or None, "attachments": [{"filename": n, "content": c} for n, c in att]}
+            r = requests.post("https://api.resend.com/emails", json=body, headers={"Authorization": f"Bearer {key}"}, timeout=30)
+        else:
+            body = {"sender": {"email": sender, "name": config.get("sender_name") or "ERP Tests"},
+                    "to": [{"email": x} for x in recipients], "subject": subject, "htmlContent": html}
+            if att:
+                body["attachment"] = [{"name": n, "content": c} for n, c in att]
+            r = requests.post("https://api.brevo.com/v3/smtp/email", json=body, headers={"api-key": key, "accept": "application/json"}, timeout=30)
+        if r.status_code >= 300:
+            raise RuntimeError(f"خدمة الإيميل ردت {r.status_code}: {r.text[:200]}")
+        return
+    from email.mime.application import MIMEApplication
+    msg = MIMEMultipart()
+    msg["From"], msg["To"], msg["Subject"] = sender, ", ".join(recipients), subject
+    msg.attach(MIMEText(html, "html"))
+    for f in files:
+        part = MIMEApplication(f.read_bytes(), Name=f.name)
+        part["Content-Disposition"] = f'attachment; filename="{f.name}"'
+        msg.attach(part)
+    try:
+        with smtplib.SMTP(config["smtp_host"], int(config.get("smtp_port") or 587), timeout=20) as server:
+            server.starttls()
+            server.login(sender, config.get("sender_password", ""))
+            server.send_message(msg)
+    except OSError as e:
+        if getattr(e, "errno", None) in (101, 110, 111, 113) or "unreachable" in str(e).lower() or "timed out" in str(e).lower():
+            raise RuntimeError("السيرفر مش قادر يوصل لـ SMTP (Railway بيقفل SMTP في الخطة المجانية والـ Hobby) — "
+                               "حطي مفتاح Brevo في «مفتاح خدمة الإيميل» وهيبعت من غير SMTP") from e
+        raise
 
 
 def send_test_notification(summary, test_name="", changed=False):
@@ -51,17 +103,12 @@ def send_test_notification(summary, test_name="", changed=False):
         password = config["sender_password"]
         recipients = config["recipients"]
 
-        if not all([sender, password, recipients]):
+        if not (sender and recipients and (password or _api_key(config))):
             return False
-
-        # Build email
-        msg = MIMEMultipart()
-        msg["From"] = sender
-        msg["To"] = ", ".join(recipients)
 
         status_text = "✅ نجح" if is_success else "❌ فشل"
         status_color = "#10b981" if is_success else "#ef4444"
-        msg["Subject"] = f"{status_text} - ERP Test: {test_name or 'اختبار'}"
+        subject = f"{status_text} - ERP Test: {test_name or 'اختبار'}"
 
         body = f"""
         <html>
@@ -88,13 +135,7 @@ def send_test_notification(summary, test_name="", changed=False):
         </body>
         </html>
         """
-        msg.attach(MIMEText(body, "html"))
-
-        with smtplib.SMTP(config["smtp_host"], config["smtp_port"]) as server:
-            server.starttls()
-            server.login(sender, password)
-            server.send_message(msg)
-
+        _deliver(config, recipients, subject, body)
         return True
     except Exception as e:
         print(f"Email error: {e}")
@@ -111,28 +152,17 @@ def send_test_email(to_email):
     smtp_host = config.get('smtp_host', '').strip()
     smtp_port = int(config.get('smtp_port', 587))
 
-    if not all([sender, password, smtp_host, to_email]):
-        return False, 'Missing fields'
-
+    if not (sender and to_email and (_api_key(config) or (password and smtp_host))):
+        return False, 'ناقص: إيميل المرسل + (مفتاح خدمة الإيميل أو SMTP وكلمة مرور التطبيق)'
     try:
-        msg = MIMEMultipart()
-        msg['From'] = sender
-        msg['To'] = to_email
-        msg['Subject'] = 'ERP Test - Email Test'
-
-        body = '<h1>Email Test Success</h1><p>SMTP is working!</p><p>From: ' + sender + '</p>'
-        msg.attach(MIMEText(body, 'html'))
-
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.starttls()
-            server.login(sender, password)
-            server.send_message(msg)
-
-        return True, 'Email sent to ' + to_email
+        _deliver(config, [to_email], 'ERP Test - Email Test',
+                 '<div dir="rtl" style="font-family:Tahoma,Arial"><h2>✅ الإيميل شغال</h2><p>من: ' + sender + '</p><p>'
+                 + ('عن طريق خدمة الإيميل (HTTPS)' if _api_key(config) else 'عن طريق SMTP') + '</p></div>')
+        return True, 'اتبعت لـ ' + to_email
     except smtplib.SMTPAuthenticationError:
-        return False, 'Auth failed - check App Password'
+        return False, 'جيميل رفض الدخول — حطي «كلمة مرور التطبيق» (16 حرف) مش الباسورد العادي'
     except Exception as e:
-        return False, 'Error: ' + str(e)[:150]
+        return False, str(e)[:250]
 
 
 def send_file(subject, text, file_path, to=None):
@@ -143,24 +173,12 @@ def send_file(subject, text, file_path, to=None):
     if not config or not config.get("enabled"):
         return False
     try:
-        sender, password, recipients = config["sender_email"], config["sender_password"], config["recipients"]
+        sender, password, recipients = config["sender_email"], config.get("sender_password"), config["recipients"]
         if to:
             recipients = [x.strip() for x in (to if isinstance(to, list) else str(to).replace("،", ",").replace(";", ",").split(",")) if x.strip()]
-        if not all([sender, password, recipients]):
+        if not (sender and recipients and (password or _api_key(config))):
             return False
-        msg = MIMEMultipart()
-        msg["From"] = sender
-        msg["To"] = ", ".join(recipients)
-        msg["Subject"] = subject
-        msg.attach(MIMEText(f'<div dir="rtl" style="font-family:Tahoma,Arial">{text}</div>', "html"))
-        p = Path(file_path)
-        part = MIMEApplication(p.read_bytes(), Name=p.name)
-        part["Content-Disposition"] = f'attachment; filename="{p.name}"'
-        msg.attach(part)
-        with smtplib.SMTP(config["smtp_host"], config["smtp_port"]) as server:
-            server.starttls()
-            server.login(sender, password)
-            server.send_message(msg)
+        _deliver(config, recipients, subject, f'<div dir="rtl" style="font-family:Tahoma,Arial">{text}</div>', [file_path])
         return True
     except Exception as e:
         print(f"Email error: {e}")

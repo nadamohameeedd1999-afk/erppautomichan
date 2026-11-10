@@ -286,6 +286,7 @@ def settings_email_save():
         "smtp_port": int(request.form.get("smtp_port", 587) or 587),
         "sender_email": request.form.get("sender_email", "").strip(),
         "sender_password": request.form.get("sender_password", "").strip(),
+        "api_key": request.form.get("api_key", "").strip(),
         "recipients": recipients,
         "notify_on": request.form.get("notify_on", "failure"),
     }
