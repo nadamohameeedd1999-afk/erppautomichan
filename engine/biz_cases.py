@@ -416,28 +416,68 @@ def _err(x):
 
 
 # ------------------------------------------------------------------ one case
+EXPECT_TEXT = {"الحفظ": "يتحفظ مرة واحدة من غير رفض", "مستند واحد بس": "مستند جديد واحد", "سند واحد بس": "سند جديد واحد",
+               "السند المخزني التابع": "سند مخزني واحد مربوط بالمستند", "مفيش سند مخزني جديد": "مفيش سند مخزني",
+               "إعادة الفتح": "نفس الأصناف والكمية والسعر والطرف والمخزن", "القيد متزن": "مدين = دائن",
+               "استدعاء الأصل": "سطر الفاتورة الأصلية بكميتها وسعرها", "المستند في القائمة": "يظهر في القائمة",
+               "السند في القائمة": "يظهر في القائمة", "المرتجع في القائمة": "يظهر في القائمة", "القيد": "قيد للمستند في مراجعة القيود"}
+
+
 class Case:
     def __init__(self, c):
         self.c = c
-        self.checks = []          # (name, ok, actual)
+        self.checks = []          # (name, ok, actual, expected)
         self.status = NOTRUN
         self.doc_id = self.doc_no = ""
         self.actual = ""
         self.evidence = []
+        self.journal = []
+        self.plain = ""
 
-    def chk(self, name, ok, actual):
-        self.checks.append((name, bool(ok), actual))
-        logger.info(f"   {'✅' if ok else '❌'} {name}: {actual}")
+    def chk(self, name, ok, actual, expected=""):
+        m = re.search(r"\s*\(المتوقع ([^)]*)\)", actual or "")
+        if m and not expected:
+            expected, actual = m.group(1), (actual[:m.start()] + actual[m.end():]).strip()
+        self.checks.append((name, bool(ok), actual, expected or EXPECT_TEXT.get(name, "")))
+        logger.info(f"   {'✅' if ok else '❌'} {name}: {actual}" + (f" (المتوقع {expected})" if expected else ""))
         return ok
 
     def done(self, status=None, actual=""):
         if status:
             self.status = status
         else:
-            self.status = PASS if self.checks and all(ok for _, ok, _ in self.checks) else FAIL
-        bad = [f"{n}: {a}" for n, ok, a in self.checks if not ok]
-        self.actual = actual or (" · ".join(bad) if bad else " · ".join(f"{n} {a}" for n, _, a in self.checks))[:900]
+            self.status = PASS if self.checks and all(c[1] for c in self.checks) else FAIL
+        bad = [f"{c[0]}: {c[2]}" + (f" — المتوقع {c[3]}" if c[3] else "") for c in self.checks if not c[1]]
+        if actual:
+            self.actual = actual[:900]
+        elif bad:
+            self.actual = " · ".join(bad)[:900]
+        else:
+            self.actual = f"كل الفحوصات مطابقة ({len(self.checks)} فحص)" + (f" · مستند {self.doc_no}" if self.doc_no else "")
         return self
+
+    def reason(self):
+        if self.status == PASS:
+            return self.actual
+        return self.actual or "—"
+
+
+def describe(code, c):
+    """the case in one plain sentence (for the report a client can read)"""
+    try:
+        s = spec(code, c)
+    except Exception:
+        return c.get("title", "")
+    name = NAMES.get(code, code)
+    kind = PROFILES.get(code, {}).get("kind")
+    if kind == "invoice":
+        pay = {"CREDIT": "آجل", "CASH": "نقدي", "MIXED": f"متعدد ({s.get('cash') or 0:g} نقدي والباقي آجل)"}.get(s["pay"], s["pay"])
+        st = "والسند المخزني بيتولد تلقائي" if s["auto"] else "من غير سند مخزني"
+        return f"{name} {pay} بضريبة {s['tax']:g}% — {s['qty']:g} قطعة × {s['price']:g} {st}"
+    if kind == "return":
+        st = "والسند المخزني بيتولد تلقائي" if s["auto"] else "من غير سند مخزني"
+        return f"{name} جزئي: {s['qty']:g} من فاتورة أصلية {s['orig_qty']:g} × {s['price']:g} بضريبة {s['tax']:g}% {st}"
+    return f"{name} نقدي بمبلغ {s.get('amount', 0):g} على الحساب من غير تخصيص فواتير"
 
 
 def _close(a, b, tol=0.011):
@@ -589,7 +629,7 @@ def run_invoice(driver, code, c, data, day):
     k.chk("إعادة الفتح", len(r["rows"]) == 1 and _close(ln.get("qty"), s["qty"], 1e-6) and _close(ln.get("price"), s["price"]) and str(r["party"]) == str(data[P["sym"]]) and str(r["wh"]) == str(data["W1"]),
           f"سطور {len(r['rows'])} · كمية {ln.get('qty', '—')} · سعر {_f(ln.get('price'))} · الطرف {r['party']} · المخزن {r['wh']}")
     k.chk("الإجماليات بعد الفتح", _close(r["net"] or r["total"], s["net"]) and _close(r["vat"], s["vat"]) and _close(r["after"], s["total"]),
-          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])}")
+          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])} (المتوقع {_f(s['net'])} / {_f(s['vat'])} / {_f(s['total'])})")
     cash = sum(p["amt"] for p in r["pay"] if p["m"] == "1")
     paid = cash if r["pay"] else (s["total"] if r["pt"] == "1" else 0)
     k.chk("المدفوع", _close(paid, s["paid"]), f"نقدي {_f(paid)} (المتوقع {_f(s['paid'])})")
@@ -620,6 +660,7 @@ def _journal(driver, k, P, day, op, exp_total, exp_vat=None, exp_cash=None):
         k.chk("القيد", False, f"مفيش قيد للمستند Id {op} في مراجعة القيود النهارده")
         return
     d, c = round(sum(x["d"] for x in mine), 2), round(sum(x["c"] for x in mine), 2)
+    k.journal = [{"je": x["je"], "acc": x["acc"].strip(), "d": x["d"], "c": x["c"]} for x in mine]
     k.evidence.append("القيد " + str(mine[0]["je"]) + ": " + " · ".join(f"{x['acc'].strip()[:40]} م{_f(x['d'])} د{_f(x['c'])}" for x in mine if x["d"] or x["c"]))
     k.chk("القيد متزن", _close(d, c), f"مدين {_f(d)} · دائن {_f(c)}")
     k.chk("قيمة القيد", _close(d, exp_total), f"{_f(d)} (المتوقع {_f(exp_total)})")
@@ -733,7 +774,7 @@ def run_return(driver, code, c, data, day):
     k.chk("إعادة الفتح", len(r["rows"]) == 1 and _close(ln.get("qty"), s["qty"], 1e-6) and str(r["party"]) == str(data[P["sym"]]),
           f"سطور {len(r['rows'])} · كمية {ln.get('qty', '—')} · الطرف {r['party']}")
     k.chk("الإجماليات بعد الفتح", _close(r["net"] or r["total"], s["net"]) and _close(r["vat"], s["vat"]) and _close(r["after"], s["total"]),
-          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])}")
+          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])} (المتوقع {_f(s['net'])} / {_f(s['vat'])} / {_f(s['total'])})")
     st = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], item_id) if item_id else None
     if t.get("stock") is not None and st is not None:
         dlt = round(float(st) - float(t["stock"]), 6)
@@ -840,6 +881,7 @@ def run_cases(driver, credentials, cfg, result=None):
     for c in todo:
         if not c["auto"]:
             out[c["id"]] = Case(c).done(BCAP, c["why"])
+            out[c["id"]].plain = c["title"]
             continue
         try:
             fn = {"invoice": run_invoice, "return": run_return}.get(PROFILES[code]["kind"], run_voucher)
@@ -848,6 +890,7 @@ def run_cases(driver, credentials, cfg, result=None):
             logger.warning(f"{c['id']}: {e}")
             out[c["id"]] = Case(c).done(BCAP, f"المحرك وقف: {str(e)[:300]}")
         k = out[c["id"]]
+        k.plain = describe(code, c)
         logger.info(f"{'✅' if k.status == PASS else ('❌' if k.status == FAIL else '⚪')} {c['id']} {k.status} — {k.actual[:200]}")
     return _finish(result, cat, out, data, BASE_URL, credentials)
 
@@ -856,19 +899,28 @@ def _finish(result, cat, out, data, url, credentials):
     counts = {}
     for k in out.values():
         counts[k.status] = counts.get(k.status, 0) + 1
-    word = ""
+    word = report = ""
     try:
         word = fill_word(cat, out, url)
     except Exception as e:
         logger.warning(f"ملف الورد ما اتملاش: {e}")
+    try:
+        from engine import biz_report
+        from config import paths
+        report = biz_report.build(cat, out, data, url, (credentials or {}).get("username", ""),
+                                  paths.RESULTS_DIR / f"biz_report_{cat['code']}_{datetime.now():%Y%m%d_%H%M%S}.docx", SYMBOLS, NAMES)
+    except Exception as e:
+        logger.warning(f"تقرير النتيجة ما اتعملش: {e}")
     names = {PASS: "ناجح", FAIL: "فاشل", BDATA: "ناقص بيانات", BCAP: "مش مؤتمت", NOTRUN: "لم يُنفذ"}
     rows = [{"cells": [k.c["id"], k.c["title"], names[k.status], k.doc_no or "—", k.actual, " · ".join(k.evidence)[:600]],
              "ok": True if k.status == PASS else (False if k.status == FAIL else None)} for k in out.values()]
     note = " · ".join(f"{names[s]} {n}" for s, n in counts.items()) + f" — {cat['name']} ({len(out)} حالة)"
     result["detail"] = {"title": f"{cat['icon']} سيناريوهات {cat['name']} — ملف المطور", "columns": ["الحالة", "العنوان", "النتيجة", "المستند", "الفعلي", "الدليل"],
-                        "rows": rows, "note": note, "files": [{"name": "ملف السيناريوهات بالنتايج (Word)", "path": word}] if word else []}
-    result["biz"] = {"screen": cat["code"], "word": word, "data": data,
-                     "cases": {i: {"status": k.status, "doc": k.doc_no, "id": k.doc_id, "actual": k.actual} for i, k in out.items()}}
+                        "rows": rows, "note": note, "files": ([{"name": "تقرير النتيجة (Word)", "path": report}] if report else [])
+                                                         + ([{"name": "ملف المطور بالحالات (Word)", "path": word}] if word else [])}
+    result["biz"] = {"screen": cat["code"], "word": report or word, "spec_word": word, "data": data,
+                     "cases": {i: {"status": k.status, "doc": k.doc_no, "id": k.doc_id, "actual": k.actual, "plain": k.plain, "title": k.c["title"],
+                                   "checks": [list(x) for x in k.checks], "journal": k.journal, "evidence": k.evidence} for i, k in out.items()}}
     logger.info("📚 " + note)
     if counts.get(FAIL):
         e = AssertionError(f"سيناريوهات {cat['name']}: فاشل {counts.get(FAIL, 0)} · ناجح {counts.get(PASS, 0)}"

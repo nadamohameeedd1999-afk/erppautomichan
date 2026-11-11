@@ -226,3 +226,29 @@ def test_biz_site_data_names(tmp_path, monkeypatch):
     assert r["_names"] == {"D1": "الفرع الأول"} and B.load_data("http://x.test")["A"] == "2-1"
     c = __import__("engine.checks", fromlist=["x"]).normalize({"key": "bizcases_data", "type": "bizcases", "screen": "DATA", "discover": True})
     assert c["discover"] is True
+
+
+def test_biz_result_report(tmp_path, monkeypatch):
+    from engine import biz_cases as B, biz_report
+    import docx
+    cat = B.catalog()["PUR"]
+    c = next(x for x in cat["cases"] if x["id"] == "PUR-006")
+    k = B.Case(c)
+    k.chk("قبل الحفظ", True, "صافي 1,000.00 · ضريبة 150.00 · إجمالي 1,150.00 (المتوقع 1,000.00 / 150.00 / 1,150.00)")
+    k.chk("ضريبة القيد", False, "0.00 (المتوقع 150.00)")
+    k.journal = [{"je": 9, "acc": "5010101002 المشتريات", "d": 1000, "c": 0}, {"je": 9, "acc": "2010101001 موردين", "d": 0, "c": 1000}]
+    k.doc_no, k.doc_id = "13", "785"
+    k.evidence = ["ملاحظة: الـ ERP حفظ بس الشاشة ماظهرتش رسالة نجاح"]
+    k.done()
+    k.plain = B.describe("PUR", c)
+    assert k.checks[0][3] == "1,000.00 / 150.00 / 1,150.00" and "المتوقع" not in k.checks[0][2]
+    assert k.status == B.FAIL and "ضريبة القيد: 0.00 — المتوقع 150.00" in k.actual
+    assert "متعدد (400 نقدي والباقي آجل)" in k.plain
+    ok = B.Case(cat["cases"][0]).done(B.BDATA, "ناقص V1")
+    f = biz_report.build(cat, {"PUR-006": k, "PUR-001": ok}, {"V1": "831", "_names": {"V1": "النخبة"}}, "https://x.test", "admin",
+                         tmp_path / "r.docx", B.SYMBOLS, B.NAMES)
+    d = docx.Document(f)
+    t = "\n".join(p.text for p in d.paragraphs)
+    assert "فيه مشاكل — فشل 1 من 1" in t and "ملخص الحالات" in t
+    cells = " ".join(c.text for tb in d.tables for r in tb.rows for c in r.cells)
+    assert "✗ مختلف" in cells and "النخبة" in cells and "ناقص V1" in cells
