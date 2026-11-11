@@ -224,6 +224,7 @@ def normalize(cfg):
             if re.match(r"^[A-Z]{2,5}$", code):
                 screens.append({"screen": code, "cases": [str(c).strip() for c in ((x or {}).get("cases") or []) if str(c).strip()][:200]})
         out["screens"] = screens
+        out["addons"] = [a for a in (cfg.get("addons") or []) if a in ("edit", "print", "double", "required", "overstock", "discount")]
         if screens and not scr:
             scr = screens[0]["screen"]
         if not re.match(r"^[A-Z]{2,5}$", scr):

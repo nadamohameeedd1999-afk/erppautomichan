@@ -30,6 +30,7 @@
   .sp-log { direction: ltr; text-align: left; font: 11px/1.45 Consolas, monospace; background: rgba(0,0,0,.25); border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; white-space: pre; margin-top: 6px; }
   .sp-list tr.done { opacity: .55; }
   .sp-list select, .sp-list input:not([type=checkbox]) { min-width: 0; width: 100% !important; max-width: 100%; box-sizing: border-box; margin-inline: 0 !important; }
+  .sp-tk { color: #0F7C7A; font-weight: 700; text-decoration: none; }
   .sp-fixed { font-size: 11px; color: #30a46c; font-weight: 700; }
   .sp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .sp-actions .btn { white-space: nowrap; }
@@ -38,7 +39,14 @@
   .sp-out { border: 1px solid #0F7C7A; color: #0F7C7A; background: transparent; }
   .sp-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 16px; }
   .sp-modal.on { display: flex; }
-  .sp-modal .box { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; width: min(720px, 100%); max-height: 90vh; overflow: auto; padding: 16px; }
+  .sp-modal .box { background: var(--g-bg); background-image: linear-gradient(var(--g-panel), var(--g-panel)); color: inherit; border: 1px solid var(--g-line); border-radius: 14px; width: min(720px, 100%); max-height: 90vh; overflow: auto; padding: 16px; }
+  .sp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sp-grid > div { min-width: 0; }
+  .sp-grid .full { grid-column: 1 / -1; }
+  .sp-grid label { display: block; margin-bottom: 2px; }
+  .sp-modal .form-control, .sp-modal .form-select { width: 100% !important; max-width: 100%; box-sizing: border-box; }
+  .sp-modal .form-check { display: flex; gap: 8px; align-items: flex-start; }
+  .sp-modal .form-check label { display: inline; }
   .sp-modal textarea { width: 100%; min-height: 320px; direction: rtl; font-size: 12px; }
 </style>
 {% endblock %}
@@ -66,7 +74,9 @@
     <div class="hd">
       <span class="small text-muted" id="spSel">—</span>
       <div class="sp-actions">
-        {% if kind == 'dev' %}<button class="btn btn-sm sp-out" onclick="spAddOpen()"><i class="bi bi-plus-lg"></i> مشكلة يدوي</button>{% endif %}
+        {% if kind == 'dev' %}<button class="btn btn-sm sp-out" onclick="spAddOpen()"><i class="bi bi-plus-lg"></i> مشكلة يدوي</button>
+        <button class="btn btn-sm sp-out" onclick="tkOpen()" title="إعدادات موقع التيكتات"><i class="bi bi-gear"></i></button>
+        <button class="btn btn-sm sp-teal" onclick="tkMake(selIds())"><i class="bi bi-ticket-perforated"></i> اعمل تذكرة دعم للمحدد</button>{% endif %}
         <select id="spBulk" class="form-select form-select-sm" style="width:auto" onchange="spBulk(this.value)"><option value="">غيّر حالة المحدد…</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
         <button class="btn btn-sm sp-out" onclick="spCopy()"><i class="bi bi-clipboard"></i> {{ 'انسخ نص' if kind == 'dev' else 'انسخ للإصلاح' }}</button>
         <button class="btn btn-sm sp-out" onclick="spExport('xlsx')"><i class="bi bi-file-earmark-excel"></i> Excel</button>
@@ -94,16 +104,29 @@
 {% if kind == 'dev' %}
 <div class="sp-modal" id="spAddBox"><div class="box">
   <div class="d-flex justify-content-between align-items-center mb-2"><b>مشكلة يدوي</b><button class="btn btn-sm btn-outline-secondary" onclick="el('spAddBox').classList.remove('on')">✕</button></div>
-  <div class="row g-2">
-    <div class="col-md-8"><label class="small text-muted">المشكلة</label><input id="aT" class="form-control form-control-sm"></div>
-    <div class="col-md-4"><label class="small text-muted">الخطورة</label><select id="aS" class="form-select form-select-sm"><option>عالية</option><option selected>متوسطة</option><option>منخفضة</option></select></div>
-    <div class="col-md-6"><label class="small text-muted">الشاشة</label><input id="aSc" class="form-control form-control-sm"></div>
-    <div class="col-md-6"><label class="small text-muted">الموقع</label><input id="aSi" class="form-control form-control-sm" dir="ltr"></div>
-    <div class="col-12"><label class="small text-muted">التفاصيل</label><textarea id="aD" class="form-control form-control-sm" rows="3"></textarea></div>
-    <div class="col-12"><label class="small text-muted">خطوات التكرار</label><textarea id="aSt" class="form-control form-control-sm" rows="2"></textarea></div>
-    <div class="col-12"><label class="small text-muted">الدليل</label><input id="aE" class="form-control form-control-sm"></div>
+  <div class="sp-grid">
+    <div><label class="small text-muted">المشكلة</label><input id="aT" class="form-control form-control-sm"></div>
+    <div><label class="small text-muted">الخطورة</label><select id="aS" class="form-select form-select-sm"><option>عالية</option><option selected>متوسطة</option><option>منخفضة</option></select></div>
+    <div><label class="small text-muted">الشاشة</label><input id="aSc" class="form-control form-control-sm"></div>
+    <div><label class="small text-muted">الموقع</label><input id="aSi" class="form-control form-control-sm" dir="ltr"></div>
+    <div class="full"><label class="small text-muted">التفاصيل</label><textarea id="aD" class="form-control form-control-sm" rows="3"></textarea></div>
+    <div class="full"><label class="small text-muted">خطوات التكرار</label><textarea id="aSt" class="form-control form-control-sm" rows="2"></textarea></div>
+    <div class="full"><label class="small text-muted">الدليل</label><input id="aE" class="form-control form-control-sm"></div>
   </div>
   <div class="d-flex justify-content-end mt-3"><button class="btn btn-sm sp-teal" onclick="spAdd()">إضافة</button></div>
+</div></div>
+{% endif %}
+{% if kind == 'dev' %}
+<div class="sp-modal" id="tkBox"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><b>🎫 إعدادات تذاكر الدعم (موقع الـ ERP الأساسي)</b><button class="btn btn-sm btn-outline-secondary" onclick="el('tkBox').classList.remove('on')">✕</button></div>
+  <div class="small text-muted mb-2">التذكرة بتتعمل في شاشة «إضافة تذكرة جديدة» (/Tickets/Create) باليوزر ده: العنوان والوصف (التفاصيل وخطوات التكرار والدليل ورابط التقرير) ولينك الشاشة والأولوية والصعوبة حسب خطورة المشكلة. الباسورد بيتحفظ مشفر.</div>
+  <div class="sp-grid">
+    <div class="full"><label class="small text-muted">رابط الموقع</label><input id="tkU" class="form-control form-control-sm" dir="ltr"></div>
+    <div><label class="small text-muted">اليوزر</label><input id="tkN" class="form-control form-control-sm" dir="ltr" autocomplete="off"></div>
+    <div><label class="small text-muted">الباسورد <span id="tkHas"></span></label><input id="tkP" type="password" class="form-control form-control-sm" dir="ltr" autocomplete="new-password" placeholder="سيبه فاضي علشان يفضل زي ما هو"></div>
+    <div class="full"><div class="form-check"><input class="form-check-input" type="checkbox" id="tkC"><label class="form-check-label small" for="tkC">المشاكل «عالية» تتعمل بأولوية «حرج» (غير كده: عالية ← مرتفع · متوسطة ← متوسط · منخفضة ← منخفض)</label></div></div>
+  </div>
+  <div class="d-flex justify-content-end mt-3"><button class="btn btn-sm sp-teal" onclick="tkSave()">حفظ</button></div>
 </div></div>
 {% endif %}
 {% endblock %}
@@ -140,7 +163,8 @@ function spRender() {
     <td><input type="checkbox" class="form-check-input spx" value="${i.id}"></td><td>${i.n}</td>
     <td><span class="sp-sev ${SEV[i.severity] || 'l'}">${esc(i.severity)}</span></td>
     <td><div class="sp-t" onclick="spMore('${i.id}')">${esc(i.title)}</div>
-      <div class="sp-sub">${esc(KIND === 'dev' ? i.source : i.kind)} · ${i.count > 1 ? `اتكررت ${i.count} مرة · ` : ''}آخر ظهور ${esc(i.last)}${i.auto_fixed && !closed(i) ? ' · <span class="sp-fixed">آخر تشغيل نجح</span>' : ''}</div>
+      <div class="sp-sub">${esc(KIND === 'dev' ? i.source : i.kind)} · ${i.count > 1 ? `اتكررت ${i.count} مرة · ` : ''}آخر ظهور ${esc(i.last)}${i.auto_fixed && !closed(i) ? ' · <span class="sp-fixed">آخر تشغيل نجح</span>' : ''}
+        ${KIND === 'dev' ? (i.ticket ? ` · <a class="sp-tk" href="${esc(i.ticket.url)}" target="_blank">🎫 تذكرة ${esc(i.ticket.id || '')} · ${esc(i.ticket.at || '')}</a>` : ` · <a href="#" class="sp-tk" onclick="event.preventDefault();tkMake(['${i.id}'])">🎫 اعمل تذكرة</a>`) : ''}</div>
       <div class="sp-more" id="m_${i.id}">${more(i)}</div></td>
     <td><div>${esc(KIND === 'dev' ? i.screen : i.test)}</div><div class="sp-sub" dir="ltr" style="text-align:right">${esc(i.site)}</div></td>
     <td><select class="form-select form-select-sm" onchange="spSet('${i.id}', {status: this.value})">${STATUSES.map(s => `<option ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
@@ -201,6 +225,29 @@ async function spAdd() {
     body: JSON.stringify({title: v('aT'), severity: v('aS'), screen: v('aSc'), site: v('aSi'), details: v('aD'), steps: v('aSt'), evidence: v('aE')})}).then(x => x.json());
   if (!r.success) { alert(r.error); return; }
   el('spAddBox').classList.remove('on'); spLoad();
+}
+async function tkOpen() {
+  const r = await fetch('/api/support/tickets/config').then(x => x.json()); const c = r.config || {};
+  el('tkU').value = c.base_url || ''; el('tkN').value = c.username || ''; el('tkP').value = ''; el('tkC').checked = !!c.critical_high;
+  el('tkHas').textContent = c.has_password ? '(محفوظ ✓)' : '(مش محفوظ)'; el('tkBox').classList.add('on');
+}
+async function tkSave() {
+  const body = {base_url: el('tkU').value.trim(), username: el('tkN').value.trim(), critical_high: el('tkC').checked};
+  if (el('tkP').value) body.password = el('tkP').value;
+  const r = await fetch('/api/support/tickets/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(x => x.json());
+  el('tkP').value = ''; if (r.success) el('tkBox').classList.remove('on');
+}
+async function tkMake(ids) {
+  if (!ids.length) { alert('حدد المشاكل الأول (أو دوس «🎫 اعمل تذكرة» جنب المشكلة)'); return; }
+  const had = ITEMS.filter(i => ids.includes(i.id) && i.ticket).length;
+  if (!confirm(`هيتعمل ${ids.length - had} تذكرة دعم على موقع الـ ERP الأساسي${had ? ` (و${had} ليهم تذكرة قبل كده هيتسابوا)` : ''}. نكمل؟`)) return;
+  el('spSel').textContent = '⏳ بعمل التذاكر…';
+  const r = await fetch('/api/support/tickets/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids})}).then(x => x.json()).catch(e => ({error: String(e)}));
+  if (!r.success) { alert(r.error || 'حصل خطأ'); spCount(); return; }
+  const bad = r.results.filter(x => !x.ok && x.error !== 'ليها تذكرة قبل كده');
+  alert(`✅ اتعمل ${r.made} تذكرة` + (bad.length ? `\n❌ ${bad.length} ماتعملتش:\n` + bad.map(x => '• ' + x.error).slice(0, 5).join('\n') : ''));
+  if (bad.some(x => /إعدادات التيكتات/.test(x.error))) tkOpen();
+  spLoad();
 }
 spLoad();
 </script>

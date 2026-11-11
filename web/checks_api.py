@@ -644,7 +644,8 @@ def api_bizcases():
               "active": p.get("id") == data.get("active_profile"), "data": B.load_data(p.get("base_url", ""))} for p in data.get("profiles", [])]
     screens = [{k: v for k, v in c.items() if k != "cases"} | {"cases": [{x: y for x, y in cc.items()} for cc in c["cases"]],
                "last": last.get(code, {}), "runs": runs.get(code, [])} for code, c in cat.items()]
-    return jsonify({"success": True, "screens": screens, "sites": sites, "symbols": B.SYMBOLS})
+    from engine import biz_addons
+    return jsonify({"success": True, "screens": screens, "sites": sites, "symbols": B.SYMBOLS, "addons": biz_addons.catalog()})
 
 
 @bp.route("/api/bizcases/data", methods=["POST"])
@@ -704,8 +705,11 @@ def api_bizcases_run():
     else:
         key, name = "bizcases_multi", "📚 سيناريوهات ورا بعض: " + " ← ".join(cat[x["screen"]]["name"] for x in screens) + f" ({n} حالة)"
     try:
+        addons = [a for a in (d.get("addons") or []) if isinstance(a, str)]
+        if addons:
+            name += " + " + str(len(addons)) + " اختبار إضافي"
         saved = C.save({"key": key, "type": "bizcases", "screen": screens[0]["screen"], "cases": screens[0]["cases"],
-                        "screens": screens, "name_ar": name})
+                        "screens": screens, "addons": addons, "name_ar": name})
     except C.ConfigError as e:
         return jsonify({"success": False, "error": str(e)}), 400
     from web.queue_manager import get_manager

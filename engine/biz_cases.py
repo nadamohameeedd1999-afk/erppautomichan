@@ -349,10 +349,10 @@ def _open(driver, path):
     time.sleep(2.5)
 
 
-def _save(driver, fn, path_before):
+def _save(driver, fn, path_before, times=1):
     """click save through the screen's own function. The page often navigates to the list, and some screens save without any
     message, so the dialogs AND the save request's answer are kept in sessionStorage. → (ok, messages, saved_id, silent)"""
-    _js(driver, "sessionStorage.removeItem('__nq_sw'); N.sw = []; setTimeout(() => { try { const f = window[A[0]]; f ? f() : N.log('err | مفيش دالة حفظ ' + A[0]); } catch (e) { N.log('err | ' + e); } }, 50); return 1;", fn)
+    _js(driver, "sessionStorage.removeItem('__nq_sw'); N.sw = []; for (let i = 0; i < A[1]; i++) setTimeout(() => { try { const f = window[A[0]]; f ? f() : N.log('err | مفيش دالة حفظ ' + A[0]); } catch (e) { N.log('err | ' + e); } }, 50 + i * 300); return 1;", fn, times)
     log, path, t0 = [], path_before, time.time()
 
     def moved(p):
@@ -433,6 +433,7 @@ class Case:
         self.evidence = []
         self.journal = []
         self.plain = ""
+        self.spec = {}
 
     def chk(self, name, ok, actual, expected=""):
         m = re.search(r"\s*\(المتوقع ([^)]*)\)", actual or "")
@@ -495,8 +496,17 @@ def _missing(data, names):
     return [n for n in names if not str(data.get(n) or "").strip()]
 
 
-def run_invoice(driver, code, c, data, day):
+def run_invoice(driver, code, c, data, day, opts=None):
+    """opts (used by the add-on tests): qty · disc (invoice discount %) · double (save clicked twice) · reject (the save must be refused)"""
     P, s, k = PROFILES[code], spec(code, c), Case(c)
+    opts = opts or {}
+    if opts.get("qty") or opts.get("disc"):
+        s["qty"] = float(opts.get("qty") or s["qty"])
+        net = round(s["qty"] * s["price"] * (1 - float(opts.get("disc") or 0) / 100), 2)
+        vat = round(net * s["tax"] / 100, 2)
+        s.update({"net": net, "vat": vat, "total": round(net + vat, 2), "stock": (P["sign"] * s["qty"]) if s["auto"] else 0.0})
+        if s["pay"] == "CASH":
+            s["paid"] = s["total"]
     miss = _missing(data, ["D1", "W1", "A", P["sym"]] + (["K1"] if s["pay"] in ("CASH", "MIXED") else []))
     if miss:
         return k.done(BDATA, "ناقص في ملف بيانات الموقع: " + ", ".join(miss))
@@ -557,6 +567,16 @@ def run_invoice(driver, code, c, data, day):
     b["item"] = item_id
     b["stock"] = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], item_id) if item_id else None
     k.evidence.append(f"السطر: {(a.get('rows') or [{}])[-1].get('item', '')} (Id {item_id}) × {s['qty']:g} بسعر {_f(s['price'])} · رصيد W1 قبل الحفظ {b['stock']}")
+    if opts.get("disc"):
+        dd = _js(driver, r"""
+          const [pct] = A; const e = document.getElementById('VoucherDiscountPercentage'); if (!e) return {err: 'خانة خصم الفاتورة % مش موجودة في الشاشة'};
+          $(e).val(pct).trigger('input').trigger('change').trigger('keyup').trigger('blur'); await N.w(1500);
+          if (typeof CalculateTotals === 'function') { try { CalculateTotals(); } catch (x) {} await N.w(1500); }
+          return {disc: N.num('VoucherDiscountValue') || N.num('DiscountValue'), pct: N.num('VoucherDiscountPercentage')};
+        """, opts["disc"])
+        if dd.get("err"):
+            return k.done(BCAP, dd["err"])
+        k.evidence.append(f"خصم الفاتورة {opts['disc']:g}% → قيمة الخصم على الشاشة {_f(dd.get('disc'))}")
     # tax + payment
     t = _js(driver, r"""
       const [P, s, box] = A;
@@ -589,8 +609,19 @@ def run_invoice(driver, code, c, data, day):
           f"صافي {_f(tt['net'] or tt['total'])} · ضريبة {_f(tt['vat'])} · إجمالي {_f(tt['after'])} (المتوقع {_f(s['net'])} / {_f(s['vat'])} / {_f(s['total'])})")
     if t["req"]:
         return k.done(BDATA, "حقول إلزامية فاضية مالهاش قيمة في ملف البيانات: " + ", ".join(t["req"]))
-    # save (once)
-    ok, log, sid, silent = _save(driver, P["save"], P["path"])
+    # save (once — or twice quickly for the double-save add-on)
+    ok, log, sid, silent = _save(driver, P["save"], P["path"], times=2 if opts.get("double") else 1)
+    if opts.get("reject"):
+        n = _js(driver, "const [ctrl, before] = A; const all = await N.ids(ctrl); return Object.keys(all).filter(i => !before.includes(i));", P["ctrl"], b["ids"])
+        st = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], b["item"]) if b.get("item") else None
+        msg = " · ".join(log)[:300]
+        k.chk("الرفض", not ok and not n, ("اترفض: " + (msg or "من غير رسالة")) if not ok and not n else f"اتحفظ (مستند Id {sid or ', '.join(n)}) — الـ ERP قبل كمية أكبر من الرصيد",
+              "الحفظ يترفض ومفيش مستند")
+        if b.get("stock") is not None and st is not None:
+            k.chk("الرصيد ما اتغيرش", _close(st, b["stock"], 1e-6), f"قبل {b['stock']} · بعد {st}", f"{b['stock']}")
+        if ok:
+            k.doc_id = sid or (n[0] if n else "")
+        return k.done()
     if not ok:
         msg = " · ".join(log)[:400] or "مفيش رد"
         if re.search(r"الحد الائتماني|الائتمان", msg) and code == "SAL":
@@ -641,7 +672,8 @@ def run_invoice(driver, code, c, data, day):
     else:
         k.evidence.append("رصيد الصنف: الـ ERP مارجّعش الكمية")
     # journal
-    _journal(driver, k, P, day, k.doc_id, exp_total=s["total"], exp_vat=s["vat"], exp_cash=s["paid"])
+    _journal(driver, k, P, day, k.doc_id, exp_total=None if opts.get("disc") else s["total"], exp_vat=s["vat"], exp_cash=s["paid"])
+    k.spec = s
     return k.done()
 
 
@@ -663,7 +695,8 @@ def _journal(driver, k, P, day, op, exp_total, exp_vat=None, exp_cash=None):
     k.journal = [{"je": x["je"], "acc": x["acc"].strip(), "d": x["d"], "c": x["c"]} for x in mine]
     k.evidence.append("القيد " + str(mine[0]["je"]) + ": " + " · ".join(f"{x['acc'].strip()[:40]} م{_f(x['d'])} د{_f(x['c'])}" for x in mine if x["d"] or x["c"]))
     k.chk("القيد متزن", _close(d, c), f"مدين {_f(d)} · دائن {_f(c)}")
-    k.chk("قيمة القيد", _close(d, exp_total), f"{_f(d)} (المتوقع {_f(exp_total)})")
+    if exp_total is not None:
+        k.chk("قيمة القيد", _close(d, exp_total), f"{_f(d)} (المتوقع {_f(exp_total)})")
     if exp_vat is not None:
         vat = round(sum(x["d"] + x["c"] for x in mine if re.search(r"ضريب|VAT", x["acc"], re.I)), 2)
         k.chk("ضريبة القيد", _close(vat, exp_vat), f"{_f(vat)} (المتوقع {_f(exp_vat)})")
@@ -780,6 +813,7 @@ def run_return(driver, code, c, data, day):
         dlt = round(float(st) - float(t["stock"]), 6)
         k.chk("كارت الصنف A في W1", _close(dlt, s["stock"], 1e-6), f"قبل {t['stock']} · بعد {st} · الفرق {dlt:g} (المتوقع {s['stock']:g})")
     _journal(driver, k, P, day, k.doc_id, exp_total=s["total"], exp_vat=s["vat"])
+    k.spec = s
     if s.get("left") is not None:
         h2 = open_linked()
         r2 = h2.get("rows") or []
@@ -788,8 +822,9 @@ def run_return(driver, code, c, data, day):
     return k.done()
 
 
-def run_voucher(driver, code, c, data, day):
+def run_voucher(driver, code, c, data, day, opts=None):
     P, s, k = PROFILES[code], spec(code, c), Case(c)
+    opts = opts or {}
     miss = _missing(data, ["D1", "K1", P["sym"]])
     if miss:
         return k.done(BDATA, "ناقص في ملف بيانات الموقع: " + ", ".join(miss))
@@ -819,7 +854,7 @@ def run_voucher(driver, code, c, data, day):
     if h["req"]:
         return k.done(BDATA, "حقول إلزامية فاضية: " + ", ".join(h["req"]))
     k.evidence.append(f"الطرف {P['sym']}={h['party']} · نقدي من K1={data['K1']} · المبلغ {_f(h['amount'])} · بدون تخصيص فواتير" + (f" · نوع المستند «{h['adoc']}»" if h.get("adoc") else ""))
-    ok, log, sid, silent = _save(driver, P["save"], P["path"])
+    ok, log, sid, silent = _save(driver, P["save"], P["path"], times=2 if opts.get("double") else 1)
     if not ok:
         k.chk("الحفظ", False, "الـ ERP رفض: " + (" · ".join(log)[:400] or "مفيش رد"))
         return k.done()
@@ -848,6 +883,7 @@ def run_voucher(driver, code, c, data, day):
         except (TypeError, ValueError):
             pass
     _journal(driver, k, P, day, k.doc_id, exp_total=s["amount"], exp_cash=s["amount"])
+    k.spec = s
     return k.done()
 
 
@@ -904,6 +940,10 @@ def run_cases(driver, credentials, cfg, result=None):
             k = out[c["id"]]
             k.plain = describe(code, c)
             logger.info(f"{'✅' if k.status == PASS else ('❌' if k.status == FAIL else '⚪')} {c['id']} {k.status} — {k.actual[:200]}")
+        keys = [x for x in (cfg.get("addons") or []) if x]
+        if keys:
+            from engine import biz_addons
+            out.update(biz_addons.run(driver, cat, out, data, day, keys))
         groups.append((cat, out))
     return _finish(result, groups, data, BASE_URL, credentials)
 

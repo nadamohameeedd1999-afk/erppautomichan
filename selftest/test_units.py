@@ -271,3 +271,60 @@ def test_biz_multi_screens_config_and_report(tmp_path):
     f = biz_report.build_many(g, {}, "https://x.test", "a", tmp_path / "m.docx", B.SYMBOLS, B.NAMES)
     t = "\n".join(p.text for p in docx.Document(f).paragraphs)
     assert "النتيجة لكل شاشة" in t and "ملخص الحالات — فاتورة المشتريات" in t and "ناجح — الـ 2 حالة" in t
+
+
+def test_biz_addons_catalog_and_config():
+    from engine import biz_addons as A, checks as C
+    cat = {a["key"]: a for a in A.catalog()}
+    assert cat["edit"]["default"] and set(cat["edit"]["screens"]) >= {"SAL", "PUR", "SRT", "PRT", "CRV", "CPV"}
+    assert cat["overstock"]["screens"] == ["SAL"] and set(cat["discount"]["screens"]) == {"SAL", "PUR"}
+    assert "SRT" not in cat["double"]["screens"]
+    c = C.normalize({"key": "bizcases_sal", "type": "bizcases", "screen": "SAL", "addons": ["edit", "x", "print"]})
+    assert c["addons"] == ["edit", "print"]
+
+
+def test_tickets_login_and_create(tmp_path, monkeypatch):
+    from web import tickets as T
+    import requests
+    monkeypatch.setattr(T, "_file", lambda: tmp_path / "t.json")
+    monkeypatch.setattr("utils.secret_box.encrypt", lambda v: "enc:" + v[::-1])
+    monkeypatch.setattr("utils.secret_box.decrypt", lambda v: v[4:][::-1] if str(v).startswith("enc:") else v)
+    assert T.save({"username": "FSTester", "password": "pw-secret"})["has_password"]
+    assert "pw-secret" not in (tmp_path / "t.json").read_text()
+    sent = {}
+
+    class R:
+        def __init__(self, url, text="", js=None, status=200, headers=None):
+            self.url, self.text, self._js, self.status_code, self.headers = url, text, js, status, headers or {}
+
+        def json(self):
+            return self._js
+
+    class S:
+        headers = {}
+
+        def get(self, url, params=None, timeout=None):
+            if "SearchSystemPages" in url:
+                return R(url, js={"results": [{"id": 2085, "code": "CashReceiptVoucherDetails_Report"}, {"id": 22, "code": "CashReceiptVoucher"}]})
+            if "GetLoginData" in url:
+                return R(url, js={"success": True, "deptId": "4", "activityId": "1"})
+            if "GetBranches" in url:
+                return R(url, js={"isok": 1, "data": [{"code": "4"}]})
+            return R(url, '<input name="__RequestVerificationToken" type="hidden" value="TOK123" />')
+
+        def post(self, url, data=None, files=None, timeout=None, allow_redirects=True):
+            if "Login" in url:
+                sent["login"] = data
+                return R("https://nq-ts.premiumasp.net/Tickets/Create", "<form>")
+            sent["ticket"] = dict((k, v[1]) for k, v in files)
+            return R(url, status=302, headers={"Location": "/Tickets/Details/991"})
+    monkeypatch.setattr(requests, "Session", S)
+    it = {"title": "سند القبض بيترفض", "screen": "سند القبض", "severity": "عالية", "details": "x", "steps": "افتح /CashReceiptVoucher/AddEdit",
+          "evidence": "", "site": "test-site-nq.premiumasp.net", "count": 1, "last": "2026-11-11"}
+    t = T.create(it, "https://dash/reports/r1")
+    assert t["ok"] and t["id"] == "991" and t["url"].endswith("/Tickets/Details/991")
+    assert sent["login"]["act"] == "1" and sent["login"]["brn"] == "4" and sent["login"]["password"] == "pw-secret"
+    tk = sent["ticket"]
+    assert tk["__RequestVerificationToken"] == "TOK123" and tk["Priority"] == "2" and tk["Title"].startswith("[اختبار آلي] سند القبض")
+    assert tk["SystemPageId"] == "22"
+    assert tk["PageUrl"] == "https://test-site-nq.premiumasp.net/CashReceiptVoucher/AddEdit" and "https://dash/reports/r1" in tk["Description"]

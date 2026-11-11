@@ -225,6 +225,7 @@ def _finish(store, kind):
         s = st.get(it["id"]) or {}
         it["status"] = s.get("status") or ("اتصلح" if it.get("fixed") and kind == "dev" else "جديد")
         it["note"] = s.get("note", "")
+        it["ticket"] = s.get("ticket")
         it["auto_fixed"] = bool(it.get("fixed"))
         out.append(it)
     out.sort(key=lambda x: x.get("last", ""), reverse=True)
@@ -643,3 +644,55 @@ def api_bundle(kind):
     dev, tool = collect()
     items = _filter(dev if kind == "dev" else tool, request.args)
     return jsonify({"success": True, "text": bundle(kind, items)})
+
+
+# ------------------------------------------------------------------ 🎫 tickets on the main ERP
+@bp.route("/api/support/tickets/config", methods=["GET", "POST"])
+@auth.login_required
+def api_tickets_config():
+    from web import tickets
+    if request.method == "POST":
+        return jsonify({"success": True, "config": tickets.save(request.get_json(silent=True) or {})})
+    return jsonify({"success": True, "config": tickets.public()})
+
+
+@bp.route("/api/support/tickets/create", methods=["POST"])
+@auth.login_required
+def api_tickets_create():
+    from web import tickets
+    d = request.get_json(silent=True) or {}
+    ids = [x for x in (d.get("ids") or []) if x][:30]
+    if not ids:
+        return jsonify({"success": False, "error": "حدد مشكلة واحدة على الأقل"}), 400
+    dev, _tool = collect()
+    items = {i["id"]: i for i in dev}
+    st = _load("support_status.json", {})
+    out = []
+    for iid in ids:
+        it = items.get(iid)
+        if not it:
+            out.append({"id": iid, "ok": False, "error": "المشكلة مش موجودة"})
+            continue
+        if (st.get(iid) or {}).get("ticket") and not d.get("again"):
+            out.append({"id": iid, "ok": False, "error": "ليها تذكرة قبل كده", "ticket": st[iid]["ticket"]})
+            continue
+        link = (request.host_url.rstrip("/") + f"/reports/{it['run_id']}") if it.get("run_id") else ""
+        try:
+            t = tickets.create(it, link)
+        except tickets.TicketError as e:
+            out.append({"id": iid, "ok": False, "error": str(e)})
+            if "تسجيل الدخول" in str(e) or "اكتب يوزر" in str(e) or "مش بيرد" in str(e):
+                break
+            continue
+        except Exception as e:
+            out.append({"id": iid, "ok": False, "error": f"خطأ: {str(e)[:200]}"})
+            continue
+        cur = st.get(iid, {})
+        t["by"] = (auth.current_user() or {}).get("username", "")
+        cur["ticket"] = t
+        if cur.get("status") in (None, "", "جديد"):
+            cur["status"] = "اتبلغ للمطور"
+        st[iid] = cur
+        _save("support_status.json", st)
+        out.append({"id": iid, "ok": True, "ticket": t})
+    return jsonify({"success": True, "results": out, "made": sum(1 for x in out if x["ok"])})
