@@ -31,6 +31,7 @@ TYPES = {
     "perf": ("⚡", "سرعة الشاشات", "يقيس وقت فتح كل شاشة وينبه لو بقت أبطأ من العادي"),
     "books": ("⚖️", "مطابقة الحسابات", "يقرا ميزان المراجعة من الموقع نفسه ويتأكد: مدين = دائن (أول المدة، الحركة، الرصيد) وكل حساب أب = مجموع الفرعي"),
     "api": ("🔌", "اختبار الـ API", "ينادي طلبات البيانات اللي الشاشات بتعملها (قراءة بس): 200، JSON، السرعة، والحقول زي آخر مرة — + اختبار حمل على مواقع الاختبار"),
+    "biz": ("📋", "سيناريو أعمال", "سيناريو المطور كامل زي المختبر بالظبط (فاتورة بيع آجلة بخصم وضريبة: حفظ، إعادة فتح، طباعة، تعديل، المخزن، القيد + الحالات الإضافية) ويملا نموذج الورد"),
     "sod": ("🛡️", "الصلاحيات والفصل بين المهام", "يقرا صلاحيات كل مستخدم ومجموعته من الموقع (قراءة بس) ويطلع اللي يقدر يعمل الدورة كلها لوحده: مورد + دفع، بيع + تحصيل، جرد + صرف، وتعديل الصلاحيات"),
     "cleanup": ("🧹", "تنظيف بيانات الاختبار", "يحذف السجلات اللي الاختبارات عملتها ومقدرتش تحذفها"),
     "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
@@ -200,6 +201,20 @@ def normalize(cfg):
                     "load_users": max(0, min(50, int(cfg.get("load_users", 0) or 0))), "load_rounds": max(1, min(10, int(cfg.get("load_rounds", 3) or 3))),
                     "load_endpoints": max(1, min(20, int(cfg.get("load_endpoints", 5) or 5))),
                     "load_p95_ms": max(200.0, float(cfg.get("load_p95_ms", 5000) or 5000))})
+    elif typ == "biz":
+        its = []
+        for i in (cfg.get("items") or [])[:2]:
+            try:
+                its.append({"code": str(i.get("code") or "").strip(), "qty": float(i.get("qty") or 0), "price": float(i.get("price") or 0)})
+            except (TypeError, ValueError):
+                raise ConfigError("كمية / سعر الصنف لازم يبقوا أرقام")
+        if len(its) < 2 or not all(i["code"] and i["qty"] > 0 and i["price"] > 0 for i in its):
+            raise ConfigError("حددي صنفين: الكود (الباركود) والكمية والسعر لكل واحد")
+        out.update({"template": "sales_invoice_credit", "items": its,
+                    "qty_edit": float(cfg.get("qty_edit") or its[0]["qty"] + 2), "discount_pct": float(cfg.get("discount_pct", 10) or 0),
+                    "customer": str(cfg.get("customer") or "").strip(), "department": str(cfg.get("department") or "").strip(),
+                    "warehouse": str(cfg.get("warehouse") or "").strip(), "cases": bool(cfg.get("cases", True))})
+
     elif typ == "sod":
         out.update({"allow": [x for x in _list(cfg.get("allow")) if "|" in x], "max_users": max(1, min(1000, int(cfg.get("max_users", 200) or 200)))})
 

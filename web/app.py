@@ -302,6 +302,22 @@ def reports():
     )
 
 
+@app.route("/reports/<run_id>/word")
+@auth.login_required
+def report_word(run_id):
+    """📋 the developer's Word form filled by a business-scenario run"""
+    from flask import abort
+    from engine.check_runner import load_detail
+    from config import paths as _p
+    d = load_detail(run_id) or {}
+    f = ((d.get("biz") or {}).get("word")) or ""
+    fp = Path(f) if f else None
+    if not fp or not fp.exists() or _p.RESULTS_DIR.resolve() not in fp.resolve().parents:
+        abort(404)
+    from flask import send_file
+    return send_file(str(fp), as_attachment=True, download_name=f"SalesInvoice-Test-Execution-{run_id}.docx")
+
+
 @app.route("/reports/<run_id>")
 @auth.login_required
 def report_detail(run_id):

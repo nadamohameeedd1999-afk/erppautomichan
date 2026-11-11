@@ -29,7 +29,7 @@ def load_config():
 # or Resend (key «re_…», needs your own domain to send to anyone).
 def _api_key(config):
     import os
-    return (config.get("api_key") or os.getenv("BREVO_API_KEY") or os.getenv("RESEND_API_KEY") or "").strip()
+    return "".join((config.get("api_key") or os.getenv("BREVO_API_KEY") or os.getenv("RESEND_API_KEY") or "").split())
 
 
 def _deliver(config, recipients, subject, html, files=()):
@@ -38,6 +38,9 @@ def _deliver(config, recipients, subject, html, files=()):
     key = _api_key(config)
     sender = (config.get("sender_email") or "").strip()
     files = [Path(f) for f in files if f]
+    if key.startswith("xsmtpsib-"):
+        raise RuntimeError("ده «مفتاح SMTP» من Brevo (بيبدأ بـ xsmtpsib-) — والـ SMTP مقفول على Railway. "
+                           "المطلوب «مفتاح API»: Brevo ← SMTP & API ← تبويب API Keys ← Generate a new API key (بيبدأ بـ xkeysib-)")
     if key:
         import requests
         att = [(f.name, base64.b64encode(f.read_bytes()).decode()) for f in files]
@@ -51,6 +54,12 @@ def _deliver(config, recipients, subject, html, files=()):
             if att:
                 body["attachment"] = [{"name": n, "content": c} for n, c in att]
             r = requests.post("https://api.brevo.com/v3/smtp/email", json=body, headers={"api-key": key, "accept": "application/json"}, timeout=30)
+        if r.status_code == 401:
+            raise RuntimeError("Brevo رفض المفتاح (401 Key not found): المفتاح غلط أو اتمسح أو اتنسخ ناقص — "
+                               "اعملي مفتاح API جديد (بيبدأ بـ xkeysib-) والصقيه كامل من غير مسافات" if not key.startswith("re_")
+                               else "Resend رفض المفتاح (401) — اتأكدي إنه كامل وشغال")
+        if r.status_code == 400 and "sender" in r.text.lower():
+            raise RuntimeError(f"Brevo رفض المرسل «{sender}» — لازم يتضاف ويتأكد في Brevo ← Senders & IP ← Senders")
         if r.status_code >= 300:
             raise RuntimeError(f"خدمة الإيميل ردت {r.status_code}: {r.text[:200]}")
         return

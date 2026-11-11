@@ -33,6 +33,13 @@ class LoginPage(BasePage):
         time.sleep(0.5)
 
     def click_login(self):
+        for _ in range(30):                      # the page disables the button while it loads activities / branches
+            try:
+                if not self.driver.execute_script("var b = document.querySelector('button[type=submit],input[type=submit]'); return !!(b && b.disabled);"):
+                    break
+            except Exception:
+                break
+            time.sleep(1)
         self.click(self.LOGIN_BUTTON, "زر تسجيل الدخول")
 
     # ==================== Select2 Dropdowns ====================
@@ -61,6 +68,7 @@ class LoginPage(BasePage):
             logger.info(f"⏭️ مفيش [{label}] في شاشة الدخول على الموقع ده — بكمل")      # e.g. aquapure: no 15 s wait for nothing
             return True
         
+        self._wait_lookups(select2_id, timeout=max(timeout, 30))
         try:
             # ═══ 1) فتح الـ dropdown ═══
             # الـ container اللي بيتداس عليه
@@ -71,8 +79,10 @@ class LoginPage(BasePage):
                     EC.element_to_be_clickable((By.CSS_SELECTOR, container_selector))
                 )
             except TimeoutException:
-                logger.warning(f"❌ مش لاقي [{label}] - الـ container مش موجود")
-                return False
+                # no clickable Select2 box (slow site / another Select2 build / hidden): pick in the <select> itself —
+                # NQ ERP's login also fills the user's own activity + branch by itself (GetLoginData), which counts as chosen
+                logger.info(f"⚠️ [{label}]: مش لاقي صندوق Select2 يتداس — هختار من القايمة نفسها")
+                return self._select_first_option_js(select2_id, label, want)
             
             # ندوس على الـ parent (span.select2-selection)
             try:
@@ -142,11 +152,13 @@ class LoginPage(BasePage):
                 break
             
             if not chosen and want:
-                logger.error(f"❌ مالقيتش «{want}» في [{label}] — الموجود: {[o.text.strip() for o in options if o.text.strip()]}")
                 try:
                     self.driver.find_element(By.TAG_NAME, "body").click()
                 except Exception:
                     pass
+                if self._select_first_option_js(select2_id, label, want):      # «want» may be the option's value (e.g. «1»)
+                    return True
+                logger.error(f"❌ مالقيتش «{want}» في [{label}] — الموجود: {[o.text.strip() for o in options if o.text.strip()]}")
                 return False
             if not chosen:
                 logger.warning(f"⚠️ مفيش عنصر حقيقي في [{label}]")
@@ -176,6 +188,25 @@ class LoginPage(BasePage):
                 pass
             return False
 
+    def _wait_lookups(self, select_id: str, timeout: int = 30):
+        """slow sites: wait until the login page finished loading the user's activities / branches
+        (the <select> has a real option and the sign-in button isn't «busy»)"""
+        end = time.time() + timeout
+        while time.time() < end:
+            try:
+                st = self.driver.execute_script(r"""
+                    var s = document.getElementById(arguments[0]); if (!s) return 'none';
+                    var real = Array.from(s.options).some(function (o) { return o.value && !/اختر|select|----/i.test(o.text); });
+                    var btn = document.querySelector('button[type=submit],input[type=submit]');
+                    return real && !(btn && btn.disabled) ? 'ready' : 'wait';""", select_id)
+            except Exception:
+                st = "wait"
+            if st in ("ready", "none"):
+                return st
+            time.sleep(1)
+        logger.info(f"⏳ [{select_id}] لسه بيحمّل بعد {timeout} ث — هكمل")
+        return "timeout"
+
     def _select_first_option_js(self, select_id: str, label: str, want: str = "") -> bool:
         """Fallback: يختار أول عنصر حقيقي في الـ <select> نفسه ويبعت change (زي ما Select2 بيعمل)."""
         result = self.driver.execute_script(r"""
@@ -185,11 +216,12 @@ class LoginPage(BasePage):
             if (!s) return {ok: false, why: 'no-select'};
             var all = Array.from(s.options).map(function (o) { return o.text.trim(); });
             var cur = s.selectedIndex >= 0 && s.options[s.selectedIndex] ? s.options[s.selectedIndex] : null;
-            if (cur && cur.value && !/اختر|select|----/i.test(cur.text) && (!want || N(cur.text).indexOf(N(want)) >= 0)) return {ok: true, text: cur.text.trim(), already: true, all: all};
+            var match = function (o) { return !want || N(o.text).indexOf(N(want)) >= 0 || String(o.value) === String(want).trim(); };   // «1» = the option's value or its text
+            if (cur && cur.value && !/اختر|select|----/i.test(cur.text) && match(cur)) return {ok: true, text: cur.text.trim(), already: true, all: all};
             for (var i = 0; i < s.options.length; i++) {
                 var o = s.options[i], t = o.text.trim();
                 if (!o.value || !t || /اختر|select|بحث|----/i.test(t)) continue;
-                if (want && N(t).indexOf(N(want)) < 0) continue;
+                if (!match(o)) continue;
                 s.selectedIndex = i;
                 if (window.jQuery) { jQuery(s).trigger('change'); } else { s.dispatchEvent(new Event('change', {bubbles: true})); }
                 return {ok: true, text: t, all: all};

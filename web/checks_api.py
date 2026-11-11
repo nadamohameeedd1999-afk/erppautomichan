@@ -540,6 +540,37 @@ def api_sod_save():
     return jsonify(out)
 
 
+# ======================================================== 📋 سيناريوهات الأعمال (نموذج المطور)
+BIZ_KEY = "biz_sales_invoice"
+
+
+@bp.route("/api/biz")
+@auth.login_required
+def api_biz():
+    C = _C()
+    cfg = C.load(BIZ_KEY) if C.exists(BIZ_KEY) else None
+    return jsonify({"success": True, "config": C.public(cfg) if cfg else None, "last": _last_results().get(BIZ_KEY)})
+
+
+@bp.route("/api/biz/save", methods=["POST"])
+@auth.login_required
+def api_biz_save():
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    try:
+        old = C.load(BIZ_KEY) if C.exists(BIZ_KEY) else {}
+        saved = C.save({**old, **(d.get("config") or {}), "key": BIZ_KEY, "type": "biz",
+                        "name_ar": "📋 سيناريو: فاتورة بيع آجلة بخصم وضريبة (19 بند)"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    out = {"success": True, "config": C.public(saved)}
+    if d.get("run"):
+        from web.queue_manager import get_manager
+        from web import sites_api
+        out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(BIZ_KEY), saved["name_ar"], d.get("sites"), source="manual", front=True))
+    return jsonify(out)
+
+
 # ======================================================== 🧹 تنظيف بيانات الاختبار
 CLEAN_KEY = "test_data_cleanup"
 

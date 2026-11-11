@@ -156,3 +156,34 @@ def test_stubborn_stops_on_business_rule():
     assert business_rule("رسالة خطأ: تم تجاوز الحد الائتماني للعميل") == "حد الائتمان"
     assert business_rule("لا يمكن الحفظ: الحساب (1010201001) طبيعته مدينة، والحركة المسجلة عليه دائنة.") == "طبيعة الحساب"
     assert business_rule("حقول إجبارية لسه فاضية: بناء على") == ""
+
+
+def test_biz_sales_invoice_expected_and_word(tmp_path, monkeypatch):
+    from engine import biz_sales_invoice as B
+    e = B.expected([{"qty": 10, "price": 100}, {"qty": 5, "price": 200}], 10, 0.15)
+    assert e == {"total": 2000.0, "disc": 200.0, "net": 1800.0, "tax": 270.0, "after": 2070.0}
+    e2 = B.expected([{"qty": 12, "price": 100}, {"qty": 5, "price": 200}], 10, 0.15)
+    assert (e2["disc"], e2["tax"], e2["after"]) == (220.0, 297.0, 2277.0)
+    from config import paths
+    monkeypatch.setattr(paths, "RESULTS_DIR", tmp_path)
+    run = B.Run({})
+    for i in range(1, 20):
+        run.steps[f"{i:02d}"] = (B.OK if i < 18 else B.NA, [f"الفعلي: بند {i}"])
+    run.facts.update({"invoice_no": "126110024", "invoice_id": "14438", "items": [{"code": "201", "item": "بلك", "qty": 10, "price": 100, "total": 1000},
+                                                                                   {"code": "202", "item": "بلك 2", "qty": 5, "price": 200, "total": 1000}]})
+    out = B.fill_word(run, {B.OK: 17, B.BAD: 0, B.NA: 2})
+    import docx
+    d = docx.Document(out)
+    txt = "\n".join(c.text for t in d.tables for r in t.rows for c in r.cells)
+    assert "126110024" in txt and "بند 7" in txt and "☑ ناجح" in txt and "☑ لم يُختبر" in txt
+
+
+def test_biz_config():
+    from engine import checks as C
+    c = C.normalize({"key": "biz_x", "type": "biz", "name_ar": "x", "items": [{"code": "201", "qty": 10, "price": 100}, {"code": "202", "qty": "5", "price": "200"}]})
+    assert c["qty_edit"] == 12 and c["discount_pct"] == 10 and c["items"][1]["qty"] == 5
+    try:
+        C.normalize({"key": "biz_y", "type": "biz", "name_ar": "y", "items": [{"code": "201", "qty": 1, "price": 1}]})
+        assert False
+    except C.ConfigError:
+        pass
