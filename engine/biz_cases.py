@@ -28,6 +28,12 @@ PROFILES = {
     "PUR": {"path": "/PurchaseInvoice/AddEdit", "ctrl": "PurchaseInvoice", "body": "PurchaseInvoiceDetails", "pay": "PurchaseInvoicePaymentMethods",
             "save": "savePurchaseInvoice", "party": "VendorOrCustomerId", "sym": "V1", "add": "modal", "sign": 1, "voucher": "StockReceiptVoucher",
             "jt": r"شراء", "kind": "invoice", "cash": "c"},
+    "SRT": {"path": "/SalesReturn/AddEdit", "ctrl": "SalesReturn", "body": "SalesReturnsDetails", "pay": "SalesReturnPaymentMethods",
+            "save": "addEdit", "party": "VendorOrCustomerId", "sym": "C1", "origin": "SAL", "link": "select", "sign": 1,
+            "voucher": "StockReceiptVoucher", "jt": r"مرتجع (البيع|المبيعات)", "kind": "return", "cash": "c"},
+    "PRT": {"path": "/PurchaseReturn/AddEdit", "ctrl": "PurchaseReturn", "body": "PurchaseReturnsDetails", "pay": "PurchaseReturnPaymentMethods",
+            "save": "addEdit", "party": "VendorOrCustomerId", "sym": "V1", "origin": "PUR", "link": "number", "sign": -1,
+            "voucher": "StockIssueVoucher", "jt": r"مرتجع (الشراء|المشتريات)", "kind": "return", "cash": "d"},
     "CRV": {"path": "/CashReceiptVoucher/AddEdit", "ctrl": "CashReceiptVoucher", "save": "addEdit", "party": "CustomerId", "sym": "C1",
             "src": "1", "method": "CashReceiptPaymentMethodId", "jt": r"قبض", "kind": "voucher", "cash": "d"},
     "CPV": {"path": "/CashIssueVoucher/AddEdit", "ctrl": "CashIssueVoucher", "save": "addEdit2", "party": "VendorId", "sym": "V1",
@@ -38,6 +44,7 @@ NAMES = {"SAL": "فاتورة المبيعات", "PUR": "فاتورة المشت
 ICONS = {"SAL": "🧾", "PUR": "🛒", "SRT": "↩️", "PRT": "↪️", "CRV": "💰", "CPV": "💸", "TRF": "🔁", "COL": "🏭", "ASM": "🧩"}
 
 MATRIX = re.compile(r"^(NONE|AUTO|ONE|MULTI) ضريبة (\d+) سداد (CREDIT|CASH|MIXED)$")
+RETURN = re.compile(r"^(NONE|AUTO|ONE|MULTI) مرتجع جزئي ضريبة (\d+)$")
 
 
 # ------------------------------------------------------------------ the case files
@@ -104,6 +111,12 @@ def supported(code, c):
             return True, ""
         if m:
             return False, "ربط سند مخزني سابق (ONE/MULTI) — المرحلة الجاية"
+    if code in ("SRT", "PRT"):
+        m = RETURN.match(c["title"])
+        if m and m[1] in ("NONE", "AUTO"):
+            return True, ""
+        if m:
+            return False, "ربط سند مخزني مستقل بالمرتجع (ONE/MULTI) — المرحلة الجاية"
     if code in ("CRV", "CPV") and c["title"] == "CASH توزيع NONE":
         return True, ""
     return False, "لسه مش مؤتمتة — هتتضاف على مراحل"
@@ -120,6 +133,14 @@ def spec(code, c):
                   "qty": num(r"(\d+(?:\.\d+)?) وحدات من A", w, 10), "price": num(r"بسعر (\d+(?:\.\d+)?)", w, 100),
                   "net": num(r"صافي (\d+(?:\.\d+)?)", t), "vat": num(r"ضريبة (\d+(?:\.\d+)?)", t), "total": num(r"إجمالي (\d+(?:\.\d+)?)", t),
                   "paid": num(r"المدفوع (\d+(?:\.\d+)?)", t, 0), "cash": num(r"نقدي (\d+(?:\.\d+)?)", g, 0) if m[3] == "MIXED" else None})
+        s["stock"] = (PROFILES[code]["sign"] * s["qty"]) if s["auto"] else 0.0
+    elif PROFILES[code]["kind"] == "return":
+        m = RETURN.match(c["title"])
+        s.update({"source": m[1], "tax": float(m[2]), "auto": m[1] == "AUTO",
+                  "orig_qty": num(r"فاتورة أصلية (\d+(?:\.\d+)?) وحدات", g, 10), "price": num(r"بسعر (\d+(?:\.\d+)?)", g, 100),
+                  "qty": num(r"واختر (\d+(?:\.\d+)?) وحدات", w, 4),
+                  "net": num(r"صافي المرتجع (\d+(?:\.\d+)?)", t), "vat": num(r"ضريبته (\d+(?:\.\d+)?)", t), "total": num(r"إجماليه (\d+(?:\.\d+)?)", t),
+                  "left": num(r"المتاح للإرجاع من الأصل (\d+(?:\.\d+)?)", t)})
         s["stock"] = (PROFILES[code]["sign"] * s["qty"]) if s["auto"] else 0.0
     else:
         s.update({"amount": num(r"مبلغ السند (\d+(?:\.\d+)?)", t, 1150)})
@@ -184,7 +205,13 @@ N.set = async (id, v, ms) => { $('#' + id).val(v).trigger('change'); await N.w(m
 N.has = (id, v) => [...document.querySelectorAll('#' + id + ' option')].some(o => o.value === String(v));
 N.check = async (id, want, ms) => { const e = document.getElementById(id); if (!e) return null; if (e.checked !== !!want) { e.click(); await N.w(ms || 2500); } return e.checked; };
 N.req = () => [...document.querySelectorAll('input[required],select[required],textarea[required]')]
-   .filter(e => e.offsetParent !== null && !String(e.value).trim()).map(e => e.id || e.name);
+   .filter(e => e.offsetParent !== null && !e.classList.contains('tabledit-input') && !String(e.value).trim()).map(e => e.id || e.name);
+N.dropEmpty = async body => { let n = 0;   // an empty detail row with required cells blocks the save silently (validateAllRequired)
+  for (const tr of [...document.querySelectorAll('#' + body + ' tr')]) {
+    if (tr.offsetParent === null || $(tr).find('.item').val() || $(tr).find('.item-name').val()) continue;
+    if (![...tr.querySelectorAll('[required]')].some(e => !String(e.value).trim())) continue;
+    const d = tr.querySelector('[onclick*="deleteElement"]'); if (d) d.click(); else tr.remove(); n++; await N.w(1200); }
+  return n; };
 N.get = async (u, ms) => { const ac = new AbortController(); setTimeout(() => ac.abort(), ms || 45000);
   const r = await fetch(u, {credentials: 'include', signal: ac.signal}); return await r.text(); };
 N.post = async (u, body, ms) => { const ac = new AbortController(); setTimeout(() => ac.abort(), ms || 45000);
@@ -288,6 +315,8 @@ def _xhr(log):
             j = json.loads(body)
         except Exception:
             j = None
+        if j is True or body.strip().strip('"').lower() == "true":
+            return True, "", ""
         if isinstance(j, dict):
             succ = str(j.get("success", j.get("Success", ""))).lower()
             sid = j.get("id") or j.get("Id") or j.get("ID") or ""
@@ -523,7 +552,119 @@ def _journal(driver, k, P, day, op, exp_total, exp_vat=None, exp_cash=None):
         k.chk("طرف الخزينة", _close(cash, exp_cash), f"{_f(cash)} {'مدين' if side == 'd' else 'دائن'} (المتوقع {_f(exp_cash)})")
     zero = [x for x in mine if not x["d"] and not x["c"]]
     if zero:
-        k.evidence.append(f"ملاحظة: {len(zero)} سطر بصفر في القيد")
+        k.evidence.append(f"ملاحظة: {len(zero)} سطر بصفر في القيد ({', '.join(sorted({x['acc'].strip()[:40] for x in zero}))})")
+
+
+def run_return(driver, code, c, data, day):
+    """partial return linked to an original invoice made for this case (the Given fixture): 10 A at 100, tax 0/15, credit"""
+    P, s, k = PROFILES[code], spec(code, c), Case(c)
+    miss = _missing(data, ["D1", "W1", "A", P["sym"]])
+    if miss:
+        return k.done(BDATA, "ناقص في ملف بيانات الموقع: " + ", ".join(miss))
+    logger.info(f"▶ {c['id']} — {c['title']} (أولًا: الفاتورة الأصلية)")
+    vat0 = round(s["orig_qty"] * s["price"] * s["tax"] / 100, 2)
+    fx_case = {"id": c["id"] + "-أصل", "title": f"NONE ضريبة {s['tax']:g} سداد CREDIT", "given": "",
+               "when": [f"أدخل سطرًا يدويًا {s['orig_qty']:g} وحدات من A بسعر {s['price']:g}."],
+               "then": f"صافي {s['orig_qty'] * s['price']:g}؛ ضريبة {vat0:g}؛ إجمالي {s['orig_qty'] * s['price'] + vat0:g}؛ المدفوع 0."}
+    fx = run_invoice(driver, P["origin"], fx_case, data, day)
+    if not fx.doc_id:
+        return k.done(BDATA, f"الفاتورة الأصلية (تجهيز الحالة) ما اتعملتش: {fx.actual[:300]}")
+    if not fx.doc_no:
+        _open(driver, f"/{PROFILES[P['origin']]['ctrl']}/AddEdit/{fx.doc_id}")
+        fx.doc_no = _js(driver, "return $('#DocumentNumber').val() || '';")
+    k.evidence.append(f"الفاتورة الأصلية: رقم {fx.doc_no} · Id {fx.doc_id} ({fx.status})")
+
+    def open_linked():
+        _open(driver, P["path"])
+        return _js(driver, r"""
+          const [P, d, no] = A; const out = {miss: []};
+          if (!N.has('DepartmentId', d.D1)) out.miss.push('D1'); else await N.set('DepartmentId', d.D1, 2000);
+          if (!N.has('WarehouseId', d.W1)) out.miss.push('W1'); else await N.set('WarehouseId', d.W1, 1500);
+          if (!N.has(P.party, d[P.sym])) out.miss.push(P.sym); else await N.set(P.party, d[P.sym], 4000);
+          if (out.miss.length) return out;
+          if (P.link === 'select') {
+            let ok = false; for (let i = 0; i < 10 && !ok; i++) { ok = N.has('AvailableSalesInvoices', no); if (!ok) await N.w(1000); }
+            if (!ok) return {err: 'الفاتورة الأصلية ' + no + ' مش ظاهرة في «فواتير البيع المتاحة» للعميل'};
+            $('#AvailableSalesInvoices').val(no).trigger('change');
+          } else { $('#PurchaseInvoiceNo').val(no); if (typeof LinkWithSalesInvoice === 'function') LinkWithSalesInvoice(); else return {err: 'زرار «ربط» مش موجود'}; }
+          let rows = []; for (let i = 0; i < 15; i++) { await N.w(1000); rows = N.rows(P.body); if (rows.length) break; }
+          await N.w(1500); rows = N.rows(P.body);
+          return {rows, ids: Object.keys(await N.ids(P.ctrl))};
+        """, P, data, fx.doc_no)
+
+    h = open_linked()
+    if h.get("miss"):
+        return k.done(BDATA, "القيم دي مش موجودة في قوائم الشاشة: " + ", ".join(h["miss"]))
+    if h.get("err"):
+        return k.done(BCAP, h["err"])
+    r0 = h["rows"]
+    if not k.chk("استدعاء الأصل", len(r0) == 1 and _close(r0[0]["qty"], s["orig_qty"], 1e-6) and _close(r0[0]["price"], s["price"]),
+                 f"سطور {len(r0)}" + (f" · كمية {r0[0]['qty']:g} · سعر {_f(r0[0]['price'])}" if r0 else "")):
+        return k.done()
+    item_id = r0[0]["id"]
+    t = _js(driver, r"""
+      const [P, s, wh, it] = A; const out = {};
+      const tr = [...document.querySelectorAll('#' + P.body + ' tr')].find(r => $(r).find('.item-name').val());
+      $(tr).find('.quantity').val(s.qty).trigger('input').trigger('change'); await N.w(1500);
+      await N.set('PaymentType', '2', 2000);
+      out.auto = await N.check('AutoGenerateStockReceiptVoucher', s.auto, 800);
+      out.ht = await N.check('hasTaxes', s.tax > 0, 2500);
+      const ad = document.getElementById('AccountingDocumentId'); if (ad && !ad.value) { const o = [...ad.options].find(x => x.value); if (o) await N.set('AccountingDocumentId', o.value, 600); }
+      out.dropped = await N.dropEmpty(P.body);
+      if (typeof CalculateTotals === 'function') { try { CalculateTotals(); } catch (e) {} await N.w(2500); }
+      out.totals = {total: N.num('Total'), net: N.num('NetTotal'), vat: N.num('SalesTaxes'), after: N.num('TotalAfterTaxes')};
+      out.stock = it ? await N.stock(wh, it) : null; out.req = N.req(); out.filled = await N.buyer(); return out;
+    """, P, s, data["W1"], item_id)
+    if t.get("dropped"):
+        k.evidence.append(f"اتمسح {t['dropped']} سطر فاضي في التفاصيل — كان مانع الحفظ من غير أي رسالة")
+    k.evidence.append(f"المرتجع: {s['qty']:g} من {s['orig_qty']:g} · تسوية على حساب الطرف · التوليد {'مفتوح' if t.get('auto') else 'مغلق'} · رصيد W1 قبل الحفظ {t.get('stock')}")
+    tt = t["totals"]
+    k.chk("قبل الحفظ", _close(tt["net"] or tt["total"], s["net"]) and _close(tt["vat"], s["vat"]) and _close(tt["after"], s["total"]),
+          f"صافي {_f(tt['net'] or tt['total'])} · ضريبة {_f(tt['vat'])} · إجمالي {_f(tt['after'])} (المتوقع {_f(s['net'])} / {_f(s['vat'])} / {_f(s['total'])})")
+    if t["req"]:
+        return k.done(BDATA, "حقول إلزامية فاضية: " + ", ".join(t["req"]))
+    ok, log, sid, silent = _save(driver, P["save"], P["path"])
+    if not ok:
+        k.chk("الحفظ", False, "الـ ERP رفض: " + (" · ".join(log)[:400] or "مفيش رد"))
+        return k.done()
+    k.chk("الحفظ", True, "اتحفظ مرة واحدة" + (f" (Id {sid})" if sid else ""))
+    if silent:
+        k.evidence.append("ملاحظة: الـ ERP حفظ بس الشاشة ماظهرتش رسالة نجاح ولا رجعت للقائمة")
+    n = _js(driver, "const [ctrl, before] = A; const all = await N.ids(ctrl); const neu = Object.keys(all).filter(i => !before.includes(i)).sort((x, y) => y - x); return {neu, rows: neu.map(i => all[i])};",
+            P["ctrl"], h["ids"])
+    if sid and sid not in n["neu"]:
+        n["neu"].insert(0, sid)
+        n["rows"].insert(0, {"text": "", "links": []})
+    if not n["neu"]:
+        k.chk("المرتجع في القائمة", False, "اتحفظ بس مش ظاهر في أول صفحة من القائمة")
+        return k.done()
+    i0 = n["neu"].index(sid) if sid in n["neu"] else 0
+    k.doc_id, row = n["neu"][i0], n["rows"][i0]
+    k.doc_no = row["text"].split(" | ")[0]
+    vl = sorted({m.group(1) for x in row["links"] if (m := re.search(rf"/{P['voucher']}/(?:AddEdit\w*/)?(\d+)", x, re.I))})
+    if s["auto"]:
+        k.chk("السند المخزني التابع", len(vl) == 1, f"{len(vl)} سند" + (f" (Id {vl[0]})" if vl else ""))
+    else:
+        k.chk("مفيش سند مخزني جديد", not vl, "مفيش" if not vl else f"اتعمل {len(vl)} سند رغم إن التوليد مقفول")
+    _open(driver, f"/{P['ctrl']}/AddEdit/{k.doc_id}")
+    r = _js(driver, "const [P] = A; return {rows: N.rows(P.body), total: N.num('Total'), net: N.num('NetTotal'), vat: N.num('SalesTaxes'), after: N.num('TotalAfterTaxes'), party: $('#' + P.party).val(), doc: $('#DocumentNumber').val() || ''};", P)
+    k.doc_no = k.doc_no or r.get("doc", "")
+    ln = r["rows"][0] if r["rows"] else {}
+    k.chk("إعادة الفتح", len(r["rows"]) == 1 and _close(ln.get("qty"), s["qty"], 1e-6) and str(r["party"]) == str(data[P["sym"]]),
+          f"سطور {len(r['rows'])} · كمية {ln.get('qty', '—')} · الطرف {r['party']}")
+    k.chk("الإجماليات بعد الفتح", _close(r["net"] or r["total"], s["net"]) and _close(r["vat"], s["vat"]) and _close(r["after"], s["total"]),
+          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])}")
+    st = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], item_id) if item_id else None
+    if t.get("stock") is not None and st is not None:
+        dlt = round(float(st) - float(t["stock"]), 6)
+        k.chk("كارت الصنف A في W1", _close(dlt, s["stock"], 1e-6), f"قبل {t['stock']} · بعد {st} · الفرق {dlt:g} (المتوقع {s['stock']:g})")
+    _journal(driver, k, P, day, k.doc_id, exp_total=s["total"], exp_vat=s["vat"])
+    if s.get("left") is not None:
+        h2 = open_linked()
+        r2 = h2.get("rows") or []
+        k.chk("المتاح للإرجاع من الأصل", len(r2) == 1 and _close(r2[0]["qty"], s["left"], 1e-6),
+              (f"{r2[0]['qty']:g}" if r2 else (h2.get("err") or "الأصل مارجعش سطور")) + f" (المتوقع {s['left']:g}) — اتقرا من مرتجع جديد ما اتحفظش")
+    return k.done()
 
 
 def run_voucher(driver, code, c, data, day):
@@ -612,7 +753,7 @@ def run_cases(driver, credentials, cfg, result=None):
             out[c["id"]] = Case(c).done(BCAP, c["why"])
             continue
         try:
-            fn = run_invoice if PROFILES[code]["kind"] == "invoice" else run_voucher
+            fn = {"invoice": run_invoice, "return": run_return}.get(PROFILES[code]["kind"], run_voucher)
             out[c["id"]] = fn(driver, code, c, data, day)
         except Exception as e:
             logger.warning(f"{c['id']}: {e}")
