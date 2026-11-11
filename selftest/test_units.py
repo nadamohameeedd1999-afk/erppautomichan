@@ -331,3 +331,12 @@ def test_tickets_login_and_create(tmp_path, monkeypatch):
     assert tk["PageUrl"] == "https://test-site-nq.premiumasp.net/CashReceiptVoucher/AddEdit/55" and "https://dash/reports/r1" in tk["Description"]
     assert sent["files"] == ["r.docx"]
     assert T.page_url({"site": "erp test", "url": "", "steps": "Given/When/Then"}) == ""
+
+
+def test_ticket_pdf_html():
+    from web import pdf_reports as P
+    h = P.issue_html({"title": "سند القبض بيترفض", "screen": "سند القبض", "severity": "عالية", "url": "https://x.test/CashReceiptVoucher/AddEdit", "details": "<b>x</b>"}, "admin")
+    assert "href='https://x.test/CashReceiptVoucher/AddEdit'" in h and "&lt;b&gt;x&lt;/b&gt;" in h and "#0F7C7A" in h
+    d = {"biz": {"screens": ["SAL"], "cases": {"SAL-001": {"status": "FAIL", "plain": "فاتورة", "checks": [["ضريبة القيد", False, "0.00", "150.00"]], "journal": [], "evidence": []}}}}
+    r = P.run_report_html(d, "run_1", "admin")
+    assert "فشل 1 من 1" in r and "✗ مختلف" in r and "المتوقع 150.00" in r

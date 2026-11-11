@@ -681,24 +681,21 @@ def api_bundle(kind):
 
 
 # ------------------------------------------------------------------ 🎫 tickets on the main ERP
-DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-
 def _attachments(it):
-    """the latest Word result report of the run the problem came from + a one-problem Word sheet"""
+    """PDF (the ticket system can't open Word): the run's result report + a one-problem sheet"""
+    from web import pdf_reports
+    user = (auth.current_user() or {}).get("username", "")
     out = []
     if it.get("run_id"):
         try:
             from engine.check_runner import load_detail
-            from pathlib import Path
-            w = ((load_detail(it["run_id"]) or {}).get("biz") or {}).get("word") or ""
-            f = Path(w)
-            if w and f.exists() and f.resolve().is_relative_to(paths.RESULTS_DIR.resolve()):
-                out.append((f"Test_result_{it['run_id']}.docx", f.read_bytes(), DOCX))
+            d = load_detail(it["run_id"]) or {}
+            if (d.get("biz") or {}).get("cases"):
+                out.append((f"Test_result_{it['run_id']}.pdf", pdf_reports.run_report_pdf(d, it["run_id"], user), "application/pdf"))
         except Exception:
             pass
     try:
-        out.append((f"ERP_issue_{it['id']}.docx", export_docx("dev", [{**it, "n": 1}], "مشكلة واحدة").getvalue(), DOCX))
+        out.append((f"ERP_issue_{it['id']}.pdf", pdf_reports.issue_pdf(it, user), "application/pdf"))
     except Exception:
         pass
     return out
