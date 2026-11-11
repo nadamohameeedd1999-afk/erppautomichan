@@ -174,7 +174,7 @@ function spRender() {
 }
 function more(i) {
   const row = (t, v) => v ? `<dt>${t}</dt><dd>${esc(v)}</dd>` : '';
-  if (KIND === 'dev') return `<dl class="mb-0">${row('التفاصيل', i.details)}${row('خطوات التكرار', i.steps)}${row('الدليل', i.evidence)}${row('المستند', i.doc)}
+  if (KIND === 'dev') return `<dl class="mb-0">${i.url ? `<dt>لينك الشاشة</dt><dd><a href="${esc(i.url)}" target="_blank" dir="ltr">${esc(i.url)}</a></dd>` : ''}${row('التفاصيل', i.details)}${row('خطوات التكرار', i.steps)}${row('الدليل', i.evidence)}${row('المستند', i.doc)}
       ${row('أول ظهور', i.first)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd>` : ''}</dl>`;
   return `<dl class="mb-0">${row('الرسالة', i.message)}${row('الحل المقترح', i.fix)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd><dt>آخر اللوج</dt><div class="sp-log" id="lg_${i.id}">…</div>` : ''}</dl>`;
 }
@@ -240,9 +240,13 @@ async function tkSave() {
 async function tkMake(ids) {
   if (!ids.length) { alert('حدد المشاكل الأول (أو دوس «🎫 اعمل تذكرة» جنب المشكلة)'); return; }
   const had = ITEMS.filter(i => ids.includes(i.id) && i.ticket).length;
-  if (!confirm(`هيتعمل ${ids.length - had} تذكرة دعم على موقع الـ ERP الأساسي${had ? ` (و${had} ليهم تذكرة قبل كده هيتسابوا)` : ''}. نكمل؟`)) return;
+  let again = false;
+  if (had) again = confirm(`${had} من المشاكل دي ليها تذكرة قبل كده. تعمل لهم تذكرة جديدة كمان؟\n(OK = أيوه · Cancel = سيبهم)`);
+  const n = again ? ids.length : ids.length - had;
+  if (!n) return;
+  if (!confirm(`هيتعمل ${n} تذكرة دعم على موقع الـ ERP الأساسي — كل مشكلة في تذكرة لوحدها، بلينك الشاشة وملف الورد مرفق. نكمل؟`)) return;
   el('spSel').textContent = '⏳ بعمل التذاكر…';
-  const r = await fetch('/api/support/tickets/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids})}).then(x => x.json()).catch(e => ({error: String(e)}));
+  const r = await fetch('/api/support/tickets/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids, again})}).then(x => x.json()).catch(e => ({error: String(e)}));
   if (!r.success) { alert(r.error || 'حصل خطأ'); spCount(); return; }
   const bad = r.results.filter(x => !x.ok && x.error !== 'ليها تذكرة قبل كده');
   alert(`✅ اتعمل ${r.made} تذكرة` + (bad.length ? `\n❌ ${bad.length} ماتعملتش:\n` + bad.map(x => '• ' + x.error).slice(0, 5).join('\n') : ''));

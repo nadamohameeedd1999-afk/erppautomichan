@@ -978,7 +978,7 @@ def _finish(result, groups, data, url, credentials):
             [{"name": f"ملف المطور بالحالات — {NAMES.get(c, c)} (Word)", "path": p} for c, p in specs.items() if p]
     result["detail"] = {"title": f"📚 سيناريوهات المطور — {title}", "columns": ["الحالة", "العنوان", "النتيجة", "المستند", "الفعلي", "الدليل"],
                         "rows": rows, "note": note, "files": files}
-    result["biz"] = {"screen": groups[0][0]["code"], "screens": [cat["code"] for cat, _ in groups], "word": report or next(iter(specs.values()), ""),
+    result["biz"] = {"screen": groups[0][0]["code"], "screens": [cat["code"] for cat, _ in groups], "url": str(url).rstrip("/"), "word": report or next(iter(specs.values()), ""),
                      "spec_words": specs, "data": data,
                      "cases": {i: {"status": k.status, "doc": k.doc_no, "id": k.doc_id, "actual": k.actual, "plain": k.plain, "title": k.c["title"],
                                    "checks": [list(x) for x in k.checks], "journal": k.journal, "evidence": k.evidence} for i, k in allk.items()}}

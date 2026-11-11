@@ -316,15 +316,18 @@ def test_tickets_login_and_create(tmp_path, monkeypatch):
             if "Login" in url:
                 sent["login"] = data
                 return R("https://nq-ts.premiumasp.net/Tickets/Create", "<form>")
-            sent["ticket"] = dict((k, v[1]) for k, v in files)
+            sent["ticket"] = dict((k, v[1]) for k, v in files if k != "Attachments")
+            sent["files"] = [v[0] for k, v in files if k == "Attachments"]
             return R(url, status=302, headers={"Location": "/Tickets/Details/991"})
     monkeypatch.setattr(requests, "Session", S)
     it = {"title": "سند القبض بيترفض", "screen": "سند القبض", "severity": "عالية", "details": "x", "steps": "افتح /CashReceiptVoucher/AddEdit",
-          "evidence": "", "site": "test-site-nq.premiumasp.net", "count": 1, "last": "2026-11-11"}
-    t = T.create(it, "https://dash/reports/r1")
+          "evidence": "", "site": "erp test", "url": "https://test-site-nq.premiumasp.net/CashReceiptVoucher/AddEdit/55", "count": 1, "last": "2026-11-11"}
+    t = T.create(it, "https://dash/reports/r1", [("r.docx", b"PK..", "application/x")])
     assert t["ok"] and t["id"] == "991" and t["url"].endswith("/Tickets/Details/991")
     assert sent["login"]["act"] == "1" and sent["login"]["brn"] == "4" and sent["login"]["password"] == "pw-secret"
     tk = sent["ticket"]
     assert tk["__RequestVerificationToken"] == "TOK123" and tk["Priority"] == "2" and tk["Title"].startswith("[اختبار آلي] سند القبض")
     assert tk["SystemPageId"] == "22"
-    assert tk["PageUrl"] == "https://test-site-nq.premiumasp.net/CashReceiptVoucher/AddEdit" and "https://dash/reports/r1" in tk["Description"]
+    assert tk["PageUrl"] == "https://test-site-nq.premiumasp.net/CashReceiptVoucher/AddEdit/55" and "https://dash/reports/r1" in tk["Description"]
+    assert sent["files"] == ["r.docx"]
+    assert T.page_url({"site": "erp test", "url": "", "steps": "Given/When/Then"}) == ""

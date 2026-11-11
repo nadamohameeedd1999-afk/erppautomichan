@@ -95,6 +95,7 @@ def _token(html):
 
 def describe(it, run_link=""):
     lines = [f"المشكلة: {it.get('title', '')}", f"الشاشة: {it.get('screen') or '—'}", f"الموقع اللي اتلاحظت عليه: {it.get('site') or '—'}",
+             f"لينك الشاشة: {page_url(it) or '—'}",
              f"الخطورة: {it.get('severity') or '—'} · اتكررت {it.get('count', 1)} مرة · آخر ظهور {it.get('last') or '—'}", "",
              "التفاصيل:", it.get("details") or "—", "", "خطوات التكرار:", it.get("steps") or "—", "", "الدليل:", it.get("evidence") or "—"]
     if it.get("doc"):
@@ -106,14 +107,12 @@ def describe(it, run_link=""):
 
 
 def page_url(it):
-    ev = str(it.get("evidence") or "") + " " + str(it.get("steps") or "")
-    m = re.search(r"(https?://\S+|/[A-Z][A-Za-z]+/[A-Za-z]+(?:/\d+)?(?:\?\S+)?)", ev)
-    if m:
-        u = m.group(1).rstrip("،.")
-        if u.startswith("/") and it.get("site"):
-            u = "https://" + str(it["site"]).strip("/") + u
+    """the real link of the screen (or of the document itself) — set by «دعم المطورين» from the site's address"""
+    u = str(it.get("url") or "").strip()
+    if u.startswith("http") and "." in u.split("/")[2]:
         return u
-    return ("https://" + str(it["site"]).strip("/")) if it.get("site") and "." in str(it.get("site")) else ""
+    site = str(it.get("site") or "").strip("/")
+    return ("https://" + site) if "." in site and " " not in site else ""
 
 
 def _controller(it, url):
@@ -142,7 +141,8 @@ def _system_page(s, base, ctrl):
         return ""
 
 
-def create(it, run_link=""):
+def create(it, run_link="", attachments=None):
+    """attachments = [(file name, bytes, mime)]"""
     """→ {"ok": True, "url": …, "id": …} or raises TicketError"""
     c = load(with_password=True)
     s, base = _session(c)
@@ -158,7 +158,8 @@ def create(it, run_link=""):
     fields = [("__RequestVerificationToken", tok), ("id", "0"), ("DeletedAttachmentIds", ""), ("Title", title),
               ("Description", describe(it, run_link)), ("IsNewScreen", "false"), ("CustomerId", ""), ("PageUrl", purl[:500]),
               ("SystemPageId", spid), ("Difficulty", DIFFICULTY.get(sev, "4")), ("Priority", prio)]
-    r = s.post(f"{base}/Tickets/Create", files=[(k, (None, v)) for k, v in fields], timeout=60, allow_redirects=False)
+    files = [(k, (None, v)) for k, v in fields] + [("Attachments", (n, b, m)) for n, b, m in (attachments or [])]
+    r = s.post(f"{base}/Tickets/Create", files=files, timeout=120, allow_redirects=False)
     loc = r.headers.get("Location", "")
     if r.status_code in (301, 302, 303) and "create" not in loc.lower() and "login" not in loc.lower():
         m = re.search(r"/(\d+)(?:$|\?)", loc)

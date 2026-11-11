@@ -57,6 +57,35 @@ def _site(r):
     return s.get("site_name") or re.sub(r"^https?://", "", s.get("base_url") or "").strip("/") or "—"
 
 
+def _site_url(r, d=None):
+    """the real ERP address of the run's site (profile base_url) — never the profile's display name"""
+    u = ((d or {}).get("biz") or {}).get("url") or ""
+    if u:
+        return u.rstrip("/")
+    sid = (r.get("summary") or {}).get("site") or ""
+    try:
+        from web import sites_api
+        ps = sites_api.profiles()
+        p = next((x for x in ps if x["id"] == sid), None) or next((x for x in ps if x["name"] == _site(r)), None) or (next((x for x in ps if x["active"]), None) if not sid else None)
+        if p and p.get("base_url"):
+            return p["base_url"].rstrip("/")
+    except Exception:
+        pass
+    return ""
+
+
+def _doc_link(base, code, doc_id):
+    """the page of the screen — the document itself when its id is known"""
+    try:
+        from engine.biz_cases import PROFILES
+        P = PROFILES.get(code)
+    except Exception:
+        P = None
+    if not base or not P:
+        return base or ""
+    return f"{base}/{P['ctrl']}/AddEdit/{doc_id}" if doc_id else base + P["path"]
+
+
 def _host(x):
     return re.sub(r"^https?://", "", str(x or "")).strip("/").lower()
 
@@ -100,6 +129,7 @@ def collect():
             d = {}
         det = d.get("detail") or {}
         biz = d.get("biz") or {}
+        surl = _site_url(r, d)
         handled = False
 
         # 📚 developer case files
@@ -118,7 +148,8 @@ def collect():
                 if st == "FAIL":
                     sev = "عالية" if re.search(SEV_WORDS, actual) else "متوسطة"
                     it = add(dev, _id(site, cid, _norm(actual)), {
-                        "site": site, "source": "سيناريوهات المطور", "screen": _screen_name(screen), "severity": sev,
+                        "site": site, "url": _doc_link(surl, screen, (biz["cases"].get(cid) or {}).get("id")),
+                        "source": "سيناريوهات المطور", "screen": _screen_name(screen), "severity": sev,
                         "title": f"{cid} — {title}", "details": actual, "evidence": ev, "doc": doc,
                         "steps": f"حالة {cid} من ملف سيناريوهات {_screen_name(screen)} (Given/When/Then في الملف)"}, r)
                     it["fixed"] = latest.get(subj) == "PASS"
@@ -134,7 +165,8 @@ def collect():
                 # notes found while the case ran (even when it passed)
                 for note in re.findall(r"(ملاحظة: [^·]+|تنبيه بيانات: [^·]+|اتمسح \d+ سطر فاضي[^·]+)", ev or ""):
                     add(dev, _id(site, screen, _norm(note)), {
-                        "site": site, "source": "ملاحظة أثناء التنفيذ", "screen": _screen_name(screen), "severity": "منخفضة",
+                        "site": site, "url": _doc_link(surl, screen, (biz["cases"].get(cid) or {}).get("id")),
+                        "source": "ملاحظة أثناء التنفيذ", "screen": _screen_name(screen), "severity": "منخفضة",
                         "title": note.strip()[:160], "details": note.strip(), "evidence": f"{cid} · مستند {doc}", "doc": doc,
                         "steps": f"اتلاحظت وقت تنفيذ {cid}"}, r)
 
@@ -153,7 +185,8 @@ def collect():
                 if st == "fail":
                     txt = " · ".join(lines)
                     it = add(dev, _id(site, "biz19", n, _norm(txt)), {
-                        "site": site, "source": "نموذج فاتورة البيع (19 بند)", "screen": "فاتورة البيع", "severity": "عالية" if re.search(SEV_WORDS, txt) else "متوسطة",
+                        "site": site, "url": (surl + "/SalesInvoice/AddEdit/" + str((biz.get("facts") or {}).get("invoice_id") or "")).rstrip("/") if surl else "",
+                        "source": "نموذج فاتورة البيع (19 بند)", "screen": "فاتورة البيع", "severity": "عالية" if re.search(SEV_WORDS, txt) else "متوسطة",
                         "title": f"بند {n} — {names.get(n, '')}", "details": txt, "evidence": (biz.get("facts") or {}).get("invoice_no", ""),
                         "doc": (biz.get("facts") or {}).get("invoice_no", ""), "steps": "نموذج المطور — SalesInvoice-Test-Scenario"}, r)
                     it["fixed"] = latest.get(subj) == "ok"
@@ -169,7 +202,8 @@ def collect():
                     url = c[3]
                     broken.add(url)
                     it = add(dev, _id(site, "health", url, _norm(c[4])), {
-                        "site": site, "source": "صحة النظام", "screen": f"{c[1]} / {c[2]}", "severity": "عالية" if re.search(r"500|خطأ", c[4]) else "متوسطة",
+                        "site": site, "url": (c[3] if str(c[3]).startswith("http") else (surl + "/" + str(c[3]).lstrip("/")) if surl else ""),
+                        "source": "صحة النظام", "screen": f"{c[1]} / {c[2]}", "severity": "عالية" if re.search(r"500|خطأ", c[4]) else "متوسطة",
                         "title": f"الشاشة مش بتفتح: {c[2]}", "details": c[4], "evidence": url, "doc": "", "steps": f"افتح {url}"}, r)
                     if not new:
                         it["fixed"] = url not in health_new.get(site, set())
@@ -212,7 +246,7 @@ def collect():
             latest.setdefault((site, "test", key), "pass")
 
     for k in __import__("engine.known_issues", fromlist=["KNOWN"]).KNOWN:
-        dev.setdefault(k["id"], {**k, "source": "اتلاحظت يدويًا", "doc": "", "count": 1, "first": k["found"], "last": k["found"], "run_id": "", "runs": []})
+        dev.setdefault(k["id"], {**k, "url": k.get("url") or ("https://" + k["site"] + k.get("path", "")), "source": "اتلاحظت يدويًا", "doc": "", "count": 1, "first": k["found"], "last": k["found"], "run_id": "", "runs": []})
     for m in _load("support_manual.json", []):
         dev.setdefault(m["id"], {**m, "source": "اتضافت يدويًا", "count": 1, "first": m.get("found", ""), "last": m.get("found", ""), "run_id": "", "runs": []})
     return _finish(dev, "dev"), _finish(tool, "tool")
@@ -647,6 +681,29 @@ def api_bundle(kind):
 
 
 # ------------------------------------------------------------------ 🎫 tickets on the main ERP
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _attachments(it):
+    """the latest Word result report of the run the problem came from + a one-problem Word sheet"""
+    out = []
+    if it.get("run_id"):
+        try:
+            from engine.check_runner import load_detail
+            from pathlib import Path
+            w = ((load_detail(it["run_id"]) or {}).get("biz") or {}).get("word") or ""
+            f = Path(w)
+            if w and f.exists() and f.resolve().is_relative_to(paths.RESULTS_DIR.resolve()):
+                out.append((f"Test_result_{it['run_id']}.docx", f.read_bytes(), DOCX))
+        except Exception:
+            pass
+    try:
+        out.append((f"ERP_issue_{it['id']}.docx", export_docx("dev", [{**it, "n": 1}], "مشكلة واحدة").getvalue(), DOCX))
+    except Exception:
+        pass
+    return out
+
+
 @bp.route("/api/support/tickets/config", methods=["GET", "POST"])
 @auth.login_required
 def api_tickets_config():
@@ -661,7 +718,7 @@ def api_tickets_config():
 def api_tickets_create():
     from web import tickets
     d = request.get_json(silent=True) or {}
-    ids = [x for x in (d.get("ids") or []) if x][:30]
+    ids = [x for x in (d.get("ids") or []) if x][:150]
     if not ids:
         return jsonify({"success": False, "error": "حدد مشكلة واحدة على الأقل"}), 400
     dev, _tool = collect()
@@ -678,7 +735,7 @@ def api_tickets_create():
             continue
         link = (request.host_url.rstrip("/") + f"/reports/{it['run_id']}") if it.get("run_id") else ""
         try:
-            t = tickets.create(it, link)
+            t = tickets.create(it, link, _attachments(it))
         except tickets.TicketError as e:
             out.append({"id": iid, "ok": False, "error": str(e)})
             if "تسجيل الدخول" in str(e) or "اكتب يوزر" in str(e) or "مش بيرد" in str(e):
