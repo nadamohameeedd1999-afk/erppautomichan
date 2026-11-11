@@ -622,7 +622,7 @@ def api_bizcases():
     cat = B.catalog()
     last, runs = {}, {}
     for r in insights.all_runs():
-        if not r["key"].startswith("bizcases_"):
+        if not r["key"].startswith("bizcases_") or r["key"] == "bizcases_data":
             continue
         code = r["key"].split("_", 1)[1].upper()
         if len(runs.setdefault(code, [])) >= 8:
@@ -655,6 +655,24 @@ def api_bizcases_data():
     if not prof:
         return jsonify({"success": False, "error": "اختاري الموقع"}), 400
     return jsonify({"success": True, "data": B.save_data(prof.get("base_url", ""), d.get("data") or {})})
+
+
+@bp.route("/api/bizcases/discover", methods=["POST"])
+@auth.login_required
+def api_bizcases_discover():
+    """🔎 fill the site data file automatically: a read-only run on the chosen site"""
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    try:
+        saved = C.save({"key": "bizcases_data", "type": "bizcases", "screen": "DATA", "discover": True,
+                        "name_ar": "🔎 ملف بيانات الموقع — تعبئة تلقائية (قراءة بس)"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    from web.queue_manager import get_manager
+    from web import sites_api
+    out = {"success": True}
+    out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(saved["key"]), saved["name_ar"], d.get("site"), source="manual", front=True))
+    return jsonify(out)
 
 
 @bp.route("/api/bizcases/run", methods=["POST"])

@@ -220,7 +220,8 @@ def normalize(cfg):
         scr = str(cfg.get("screen") or "").strip().upper()
         if not re.match(r"^[A-Z]{2,5}$", scr):
             raise ConfigError("حددي الشاشة (SAL / PUR / CRV / CPV …)")
-        out.update({"screen": scr, "cases": [str(x).strip() for x in (cfg.get("cases") or []) if str(x).strip()][:200]})
+        out.update({"screen": scr, "cases": [str(x).strip() for x in (cfg.get("cases") or []) if str(x).strip()][:200],
+                    "discover": bool(cfg.get("discover"))})
 
     elif typ == "sod":
         out.update({"allow": [x for x in _list(cfg.get("allow")) if "|" in x], "max_users": max(1, min(1000, int(cfg.get("max_users", 200) or 200)))})

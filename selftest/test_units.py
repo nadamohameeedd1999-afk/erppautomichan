@@ -215,3 +215,14 @@ def test_biz_cases_config():
     from engine import checks as C
     c = C.normalize({"key": "bizcases_pur", "type": "bizcases", "screen": "pur", "cases": ["PUR-001", ""]})
     assert c["screen"] == "PUR" and c["cases"] == ["PUR-001"]
+
+
+def test_biz_site_data_names(tmp_path, monkeypatch):
+    from engine import biz_cases as B
+    monkeypatch.setattr(B, "_data_file", lambda: tmp_path / "d.json")
+    r = B.save_data("https://x.test/", {"D1": "51", "A": "1-1"}, {"D1": "الفرع الأول", "A": "ثوب"}, auto=True)
+    assert r["_names"] == {"D1": "الفرع الأول", "A": "ثوب"} and r["_auto"]
+    r = B.save_data("https://x.test", {"D1": "51", "A": "2-1"})          # changed by hand → its auto name goes
+    assert r["_names"] == {"D1": "الفرع الأول"} and B.load_data("http://x.test")["A"] == "2-1"
+    c = __import__("engine.checks", fromlist=["x"]).normalize({"key": "bizcases_data", "type": "bizcases", "screen": "DATA", "discover": True})
+    assert c["discover"] is True

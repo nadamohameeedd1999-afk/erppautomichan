@@ -165,12 +165,92 @@ def load_data(url=None):
     return allx if url is None else allx.get(site_key(url), {})
 
 
-def save_data(url, data):
+def save_data(url, data, names=None, auto=False):
     allx = load_data()
-    allx[site_key(url)] = {k: str(data.get(k) or "").strip() for k, _ in SYMBOLS}
+    old = allx.get(site_key(url), {})
+    row = {k: str(data.get(k) or "").strip() for k, _ in SYMBOLS}
+    nm = dict(old.get("_names") or {})
+    for k, _ in SYMBOLS:                      # a hand-changed value drops the auto name next to it
+        if row[k] != str(old.get(k) or "") and not (names and k in names):
+            nm.pop(k, None)
+    nm.update(names or {})
+    row["_names"] = {k: v for k, v in nm.items() if row.get(k)}
+    row["_auto"] = datetime.now().strftime("%Y-%m-%d %H:%M") if auto else old.get("_auto", "")
+    allx[site_key(url)] = row
     _data_file().parent.mkdir(parents=True, exist_ok=True)
     _data_file().write_text(json.dumps(allx, ensure_ascii=False, indent=1), encoding="utf-8")
-    return allx[site_key(url)]
+    return row
+
+
+# ------------------------------------------------------------------ 🔎 the site data file, discovered (read only — nothing is saved on the ERP)
+DISCOVER_RULES = {
+    "D1": "أول فرع فيه مخزن عليه صنف مناسب",
+    "W1": "المخزن اللي فيه الصنف A برصيد كافي",
+    "A": "صنف وحدته معاملها 1، باركوده مش متكرر، مش ذهب، ورصيده 30 أو أكتر (الأعلى رصيدًا)",
+    "C1": "أول عميل حده الائتماني يسمح بفاتورة آجلة",
+    "V1": "أول مورد يظهر في فاتورة الشراء وفي سند الدفع",
+    "K1": "الخزينة اللي اسمها صندوق/خزينة في سطر النقدي",
+}
+
+
+def discover(driver, credentials, cfg, result=None):
+    """reads the test site and proposes D1 · W1 · A · C1 · V1 · K1 with their names; saves them to the site data file"""
+    from engine.screen_runner import login
+    from config.settings import BASE_URL
+    result = result if result is not None else {}
+    login(driver, credentials)
+    _open(driver, "/SalesInvoice/AddEdit")
+    a = _js(driver, r"""
+      const opts = id => [...document.querySelectorAll('#' + id + ' option')].filter(o => o.value && o.value !== '0').map(o => [o.value, o.textContent.trim()]);
+      const out = {checked: 0}; const today = new Date().toISOString();
+      for (const [dep, dn] of opts('DepartmentId')) {
+        await N.set('DepartmentId', dep, 2000);
+        for (const [wh, wn] of opts('WarehouseId').slice(0, 8)) {
+          let j; try { j = JSON.parse(await N.get('/Helper/ItemsByDepId?' + new URLSearchParams({departmentId: dep, customerId: '', date: today.slice(0, 10), searchTxt: '', isDefault: false,
+                       ItemGroupId: '', ItemCategoryId: '', WarehouseId: wh, pageIndex: 1, pageSize: 60, SalesTransaction: false}), 30000)); } catch (e) { continue; }
+          for (const x of (j.Items || []).filter(x => x.BarCode && (+x.Equivalent || 1) === 1 && !x.IsGold).slice(0, 25)) {
+            out.checked++;
+            let dup = 0; try { dup = JSON.parse(await N.get('/SalesInvoice/GetItemsSmartSearchHints?term=' + encodeURIComponent(x.BarCode))).filter(i => String(i.barcode) === String(x.BarCode)).length; } catch (e) {}
+            if (dup !== 1) continue;
+            const q = await N.stock(wh, x.Id);
+            if (q >= 30 && (!out.A || q > out.Aq)) { out.D1 = [dep, dn]; out.W1 = [wh, wn]; out.A = [x.BarCode, x.ArName + ' — رصيد ' + q]; out.Aq = q; }
+          }
+          if (out.A) break;
+        }
+        if (out.A) break;
+      }
+      if (out.D1) await N.set('DepartmentId', out.D1[0], 2000);
+      for (const [c, cn] of opts('VendorOrCustomerId').slice(0, 40)) { const b = await N.balance(c); if (b && b.Result === 'can') { out.C1 = [c, cn]; break; } }
+      const cb = [...document.querySelectorAll('.CashBoxId option')].filter(o => o.value).map(o => [o.value, o.textContent.trim()]);
+      out.K1 = cb.find(x => /صندوق|خزين|نقد/.test(x[1])) || cb[0] || null;
+      return out;
+    """)
+    _open(driver, "/PurchaseInvoice/AddEdit")
+    v = _js(driver, r"""
+      const [dep] = A; if (dep) await N.set('DepartmentId', dep, 2000);
+      const vs = [...document.querySelectorAll('#VendorOrCustomerId option')].filter(o => o.value && o.value !== '0').map(o => [o.value, o.textContent.trim()]);
+      let pay = []; try { for (const t of ['', 'ا', 'م', 'ش']) { pay = pay.concat(JSON.parse(await N.get('/CashIssueVoucher/SearchVendors?' + new URLSearchParams({term: t, departmentId: dep || ''})))); } } catch (e) {}
+      const ok = new Set(pay.map(x => String(x.Id)));
+      return vs.find(x => ok.has(x[0])) || null;
+    """, (a.get("D1") or [""])[0])
+    a["V1"] = v
+    found = {k: a.get(k) for k, _ in SYMBOLS}
+    old = load_data(BASE_URL)
+    vals = {k: (found[k][0] if found.get(k) else old.get(k, "")) for k, _ in SYMBOLS}
+    names = {k: found[k][1] for k in found if found.get(k)}
+    row = save_data(BASE_URL, vals, names, auto=True)
+    miss = [k for k, _ in SYMBOLS if not found.get(k)]
+    rows = [{"cells": [k, lbl, found[k][0] if found.get(k) else (old.get(k) or "—"), found[k][1] if found.get(k) else "مالقيتش — اكتبيها بإيدك", DISCOVER_RULES[k]],
+             "ok": True if found.get(k) else False} for k, lbl in SYMBOLS]
+    result["detail"] = {"title": "🔎 ملف بيانات الموقع — اتملى تلقائي (قراءة بس)", "columns": ["الرمز", "معناه", "القيمة", "الاسم في الـ ERP", "اتختار ليه"],
+                        "rows": rows, "note": f"اتفحص {a.get('checked', 0)} صنف · " + ("كل الرموز اتملت" if not miss else "ناقص: " + ", ".join(miss))}
+    result["biz"] = {"data": row}
+    logger.info("🔎 " + " · ".join(f"{k}={vals[k]}" for k, _ in SYMBOLS))
+    if miss:
+        e = AssertionError("ملف بيانات الموقع: مالقيتش " + ", ".join(miss) + " — اكتبيهم بإيدك في صفحة سيناريوهات الأعمال")
+        e.partial_result = result
+        raise e
+    return result
 
 
 # ------------------------------------------------------------------ browser helpers
@@ -736,6 +816,8 @@ def run_cases(driver, credentials, cfg, result=None):
     from engine.guard import require_write
     from config.settings import BASE_URL
     result = result if result is not None else {}
+    if cfg.get("discover"):
+        return discover(driver, credentials, cfg, result)
     code = cfg.get("screen", "")
     cat = catalog().get(code)
     if not cat:
@@ -743,6 +825,13 @@ def run_cases(driver, credentials, cfg, result=None):
     want = set(cfg.get("cases") or [c["id"] for c in cat["cases"] if c["auto"]])
     todo = [c for c in cat["cases"] if c["id"] in want]
     data = load_data(BASE_URL)
+    if any(c["auto"] for c in todo) and _missing(data, [k for k, _ in SYMBOLS]):
+        logger.info("🔎 ملف بيانات الموقع ناقص — بملاه تلقائي من الموقع الأول (قراءة بس)")
+        try:
+            discover(driver, credentials, {}, {})
+        except Exception as e:
+            logger.warning(f"التعبئة التلقائية: {str(e)[:200]}")
+        data = load_data(BASE_URL)
     day = datetime.now().strftime("%Y-%m-%d")
     out = {}
     if any(c["auto"] for c in todo):

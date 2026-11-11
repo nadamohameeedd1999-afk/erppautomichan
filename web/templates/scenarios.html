@@ -65,6 +65,7 @@
   #bc .sc-step > .flex-grow-1, #bc .table-responsive { min-width: 0; }
   .bc-cases td { overflow-wrap: anywhere; }
   @media (max-width: 600px) { .bc-cases col.e { width: 84px; } .bc-cases col.c { width: 0; } .bc-cases td:nth-child(3), .bc-cases th:nth-child(3) { display: none; } .bc-scr { grid-template-columns: 1fr 1fr; } }
+  .bc-nm { font-size: 11px; color: #0F7C7A; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; }
   .bc-data label { font-size: 11.5px; color: var(--g-muted); margin-bottom: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bc-cases { width: 100%; table-layout: fixed; font-size: 13px; }
   .bc-cases td, .bc-cases th { padding: 7px 6px; border-top: 1px solid var(--g-line); vertical-align: top; }
@@ -98,8 +99,11 @@
           <div class="sc-sites mb-2" id="bcSites"></div>
           <div class="bc-data" id="bcData"></div>
           <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
-            <span class="small text-muted">الأرقام دي من الـ ERP نفسه (Id). الصنف A بالباركود. الناقص يخلي الحالة «ناقص بيانات» بدل ما الأداة تخمن.</span>
-            <button class="btn btn-sm" style="border:1px solid #0F7C7A;color:#0F7C7A;background:transparent" onclick="bcSaveData()"><i class="bi bi-save"></i> حفظ ملف البيانات</button>
+            <span class="small text-muted" id="bcAutoLbl">مش لازم تعرف الأرقام: «املا تلقائي» بتقرا الموقع (من غير ما تحفظ أي حاجة) وبتختار لكل رمز قيمة بقاعدة واضحة، والاسم بيظهر تحت كل خانة. ولو سبتها فاضية، بتتملى لوحدها أول ما تشغّل.</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm" style="background:#0F7C7A;color:#fff !important;border:0" onclick="bcDiscover()"><i class="bi bi-magic"></i> املا تلقائي من الموقع</button>
+              <button class="btn btn-sm" style="border:1px solid #0F7C7A;color:#0F7C7A;background:transparent" onclick="bcSaveData()"><i class="bi bi-save"></i> حفظ</button>
+            </div>
           </div>
         </div>
       </div>
@@ -339,7 +343,10 @@ function bcRender() {
   el('bcSites').innerHTML = BC.sites.map(s => `<button type="button" class="sc-site ${s.id === BCSITE ? 'on' : ''}" ${s.kind === 'client' ? 'disabled title="نظام عميل — قراءة بس"' : ''} onclick="BCSITE='${esc(s.id)}';bcRender()">
       <div class="fw-bold">${esc(s.name)} ${s.kind === 'client' ? '<span class="sc-badge">عميل 🔒</span>' : '<span class="sc-badge t">اختبار</span>'}</div><div class="u">${esc(s.url)}</div></button>`).join('') || '<span class="small text-muted">مفيش مواقع</span>';
   const site = BC.sites.find(s => s.id === BCSITE) || {data: {}};
-  el('bcData').innerHTML = BC.symbols.map(([k, l]) => `<div><label title="${esc(l)}"><b>${k}</b> — ${esc(l)}</label><input class="form-control form-control-sm" dir="ltr" id="bcd_${k}" value="${esc((site.data || {})[k] || '')}"></div>`).join('');
+  const nm = (site.data || {})._names || {};
+  el('bcData').innerHTML = BC.symbols.map(([k, l]) => `<div><label title="${esc(l)}"><b>${k}</b> — ${esc(l)}</label><input class="form-control form-control-sm" dir="ltr" id="bcd_${k}" value="${esc((site.data || {})[k] || '')}">
+      <div class="bc-nm" title="${esc(nm[k] || '')}">${nm[k] ? '✓ ' + esc(nm[k]) : ''}</div></div>`).join('');
+  if ((site.data || {})._auto) el('bcAutoLbl').textContent = '🔎 اتملى تلقائي من الموقع ' + site.data._auto + ' — تقدر تغيّر أي خانة وتدوس «حفظ».';
   const s = BC.screens.find(x => x.code === BCS); if (!s) return;
   el('bcTitle').innerHTML = `${s.icon} ${esc(s.title)} <span class="small text-muted fw-normal" dir="ltr">${esc(s.route)}</span>`;
   const last = s.last || {};
@@ -368,6 +375,15 @@ async function bcSaveData(quiet) {
   const s = BC.sites.find(x => x.id === BCSITE); if (s) s.data = r.data;
   if (!quiet) el('bcSum').textContent = '✅ ملف البيانات اتحفظ';
   return true;
+}
+async function bcDiscover() {
+  if (!BCSITE) { alert('اختار الموقع'); return; }
+  const r = await fetch('/api/bizcases/discover', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({site: BCSITE})}).then(x => x.json());
+  if (!r.success) { alert(r.error); return; }
+  el('bcAutoLbl').textContent = '⏳ بقرا الموقع (دقيقة أو اتنين)… الخانات هتتملى لوحدها.';
+  let n = 0; const t = setInterval(async () => { n++; const before = JSON.stringify((BC.sites.find(s => s.id === BCSITE) || {}).data || {});
+    await bcLoad(); const after = JSON.stringify((BC.sites.find(s => s.id === BCSITE) || {}).data || {});
+    if (before !== after || n > 40) clearInterval(t); }, 8000);
 }
 async function bcRun() {
   const cases = [...document.querySelectorAll('.bcx:checked')].map(x => x.value);
