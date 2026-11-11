@@ -606,6 +606,80 @@ def api_biz_save():
     return jsonify(out)
 
 
+# ======================================================== 📚 حزم سيناريوهات المطور (ملفات الورد)
+def _bc_key(code):
+    return f"bizcases_{code.lower()}"
+
+
+@bp.route("/api/bizcases")
+@auth.login_required
+def api_bizcases():
+    """the developer's case files + what the engine runs + last result of every case + the site data file"""
+    from engine import biz_cases as B
+    from web import insights
+    from engine.check_runner import load_detail
+    from web import test_sites_helper as ts
+    cat = B.catalog()
+    last, runs = {}, {}
+    for r in insights.all_runs():
+        if not r["key"].startswith("bizcases_"):
+            continue
+        code = r["key"].split("_", 1)[1].upper()
+        if len(runs.setdefault(code, [])) >= 8:
+            continue
+        d = load_detail(r["run_id"]) or {}
+        bz = d.get("biz") or {}
+        cs = bz.get("cases") or {}
+        cnt = {}
+        for v in cs.values():
+            cnt[v["status"]] = cnt.get(v["status"], 0) + 1
+        runs[code].append({"run_id": r["run_id"], "time": r["time"].strftime("%Y-%m-%d %H:%M"), "site": (r["summary"] or {}).get("site_name") or "",
+                           "counts": cnt, "word": bool(bz.get("word"))})
+        for i, v in cs.items():
+            last.setdefault(code, {}).setdefault(i, {**v, "time": r["time"].strftime("%Y-%m-%d %H:%M")})
+    data = ts.load_all()
+    sites = [{"id": p.get("id"), "name": p.get("name") or p.get("id"), "url": p.get("base_url", ""), "kind": ts.site_kind(p),
+              "active": p.get("id") == data.get("active_profile"), "data": B.load_data(p.get("base_url", ""))} for p in data.get("profiles", [])]
+    screens = [{k: v for k, v in c.items() if k != "cases"} | {"cases": [{x: y for x, y in cc.items()} for cc in c["cases"]],
+               "last": last.get(code, {}), "runs": runs.get(code, [])} for code, c in cat.items()]
+    return jsonify({"success": True, "screens": screens, "sites": sites, "symbols": B.SYMBOLS})
+
+
+@bp.route("/api/bizcases/data", methods=["POST"])
+@auth.login_required
+def api_bizcases_data():
+    from engine import biz_cases as B
+    from web import test_sites_helper as ts
+    d = request.get_json(silent=True) or {}
+    prof = next((p for p in ts.load_all().get("profiles", []) if p.get("id") == d.get("site")), None)
+    if not prof:
+        return jsonify({"success": False, "error": "اختاري الموقع"}), 400
+    return jsonify({"success": True, "data": B.save_data(prof.get("base_url", ""), d.get("data") or {})})
+
+
+@bp.route("/api/bizcases/run", methods=["POST"])
+@auth.login_required
+def api_bizcases_run():
+    from engine import biz_cases as B
+    C = _C()
+    d = request.get_json(silent=True) or {}
+    code = str(d.get("screen") or "").upper()
+    cat = B.catalog().get(code)
+    if not cat:
+        return jsonify({"success": False, "error": "الشاشة مش معروفة"}), 400
+    cases = [c for c in (d.get("cases") or []) if any(x["id"] == c for x in cat["cases"])]
+    try:
+        saved = C.save({"key": _bc_key(code), "type": "bizcases", "screen": code, "cases": cases,
+                        "name_ar": f"{cat['icon']} سيناريوهات {cat['name']} ({len(cases) or cat['auto_n']} حالة)"})
+    except C.ConfigError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    from web.queue_manager import get_manager
+    from web import sites_api
+    out = {"success": True}
+    out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(saved["key"]), saved["name_ar"], d.get("site"), source="manual", front=True))
+    return jsonify(out)
+
+
 # ======================================================== 🧹 تنظيف بيانات الاختبار
 CLEAN_KEY = "test_data_cleanup"
 

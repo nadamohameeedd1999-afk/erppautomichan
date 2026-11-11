@@ -53,12 +53,82 @@
   .sc-cnt .ok { background: rgba(48,164,108,.15); color: #30a46c; } .sc-cnt .no { background: rgba(229,72,77,.15); color: #e5484d; } .sc-cnt .na { background: rgba(140,140,140,.15); color: var(--g-muted); }
   .sc-empty { color: var(--g-muted); text-align: center; padding: 18px; }
   .form-check-input:checked { background-color: #0F7C7A; border-color: #0F7C7A; }
+  .bc-scr { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .bc-chip { color: inherit; border: 1.5px solid var(--g-line); border-radius: 12px; padding: 9px 11px; cursor: pointer; background: transparent; text-align: start; min-width: 0; }
+  .bc-chip.on { border-color: #0F7C7A; background: rgba(15,124,122,.08); }
+  .bc-chip .t { font-weight: 800; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bc-chip .m { font-size: 11.5px; color: var(--g-muted); }
+  .bc-data { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 900px) { .bc-data { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .bc-data > div { min-width: 0; }
+  .bc-data input { min-width: 0; width: 100% !important; max-width: 100%; box-sizing: border-box; margin: 0 !important; }
+  #bc .sc-step > .flex-grow-1, #bc .table-responsive { min-width: 0; }
+  .bc-cases td { overflow-wrap: anywhere; }
+  @media (max-width: 600px) { .bc-cases col.e { width: 84px; } .bc-cases col.c { width: 0; } .bc-cases td:nth-child(3), .bc-cases th:nth-child(3) { display: none; } .bc-scr { grid-template-columns: 1fr 1fr; } }
+  .bc-data label { font-size: 11.5px; color: var(--g-muted); margin-bottom: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bc-cases { width: 100%; table-layout: fixed; font-size: 13px; }
+  .bc-cases td, .bc-cases th { padding: 7px 6px; border-top: 1px solid var(--g-line); vertical-align: top; }
+  .bc-cases th { font-size: 12px; color: var(--g-muted); font-weight: 700; border-top: 0; }
+  .bc-cases col.a { width: 30px; } .bc-cases col.b { width: 86px; } .bc-cases col.c { width: 40px; } .bc-cases col.e { width: 128px; }
+  .bc-cases .exp { color: var(--g-muted); font-size: 12px; margin-top: 3px; }
+  .bc-cases .act { font-size: 12px; margin-top: 3px; }
+  .bc-cases tr.off { opacity: .62; }
+  .bc-st { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; display: inline-block; white-space: nowrap; }
+  .bc-st.PASS { background: rgba(48,164,108,.15); color: #30a46c; } .bc-st.FAIL { background: rgba(229,72,77,.15); color: #e5484d; }
+  .bc-st.BLOCKED_DATA { background: rgba(255,170,0,.16); color: #b26a00; } .bc-st.BLOCKED_CAPABILITY, .bc-st.NOT_RUN { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .bc-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  .bc-filter button { color: inherit; font-size: 12px; border: 1px solid var(--g-line); background: transparent; border-radius: 999px; padding: 3px 10px; }
+  .bc-filter button.on { border-color: #0F7C7A; color: #0F7C7A; background: rgba(15,124,122,.08); }
 </style>
 {% endblock %}
 {% block content %}
 <div class="container-fluid py-3">
   <div class="text-muted small mb-3">سيناريو المطور بيتنفذ كامل زي المختبر بالظبط، والنتيجة بتطلع في نفس ملف الورد بتاعه.</div>
 
+  <div class="sc-card" id="bc">
+    <div class="hd"><h6>📚 ملفات سيناريوهات المطور</h6><span class="small text-muted" id="bcSum">جاري التحميل…</span></div>
+    <div class="bd">
+      <div class="small text-muted mb-2">كل شاشة ليها ملف حالات (Given / When / Then). الحالات اللي عليها ✔ الأداة بتنفذها بمدخلات ثابتة من «ملف بيانات الموقع» — مش بتختار أول قيمة في القائمة — والنتيجة بتتكتب في نفس ملف الورد.</div>
+      <div class="bc-scr" id="bcScreens"></div>
+
+      <div class="sc-step mt-3">
+        <div class="sc-num">1</div>
+        <div class="flex-grow-1">
+          <div class="ttl">الموقع وملف بياناته</div>
+          <div class="sc-sites mb-2" id="bcSites"></div>
+          <div class="bc-data" id="bcData"></div>
+          <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
+            <span class="small text-muted">الأرقام دي من الـ ERP نفسه (Id). الصنف A بالباركود. الناقص يخلي الحالة «ناقص بيانات» بدل ما الأداة تخمن.</span>
+            <button class="btn btn-sm" style="border:1px solid #0F7C7A;color:#0F7C7A;background:transparent" onclick="bcSaveData()"><i class="bi bi-save"></i> حفظ ملف البيانات</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sc-step">
+        <div class="sc-num">2</div>
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div class="ttl mb-0" id="bcTitle">الحالات</div>
+            <div class="bc-filter" id="bcFilter">
+              <button data-f="auto" class="on">المؤتمتة</button><button data-f="all">الكل</button><button data-f="P0">P0</button><button data-f="FAIL">الفاشلة</button>
+            </div>
+          </div>
+          <div class="table-responsive"><table class="bc-cases">
+            <colgroup><col class="a"><col class="b"><col class="c"><col><col class="e"></colgroup>
+            <thead><tr><th><input type="checkbox" id="bcAll" class="form-check-input" title="تحديد الكل"></th><th>الحالة</th><th></th><th>العنوان والمتوقع</th><th>آخر نتيجة</th></tr></thead>
+            <tbody id="bcCases"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+    <div class="sc-actions">
+      <span class="small text-muted me-auto align-self-center" id="bcSel"></span>
+      <a class="btn btn-sm btn-outline-secondary" id="bcLastWord" style="display:none"><i class="bi bi-file-earmark-word"></i> آخر ملف بالنتايج</a>
+      <button class="btn btn-sm" style="background:#0F7C7A;color:#fff !important;border:0" onclick="bcRun()"><i class="bi bi-play-fill"></i> تشغيل المحدد</button>
+    </div>
+  </div>
+
+  <div class="sc-grp mb-2" style="font-size:13px">🧾 نموذج فاتورة البيع (19 بند) — الملف الأول</div>
   <div class="sc-wrap">
     <div>
       <div class="sc-card">
@@ -246,5 +316,69 @@ async function scSave(run) {
   load();
 }
 load();
+
+// ---------------- 📚 developer case files
+let BC = {screens: [], sites: [], symbols: []}, BCS = 'SAL', BCSITE = '', BCF = 'auto';
+const SN = {PASS: 'ناجح', FAIL: 'فاشل', BLOCKED_DATA: 'ناقص بيانات', BLOCKED_CAPABILITY: 'مش مؤتمت', NOT_RUN: 'لم يُنفذ'};
+async function bcLoad() {
+  const r = await fetch('/api/bizcases').then(x => x.json()).catch(() => ({}));
+  if (!r.success) { el('bcSum').textContent = 'تعذر التحميل'; return; }
+  BC = r;
+  const tot = r.screens.reduce((a, s) => a + s.cases.length, 0), au = r.screens.reduce((a, s) => a + s.auto_n, 0);
+  el('bcSum').textContent = `${r.screens.length} شاشة · ${tot} حالة · المؤتمت ${au}`;
+  if (!r.screens.find(s => s.code === BCS) && r.screens[0]) BCS = r.screens[0].code;
+  const ok = r.sites.find(s => s.id === BCSITE) || r.sites.find(s => s.active && s.kind !== 'client') || r.sites.find(s => s.kind !== 'client');
+  BCSITE = ok ? ok.id : '';
+  bcRender();
+}
+function bcRender() {
+  el('bcScreens').innerHTML = BC.screens.map(s => {
+    const l = s.last || {}, p = Object.values(l).filter(x => x.status === 'PASS').length, f = Object.values(l).filter(x => x.status === 'FAIL').length;
+    return `<button type="button" class="bc-chip ${s.code === BCS ? 'on' : ''}" onclick="BCS='${s.code}';bcRender()">
+      <div class="t">${s.icon} ${esc(s.name)}</div><div class="m">${s.code} · ${s.cases.length} حالة · مؤتمت ${s.auto_n}${p || f ? ` · ✅${p} ❌${f}` : ''}</div></button>`; }).join('');
+  el('bcSites').innerHTML = BC.sites.map(s => `<button type="button" class="sc-site ${s.id === BCSITE ? 'on' : ''}" ${s.kind === 'client' ? 'disabled title="نظام عميل — قراءة بس"' : ''} onclick="BCSITE='${esc(s.id)}';bcRender()">
+      <div class="fw-bold">${esc(s.name)} ${s.kind === 'client' ? '<span class="sc-badge">عميل 🔒</span>' : '<span class="sc-badge t">اختبار</span>'}</div><div class="u">${esc(s.url)}</div></button>`).join('') || '<span class="small text-muted">مفيش مواقع</span>';
+  const site = BC.sites.find(s => s.id === BCSITE) || {data: {}};
+  el('bcData').innerHTML = BC.symbols.map(([k, l]) => `<div><label title="${esc(l)}"><b>${k}</b> — ${esc(l)}</label><input class="form-control form-control-sm" dir="ltr" id="bcd_${k}" value="${esc((site.data || {})[k] || '')}"></div>`).join('');
+  const s = BC.screens.find(x => x.code === BCS); if (!s) return;
+  el('bcTitle').innerHTML = `${s.icon} ${esc(s.title)} <span class="small text-muted fw-normal" dir="ltr">${esc(s.route)}</span>`;
+  const last = s.last || {};
+  const list = s.cases.filter(c => BCF === 'all' || (BCF === 'auto' && c.auto) || (BCF === 'P0' && c.pri === 'P0') || (BCF === 'FAIL' && (last[c.id] || {}).status === 'FAIL'));
+  el('bcCases').innerHTML = list.map(c => { const L = last[c.id];
+    return `<tr class="${c.auto ? '' : 'off'}"><td><input type="checkbox" class="form-check-input bcx" value="${esc(c.id)}" ${c.auto ? 'checked' : 'disabled'}></td>
+      <td><b>${esc(c.id)}</b></td><td><span class="sc-badge">${esc(c.pri)}</span></td>
+      <td><div class="fw-bold">${esc(c.title)}</div><div class="exp">${esc(c.then)}</div>${c.auto ? '' : `<div class="exp">⏳ ${esc(c.why)}</div>`}
+        ${L ? `<div class="act">${L.doc ? `مستند ${esc(L.doc)} · ` : ''}${esc((L.actual || '').slice(0, 260))}</div>` : ''}</td>
+      <td>${L ? `<span class="bc-st ${esc(L.status)}">${SN[L.status] || esc(L.status)}</span><div class="exp">${esc(L.time)}</div>` : '<span class="exp">—</span>'}</td></tr>`; }).join('')
+    || '<tr><td colspan="5" class="sc-empty">مفيش حالات في الفلتر ده</td></tr>';
+  const run = (s.runs || []).find(x => x.word);
+  const w = el('bcLastWord'); if (run) { w.style.display = ''; w.href = `/reports/${run.run_id}/word`; } else w.style.display = 'none';
+  bcCount();
+}
+function bcCount() { const n = document.querySelectorAll('.bcx:checked').length; el('bcSel').textContent = n ? `محدد ${n} حالة` : 'مفيش حالات محددة'; }
+document.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('bcx')) bcCount(); });
+el('bcAll').addEventListener('change', e => { document.querySelectorAll('.bcx:not(:disabled)').forEach(x => x.checked = e.target.checked); bcCount(); });
+el('bcFilter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; BCF = b.dataset.f;
+  document.querySelectorAll('#bcFilter button').forEach(x => x.classList.toggle('on', x === b)); bcRender(); });
+async function bcSaveData(quiet) {
+  if (!BCSITE) { alert('اختاري موقع اختبار'); return false; }
+  const data = {}; BC.symbols.forEach(([k]) => data[k] = el('bcd_' + k).value.trim());
+  const r = await fetch('/api/bizcases/data', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({site: BCSITE, data})}).then(x => x.json());
+  if (!r.success) { alert(r.error); return false; }
+  const s = BC.sites.find(x => x.id === BCSITE); if (s) s.data = r.data;
+  if (!quiet) el('bcSum').textContent = '✅ ملف البيانات اتحفظ';
+  return true;
+}
+async function bcRun() {
+  const cases = [...document.querySelectorAll('.bcx:checked')].map(x => x.value);
+  if (!cases.length) { alert('حددي حالة واحدة على الأقل'); return; }
+  if (!(await bcSaveData(true))) return;
+  const s = BC.screens.find(x => x.code === BCS);
+  if (!confirm(`هيتعمل ${cases.length} مستند اختبار (${s.name}) على الموقع المختار. نكمل؟`)) return;
+  const r = await fetch('/api/bizcases/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({screen: BCS, cases, site: BCSITE})}).then(x => x.json());
+  if (!r.success) { alert(r.error); return; }
+  el('bcSum').textContent = '✅ دخل الطابور — تابعي من مركز التشغيل';
+}
+bcLoad();
 </script>
 {% endblock %}

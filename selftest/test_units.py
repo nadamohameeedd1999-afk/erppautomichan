@@ -187,3 +187,31 @@ def test_biz_config():
         assert False
     except C.ConfigError:
         pass
+
+
+def test_biz_cases_catalog_spec_and_word(tmp_path, monkeypatch):
+    from engine import biz_cases as B
+    from config import paths
+    cat = B.catalog()
+    assert {"SAL", "PUR", "CRV", "CPV", "SRT", "PRT", "TRF", "COL", "ASM"} <= set(cat)
+    assert cat["PUR"]["auto_n"] == 12 and cat["SAL"]["auto_n"] == 12
+    c = next(x for x in cat["PUR"]["cases"] if x["id"] == "PUR-006")
+    s = B.spec("PUR", c)
+    assert (s["pay"], s["tax"], s["net"], s["vat"], s["total"], s["paid"], s["cash"], s["stock"]) == ("MIXED", 15, 1000, 150, 1150, 400, 400, 0)
+    a = B.spec("SAL", next(x for x in cat["SAL"]["cases"] if x["id"] == "SAL-007"))
+    assert a["auto"] and a["stock"] == -10
+    monkeypatch.setattr(paths, "RESULTS_DIR", tmp_path)
+    k = B.Case(c)
+    k.chk("الحفظ", True, "ok")
+    k.doc_id, k.doc_no = "785", "13"
+    out = {"PUR-006": k.done(), "PUR-001": B.Case(cat["PUR"]["cases"][0]).done(B.BDATA, "ناقص V1")}
+    f = B.fill_word(cat["PUR"], out, "https://x.test")
+    import docx
+    t = "\n".join(p.text for p in docx.Document(f).paragraphs)
+    assert "PUR-006  |  Priority: P0  |  Basis: ACCEPTANCE  |  Status: PASS" in t and "BLOCKED_DATA" in t and "785 / 13" in t
+
+
+def test_biz_cases_config():
+    from engine import checks as C
+    c = C.normalize({"key": "bizcases_pur", "type": "bizcases", "screen": "pur", "cases": ["PUR-001", ""]})
+    assert c["screen"] == "PUR" and c["cases"] == ["PUR-001"]

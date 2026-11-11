@@ -350,6 +350,9 @@ def run_check(driver, credentials, cfg):
         elif cfg["type"] == "biz":
             from engine.biz_sales_invoice import run_sales_invoice
             run_sales_invoice(driver, credentials, cfg, result=result)
+        elif cfg["type"] == "bizcases":
+            from engine.biz_cases import run_cases
+            run_cases(driver, credentials, cfg, result=result)
         elif cfg["type"] == "sod":
             from engine.sod import run_sod
             run_sod(driver, credentials, cfg, result=result)

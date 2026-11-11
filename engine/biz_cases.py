@@ -1,0 +1,685 @@
+"""
+📚 حزم سيناريوهات المطور (ملفات Word: SAL · PUR · SRT · PRT · CRV · CPV · TRF · COL · ASM)
+Reads the developer's case files (templates_biz/cases/*.docx: Case ID · Priority · Basis · Given / When / Then), runs the
+cases the engine can execute on a test site with FIXED inputs from the site data file (D1 · W1 · A · C1 · V1 · K1 — never "the
+first option"), checks save → reopen → payment → stock → journal, and writes Status / Actual / DocumentId / Evidence back
+into a copy of the same Word file.
+
+Statuses (the developer's vocabulary): PASS · FAIL · BLOCKED_DATA (missing site data / prerequisite) ·
+BLOCKED_CAPABILITY (the engine can't execute or verify this case yet) · NOT_RUN.
+Write test: test sites only (engine.guard.require_write).
+"""
+import json
+import re
+import time
+from datetime import datetime
+
+from utils.logger import logger
+
+PASS, FAIL, BDATA, BCAP, NOTRUN = "PASS", "FAIL", "BLOCKED_DATA", "BLOCKED_CAPABILITY", "NOT_RUN"
+SYMBOLS = [("D1", "رقم القسم/الفرع (DepartmentId)"), ("W1", "رقم المخزن W1 (WarehouseId)"), ("A", "كود/باركود الصنف A"),
+           ("C1", "رقم العميل C1"), ("V1", "رقم المورد V1"), ("K1", "رقم الخزينة K1 (CashBoxId)")]
+
+# screens: code → profile (what the engine knows about the screen on NQ ERP)
+PROFILES = {
+    "SAL": {"path": "/SalesInvoice/AddEdit", "ctrl": "SalesInvoice", "body": "SalesInvoiceDetails", "pay": "SalesInvoicePaymentMethods",
+            "save": "addEdit", "party": "VendorOrCustomerId", "sym": "C1", "add": "quick", "sign": -1, "voucher": "StockIssueVoucher",
+            "jt": r"بيع", "kind": "invoice", "cash": "d"},
+    "PUR": {"path": "/PurchaseInvoice/AddEdit", "ctrl": "PurchaseInvoice", "body": "PurchaseInvoiceDetails", "pay": "PurchaseInvoicePaymentMethods",
+            "save": "savePurchaseInvoice", "party": "VendorOrCustomerId", "sym": "V1", "add": "modal", "sign": 1, "voucher": "StockReceiptVoucher",
+            "jt": r"شراء", "kind": "invoice", "cash": "c"},
+    "CRV": {"path": "/CashReceiptVoucher/AddEdit", "ctrl": "CashReceiptVoucher", "save": "addEdit", "party": "CustomerId", "sym": "C1",
+            "src": "1", "method": "CashReceiptPaymentMethodId", "jt": r"قبض", "kind": "voucher", "cash": "d"},
+    "CPV": {"path": "/CashIssueVoucher/AddEdit", "ctrl": "CashIssueVoucher", "save": "addEdit2", "party": "VendorId", "sym": "V1",
+            "src": "2", "method": "CashIssuePaymentMethodId", "ajax": "/CashIssueVoucher/SearchVendors", "jt": r"دفع|صرف نقد", "kind": "voucher", "cash": "c"},
+}
+NAMES = {"SAL": "فاتورة المبيعات", "PUR": "فاتورة المشتريات", "SRT": "مرتجع المبيعات", "PRT": "مرتجع المشتريات", "CRV": "سند القبض",
+         "CPV": "سند الدفع", "TRF": "التحويلات المخزنية", "COL": "سند التجميع والإنتاج", "ASM": "مستند التجميع"}
+ICONS = {"SAL": "🧾", "PUR": "🛒", "SRT": "↩️", "PRT": "↪️", "CRV": "💰", "CPV": "💸", "TRF": "🔁", "COL": "🏭", "ASM": "🧩"}
+
+MATRIX = re.compile(r"^(NONE|AUTO|ONE|MULTI) ضريبة (\d+) سداد (CREDIT|CASH|MIXED)$")
+
+
+# ------------------------------------------------------------------ the case files
+def _dir():
+    from config import paths
+    return paths.BASE_DIR / "templates_biz" / "cases"
+
+
+_CACHE = {}
+
+
+def catalog():
+    """{code: {code, name, icon, title, route, file, cases: [{id, pri, basis, title, given, when, then, auto, why}]}}"""
+    out = {}
+    for f in sorted(_dir().glob("*.docx")):
+        m = re.match(r"\d+_([A-Z]+)$", f.stem)
+        if not m:
+            continue
+        code = m.group(1)
+        key = (str(f), f.stat().st_mtime)
+        if _CACHE.get(code, (None,))[0] != key:
+            _CACHE[code] = (key, _parse(f, code))
+        out[code] = _CACHE[code][1]
+    return out
+
+
+def _parse(f, code):
+    import docx
+    d = docx.Document(str(f))
+    ps = d.paragraphs
+    title = ps[0].text.strip() if ps else code
+    route = next((p.text.split(":", 1)[1].strip() for p in ps if p.text.startswith("Screen route")), "")
+    cases, cur, head = [], None, ""
+    for p in ps:
+        t = p.text.strip()
+        if p.style.name.startswith("Heading 2"):
+            head = t
+        m = re.match(r"Case ID: (\S+)\s*\|\s*Priority: (\S+)\s*\|\s*Basis: (\S+)", t)
+        if m:
+            cur = {"id": m[1], "pri": m[2], "basis": m[3], "title": head, "given": "", "when": [], "then": ""}
+            cases.append(cur)
+            continue
+        if not cur or not t:
+            continue
+        if t.startswith("Given"):
+            cur["given"] = re.sub(r"^Given\s+الشروط والبيانات\s*", "", t)
+        elif t.startswith("When"):
+            cur["when"].append(re.sub(r"^When\s*", "", t))
+        elif t.startswith("Then"):
+            cur["then"] = re.sub(r"^Then\s+النتائج المتوقعة\s*", "", t)
+        elif re.match(r"^\d\)", t) and not cur["then"]:
+            cur["when"].append(t)
+    for c in cases:
+        c["auto"], c["why"] = supported(code, c)
+    return {"code": code, "name": NAMES.get(code, code), "icon": ICONS.get(code, "📄"), "title": title, "route": route,
+            "file": f.name, "cases": cases, "auto_n": sum(1 for c in cases if c["auto"])}
+
+
+def supported(code, c):
+    """(True, '') when the engine runs this case, else (False, why)"""
+    if code in ("SAL", "PUR"):
+        m = MATRIX.match(c["title"])
+        if m and m[1] in ("NONE", "AUTO"):
+            return True, ""
+        if m:
+            return False, "ربط سند مخزني سابق (ONE/MULTI) — المرحلة الجاية"
+    if code in ("CRV", "CPV") and c["title"] == "CASH توزيع NONE":
+        return True, ""
+    return False, "لسه مش مؤتمتة — هتتضاف على مراحل"
+
+
+def spec(code, c):
+    """the fixed inputs + expected values read from the case text (never from the actual result)"""
+    g, w, t = c["given"], " ".join(c["when"]), c["then"]
+    num = lambda rx, s, dflt=None: (float(m.group(1)) if (m := re.search(rx, s)) else dflt)
+    s = {"code": code, "id": c["id"]}
+    if PROFILES[code]["kind"] == "invoice":
+        m = MATRIX.match(c["title"])
+        s.update({"source": m[1], "tax": float(m[2]), "pay": m[3], "auto": m[1] == "AUTO",
+                  "qty": num(r"(\d+(?:\.\d+)?) وحدات من A", w, 10), "price": num(r"بسعر (\d+(?:\.\d+)?)", w, 100),
+                  "net": num(r"صافي (\d+(?:\.\d+)?)", t), "vat": num(r"ضريبة (\d+(?:\.\d+)?)", t), "total": num(r"إجمالي (\d+(?:\.\d+)?)", t),
+                  "paid": num(r"المدفوع (\d+(?:\.\d+)?)", t, 0), "cash": num(r"نقدي (\d+(?:\.\d+)?)", g, 0) if m[3] == "MIXED" else None})
+        s["stock"] = (PROFILES[code]["sign"] * s["qty"]) if s["auto"] else 0.0
+    else:
+        s.update({"amount": num(r"مبلغ السند (\d+(?:\.\d+)?)", t, 1150)})
+    return s
+
+
+# ------------------------------------------------------------------ site data file (symbols → real ids), per site
+def _data_file():
+    from config import paths
+    return paths.SETTINGS_DIR / "biz_site_data.json"
+
+
+def site_key(url):
+    return re.sub(r"^https?://", "", str(url or "")).strip("/").lower()
+
+
+def load_data(url=None):
+    try:
+        allx = json.loads(_data_file().read_text(encoding="utf-8"))
+    except Exception:
+        allx = {}
+    return allx if url is None else allx.get(site_key(url), {})
+
+
+def save_data(url, data):
+    allx = load_data()
+    allx[site_key(url)] = {k: str(data.get(k) or "").strip() for k, _ in SYMBOLS}
+    _data_file().parent.mkdir(parents=True, exist_ok=True)
+    _data_file().write_text(json.dumps(allx, ensure_ascii=False, indent=1), encoding="utf-8")
+    return allx[site_key(url)]
+
+
+# ------------------------------------------------------------------ browser helpers
+INSTALL = r"""
+window.__nq = window.__nq || {};
+const N = window.__nq; N.w = ms => new Promise(r => setTimeout(r, ms));
+N.sw = N.sw || [];
+N.log = t => { N.sw.push(t); try { sessionStorage.setItem('__nq_sw', JSON.stringify(N.sw)); } catch (e) {} };
+if (window.Swal && !Swal.__nqc) {
+  const of = Swal.fire.bind(Swal);
+  Swal.fire = function (...a) {
+    const o = typeof a[0] === 'string' ? {title: a[0], text: a[1]} : (a[0] || {});
+    N.log((o.title || '') + ' | ' + String(o.text || o.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) + (o.showCancelButton ? ' [?]' : ''));
+    if (o.showCancelButton) return Promise.resolve({isConfirmed: true, value: true});
+    return of(...a);
+  };
+  Swal.__nqc = true;
+}
+if (!XMLHttpRequest.prototype.__nqc) {   // the save request's own answer (some screens save without showing any message)
+  const op = XMLHttpRequest.prototype.open, sd = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (m, u) { this.__m = m; this.__u = u; return op.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function () { if (/post/i.test(this.__m || '') && /addedit|save|create|update/i.test(this.__u || ''))
+      this.addEventListener('loadend', () => N.log('xhr | ' + this.status + ' ' + String(this.__u).split('?')[0] + ' ' + String(this.responseText || '').replace(/\s+/g, ' ').slice(0, 400)));
+    return sd.apply(this, arguments); };
+  XMLHttpRequest.prototype.__nqc = true;
+}
+window.confirm = m => { N.log('confirm | ' + m); return true; };
+window.alert = m => { N.log('alert | ' + m); };
+N.num = id => parseFloat(String($('#' + id).val() || '0').replace(/,/g, '')) || 0;
+N.f = v => parseFloat(String(v || '0').replace(/,/g, '')) || 0;
+N.set = async (id, v, ms) => { $('#' + id).val(v).trigger('change'); await N.w(ms || 1200); };
+N.has = (id, v) => [...document.querySelectorAll('#' + id + ' option')].some(o => o.value === String(v));
+N.check = async (id, want, ms) => { const e = document.getElementById(id); if (!e) return null; if (e.checked !== !!want) { e.click(); await N.w(ms || 2500); } return e.checked; };
+N.req = () => [...document.querySelectorAll('input[required],select[required],textarea[required]')]
+   .filter(e => e.offsetParent !== null && !String(e.value).trim()).map(e => e.id || e.name);
+N.get = async (u, ms) => { const ac = new AbortController(); setTimeout(() => ac.abort(), ms || 45000);
+  const r = await fetch(u, {credentials: 'include', signal: ac.signal}); return await r.text(); };
+N.post = async (u, body, ms) => { const ac = new AbortController(); setTimeout(() => ac.abort(), ms || 45000);
+  const r = await fetch(u, {method: 'POST', credentials: 'include', signal: ac.signal, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  return await r.text(); };
+N.ids = async ctrl => { const d = new DOMParser().parseFromString(await N.get('/' + ctrl), 'text/html'); const re = new RegExp('/' + ctrl + '/AddEdit\\w*/(\\d+)', 'i');
+  const out = {}; d.querySelectorAll('tbody tr').forEach(tr => { const a = [...tr.querySelectorAll('a[href]')].map(x => x.getAttribute('href'));
+    const h = a.find(x => re.test(x)); if (!h) return; const id = h.match(re)[1];
+    out[id] = {text: [...tr.cells].map(c => c.innerText.trim().replace(/\s+/g, ' ')).filter(Boolean).join(' | ').slice(0, 300), links: a}; });
+  return out; };
+N.itemId = async code => { try { const l = JSON.parse(await N.get('/SalesInvoice/GetItemsSmartSearchHints?term=' + encodeURIComponent(code)));
+  const x = l.find(i => String(i.barcode) === String(code)); return x ? x.id : null; } catch (e) { return null; } };
+N.stock = async (wh, item) => { try { return JSON.parse(await N.get(`/Helper/ItemQuantityOnSystem?warehouseId=${wh}&itemId=${item}&voucherId=0&date=${encodeURIComponent(new Date().toISOString().slice(0, 16))}`)).quantity; } catch (e) { return null; } };
+N.balance = async c => { try { return JSON.parse(await N.get('/Helper/GetCustomerDebitBalance/' + c))[0]; } catch (e) { return null; } };
+N.journal = async day => { const f = {DateFrom: day, DateTo: day, BranchId: null, AccountIds: [], AccountId: null, CostCenterId: null, UserId: null,
+   IsPosted: null, DebitCreditType: null, SourcePageId: null, ReviewStatus: null, OperationType: null, FlaggedOnly: false, SearchTerm: ''};
+  for (let i = 0; i < 3; i++) { try { const t = await N.post('/JournalEntriesReview/GetDataJson', f, 60000); if (t) return (JSON.parse(t).data || []).map(x => ({je: x.JournalEntryId,
+     type: x.DocumentType || '', doc: x.DocumentNumber, op: String(x.OperationNumber || ''), acc: (x.AccountCode || '') + ' ' + (x.AccountName || ''), d: +x.Debit || 0, c: +x.Credit || 0})); } catch (e) {} await N.w(2500); }
+  return null; };
+N.rows = body => [...document.querySelectorAll('#' + body + ' tr')].map(tr => {
+  const q = s => { const e = tr.querySelector(s); return e ? (e.tagName === 'SELECT' ? ((e.selectedOptions[0] || {}).textContent || '') : e.value) : ''; };
+  return {item: q('.item-name'), qty: N.f(q('.quantity')), price: N.f(q('.price')), id: q('.itemId'), code: q('.barcode')}; }).filter(r => r.item);
+N.buyer = async () => { const filled = [];   // the e-invoice buyer fields a cash sale makes required (test values, not party data)
+  const fill = (id, v) => { const e = document.getElementById(id); if (e && e.required && e.offsetParent !== null && !String(e.value).trim()) { $(e).val(v).trigger('input').trigger('change'); filled.push(id); } };
+  fill('CommercialRegistrationNumber', '1010101010'); fill('CashCustomerVATNumber', '300000000000003'); fill('BuildingNumber', '1234'); fill('PostalCode', '12345');
+  const pick = async (id, rx) => { const e = document.getElementById(id); if (!e || !e.required || e.offsetParent === null || e.value) return;
+    const o = [...e.options].filter(x => x.value); const x = o.find(z => rx.test(z.textContent)) || (o.length === 1 ? o[0] : null); if (x) { await N.set(id, x.value, 2000); filled.push(id); } };
+  await pick('CountryId', /السعودية|Saudi/); await pick('CityId', /الرياض|Riyadh/); return filled; };
+N.payRows = body => [...document.querySelectorAll('#' + body + ' tr')].map(tr => ({m: $(tr).find('.PaymentMethodId').val(), amt: N.f($(tr).find('.PaymentAmount').val()),
+   box: $(tr).find('.CashBoxId').val() || ''})).filter(r => r.m);
+'ok';
+"""
+
+
+def _js(driver, body, *args):
+    script = ("const done = arguments[arguments.length - 1]; const A = Array.from(arguments).slice(0, -1);\n"
+              + INSTALL + "\n(async () => { const N = window.__nq; " + body + " })().then(done).catch(e => done({__err: String(e)}));")
+    driver.set_script_timeout(240)
+    r = driver.execute_async_script(script, *args)
+    if isinstance(r, dict) and r.get("__err"):
+        raise RuntimeError(r["__err"])
+    return r
+
+
+def _open(driver, path):
+    from config.settings import BASE_URL
+    driver.get(BASE_URL.rstrip("/") + path)
+    for _ in range(60):
+        try:
+            if driver.execute_script("return !!(window.jQuery && document.readyState === 'complete')"):
+                break
+        except Exception:
+            pass
+        time.sleep(0.5)
+    time.sleep(2.5)
+
+
+def _save(driver, fn, path_before):
+    """click save through the screen's own function. The page often navigates to the list, and some screens save without any
+    message, so the dialogs AND the save request's answer are kept in sessionStorage. → (ok, messages, saved_id, silent)"""
+    _js(driver, "sessionStorage.removeItem('__nq_sw'); N.sw = []; setTimeout(() => { try { const f = window[A[0]]; f ? f() : N.log('err | مفيش دالة حفظ ' + A[0]); } catch (e) { N.log('err | ' + e); } }, 50); return 1;", fn)
+    log, path, t0 = [], path_before, time.time()
+
+    def moved(p):
+        return p.rstrip("/").lower() != path_before.rstrip("/").lower()
+    while time.time() - t0 < 45:
+        time.sleep(1)
+        try:
+            path, raw = driver.execute_script("return [location.pathname, sessionStorage.getItem('__nq_sw')]")
+            log = json.loads(raw or "[]")
+        except Exception:
+            continue
+        if any(_ok(x) for x in log) or any(_err(x) for x in log) or moved(path) or _xhr(log)[0] is not None:
+            time.sleep(3)
+            try:
+                log = json.loads(driver.execute_script("return sessionStorage.getItem('__nq_sw')") or "[]")
+            except Exception:
+                pass
+            break
+    xok, xid, xmsg = _xhr(log)
+    ui_ok = any(_ok(x) for x in log)
+    ok = (xok is True) or ui_ok or (moved(path) and not any(_err(x) for x in log) and xok is not False)
+    msgs = [x for x in log if not x.endswith("[?]") and not x.startswith("xhr |")] + ([xmsg] if xok is False and xmsg else [])
+    return ok, msgs, xid, bool(ok and not ui_ok and not moved(path))
+
+
+def _ok(x):
+    return bool(re.match(r"^(حفظ|تم الحفظ|تم)\s*\|", x))
+
+
+def _xhr(log):
+    """(True/False/None, saved id, message) from the save request's JSON answer"""
+    for x in reversed(log):
+        if not x.startswith("xhr |"):
+            continue
+        m = re.match(r"xhr \| (\d+) (\S+) (.*)$", x)
+        if not m:
+            continue
+        body = m.group(3)
+        try:
+            j = json.loads(body)
+        except Exception:
+            j = None
+        if isinstance(j, dict):
+            succ = str(j.get("success", j.get("Success", ""))).lower()
+            sid = j.get("id") or j.get("Id") or j.get("ID") or ""
+            if succ in ("true", "1") or (sid and succ != "false"):
+                return True, str(sid), ""
+            if succ in ("false", "0"):
+                return False, "", "رد الحفظ: " + str(j.get("message") or j.get("Message") or j.get("error") or body)[:300]
+        if m.group(1) != "200":
+            return False, "", f"رد الحفظ HTTP {m.group(1)}"
+    return None, "", ""
+
+
+def _err(x):
+    if x.startswith("xhr |"):
+        return False
+    return x.startswith("alert |") or x.startswith("err |") or bool(re.search(r"لا يمكن|خطأ|تجاوز|مطلوب|غير مسموح|يجب|فشل|error", x, re.I)) and not x.endswith("[?]")
+
+
+# ------------------------------------------------------------------ one case
+class Case:
+    def __init__(self, c):
+        self.c = c
+        self.checks = []          # (name, ok, actual)
+        self.status = NOTRUN
+        self.doc_id = self.doc_no = ""
+        self.actual = ""
+        self.evidence = []
+
+    def chk(self, name, ok, actual):
+        self.checks.append((name, bool(ok), actual))
+        logger.info(f"   {'✅' if ok else '❌'} {name}: {actual}")
+        return ok
+
+    def done(self, status=None, actual=""):
+        if status:
+            self.status = status
+        else:
+            self.status = PASS if self.checks and all(ok for _, ok, _ in self.checks) else FAIL
+        bad = [f"{n}: {a}" for n, ok, a in self.checks if not ok]
+        self.actual = actual or (" · ".join(bad) if bad else " · ".join(f"{n} {a}" for n, _, a in self.checks))[:900]
+        return self
+
+
+def _close(a, b, tol=0.011):
+    return a is not None and b is not None and abs(float(a) - float(b)) <= tol
+
+
+def _f(x):
+    try:
+        return f"{float(x):,.2f}"
+    except (TypeError, ValueError):
+        return str(x)
+
+
+def _missing(data, names):
+    return [n for n in names if not str(data.get(n) or "").strip()]
+
+
+def run_invoice(driver, code, c, data, day):
+    P, s, k = PROFILES[code], spec(code, c), Case(c)
+    miss = _missing(data, ["D1", "W1", "A", P["sym"]] + (["K1"] if s["pay"] in ("CASH", "MIXED") else []))
+    if miss:
+        return k.done(BDATA, "ناقص في ملف بيانات الموقع: " + ", ".join(miss))
+    logger.info(f"▶ {c['id']} — {c['title']}")
+    # snapshot before
+    _open(driver, P["path"])
+    b = _js(driver, "const [ctrl, code] = A; let dup = 0; try { dup = JSON.parse(await N.get('/SalesInvoice/GetItemsSmartSearchHints?term=' + encodeURIComponent(code))).filter(i => String(i.barcode) === String(code)).length; } catch (e) {} return {ids: Object.keys(await N.ids(ctrl)), dup};",
+            P["ctrl"], data["A"])
+    if b.get("dup", 0) > 1:
+        return k.done(BDATA, f"الباركود «{data['A']}» متسجل على {b['dup']} صنف في الـ ERP — حطي في ملف البيانات باركود الصنف A مايتكررش (الأداة مش هتختار واحد بالتخمين)")
+    # header
+    h = _js(driver, r"""
+      const [P, d, s] = A; const out = {miss: []};
+      if (!N.has('DepartmentId', d.D1)) out.miss.push('D1'); else await N.set('DepartmentId', d.D1, 2000);
+      if (!N.has('WarehouseId', d.W1)) out.miss.push('W1'); else await N.set('WarehouseId', d.W1, 1200);
+      if (!N.has(P.party, d[P.sym])) out.miss.push(P.sym); else await N.set(P.party, d[P.sym], 3000);
+      if (document.getElementById('InvoiceTypeId') && N.has('InvoiceTypeId', '1') && P.ctrl === 'SalesInvoice') await N.set('InvoiceTypeId', '1', 600);
+      await N.set('PaymentType', '2', 1500);
+      if ($('#ItemwithVat').prop('checked')) document.getElementById('ItemwithVat').click();
+      out.auto = await N.check('AutoGenerateStockReceiptVoucher', s.auto, 800);
+      out.filled = await N.buyer();
+      const ad = document.getElementById('AccountingDocumentId'); if (ad && !ad.value) { const o = [...ad.options].find(x => x.value); if (o) { await N.set('AccountingDocumentId', o.value, 600); out.adoc = o.textContent.trim(); } }
+      return out;
+    """, P, data, s)
+    if h["miss"]:
+        return k.done(BDATA, "القيم دي مش موجودة في قوائم الشاشة: " + ", ".join(f"{m}={data.get(m)}" for m in h["miss"]))
+    if h.get("filled"):
+        k.evidence.append("بيانات المشتري للفاتورة الإلكترونية اتملت بقيم اختبار: " + ", ".join(h["filled"]))
+    k.evidence.append(f"الرأس: D1={data['D1']} W1={data['W1']} {P['sym']}={data[P['sym']]} · توليد السند المخزني {'مفتوح' if h['auto'] else 'مغلق'}"
+                      + (f" · نوع المستند «{h['adoc']}»" if h.get("adoc") else ""))
+    # the line
+    a = _js(driver, r"""
+      const [P, code, qty, price] = A;
+      if (P.add === 'quick') {
+        const $s = $('#QuickSmartSearch'); $s.val(code); $s.trigger($.Event('keydown', {key: 'Enter'})); await N.w(2500);
+        const o = [...document.querySelectorAll('#QuickSmartSearchHints option')].find(x => x.getAttribute('data-barcode') === String(code));
+        if (!o) return {err: 'البحث السريع مالقاش الكود'};
+        $s.val(o.value).trigger('change'); await N.w(2500);
+        $('#QuickItemQty').val(qty).trigger('input').trigger('change'); await N.w(300);
+        $('#QuickItemPrice').val(price).trigger('input').trigger('change'); await N.w(300);
+        $('#QuickItemAddToDetailsBtn').click(); await N.w(3500); $('#QuickSmartSearchClear').click();
+      } else {
+        $('#search-items').val(code); appendSearch(1);
+        let tr = null; for (let i = 0; i < 20 && !tr; i++) { await N.w(800); tr = [...document.querySelectorAll('#itemSearchModal tbody tr')].find(r => r.querySelector('.barcode') && r.querySelector('.barcode').value === String(code)); }
+        if (!tr) return {err: 'نافذة البحث عن الأصناف مالقتش الكود'};
+        tr.querySelector('button[onclick*=chooseItem]').click(); await N.w(3000);
+        const row = [...document.querySelectorAll('#' + P.body + ' tr')].reverse().find(r => $(r).find('.barcode').val() === String(code));
+        if (!row) return {err: 'الصنف ما اتضافش للتفاصيل'};
+        $(row).find('.quantity').val(qty).trigger('input').trigger('change'); await N.w(600);
+        $(row).find('.price').val(price).trigger('input').trigger('change'); await N.w(1500);
+      }
+      if (typeof CalculateTotals === 'function') { try { CalculateTotals(); } catch (e) {} await N.w(1500); }
+      return {rows: N.rows(P.body)};
+    """, P, data["A"], s["qty"], s["price"])
+    if a.get("err"):
+        return k.done(BCAP, "إضافة السطر: " + a["err"])
+    item_id = (a.get("rows") or [{}])[-1].get("id")
+    b["item"] = item_id
+    b["stock"] = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], item_id) if item_id else None
+    k.evidence.append(f"السطر: {(a.get('rows') or [{}])[-1].get('item', '')} (Id {item_id}) × {s['qty']:g} بسعر {_f(s['price'])} · رصيد W1 قبل الحفظ {b['stock']}")
+    # tax + payment
+    t = _js(driver, r"""
+      const [P, s, box] = A;
+      const ht = await N.check('hasTaxes', s.tax > 0, 2500);
+      await N.w(1500);
+      const after = N.num('TotalAfterTaxes'); const out = {ht};
+      if (s.pay === 'CASH' || s.pay === 'MIXED') {
+        const pt = s.pay === 'CASH' ? '1' : '3';
+        if (!N.has('PaymentType', pt)) return {err: 'طريقة الدفع ' + (s.pay === 'CASH' ? 'نقدي' : 'متعدد') + ' مش موجودة في الشاشة'};
+        await N.set('PaymentType', pt, 2500);
+        const rows = [...document.querySelectorAll('#' + P.pay + ' tr')];
+        const cash = rows.find(r => $(r).find('.PaymentMethodId').val() === '1'), cred = rows.find(r => $(r).find('.PaymentMethodId').val() === '2');
+        if (!cash) return {err: 'سطر النقدي مش موجود في جدول طرق الدفع'};
+        const sel = $(cash).find('.CashBoxId'); if (!sel.find('option[value="' + box + '"]').length) return {miss: 'K1'};
+        sel.val(box).trigger('change'); await N.w(800);
+        if (s.pay === 'MIXED') { $(cash).find('.PaymentAmount').val(s.cash).trigger('input').trigger('change'); await N.w(600);
+          if (cred) { $(cred).find('.PaymentAmount').val((after - s.cash).toFixed(2)).trigger('input').trigger('change'); await N.w(600); } }
+      }
+      out.totals = {total: N.num('Total'), net: N.num('NetTotal'), vat: N.num('SalesTaxes'), after: N.num('TotalAfterTaxes')};
+      out.filled = await N.buyer(); out.pay = N.payRows(P.pay); out.req = N.req(); return out;
+    """, P, s, data.get("K1", ""))
+    if t.get("miss"):
+        return k.done(BDATA, f"الخزينة K1={data.get('K1')} مش موجودة في سطر النقدي")
+    if t.get("err"):
+        return k.done(BCAP, t["err"])
+    if t.get("filled"):
+        k.evidence.append("بعد اختيار طريقة الدفع اتملت بقيم اختبار: " + ", ".join(t["filled"]))
+    tt = t["totals"]
+    k.chk("قبل الحفظ", _close(tt["net"] or tt["total"], s["net"]) and _close(tt["vat"], s["vat"]) and _close(tt["after"], s["total"]),
+          f"صافي {_f(tt['net'] or tt['total'])} · ضريبة {_f(tt['vat'])} · إجمالي {_f(tt['after'])} (المتوقع {_f(s['net'])} / {_f(s['vat'])} / {_f(s['total'])})")
+    if t["req"]:
+        return k.done(BDATA, "حقول إلزامية فاضية مالهاش قيمة في ملف البيانات: " + ", ".join(t["req"]))
+    # save (once)
+    ok, log, sid, silent = _save(driver, P["save"], P["path"])
+    if not ok:
+        msg = " · ".join(log)[:400] or "مفيش رد"
+        if re.search(r"الحد الائتماني|الائتمان", msg) and code == "SAL":
+            return k.done(BDATA, f"العميل C1 حده الائتماني مايسمحش — رسالة الـ ERP: {msg}")
+        if re.search(r"الفترة|مغلق", msg):
+            return k.done(BDATA, f"الفترة مقفولة — {msg}")
+        k.chk("الحفظ", False, f"الـ ERP رفض: {msg}")
+        return k.done()
+    k.chk("الحفظ", True, "اتحفظ مرة واحدة" + (f" (Id {sid})" if sid else ""))
+    if silent:
+        k.evidence.append("ملاحظة: الـ ERP حفظ بس الشاشة ماظهرتش رسالة نجاح ولا رجعت للقائمة")
+    # the new document
+    n = _js(driver, "const [ctrl, before] = A; const all = await N.ids(ctrl); const neu = Object.keys(all).filter(i => !before.includes(i)).sort((x, y) => y - x); return {neu, rows: neu.map(i => all[i])};",
+            P["ctrl"], b["ids"])
+    if sid and sid not in n["neu"]:
+        n["neu"].insert(0, sid)
+        n["rows"].insert(0, {"text": "", "links": []})
+    if not n["neu"]:
+        k.chk("المستند في القائمة", False, "اتحفظ بس مش ظاهر في أول صفحة من القائمة")
+        return k.done()
+    i0 = n["neu"].index(sid) if sid in n["neu"] else 0
+    k.doc_id = n["neu"][i0]
+    row = n["rows"][i0]
+    k.doc_no = row["text"].split(" | ")[0]
+    k.chk("مستند واحد بس", len(n["neu"]) == 1, f"اتعمل {len(n['neu'])} مستند جديد" if len(n["neu"]) > 1 else f"رقم {k.doc_no} · Id {k.doc_id}")
+    vlinks = sorted({m.group(1) for x in row["links"] if (m := re.search(rf"/{P['voucher']}/(?:AddEdit\w*/)?(\d+)", x, re.I))})
+    if s["auto"]:
+        k.chk("السند المخزني التابع", len(vlinks) == 1, f"{len(vlinks)} سند" + (f" (Id {vlinks[0]})" if vlinks else ""))
+    else:
+        k.chk("مفيش سند مخزني جديد", not vlinks, "مفيش" if not vlinks else f"اتعمل {len(vlinks)} سند رغم إن التوليد مقفول")
+    # reopen
+    _open(driver, f"/{P['ctrl']}/AddEdit/{k.doc_id}")
+    r = _js(driver, "const [P] = A; return {rows: N.rows(P.body), total: N.num('Total'), net: N.num('NetTotal'), vat: N.num('SalesTaxes'), after: N.num('TotalAfterTaxes'), party: $('#' + P.party).val(), wh: $('#WarehouseId').val(), dep: $('#DepartmentId').val(), pay: N.payRows(P.pay), pt: $('#PaymentType').val(), doc: $('#DocumentNumber').val() || ''};", P)
+    k.doc_no = k.doc_no or r.get("doc", "")
+    ln = r["rows"][0] if r["rows"] else {}
+    k.chk("إعادة الفتح", len(r["rows"]) == 1 and _close(ln.get("qty"), s["qty"], 1e-6) and _close(ln.get("price"), s["price"]) and str(r["party"]) == str(data[P["sym"]]) and str(r["wh"]) == str(data["W1"]),
+          f"سطور {len(r['rows'])} · كمية {ln.get('qty', '—')} · سعر {_f(ln.get('price'))} · الطرف {r['party']} · المخزن {r['wh']}")
+    k.chk("الإجماليات بعد الفتح", _close(r["net"] or r["total"], s["net"]) and _close(r["vat"], s["vat"]) and _close(r["after"], s["total"]),
+          f"صافي {_f(r['net'] or r['total'])} · ضريبة {_f(r['vat'])} · إجمالي {_f(r['after'])}")
+    cash = sum(p["amt"] for p in r["pay"] if p["m"] == "1")
+    paid = cash if r["pay"] else (s["total"] if r["pt"] == "1" else 0)
+    k.chk("المدفوع", _close(paid, s["paid"]), f"نقدي {_f(paid)} (المتوقع {_f(s['paid'])})")
+    # stock
+    st = _js(driver, "const [wh, it] = A; return await N.stock(wh, it);", data["W1"], b["item"])
+    if b["stock"] is not None and st is not None:
+        dlt = round(float(st) - float(b["stock"]), 6)
+        k.chk("كارت الصنف A في W1", _close(dlt, s["stock"], 1e-6), f"قبل {b['stock']} · بعد {st} · الفرق {dlt:g} (المتوقع {s['stock']:g})")
+    else:
+        k.evidence.append("رصيد الصنف: الـ ERP مارجّعش الكمية")
+    # journal
+    _journal(driver, k, P, day, k.doc_id, exp_total=s["total"], exp_vat=s["vat"], exp_cash=s["paid"])
+    return k.done()
+
+
+def _journal(driver, k, P, day, op, exp_total, exp_vat=None, exp_cash=None):
+    lines = None
+    for _ in range(3):
+        lines = _js(driver, "return await N.journal(A[0]);", day)
+        mine = [x for x in (lines or []) if x["op"] == str(op) and re.search(P["jt"], x["type"]) and not re.search(r"مخازن|مخزن", x["type"])]
+        if mine:
+            break
+        time.sleep(4)
+    if lines is None:
+        k.chk("القيد", False, "شاشة مراجعة القيود مارجعتش بيانات")
+        return
+    if not mine:
+        k.chk("القيد", False, f"مفيش قيد للمستند Id {op} في مراجعة القيود النهارده")
+        return
+    d, c = round(sum(x["d"] for x in mine), 2), round(sum(x["c"] for x in mine), 2)
+    k.evidence.append("القيد " + str(mine[0]["je"]) + ": " + " · ".join(f"{x['acc'].strip()[:40]} م{_f(x['d'])} د{_f(x['c'])}" for x in mine if x["d"] or x["c"]))
+    k.chk("القيد متزن", _close(d, c), f"مدين {_f(d)} · دائن {_f(c)}")
+    k.chk("قيمة القيد", _close(d, exp_total), f"{_f(d)} (المتوقع {_f(exp_total)})")
+    if exp_vat is not None:
+        vat = round(sum(x["d"] + x["c"] for x in mine if re.search(r"ضريب|VAT", x["acc"], re.I)), 2)
+        k.chk("ضريبة القيد", _close(vat, exp_vat), f"{_f(vat)} (المتوقع {_f(exp_vat)})")
+    if exp_cash:
+        side = "d" if P["cash"] == "d" else "c"
+        cash = round(sum(x[side] for x in mine if re.search(r"صندوق|خزين|نقد", x["acc"])), 2)
+        k.chk("طرف الخزينة", _close(cash, exp_cash), f"{_f(cash)} {'مدين' if side == 'd' else 'دائن'} (المتوقع {_f(exp_cash)})")
+    zero = [x for x in mine if not x["d"] and not x["c"]]
+    if zero:
+        k.evidence.append(f"ملاحظة: {len(zero)} سطر بصفر في القيد")
+
+
+def run_voucher(driver, code, c, data, day):
+    P, s, k = PROFILES[code], spec(code, c), Case(c)
+    miss = _missing(data, ["D1", "K1", P["sym"]])
+    if miss:
+        return k.done(BDATA, "ناقص في ملف بيانات الموقع: " + ", ".join(miss))
+    logger.info(f"▶ {c['id']} — {c['title']}")
+    _open(driver, P["path"])
+    b = _js(driver, "const [ctrl, cust, isC] = A; return {ids: Object.keys(await N.ids(ctrl)), bal: isC ? await N.balance(cust) : null};",
+            P["ctrl"], data[P["sym"]], P["sym"] == "C1")
+    h = _js(driver, r"""
+      const [P, d, amt] = A; const out = {miss: []};
+      if (!N.has('DepartmentId', d.D1)) out.miss.push('D1'); else await N.set('DepartmentId', d.D1, 2000);
+      await N.set('SourceTypeId', P.src, 2500);
+      const pid = d[P.sym];
+      if (P.ajax) { const r = await N.get(P.ajax + '?' + new URLSearchParams({term: '', departmentId: d.D1})); let l = []; try { l = JSON.parse(r); } catch (e) {}
+        let x = l.find(v => String(v.Id) === String(pid));
+        if (!x) { for (const t of ['ا', 'م', 'ش', '1']) { try { l = JSON.parse(await N.get(P.ajax + '?' + new URLSearchParams({term: t, departmentId: d.D1}))); } catch (e) { l = []; } x = l.find(v => String(v.Id) === String(pid)); if (x) break; } }
+        if (!x) out.miss.push(P.sym); else { $('#' + P.party).append(new Option(x.ArName, x.Id, true, true)).trigger('change');
+          $('#' + P.party).trigger({type: 'select2:select', params: {data: {id: String(x.Id), text: x.ArName}}}); await N.w(3000); } }
+      else if (!N.has(P.party, pid)) out.miss.push(P.sym); else await N.set(P.party, pid, 2500);
+      await N.set(P.method, '1', 2500);
+      if (!N.has('CashBoxId', d.K1)) out.miss.push('K1'); else await N.set('CashBoxId', d.K1, 1200);
+      $('#MoneyAmount').val(amt).trigger('input').trigger('change'); await N.w(1000);
+      const ad = document.getElementById('AccountingDocumentId'); if (ad && !ad.value) { const o = [...ad.options].find(x => x.value); if (o) { await N.set('AccountingDocumentId', o.value, 600); out.adoc = o.textContent.trim(); } }
+      out.req = N.req(); out.amount = N.num('MoneyAmount'); out.party = $('#' + P.party).val(); return out;
+    """, P, data, s["amount"])
+    if h["miss"]:
+        return k.done(BDATA, "القيم دي مش موجودة في قوائم الشاشة: " + ", ".join(f"{m}={data.get(m)}" for m in h["miss"]))
+    if h["req"]:
+        return k.done(BDATA, "حقول إلزامية فاضية: " + ", ".join(h["req"]))
+    k.evidence.append(f"الطرف {P['sym']}={h['party']} · نقدي من K1={data['K1']} · المبلغ {_f(h['amount'])} · بدون تخصيص فواتير" + (f" · نوع المستند «{h['adoc']}»" if h.get("adoc") else ""))
+    ok, log, sid, silent = _save(driver, P["save"], P["path"])
+    if not ok:
+        k.chk("الحفظ", False, "الـ ERP رفض: " + (" · ".join(log)[:400] or "مفيش رد"))
+        return k.done()
+    k.chk("الحفظ", True, "اتحفظ مرة واحدة" + (f" (Id {sid})" if sid else ""))
+    n = _js(driver, "const [ctrl, before] = A; const all = await N.ids(ctrl); const neu = Object.keys(all).filter(i => !before.includes(i)).sort((x, y) => y - x); return {neu, rows: neu.map(i => all[i])};",
+            P["ctrl"], b["ids"])
+    if sid and sid not in n["neu"]:
+        n["neu"].insert(0, sid)
+        n["rows"].insert(0, {"text": "", "links": []})
+    if not n["neu"]:
+        k.chk("السند في القائمة", False, "اتحفظ بس مش ظاهر في أول صفحة من القائمة")
+        return k.done()
+    i0 = n["neu"].index(sid) if sid in n["neu"] else 0
+    k.doc_id, k.doc_no = n["neu"][i0], n["rows"][i0]["text"].split(" | ")[0]
+    k.chk("سند واحد بس", len(n["neu"]) == 1, f"رقم {k.doc_no} · Id {k.doc_id}")
+    _open(driver, f"/{P['ctrl']}/AddEdit/{k.doc_id}")
+    r = _js(driver, "const [P] = A; return {amount: N.num('MoneyAmount'), party: $('#' + P.party).val(), box: $('#CashBoxId').val(), doc: $('#DocumentNumber').val() || ''};", P)
+    k.doc_no = k.doc_no or r.get("doc", "")
+    k.chk("إعادة الفتح", _close(r["amount"], s["amount"]) and str(r["party"]) == str(data[P["sym"]]),
+          f"المبلغ {_f(r['amount'])} · الطرف {r['party']} · الخزينة {r['box']}")
+    if b.get("bal"):
+        a2 = _js(driver, "return await N.balance(A[0]);", data[P["sym"]])
+        try:
+            dlt = round(float(b["bal"].get("Balance") or 0) - float((a2 or {}).get("Balance") or 0), 2)
+            k.chk("دين العميل", _close(dlt, s["amount"]), f"قبل {_f(b['bal'].get('Balance'))} · بعد {_f((a2 or {}).get('Balance'))} · نقص {_f(dlt)}")
+        except (TypeError, ValueError):
+            pass
+    _journal(driver, k, P, day, k.doc_id, exp_total=s["amount"], exp_cash=s["amount"])
+    return k.done()
+
+
+# ------------------------------------------------------------------ the run
+def run_cases(driver, credentials, cfg, result=None):
+    from engine.screen_runner import login
+    from engine.guard import require_write
+    from config.settings import BASE_URL
+    result = result if result is not None else {}
+    code = cfg.get("screen", "")
+    cat = catalog().get(code)
+    if not cat:
+        raise AssertionError(f"ملف سيناريوهات {code} مش موجود")
+    want = set(cfg.get("cases") or [c["id"] for c in cat["cases"] if c["auto"]])
+    todo = [c for c in cat["cases"] if c["id"] in want]
+    data = load_data(BASE_URL)
+    day = datetime.now().strftime("%Y-%m-%d")
+    out = {}
+    if any(c["auto"] for c in todo):
+        require_write(f"سيناريوهات {cat['name']}")
+        login(driver, credentials)
+    for c in todo:
+        if not c["auto"]:
+            out[c["id"]] = Case(c).done(BCAP, c["why"])
+            continue
+        try:
+            fn = run_invoice if PROFILES[code]["kind"] == "invoice" else run_voucher
+            out[c["id"]] = fn(driver, code, c, data, day)
+        except Exception as e:
+            logger.warning(f"{c['id']}: {e}")
+            out[c["id"]] = Case(c).done(BCAP, f"المحرك وقف: {str(e)[:300]}")
+        k = out[c["id"]]
+        logger.info(f"{'✅' if k.status == PASS else ('❌' if k.status == FAIL else '⚪')} {c['id']} {k.status} — {k.actual[:200]}")
+    return _finish(result, cat, out, data, BASE_URL, credentials)
+
+
+def _finish(result, cat, out, data, url, credentials):
+    counts = {}
+    for k in out.values():
+        counts[k.status] = counts.get(k.status, 0) + 1
+    word = ""
+    try:
+        word = fill_word(cat, out, url)
+    except Exception as e:
+        logger.warning(f"ملف الورد ما اتملاش: {e}")
+    names = {PASS: "ناجح", FAIL: "فاشل", BDATA: "ناقص بيانات", BCAP: "مش مؤتمت", NOTRUN: "لم يُنفذ"}
+    rows = [{"cells": [k.c["id"], k.c["title"], names[k.status], k.doc_no or "—", k.actual, " · ".join(k.evidence)[:600]],
+             "ok": True if k.status == PASS else (False if k.status == FAIL else None)} for k in out.values()]
+    note = " · ".join(f"{names[s]} {n}" for s, n in counts.items()) + f" — {cat['name']} ({len(out)} حالة)"
+    result["detail"] = {"title": f"{cat['icon']} سيناريوهات {cat['name']} — ملف المطور", "columns": ["الحالة", "العنوان", "النتيجة", "المستند", "الفعلي", "الدليل"],
+                        "rows": rows, "note": note, "files": [{"name": "ملف السيناريوهات بالنتايج (Word)", "path": word}] if word else []}
+    result["biz"] = {"screen": cat["code"], "word": word, "data": data,
+                     "cases": {i: {"status": k.status, "doc": k.doc_no, "id": k.doc_id, "actual": k.actual} for i, k in out.items()}}
+    logger.info("📚 " + note)
+    if counts.get(FAIL):
+        e = AssertionError(f"سيناريوهات {cat['name']}: فاشل {counts.get(FAIL, 0)} · ناجح {counts.get(PASS, 0)}"
+                           + "".join(f"\n   {i}: {k.actual[:160]}" for i, k in out.items() if k.status == FAIL))
+        e.partial_result = result
+        raise e
+    return result
+
+
+# ------------------------------------------------------------------ the developer's Word file, with the results
+def fill_word(cat, out, url):
+    import docx
+    from docx.shared import RGBColor
+    from config import paths
+    d = docx.Document(str(_dir() / cat["file"]))
+    color = {PASS: RGBColor(0x1E, 0x8E, 0x3E), FAIL: RGBColor(0xC6, 0x28, 0x28), BDATA: RGBColor(0xB2, 0x6A, 0x00), BCAP: RGBColor(0x6B, 0x6B, 0x6B)}
+    cur = None
+    for p in d.paragraphs:
+        t = p.text
+        m = re.match(r"Case ID: (\S+)", t)
+        if m:
+            cur = out.get(m[1])
+            if cur:
+                for r in p.runs:
+                    if r.text.strip() == "NOT_RUN":
+                        r.text = cur.status
+                        r.bold = True
+                        if cur.status in color:
+                            r.font.color.rgb = color[cur.status]
+            continue
+        if cur and t.startswith("Actual:") and len(p.runs) >= 8:
+            vals = [cur.actual or "—", f"{cur.doc_id or '—'} / {cur.doc_no or '—'}", " · ".join(cur.evidence)[:700] or "—", "—"]
+            for i, v in zip((1, 3, 5, 7), vals):
+                p.runs[i].text = f" {v}" + ("  |  " if i < 7 else "")
+            cur = None
+    for p in d.paragraphs[:3]:
+        if p.style.name.startswith("Subtitle") and p.runs:
+            n = {s: sum(1 for k in out.values() if k.status == s) for s in (PASS, FAIL, BDATA, BCAP)}
+            p.add_run(f"  |  تشغيل {datetime.now():%Y-%m-%d %H:%M} على {url} — PASS {n[PASS]} · FAIL {n[FAIL]} · BLOCKED {n[BDATA] + n[BCAP]}")
+            break
+    o = paths.RESULTS_DIR / f"biz_{cat['code']}_{datetime.now():%Y%m%d_%H%M%S}.docx"
+    o.parent.mkdir(parents=True, exist_ok=True)
+    d.save(str(o))
+    return str(o)
