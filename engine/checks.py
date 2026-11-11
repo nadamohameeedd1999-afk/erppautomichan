@@ -218,6 +218,14 @@ def normalize(cfg):
 
     elif typ == "bizcases":
         scr = str(cfg.get("screen") or "").strip().upper()
+        screens = []
+        for x in (cfg.get("screens") or [])[:12]:
+            code = str((x or {}).get("screen") or "").strip().upper()
+            if re.match(r"^[A-Z]{2,5}$", code):
+                screens.append({"screen": code, "cases": [str(c).strip() for c in ((x or {}).get("cases") or []) if str(c).strip()][:200]})
+        out["screens"] = screens
+        if screens and not scr:
+            scr = screens[0]["screen"]
         if not re.match(r"^[A-Z]{2,5}$", scr):
             raise ConfigError("حددي الشاشة (SAL / PUR / CRV / CPV …)")
         out.update({"screen": scr, "cases": [str(x).strip() for x in (cfg.get("cases") or []) if str(x).strip()][:200],

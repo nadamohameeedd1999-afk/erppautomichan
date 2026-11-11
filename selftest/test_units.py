@@ -252,3 +252,22 @@ def test_biz_result_report(tmp_path, monkeypatch):
     assert "فيه مشاكل — فشل 1 من 1" in t and "ملخص الحالات" in t
     cells = " ".join(c.text for tb in d.tables for r in tb.rows for c in r.cells)
     assert "✗ مختلف" in cells and "النخبة" in cells and "ناقص V1" in cells
+
+
+def test_biz_multi_screens_config_and_report(tmp_path):
+    from engine import checks as C, biz_cases as B, biz_report
+    import docx
+    c = C.normalize({"key": "bizcases_multi", "type": "bizcases", "screens": [{"screen": "sal", "cases": ["SAL-001"]}, {"screen": "PUR"}, {"screen": "??"}]})
+    assert c["screen"] == "SAL" and [x["screen"] for x in c["screens"]] == ["SAL", "PUR"] and c["screens"][1]["cases"] == []
+    cat = B.catalog()
+    g = []
+    for code, cid in (("SAL", "SAL-001"), ("PUR", "PUR-001")):
+        case = next(x for x in cat[code]["cases"] if x["id"] == cid)
+        k = B.Case(case)
+        k.chk("الحفظ", True, "اتحفظ")
+        k.done()
+        k.plain = B.describe(code, case)
+        g.append((cat[code], {cid: k}))
+    f = biz_report.build_many(g, {}, "https://x.test", "a", tmp_path / "m.docx", B.SYMBOLS, B.NAMES)
+    t = "\n".join(p.text for p in docx.Document(f).paragraphs)
+    assert "النتيجة لكل شاشة" in t and "ملخص الحالات — فاتورة المشتريات" in t and "ناجح — الـ 2 حالة" in t

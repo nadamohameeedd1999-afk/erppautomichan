@@ -111,6 +111,7 @@ def collect():
                 if len(c) < 6:
                     continue
                 cid, title, stname, doc, actual, ev = c[:6]
+                screen = cid.split("-")[0] if "-" in cid else biz.get("screen", "")
                 st = (biz["cases"].get(cid) or {}).get("status", "")
                 subj = (site, "case", cid)
                 latest.setdefault(subj, st)

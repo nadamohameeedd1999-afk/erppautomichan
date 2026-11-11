@@ -853,20 +853,28 @@ def run_voucher(driver, code, c, data, day):
 
 # ------------------------------------------------------------------ the run
 def run_cases(driver, credentials, cfg, result=None):
+    """one screen (cfg.screen + cfg.cases) or several one after the other (cfg.screens = [{screen, cases}])"""
     from engine.screen_runner import login
     from engine.guard import require_write
     from config.settings import BASE_URL
     result = result if result is not None else {}
     if cfg.get("discover"):
         return discover(driver, credentials, cfg, result)
-    code = cfg.get("screen", "")
-    cat = catalog().get(code)
-    if not cat:
-        raise AssertionError(f"ملف سيناريوهات {code} مش موجود")
-    want = set(cfg.get("cases") or [c["id"] for c in cat["cases"] if c["auto"]])
-    todo = [c for c in cat["cases"] if c["id"] in want]
+    plan = cfg.get("screens") or [{"screen": cfg.get("screen", ""), "cases": cfg.get("cases") or []}]
+    cats = catalog()
+    jobs = []
+    for p in plan:
+        cat = cats.get(str(p.get("screen", "")).upper())
+        if not cat:
+            logger.warning(f"ملف سيناريوهات {p.get('screen')} مش موجود — اتخطى")
+            continue
+        want = set(p.get("cases") or [c["id"] for c in cat["cases"] if c["auto"]])
+        jobs.append((cat, [c for c in cat["cases"] if c["id"] in want]))
+    if not jobs:
+        raise AssertionError("مفيش شاشة معروفة في التشغيلة")
     data = load_data(BASE_URL)
-    if any(c["auto"] for c in todo) and _missing(data, [k for k, _ in SYMBOLS]):
+    runs_any = any(c["auto"] for _, todo in jobs for c in todo)
+    if runs_any and _missing(data, [k for k, _ in SYMBOLS]):
         logger.info("🔎 ملف بيانات الموقع ناقص — بملاه تلقائي من الموقع الأول (قراءة بس)")
         try:
             discover(driver, credentials, {}, {})
@@ -874,57 +882,70 @@ def run_cases(driver, credentials, cfg, result=None):
             logger.warning(f"التعبئة التلقائية: {str(e)[:200]}")
         data = load_data(BASE_URL)
     day = datetime.now().strftime("%Y-%m-%d")
-    out = {}
-    if any(c["auto"] for c in todo):
-        require_write(f"سيناريوهات {cat['name']}")
+    if runs_any:
+        require_write("سيناريوهات " + " + ".join(cat["name"] for cat, _ in jobs))
         login(driver, credentials)
-    for c in todo:
-        if not c["auto"]:
-            out[c["id"]] = Case(c).done(BCAP, c["why"])
-            out[c["id"]].plain = c["title"]
-            continue
-        try:
-            fn = {"invoice": run_invoice, "return": run_return}.get(PROFILES[code]["kind"], run_voucher)
-            out[c["id"]] = fn(driver, code, c, data, day)
-        except Exception as e:
-            logger.warning(f"{c['id']}: {e}")
-            out[c["id"]] = Case(c).done(BCAP, f"المحرك وقف: {str(e)[:300]}")
-        k = out[c["id"]]
-        k.plain = describe(code, c)
-        logger.info(f"{'✅' if k.status == PASS else ('❌' if k.status == FAIL else '⚪')} {c['id']} {k.status} — {k.actual[:200]}")
-    return _finish(result, cat, out, data, BASE_URL, credentials)
+    groups = []
+    for gi, (cat, todo) in enumerate(jobs, 1):
+        code = cat["code"]
+        logger.info(f"━━━━ {gi}/{len(jobs)} · {cat['icon']} {cat['name']} — {len(todo)} حالة")
+        out = {}
+        for c in todo:
+            if not c["auto"]:
+                out[c["id"]] = Case(c).done(BCAP, c["why"])
+                out[c["id"]].plain = c["title"]
+                continue
+            try:
+                fn = {"invoice": run_invoice, "return": run_return}.get(PROFILES[code]["kind"], run_voucher)
+                out[c["id"]] = fn(driver, code, c, data, day)
+            except Exception as e:
+                logger.warning(f"{c['id']}: {e}")
+                out[c["id"]] = Case(c).done(BCAP, f"المحرك وقف: {str(e)[:300]}")
+            k = out[c["id"]]
+            k.plain = describe(code, c)
+            logger.info(f"{'✅' if k.status == PASS else ('❌' if k.status == FAIL else '⚪')} {c['id']} {k.status} — {k.actual[:200]}")
+        groups.append((cat, out))
+    return _finish(result, groups, data, BASE_URL, credentials)
 
 
-def _finish(result, cat, out, data, url, credentials):
+def _finish(result, groups, data, url, credentials):
+    names = {PASS: "ناجح", FAIL: "فاشل", BDATA: "ناقص بيانات", BCAP: "مش مؤتمت", NOTRUN: "لم يُنفذ"}
+    allk = {i: k for _, out in groups for i, k in out.items()}
     counts = {}
-    for k in out.values():
+    for k in allk.values():
         counts[k.status] = counts.get(k.status, 0) + 1
-    word = report = ""
-    try:
-        word = fill_word(cat, out, url)
-    except Exception as e:
-        logger.warning(f"ملف الورد ما اتملاش: {e}")
+    specs = {}
+    for cat, out in groups:
+        try:
+            specs[cat["code"]] = fill_word(cat, out, url)
+        except Exception as e:
+            logger.warning(f"ملف الورد ({cat['code']}) ما اتملاش: {e}")
+    report = ""
     try:
         from engine import biz_report
         from config import paths
-        report = biz_report.build(cat, out, data, url, (credentials or {}).get("username", ""),
-                                  paths.RESULTS_DIR / f"biz_report_{cat['code']}_{datetime.now():%Y%m%d_%H%M%S}.docx", SYMBOLS, NAMES)
+        tag = "_".join(cat["code"] for cat, _ in groups)
+        report = biz_report.build_many(groups, data, url, (credentials or {}).get("username", ""),
+                                       paths.RESULTS_DIR / f"biz_report_{tag}_{datetime.now():%Y%m%d_%H%M%S}.docx", SYMBOLS, NAMES)
     except Exception as e:
         logger.warning(f"تقرير النتيجة ما اتعملش: {e}")
-    names = {PASS: "ناجح", FAIL: "فاشل", BDATA: "ناقص بيانات", BCAP: "مش مؤتمت", NOTRUN: "لم يُنفذ"}
-    rows = [{"cells": [k.c["id"], k.c["title"], names[k.status], k.doc_no or "—", k.actual, " · ".join(k.evidence)[:600]],
-             "ok": True if k.status == PASS else (False if k.status == FAIL else None)} for k in out.values()]
-    note = " · ".join(f"{names[s]} {n}" for s, n in counts.items()) + f" — {cat['name']} ({len(out)} حالة)"
-    result["detail"] = {"title": f"{cat['icon']} سيناريوهات {cat['name']} — ملف المطور", "columns": ["الحالة", "العنوان", "النتيجة", "المستند", "الفعلي", "الدليل"],
-                        "rows": rows, "note": note, "files": ([{"name": "تقرير النتيجة (Word)", "path": report}] if report else [])
-                                                         + ([{"name": "ملف المطور بالحالات (Word)", "path": word}] if word else [])}
-    result["biz"] = {"screen": cat["code"], "word": report or word, "spec_word": word, "data": data,
+    multi = len(groups) > 1
+    rows = [{"cells": [k.c["id"], (f"{cat['name']} — " if multi else "") + k.c["title"], names[k.status], k.doc_no or "—", k.actual, " · ".join(k.evidence)[:600]],
+             "ok": True if k.status == PASS else (False if k.status == FAIL else None)} for cat, out in groups for k in out.values()]
+    title = " + ".join(cat["name"] for cat, _ in groups)
+    note = " · ".join(f"{names[s]} {n}" for s, n in counts.items()) + f" — {title} ({len(allk)} حالة)"
+    files = ([{"name": "تقرير النتيجة (Word)", "path": report}] if report else []) + \
+            [{"name": f"ملف المطور بالحالات — {NAMES.get(c, c)} (Word)", "path": p} for c, p in specs.items() if p]
+    result["detail"] = {"title": f"📚 سيناريوهات المطور — {title}", "columns": ["الحالة", "العنوان", "النتيجة", "المستند", "الفعلي", "الدليل"],
+                        "rows": rows, "note": note, "files": files}
+    result["biz"] = {"screen": groups[0][0]["code"], "screens": [cat["code"] for cat, _ in groups], "word": report or next(iter(specs.values()), ""),
+                     "spec_words": specs, "data": data,
                      "cases": {i: {"status": k.status, "doc": k.doc_no, "id": k.doc_id, "actual": k.actual, "plain": k.plain, "title": k.c["title"],
-                                   "checks": [list(x) for x in k.checks], "journal": k.journal, "evidence": k.evidence} for i, k in out.items()}}
+                                   "checks": [list(x) for x in k.checks], "journal": k.journal, "evidence": k.evidence} for i, k in allk.items()}}
     logger.info("📚 " + note)
     if counts.get(FAIL):
-        e = AssertionError(f"سيناريوهات {cat['name']}: فاشل {counts.get(FAIL, 0)} · ناجح {counts.get(PASS, 0)}"
-                           + "".join(f"\n   {i}: {k.actual[:160]}" for i, k in out.items() if k.status == FAIL))
+        e = AssertionError(f"سيناريوهات {title}: فاشل {counts.get(FAIL, 0)} · ناجح {counts.get(PASS, 0)}"
+                           + "".join(f"\n   {i}: {k.actual[:160]}" for i, k in allk.items() if k.status == FAIL))
         e.partial_result = result
         raise e
     return result

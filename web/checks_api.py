@@ -624,19 +624,21 @@ def api_bizcases():
     for r in insights.all_runs():
         if not r["key"].startswith("bizcases_") or r["key"] == "bizcases_data":
             continue
-        code = r["key"].split("_", 1)[1].upper()
-        if len(runs.setdefault(code, [])) >= 8:
-            continue
         d = load_detail(r["run_id"]) or {}
         bz = d.get("biz") or {}
         cs = bz.get("cases") or {}
-        cnt = {}
-        for v in cs.values():
-            cnt[v["status"]] = cnt.get(v["status"], 0) + 1
-        runs[code].append({"run_id": r["run_id"], "time": r["time"].strftime("%Y-%m-%d %H:%M"), "site": (r["summary"] or {}).get("site_name") or "",
-                           "counts": cnt, "word": bool(bz.get("word"))})
-        for i, v in cs.items():
-            last.setdefault(code, {}).setdefault(i, {**v, "time": r["time"].strftime("%Y-%m-%d %H:%M")})
+        codes = bz.get("screens") or ([bz["screen"]] if bz.get("screen") else [r["key"].split("_", 1)[1].upper()])
+        for code in codes:
+            mine = {i: v for i, v in cs.items() if i.split("-")[0] == code} or (cs if len(codes) == 1 else {})
+            if len(runs.setdefault(code, [])) >= 8:
+                continue
+            cnt = {}
+            for v in mine.values():
+                cnt[v["status"]] = cnt.get(v["status"], 0) + 1
+            runs[code].append({"run_id": r["run_id"], "time": r["time"].strftime("%Y-%m-%d %H:%M"), "site": (r["summary"] or {}).get("site_name") or "",
+                               "counts": cnt, "word": bool(bz.get("word")), "multi": len(codes) > 1})
+            for i, v in mine.items():
+                last.setdefault(code, {}).setdefault(i, {**v, "time": r["time"].strftime("%Y-%m-%d %H:%M")})
     data = ts.load_all()
     sites = [{"id": p.get("id"), "name": p.get("name") or p.get("id"), "url": p.get("base_url", ""), "kind": ts.site_kind(p),
               "active": p.get("id") == data.get("active_profile"), "data": B.load_data(p.get("base_url", ""))} for p in data.get("profiles", [])]
@@ -678,22 +680,37 @@ def api_bizcases_discover():
 @bp.route("/api/bizcases/run", methods=["POST"])
 @auth.login_required
 def api_bizcases_run():
+    """one screen {screen, cases} or several run one after the other {screens: [{screen, cases}]}"""
     from engine import biz_cases as B
     C = _C()
     d = request.get_json(silent=True) or {}
-    code = str(d.get("screen") or "").upper()
-    cat = B.catalog().get(code)
-    if not cat:
-        return jsonify({"success": False, "error": "الشاشة مش معروفة"}), 400
-    cases = [c for c in (d.get("cases") or []) if any(x["id"] == c for x in cat["cases"])]
+    cat = B.catalog()
+    plan = d.get("screens") or [{"screen": d.get("screen"), "cases": d.get("cases")}]
+    screens = []
+    for p in plan:
+        code = str((p or {}).get("screen") or "").upper()
+        if code not in cat:
+            continue
+        ids = {x["id"] for x in cat[code]["cases"]}
+        cases = [c for c in ((p or {}).get("cases") or []) if c in ids]
+        screens.append({"screen": code, "cases": cases or [x["id"] for x in cat[code]["cases"] if x["auto"]]})
+    screens = [x for x in screens if x["cases"]]
+    if not screens:
+        return jsonify({"success": False, "error": "اختار شاشة فيها حالات مؤتمتة"}), 400
+    n = sum(len(x["cases"]) for x in screens)
+    if len(screens) == 1:
+        c0 = cat[screens[0]["screen"]]
+        key, name = _bc_key(c0["code"]), f"{c0['icon']} سيناريوهات {c0['name']} ({n} حالة)"
+    else:
+        key, name = "bizcases_multi", "📚 سيناريوهات ورا بعض: " + " ← ".join(cat[x["screen"]]["name"] for x in screens) + f" ({n} حالة)"
     try:
-        saved = C.save({"key": _bc_key(code), "type": "bizcases", "screen": code, "cases": cases,
-                        "name_ar": f"{cat['icon']} سيناريوهات {cat['name']} ({len(cases) or cat['auto_n']} حالة)"})
+        saved = C.save({"key": key, "type": "bizcases", "screen": screens[0]["screen"], "cases": screens[0]["cases"],
+                        "screens": screens, "name_ar": name})
     except C.ConfigError as e:
         return jsonify({"success": False, "error": str(e)}), 400
     from web.queue_manager import get_manager
     from web import sites_api
-    out = {"success": True}
+    out = {"success": True, "screens": len(screens), "cases": n}
     out.update(sites_api.queue_on_sites(get_manager(), C.test_path_for(saved["key"]), saved["name_ar"], d.get("site"), source="manual", front=True))
     return jsonify(out)
 

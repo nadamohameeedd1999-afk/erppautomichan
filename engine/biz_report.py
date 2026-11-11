@@ -31,14 +31,21 @@ FRIENDLY = {
 
 
 def build(cat, out, data, url, user, path, symbols, names):
-    """cat: screen catalog · out: {case id: Case} · data: site data file · → saved .docx path"""
+    return build_many([(cat, out)], data, url, user, path, symbols, names)
+
+
+def build_many(groups, data, url, user, path, symbols, names):
+    """groups = [(screen catalog, {case id: Case})] run one after the other → one report"""
     from engine.biz_cases import BCAP, BDATA, FAIL, PASS
-    ran = [k for k in out.values() if k.status in (PASS, FAIL)]
-    cnt = {s: sum(1 for k in out.values() if k.status == s) for s in (PASS, FAIL, BDATA, BCAP)}
-    r = Report(company_name(), f"تقرير نتيجة اختبار — {cat['name']}", f"Test result report — {cat['code']}", user)
+    allk = [k for _, out in groups for k in out.values()]
+    ran = [k for k in allk if k.status in (PASS, FAIL)]
+    cnt = {s: sum(1 for k in allk if k.status == s) for s in (PASS, FAIL, BDATA, BCAP)}
+    multi = len(groups) > 1
+    title = groups[0][0]["name"] if not multi else f"{len(groups)} شاشات"
+    r = Report(company_name(), f"تقرير نتيجة اختبار — {title}", "Test result report — " + " · ".join(c["code"] for c, _ in groups), user)
     host = str(url).replace("https://", "").replace("http://", "").strip("/")
-    r.strip([("الموقع", host), ("الشاشة", f"{cat['name']} ({cat.get('route', '')})"), ("وقت التشغيل", datetime.now().strftime("%Y-%m-%d %H:%M")),
-             ("الحالات", f"{len(out)} من ملف المطور ({len(cat['cases'])} حالة)")])
+    r.strip([("الموقع", host), ("الشاشات", " ← ".join(c["name"] for c, _ in groups)), ("وقت التشغيل", datetime.now().strftime("%Y-%m-%d %H:%M")),
+             ("الحالات", str(len(allk)))])
 
     # ---- the verdict
     if cnt[FAIL]:
@@ -48,20 +55,31 @@ def build(cat, out, data, url, user, path, symbols, names):
     else:
         r.para("⚪ النتيجة: ما اتنفذتش أي حالة", 15, True, AMBER)
     r.para(f"ناجح {cnt[PASS]}   ·   فاشل {cnt[FAIL]}   ·   ناقص بيانات {cnt[BDATA]}   ·   مش مؤتمت لسه {cnt[BCAP]}", 10, False, GREY)
-    if cnt[FAIL]:
-        for k in out.values():
-            if k.status == FAIL:
-                r.para(f"• {k.c['id']} — {k.plain}: {first_problem(k)}", 9.5, False)
+    for k in allk:
+        if k.status == FAIL:
+            r.para(f"• {k.c['id']} — {k.plain}: {first_problem(k)}", 9.5, False)
     r.para("كل حالة بتتعمل على الموقع فعلًا: الأداة بتدخل المستند وتحفظه، وبعدين تفتحه تاني وتراجع الإجماليات والمدفوع وحركة المخزن والقيد المحاسبي اللي الـ ERP عمله، "
            "وتقارن كل رقم بالمتوقع المكتوب في ملف المطور.", 9, False, GREY, space_before=4)
 
-    # ---- the cases at a glance
-    r.para("ملخص الحالات", 12, True, TEAL, space_before=8)
-    rows = [[i, k.c["id"], k.plain or k.c["title"], f"{ST[k.status][1]} {ST[k.status][0]}", first_problem(k) if k.status != PASS else f"{len(k.checks)} فحص مطابق",
-             k.doc_no or "—"] for i, k in enumerate(out.values(), 1)]
     color = {"✅": GREEN, "❌": RED}
-    r.table([("#", 3), ("الحالة", 7), ("اللي اتجرب", 34), ("النتيجة", 9), ("السبب / التفاصيل", 32), ("رقم المستند", 10)], rows,
-            center=(0, 1, 3, 5), colors=lambda ri, ci, v: color.get(v[:1]) if ci == 3 else None)
+    if multi:
+        r.para("النتيجة لكل شاشة", 12, True, TEAL, space_before=8)
+        srow = []
+        for i, (cat, out) in enumerate(groups, 1):
+            ks = list(out.values())
+            p_, f_ = sum(1 for k in ks if k.status == PASS), sum(1 for k in ks if k.status == FAIL)
+            b_ = len(ks) - p_ - f_
+            srow.append([i, f"{cat['icon']} {cat['name']}", len(ks), p_, f_, b_, "❌ فيه مشاكل" if f_ else ("✅ ناجح" if p_ else "⚪ ما اتنفذتش")])
+        r.table([("#", 3), ("الشاشة", 26), ("الحالات", 8), ("ناجح", 8), ("فاشل", 8), ("ما اتنفذتش", 10), ("النتيجة", 14)], srow,
+                center=(0, 2, 3, 4, 5, 6), colors=lambda ri, ci, v: color.get(v[:1]) if ci == 6 else None)
+
+    # ---- the cases at a glance (per screen)
+    for cat, out in groups:
+        r.para(("ملخص الحالات — " + cat["name"]) if multi else "ملخص الحالات", 12, True, TEAL, space_before=8)
+        rows = [[i, k.c["id"], k.plain or k.c["title"], f"{ST[k.status][1]} {ST[k.status][0]}", first_problem(k) if k.status != PASS else f"{len(k.checks)} فحص مطابق",
+                 k.doc_no or "—"] for i, k in enumerate(out.values(), 1)]
+        r.table([("#", 3), ("الحالة", 7), ("اللي اتجرب", 34), ("النتيجة", 9), ("السبب / التفاصيل", 32), ("رقم المستند", 10)], rows,
+                center=(0, 1, 3, 5), colors=lambda ri, ci, v: color.get(v[:1]) if ci == 3 else None)
 
     # ---- the test data
     r.para("بيانات الاختبار (ملف بيانات الموقع)", 12, True, TEAL, space_before=6)
@@ -70,11 +88,7 @@ def build(cat, out, data, url, user, path, symbols, names):
             [[k, lbl, (data or {}).get(k) or "—", nm.get(k) or "—"] for k, lbl in symbols], center=(0, 2))
 
     # ---- notes for the developers (seen while running, even on passed cases)
-    notes = []
-    for k in out.values():
-        for e in k.evidence:
-            if e.startswith(("ملاحظة", "تنبيه", "اتمسح")):
-                notes.append([k.c["id"], e])
+    notes = [[k.c["id"], e] for k in allk for e in k.evidence if e.startswith(("ملاحظة", "تنبيه", "اتمسح"))]
     if notes:
         r.para("ملاحظات للمطور اتلاحظت أثناء التنفيذ", 12, True, TEAL, space_before=6)
         r.table([("الحالة", 8), ("الملاحظة", 70)], notes, center=(0,))
@@ -95,7 +109,7 @@ def build(cat, out, data, url, user, path, symbols, names):
             r.para(f"القيد اللي الـ ERP عمله (رقم {k.journal[0].get('je', '—')})", 10, True, TEAL)
             jl = [[x["acc"], money(x["d"]) if x["d"] else "—", money(x["c"]) if x["c"] else "—"] for x in k.journal if x["d"] or x["c"]]
             jl.append(["الإجمالي", money(sum(x["d"] for x in k.journal)), money(sum(x["c"] for x in k.journal))])
-            r.table([("الحساب", 50), ("مدين", 14), ("دائن", 14)], jl, center=(1, 2), bold_cols=())
+            r.table([("الحساب", 50), ("مدين", 14), ("دائن", 14)], jl, center=(1, 2))
         other = [e for e in k.evidence if not e.startswith("القيد ")]
         if other:
             r.para("تفاصيل التنفيذ", 10, True, TEAL)
@@ -103,7 +117,7 @@ def build(cat, out, data, url, user, path, symbols, names):
                 r.para("• " + e, 8.5, False, GREY)
 
     # ---- what wasn't run
-    left = [k for k in out.values() if k.status in (BDATA, BCAP)]
+    left = [k for k in allk if k.status in (BDATA, BCAP)]
     if left:
         r.page_break()
         r.para("الحالات اللي ما اتنفذتش وليه", 12, True, TEAL)
