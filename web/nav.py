@@ -21,6 +21,8 @@ SECTIONS = [
         ("auto", ["checks.auto_page"], "/auto-test", "bi-robot", "الاختبار الآلي", "Automatic test",
          "شاشة بكل الطرق: إضافة وتعديل وحذف وطباعة + المختبر العنيد + بيانات الاختبار + مكتبة الشاشات",
          "A screen every way: add / edit / delete / print + stubborn tester + test data + screen library"),
+        ("bizsc", ["checks.biz_scenarios_page"], "/business-scenarios", "bi-clipboard-check", "سيناريوهات الأعمال", "Business scenarios",
+         "سيناريو المطور كامل (زي فاتورة البيع الآجلة 19 بند) ونموذج الورد بالنتيجة", "The developer's full scenario (e.g. credit sales invoice, 19 steps) + the filled Word form"),
         ("checks", ["checks.checks_page"], "/checks", "bi-diagram-3", "الدورات والفحوصات", "Cycles & checks",
          "دورة كاملة (فاتورة ← قبض ← قيد)، فحص تقرير، سرعة، مطابقة الحسابات، تنظيف", "Full cycles, report checks, speed, account reconciliation, cleanup"),
     ]),

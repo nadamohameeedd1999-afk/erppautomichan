@@ -544,6 +544,41 @@ def api_sod_save():
 BIZ_KEY = "biz_sales_invoice"
 
 
+@bp.route("/business-scenarios")
+@auth.login_required
+def biz_scenarios_page():
+    from engine.biz_sales_invoice import STEPS
+    return render_template("scenarios.html", steps=STEPS)
+
+
+@bp.route("/api/biz/runs")
+@auth.login_required
+def api_biz_runs():
+    """the last business-scenario runs: when, site, invoice, counts, links"""
+    from web import insights
+    from engine.check_runner import load_detail
+    out = []
+    for r in insights.all_runs():
+        if r["key"] != BIZ_KEY:
+            continue
+        d = load_detail(r["run_id"]) or {}
+        biz = d.get("biz") or {}
+        st = biz.get("steps") or {}
+        cnt = {k: sum(1 for v in st.values() if (v[0] if isinstance(v, (list, tuple)) else v) == k) for k in ("ok", "fail", "na")}
+        out.append({"run_id": r["run_id"], "time": r["time"].strftime("%Y-%m-%d %H:%M"), "passed": r["passed"],
+                    "site": (r["summary"] or {}).get("site_name") or (biz.get("facts") or {}).get("site", ""),
+                    "invoice": (biz.get("facts") or {}).get("invoice_no", ""), "counts": cnt,
+                    "steps": {k: (v[0] if isinstance(v, (list, tuple)) else v) for k, v in st.items()},
+                    "word": bool(biz.get("word")), "message": r["message"][:200]})
+        if len(out) >= 15:
+            break
+    from web import test_sites_helper as ts
+    data = ts.load_all()
+    sites = [{"id": p.get("id"), "name": p.get("name") or p.get("id"), "url": p.get("base_url", ""), "kind": ts.site_kind(p),
+              "active": p.get("id") == data.get("active_profile")} for p in data.get("profiles", [])]
+    return jsonify({"success": True, "runs": out, "sites": sites})
+
+
 @bp.route("/api/biz")
 @auth.login_required
 def api_biz():

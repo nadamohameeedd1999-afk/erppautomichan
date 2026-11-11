@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}سيناريوهات الأعمال - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .sc-wrap > div { min-width: 0; }
+  .sc-wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .sc-wrap { grid-template-columns: 1fr; } }
+  .sc-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; }
+  .sc-card > .hd { padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--g-line); }
+  .sc-card > .hd h6 { margin: 0; font-weight: 800; }
+  .sc-card > .bd { padding: 14px 16px; }
+  .sc-hero { display: flex; gap: 14px; align-items: flex-start; }
+  .sc-hero .ic { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; background: rgba(15,124,122,.12); flex: none; }
+  .sc-hero h5 { margin: 0 0 4px; font-weight: 800; }
+  .sc-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .sc-badge { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--g-line); color: var(--g-muted); }
+  .sc-badge.t { border-color: rgba(15,124,122,.4); color: #0F7C7A; background: rgba(15,124,122,.08); }
+  .sc-step { display: flex; gap: 12px; padding: 12px 0; border-top: 1px dashed var(--g-line); }
+  .sc-step:first-child { border-top: 0; padding-top: 0; }
+  .sc-step > .flex-grow-1 { min-width: 0; }
+  .sc-num { width: 26px; height: 26px; border-radius: 50%; background: #0F7C7A; color: #fff; font-weight: 800; font-size: 13px; display: grid; place-items: center; flex: none; margin-top: 2px; }
+  .sc-step .ttl { font-weight: 800; margin-bottom: 8px; }
+  .sc-sites { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sc-site { border: 1.5px solid var(--g-line); border-radius: 12px; padding: 8px 12px; cursor: pointer; min-width: 180px; background: transparent; text-align: start; }
+  .sc-site.on { border-color: #0F7C7A; background: rgba(15,124,122,.08); }
+  .sc-site[disabled] { opacity: .5; cursor: not-allowed; }
+  .sc-site .u { font-size: 11px; color: var(--g-muted); direction: ltr; text-align: left; }
+  .sc-items-wrap { overflow-x: auto; }
+  .sc-items { width: 100%; border-collapse: separate; border-spacing: 0 6px; table-layout: fixed; }
+  .sc-items col.c0 { width: 28px; } .sc-items col.c1 { width: 34%; } .sc-items col.c2 { width: 18%; } .sc-items col.c3 { width: 20%; }
+  .sc-items th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 0 6px; }
+  .sc-items td { padding: 0 3px; }
+  .sc-items input { min-width: 0; width: 100%; padding-inline: 6px; }
+  .sc-runs td.sc-empty { white-space: normal; }
+  .sc-items .tag { font-weight: 800; color: #0F7C7A; }
+  .sc-items .lt { font-weight: 800; white-space: nowrap; }
+  .sc-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 700px) { .sc-grid3 { grid-template-columns: 1fr; } }
+  .sc-exp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sc-exp .box { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; }
+  .sc-exp .box h6 { font-size: 12.5px; font-weight: 800; color: var(--g-muted); margin-bottom: 6px; }
+  .sc-exp .ln { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .sc-exp .ln.big { font-weight: 800; font-size: 15px; border-top: 1px solid var(--g-line); margin-top: 4px; padding-top: 6px; color: #0F7C7A; }
+  .sc-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--g-line); }
+  .sc-grp { font-size: 12px; font-weight: 800; color: var(--g-muted); margin: 10px 0 4px; }
+  .sc-grp:first-child { margin-top: 0; }
+  .sc-it { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 13px; }
+  .sc-it .n { font-weight: 800; color: var(--g-muted); width: 22px; flex: none; }
+  .sc-it .x { color: var(--g-muted); font-size: 11.5px; }
+  .sc-it .st { margin-inline-start: auto; flex: none; font-size: 14px; }
+  .sc-runs td, .sc-runs th { white-space: nowrap; font-size: 13px; }
+  .sc-cnt b { display: inline-block; min-width: 26px; text-align: center; border-radius: 8px; padding: 1px 6px; font-size: 12px; }
+  .sc-cnt .ok { background: rgba(48,164,108,.15); color: #30a46c; } .sc-cnt .no { background: rgba(229,72,77,.15); color: #e5484d; } .sc-cnt .na { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .sc-empty { color: var(--g-muted); text-align: center; padding: 18px; }
+  .form-check-input:checked { background-color: #0F7C7A; border-color: #0F7C7A; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="text-muted small mb-3">سيناريو المطور بيتنفذ كامل زي المختبر بالظبط، والنتيجة بتطلع في نفس ملف الورد بتاعه.</div>
+
+  <div class="sc-wrap">
+    <div>
+      <div class="sc-card">
+        <div class="bd">
+          <div class="sc-hero">
+            <div class="ic">🧾</div>
+            <div>
+              <h5>فاتورة بيع آجلة بخصم وضريبة</h5>
+              <div class="text-muted small">إنشاء الفاتورة وحفظها وإعادة فتحها وطباعتها وتعديلها، ومراجعة المخزن والقيد، والحالات الإضافية</div>
+              <div class="sc-badges">
+                <span class="sc-badge t">19 بند</span><span class="sc-badge t">نموذج المطور (Word)</span>
+                <span class="sc-badge">مواقع الاختبار بس</span><span class="sc-badge">حوالي 10–15 دقيقة</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sc-card">
+        <div class="hd"><h6>إعداد التشغيلة</h6><span class="small text-muted" id="scSaved"></span></div>
+        <div class="bd">
+          <div class="sc-step">
+            <div class="sc-num">1</div>
+            <div class="flex-grow-1">
+              <div class="ttl">الموقع</div>
+              <div class="sc-sites" id="scSites"><span class="text-muted small">جاري التحميل…</span></div>
+              <div class="small text-muted mt-1">مواقع العملاء (قراءة بس) مقفولة هنا — السيناريو بيحفظ ويعدل فواتير.</div>
+            </div>
+          </div>
+
+          <div class="sc-step">
+            <div class="sc-num">2</div>
+            <div class="flex-grow-1">
+              <div class="ttl">الأصناف</div>
+              <div class="sc-items-wrap"><table class="sc-items">
+                <colgroup><col class="c0"><col class="c1"><col class="c2"><col class="c3"><col></colgroup>
+                <thead><tr><th></th><th>كود الصنف (الباركود)</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+                <tbody>
+                  <tr><td class="tag">A</td><td><input id="bzA" class="form-control form-control-sm" dir="ltr" placeholder="مثلًا 201"></td>
+                      <td><input id="bzAq" class="form-control form-control-sm calc" type="number" min="0" step="any" value="10"></td>
+                      <td><input id="bzAp" class="form-control form-control-sm calc" type="number" min="0" step="any" value="100"></td>
+                      <td class="lt" id="ltA">—</td></tr>
+                  <tr><td class="tag">B</td><td><input id="bzB" class="form-control form-control-sm" dir="ltr" placeholder="مثلًا 202"></td>
+                      <td><input id="bzBq" class="form-control form-control-sm calc" type="number" min="0" step="any" value="5"></td>
+                      <td><input id="bzBp" class="form-control form-control-sm calc" type="number" min="0" step="any" value="200"></td>
+                      <td class="lt" id="ltB">—</td></tr>
+                </tbody>
+              </table></div>
+              <div class="small text-muted">صنفين مخزنيين من غير باتش أو سيريال، ويفضّل وحدتهم معاملها 1.</div>
+            </div>
+          </div>
+
+          <div class="sc-step">
+            <div class="sc-num">3</div>
+            <div class="flex-grow-1">
+              <div class="ttl">الخصم والتعديل والعميل</div>
+              <div class="sc-grid3">
+                <div><label class="form-label small mb-1">خصم الفاتورة %</label><input id="bzD" class="form-control form-control-sm calc" type="number" min="0" max="100" step="any" value="10"></div>
+                <div><label class="form-label small mb-1">كمية A بعد التعديل (بند 10)</label><input id="bzE" class="form-control form-control-sm calc" type="number" min="0" step="any" value="12"></div>
+                <div><label class="form-label small mb-1">رقم العميل في الـ ERP</label><input id="bzC" class="form-control form-control-sm" dir="ltr" placeholder="فاضي = أول عميل حده يسمح"></div>
+              </div>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" id="bzCases" checked>
+                <label class="form-check-label small" for="bzCases">نفّذ الحالات الإضافية 14–18 (بتعمل فواتير اختبار زيادة)</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="sc-step">
+            <div class="sc-num">4</div>
+            <div class="flex-grow-1">
+              <div class="ttl">المتوقع <span class="small text-muted fw-normal">— بضريبة 15% (الأداة بتاخد النسبة الفعلية من الـ ERP وقت التشغيل)</span></div>
+              <div class="sc-exp">
+                <div class="box"><h6>قبل التعديل (بنود 3–7)</h6><div id="exp1"></div></div>
+                <div class="box"><h6>بعد التعديل (بنود 10–11)</h6><div id="exp2"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sc-actions">
+          <button class="btn btn-sm" style="border:1px solid #0F7C7A;color:#0F7C7A;background:transparent" onclick="scSave(false)"><i class="bi bi-save"></i> حفظ الإعداد</button>
+          <button class="btn btn-sm" style="background:#0F7C7A;color:#fff !important;border:0" onclick="scSave(true)"><i class="bi bi-play-fill"></i> تشغيل السيناريو</button>
+        </div>
+      </div>
+
+      <div class="sc-card">
+        <div class="hd"><h6>آخر التشغيلات</h6><a class="small" href="/queue">مركز التشغيل ←</a></div>
+        <div class="bd p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 sc-runs">
+              <thead><tr><th>الوقت</th><th>الموقع</th><th>الفاتورة</th><th>النتيجة</th><th></th></tr></thead>
+              <tbody id="scRuns"><tr><td colspan="5" class="sc-empty">جاري التحميل…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sc-card">
+        <div class="hd"><h6>البنود الـ 19</h6><span class="small text-muted" id="scLastLbl">آخر تشغيلة: —</span></div>
+        <div class="bd">
+          {% set groups = {1: 'إنشاء الفاتورة وحفظها', 2: 'إعادة الفتح والتعديل والأثر', 3: 'الحالات الإضافية'} %}
+          {% for g in [1, 2, 3] %}
+            <div class="sc-grp">{{ groups[g] }}</div>
+            {% for n, gg, title, exp in steps if gg == g %}
+            <div class="sc-it"><span class="n">{{ n }}</span>
+              <div><div>{{ title }}</div><div class="x">{{ exp }}</div></div>
+              <span class="st" id="st{{ n }}">○</span></div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const fmt = n => Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+let SITE = '';
+
+function calc(qa) {
+  const n = id => parseFloat(el(id).value) || 0;
+  const a = (qa ?? n('bzAq')) * n('bzAp'), b = n('bzBq') * n('bzBp');
+  const total = a + b, disc = total * n('bzD') / 100, net = total - disc, tax = net * 0.15;
+  return {a, b, total, disc, net, tax, after: net + tax};
+}
+function render() {
+  const e1 = calc(), e2 = calc(parseFloat(el('bzE').value) || 0);
+  el('ltA').textContent = fmt(e1.a); el('ltB').textContent = fmt(e1.b);
+  const box = e => `<div class="ln"><span>الإجمالي</span><b>${fmt(e.total)}</b></div><div class="ln"><span>الخصم</span><b>${fmt(e.disc)}</b></div>
+    <div class="ln"><span>الصافي قبل الضريبة</span><b>${fmt(e.net)}</b></div><div class="ln"><span>الضريبة 15%</span><b>${fmt(e.tax)}</b></div>
+    <div class="ln big"><span>النهائي (آجل)</span><span>${fmt(e.after)}</span></div>`;
+  el('exp1').innerHTML = box(e1); el('exp2').innerHTML = box(e2);
+}
+document.querySelectorAll('.calc').forEach(i => i.addEventListener('input', render));
+
+function pickSite(id) { SITE = id; document.querySelectorAll('.sc-site').forEach(b => b.classList.toggle('on', b.dataset.id === id)); }
+
+async function load() {
+  const [c, r] = await Promise.all([fetch('/api/biz').then(x => x.json()).catch(() => ({})), fetch('/api/biz/runs').then(x => x.json()).catch(() => ({}))]);
+  const cfg = c.config;
+  if (cfg && cfg.items && cfg.items.length === 2) {
+    const [a, b] = cfg.items, set = (id, v) => { if (v !== undefined && v !== null && v !== '') el(id).value = v; };
+    set('bzA', a.code); set('bzAq', a.qty); set('bzAp', a.price); set('bzB', b.code); set('bzBq', b.qty); set('bzBp', b.price);
+    set('bzD', cfg.discount_pct); set('bzE', cfg.qty_edit); set('bzC', cfg.customer); el('bzCases').checked = cfg.cases !== false;
+    el('scSaved').textContent = 'الإعداد محفوظ';
+  }
+  render();
+  const sites = r.sites || [];
+  el('scSites').innerHTML = sites.length ? sites.map(s => `<button type="button" class="sc-site" data-id="${esc(s.id)}" ${s.kind === 'client' ? 'disabled title="نظام عميل — قراءة بس"' : ''} onclick="pickSite('${esc(s.id)}')">
+      <div class="fw-bold">${esc(s.name)} ${s.active ? '<span class="sc-badge t">النشط</span>' : ''} ${s.kind === 'client' ? '<span class="sc-badge">عميل 🔒</span>' : '<span class="sc-badge t">اختبار</span>'}</div>
+      <div class="u">${esc(s.url)}</div></button>`).join('') : '<span class="text-muted small">مفيش مواقع — ضيفي موقع من الإعدادات</span>';
+  const first = sites.find(s => s.active && s.kind !== 'client') || sites.find(s => s.kind !== 'client');
+  if (first) pickSite(first.id);
+  const runs = r.runs || [];
+  el('scRuns').innerHTML = runs.length ? runs.map(x => `<tr>
+      <td>${esc(x.time)}</td><td>${esc(x.site || '—')}</td><td>${esc(x.invoice || '—')}</td>
+      <td class="sc-cnt"><b class="ok" title="ناجح">${x.counts.ok}</b> <b class="no" title="فاشل">${x.counts.fail}</b> <b class="na" title="لم يُختبر">${x.counts.na}</b></td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/reports/${esc(x.run_id)}">التقرير</a>
+        ${x.word ? `<a class="btn btn-sm btn-outline-success" href="/reports/${esc(x.run_id)}/word"><i class="bi bi-file-earmark-word"></i> Word</a>` : ''}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="sc-empty">لسه ما اتشغلش — اضبطي الإعداد ودوسي «تشغيل السيناريو»</td></tr>';
+  const last = runs[0];
+  if (last) {
+    el('scLastLbl').textContent = 'آخر تشغيلة: ' + last.time;
+    const ic = {ok: '✅', fail: '❌', na: '⚪'};
+    Object.entries(last.steps || {}).forEach(([n, s]) => { const e = el('st' + n); if (e) e.textContent = ic[s] || '○'; });
+  }
+}
+
+async function scSave(run) {
+  const v = id => el(id).value.trim();
+  if (!v('bzA') || !v('bzB')) { alert('اكتبي كود الصنفين A و B'); return; }
+  const config = {items: [{code: v('bzA'), qty: v('bzAq'), price: v('bzAp')}, {code: v('bzB'), qty: v('bzBq'), price: v('bzBp')}],
+                  discount_pct: v('bzD'), qty_edit: v('bzE'), customer: v('bzC'), cases: el('bzCases').checked};
+  if (run && !SITE) { alert('اختاري موقع اختبار'); return; }
+  if (run && !confirm('السيناريو هيعمل فاتورة اختبار' + (el('bzCases').checked ? ' + فواتير الحالات 14–18' : '') + ' على الموقع المختار. نكمل؟')) return;
+  const r = await fetch('/api/biz/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({config, run, sites: run ? SITE : ''})}).then(x => x.json());
+  if (!r.success) { alert(r.error); return; }
+  el('scSaved').textContent = run ? '✅ دخل الطابور — تابعي من مركز التشغيل' : '✅ اتحفظ';
+  load();
+}
+load();
+</script>
+{% endblock %}

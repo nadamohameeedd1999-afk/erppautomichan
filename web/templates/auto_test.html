@@ -39,28 +39,13 @@
         </div>
     </div>
 
-    <div class="card at-card mb-3" id="bizCard">
-        <div class="card-header"><span>📋 سيناريو أعمال — فاتورة بيع آجلة بخصم وضريبة (نموذج المطور: 19 بند)</span>
-            <span class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" onclick="bizSave(false)"><i class="bi bi-save"></i> حفظ</button>
-                <button class="btn btn-sm btn-success" onclick="bizSave(true)"><i class="bi bi-play-fill"></i> حفظ وتشغيل</button>
-            </span></div>
-        <div class="card-body pt-2">
-            <div class="muted mb-2">بيعمل اللي المختبر بيعمله بإيده: فاتورة جديدة ← الإجماليات والخصم والضريبة ← حفظ ← إعادة فتح ← الطباعة ← تعديل كمية ← المخزن والقيد ← الحالات الإضافية (14–18) — وبيملا ملف الورد بتاع المطور بالنتيجة. على مواقع الاختبار بس.</div>
-            <div class="row g-2 align-items-end">
-                <div class="col-md-2"><label class="form-label small mb-0">كود الصنف A</label><input id="bzA" class="form-control form-control-sm" dir="ltr" placeholder="201"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">كمية</label><input id="bzAq" class="form-control form-control-sm" type="number" value="10"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">سعر</label><input id="bzAp" class="form-control form-control-sm" type="number" value="100"></div>
-                <div class="col-md-2"><label class="form-label small mb-0">كود الصنف B</label><input id="bzB" class="form-control form-control-sm" dir="ltr" placeholder="202"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">كمية</label><input id="bzBq" class="form-control form-control-sm" type="number" value="5"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">سعر</label><input id="bzBp" class="form-control form-control-sm" type="number" value="200"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">خصم %</label><input id="bzD" class="form-control form-control-sm" type="number" value="10"></div>
-                <div class="col-md-1"><label class="form-label small mb-0">كمية A بعد التعديل</label><input id="bzE" class="form-control form-control-sm" type="number" value="12"></div>
-                <div class="col-md-2"><label class="form-label small mb-0">رقم العميل (اختياري)</label><input id="bzC" class="form-control form-control-sm" dir="ltr" placeholder="تلقائي"></div>
-            </div>
-            <div class="small mt-2" id="bzLast"></div>
+    <a href="/business-scenarios" class="card at-card mb-3 text-decoration-none" style="display:block">
+        <div class="card-body d-flex align-items-center gap-3 py-2">
+            <span style="font-size:22px">📋</span>
+            <div><b>سيناريوهات الأعمال</b><div class="muted small">فاتورة بيع آجلة بخصم وضريبة (19 بند — نموذج المطور) اتنقلت لصفحتها</div></div>
+            <span class="ms-auto small">افتحي ←</span>
         </div>
-    </div>
+    </a>
 
     <div class="card at-card mb-3" id="libCard">
         <div class="card-header"><span>📚 المكتبة الجاهزة — أهم 20 شاشة في NQ ERP (فلوس، مخزون، بيانات أساسية)</span>
@@ -205,28 +190,7 @@ async function libApply(run) {
     libLoad(); if (typeof load === 'function') load();
 }
 document.addEventListener('DOMContentLoaded', libLoad);
-async function bizLoad() {
-    const r = await fetch('/api/biz').then(r => r.json()).catch(() => ({}));
-    const c = r.config;
-    if (c && c.items && c.items.length === 2) {
-        const [a, b] = c.items; const set = (id, v) => { const e = document.getElementById(id); if (e && v !== undefined && v !== null) e.value = v; };
-        set('bzA', a.code); set('bzAq', a.qty); set('bzAp', a.price); set('bzB', b.code); set('bzBq', b.qty); set('bzBp', b.price);
-        set('bzD', c.discount_pct); set('bzE', c.qty_edit); set('bzC', c.customer);
-    }
-    const l = r.last;
-    document.getElementById('bzLast').innerHTML = l ? `آخر تشغيل: <a href="/reports/${tdEsc(l.run_id)}" class="chip ${l.passed ? 'ok' : 'bad'}">${l.passed ? '✅ نجح' : '❌ فيه بنود مش ناجحة'}</a> — <a href="/reports/${tdEsc(l.run_id)}/word">نموذج الورد</a>` : '';
-}
-async function bizSave(run) {
-    const v = id => document.getElementById(id).value.trim();
-    const config = {items: [{code: v('bzA'), qty: v('bzAq'), price: v('bzAp')}, {code: v('bzB'), qty: v('bzBq'), price: v('bzBp')}],
-                    discount_pct: v('bzD'), qty_edit: v('bzE'), customer: v('bzC')};
-    if (run && !confirm('السيناريو بيعمل كام فاتورة اختبار (الأساسية + الحالات 14–18) على الموقع — على موقع الاختبار بس. نكمل؟')) return;
-    const sites = (document.getElementById('runSites') || {}).value || '';
-    const r = await fetch('/api/biz/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config, run, sites})}).then(r => r.json());
-    if (!r.success) { alert(r.error); return; }
-    alert(run ? '✅ اتحفظ ودخل الطابور — تابعي من مركز التشغيل' : '✅ اتحفظ'); bizLoad();
-}
-document.addEventListener('DOMContentLoaded', bizLoad);
+
 let SL = null;
 function slToggle() { const b = document.getElementById('slBody'), open = b.style.display === 'none'; b.style.display = open ? '' : 'none';
     document.getElementById('slIcon').className = 'bi bi-chevron-' + (open ? 'up' : 'down'); if (open) slLoad(); }
