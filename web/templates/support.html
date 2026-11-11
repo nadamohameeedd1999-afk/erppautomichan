@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}{{ 'دعم المطورين' if kind == 'dev' else 'دعم الأداة' }} - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .sp-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .sp-card > .hd { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--g-line); }
+  .sp-card > .bd { padding: 12px 16px; }
+  .sp-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  @media (max-width: 800px) { .sp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .sp-kpi { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; padding: 12px 14px; cursor: pointer; min-width: 0; }
+  .sp-kpi .v { font-size: 24px; font-weight: 800; }
+  .sp-kpi .l { font-size: 12px; color: var(--g-muted); }
+  .sp-kpi.on { border-color: #0F7C7A; background: rgba(15,124,122,.08); }
+  .sp-filters { display: grid; grid-template-columns: 2fr 1.3fr 1fr 1.2fr; gap: 8px; }
+  @media (max-width: 800px) { .sp-filters { grid-template-columns: 1fr 1fr; } }
+  .sp-filters > * { min-width: 0; }
+  .sp-list { width: 100%; table-layout: fixed; font-size: 13px; }
+  .sp-list td, .sp-list th { padding: 9px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .sp-list th { font-size: 12px; color: var(--g-muted); font-weight: 700; border-top: 0; }
+  .sp-list col.a { width: 30px; } .sp-list col.b { width: 34px; } .sp-list col.c { width: 76px; } .sp-list col.e { width: 150px; } .sp-list col.f { width: 130px; }
+  @media (max-width: 700px) { .sp-list col.e { width: 0; } .sp-list td:nth-child(5), .sp-list th:nth-child(5) { display: none; } .sp-list col.f { width: 104px; } }
+  .sp-sev { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .sp-sev.h { background: rgba(229,72,77,.15); color: #e5484d; } .sp-sev.m { background: rgba(255,170,0,.16); color: #b26a00; } .sp-sev.l { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .sp-t { font-weight: 800; cursor: pointer; }
+  .sp-sub { color: var(--g-muted); font-size: 12px; margin-top: 3px; }
+  .sp-more { display: none; margin-top: 8px; border: 1px solid var(--g-line); border-radius: 10px; padding: 10px; font-size: 12.5px; }
+  .sp-more.on { display: block; }
+  .sp-more dt { color: var(--g-muted); font-weight: 700; font-size: 11.5px; margin-top: 6px; }
+  .sp-more dd { margin: 0; white-space: pre-wrap; }
+  .sp-log { direction: ltr; text-align: left; font: 11px/1.45 Consolas, monospace; background: rgba(0,0,0,.25); border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; white-space: pre; margin-top: 6px; }
+  .sp-list tr.done { opacity: .55; }
+  .sp-list select, .sp-list input:not([type=checkbox]) { min-width: 0; width: 100% !important; max-width: 100%; box-sizing: border-box; margin-inline: 0 !important; }
+  .sp-fixed { font-size: 11px; color: #30a46c; font-weight: 700; }
+  .sp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sp-actions .btn { white-space: nowrap; }
+  .sp-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .sp-teal { background: #0F7C7A; color: #fff !important; border: 0; }
+  .sp-out { border: 1px solid #0F7C7A; color: #0F7C7A; background: transparent; }
+  .sp-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 16px; }
+  .sp-modal.on { display: flex; }
+  .sp-modal .box { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; width: min(720px, 100%); max-height: 90vh; overflow: auto; padding: 16px; }
+  .sp-modal textarea { width: 100%; min-height: 320px; direction: rtl; font-size: 12px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="text-muted small mb-3">
+    {% if kind == 'dev' %}
+      كل مشكلة في الـ ERP نفسه لقتها الاختبارات: حالات سيناريوهات المطور اللي فشلت، والملاحظات اللي اتلاحظت وقت الحفظ، والشاشات اللي مش بتفتح، والحسابات المش متزنة — ومعاها اللي اتلاحظ يدويًا. كل واحدة بالتفاصيل وخطوات التكرار والدليل، وتطلع Word أو Excel للمطورين.
+    {% else %}
+      مشاكل أداة الاختبار نفسها (مش الـ ERP): المحرك وقف، خطوة الأداة مقدرتش تعملها، المتصفح أو الشبكة، أو بيانات الموقع ناقصة — ومعاها آخر اللوج. حدد اللي عايزه ودوس «📋 انسخ للإصلاح» وابعته في المحادثة.
+    {% endif %}
+  </div>
+
+  <div class="sp-kpis" id="spKpis"></div>
+
+  <div class="sp-card">
+    <div class="hd">
+      <div class="sp-filters flex-grow-1">
+        <input id="fq" class="form-control form-control-sm" placeholder="بحث في المشاكل…">
+        <select id="fsite" class="form-select form-select-sm"><option value="">كل المواقع</option></select>
+        <select id="fsev" class="form-select form-select-sm"><option value="">كل الخطورة</option><option>عالية</option><option>متوسطة</option><option>منخفضة</option></select>
+        <select id="fst" class="form-select form-select-sm"><option value="open">المفتوحة بس</option><option value="">كل الحالات</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
+      </div>
+    </div>
+    <div class="hd">
+      <span class="small text-muted" id="spSel">—</span>
+      <div class="sp-actions">
+        {% if kind == 'dev' %}<button class="btn btn-sm sp-out" onclick="spAddOpen()"><i class="bi bi-plus-lg"></i> مشكلة يدوي</button>{% endif %}
+        <select id="spBulk" class="form-select form-select-sm" style="width:auto" onchange="spBulk(this.value)"><option value="">غيّر حالة المحدد…</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
+        <button class="btn btn-sm sp-out" onclick="spCopy()"><i class="bi bi-clipboard"></i> {{ 'انسخ نص' if kind == 'dev' else 'انسخ للإصلاح' }}</button>
+        <button class="btn btn-sm sp-out" onclick="spExport('xlsx')"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+        <button class="btn btn-sm sp-teal" onclick="spExport('docx')"><i class="bi bi-file-earmark-word"></i> Word</button>
+      </div>
+    </div>
+    <div class="bd p-0">
+      <div class="table-responsive">
+        <table class="sp-list">
+          <colgroup><col class="a"><col class="b"><col class="c"><col><col class="e"><col class="f"></colgroup>
+          <thead><tr><th><input type="checkbox" class="form-check-input" id="spAll"></th><th>#</th><th>الخطورة</th><th>المشكلة</th><th>{{ 'الشاشة / الموقع' if kind == 'dev' else 'الاختبار / الموقع' }}</th><th>الحالة</th></tr></thead>
+          <tbody id="spRows"><tr><td colspan="6" class="sp-empty">جاري التجميع من كل التشغيلات…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sp-modal" id="spCopyBox"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><b>{{ 'نص المشاكل' if kind == 'dev' else 'ابعت النص ده في المحادثة' }}</b><button class="btn btn-sm btn-outline-secondary" onclick="el('spCopyBox').classList.remove('on')">✕</button></div>
+  <textarea id="spCopyTxt" class="form-control" readonly></textarea>
+  <div class="d-flex justify-content-end gap-2 mt-2"><button class="btn btn-sm sp-out" onclick="spExport('txt')">تنزيل ملف</button><button class="btn btn-sm sp-teal" onclick="spCopyNow()">نسخ</button></div>
+</div></div>
+
+{% if kind == 'dev' %}
+<div class="sp-modal" id="spAddBox"><div class="box">
+  <div class="d-flex justify-content-between align-items-center mb-2"><b>مشكلة يدوي</b><button class="btn btn-sm btn-outline-secondary" onclick="el('spAddBox').classList.remove('on')">✕</button></div>
+  <div class="row g-2">
+    <div class="col-md-8"><label class="small text-muted">المشكلة</label><input id="aT" class="form-control form-control-sm"></div>
+    <div class="col-md-4"><label class="small text-muted">الخطورة</label><select id="aS" class="form-select form-select-sm"><option>عالية</option><option selected>متوسطة</option><option>منخفضة</option></select></div>
+    <div class="col-md-6"><label class="small text-muted">الشاشة</label><input id="aSc" class="form-control form-control-sm"></div>
+    <div class="col-md-6"><label class="small text-muted">الموقع</label><input id="aSi" class="form-control form-control-sm" dir="ltr"></div>
+    <div class="col-12"><label class="small text-muted">التفاصيل</label><textarea id="aD" class="form-control form-control-sm" rows="3"></textarea></div>
+    <div class="col-12"><label class="small text-muted">خطوات التكرار</label><textarea id="aSt" class="form-control form-control-sm" rows="2"></textarea></div>
+    <div class="col-12"><label class="small text-muted">الدليل</label><input id="aE" class="form-control form-control-sm"></div>
+  </div>
+  <div class="d-flex justify-content-end mt-3"><button class="btn btn-sm sp-teal" onclick="spAdd()">إضافة</button></div>
+</div></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+const KIND = '{{ kind }}';
+const STATUSES = {{ statuses|tojson }};
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+let ITEMS = [], KF = '';
+const SEV = {'عالية': 'h', 'متوسطة': 'm', 'منخفضة': 'l'};
+const closed = i => i.status === 'اتصلح' || i.status === 'مش مشكلة';
+
+async function spLoad() {
+  const r = await fetch('/api/support/' + KIND).then(x => x.json()).catch(() => ({}));
+  if (!r.success) { el('spRows').innerHTML = '<tr><td colspan="6" class="sp-empty">تعذر التحميل</td></tr>'; return; }
+  ITEMS = r.items;
+  const cur = el('fsite').value;
+  el('fsite').innerHTML = '<option value="">كل المواقع</option>' + r.sites.map(s => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('');
+  spRender();
+}
+function filtered() {
+  const q = el('fq').value.trim(), site = el('fsite').value, sev = el('fsev').value, st = el('fst').value;
+  return ITEMS.filter(i => (!site || i.site === site) && (!sev || i.severity === sev) && (!st || (st === 'open' ? !closed(i) : i.status === st))
+    && (!q || JSON.stringify(i).includes(q)) && (!KF || (KF === 'high' ? i.severity === 'عالية' && !closed(i) : KF === 'fixed' ? i.auto_fixed && !closed(i) : true)));
+}
+function spRender() {
+  const open = ITEMS.filter(i => !closed(i));
+  const k = [['all', ITEMS.length, 'كل المشاكل'], ['open', open.length, 'مفتوحة'], ['high', open.filter(i => i.severity === 'عالية').length, 'خطورة عالية مفتوحة'],
+             ['fixed', open.filter(i => i.auto_fixed).length, 'آخر تشغيل نجح — راجعها']];
+  el('spKpis').innerHTML = k.map(([id, v, l]) => `<div class="sp-kpi ${KF === id ? 'on' : ''}" onclick="KF=(KF==='${id}'?'':'${id}');${id === 'all' ? "el('fst').value='';" : ''}spRender()"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  const list = filtered();
+  el('spRows').innerHTML = list.map(i => `<tr class="${closed(i) ? 'done' : ''}">
+    <td><input type="checkbox" class="form-check-input spx" value="${i.id}"></td><td>${i.n}</td>
+    <td><span class="sp-sev ${SEV[i.severity] || 'l'}">${esc(i.severity)}</span></td>
+    <td><div class="sp-t" onclick="spMore('${i.id}')">${esc(i.title)}</div>
+      <div class="sp-sub">${esc(KIND === 'dev' ? i.source : i.kind)} · ${i.count > 1 ? `اتكررت ${i.count} مرة · ` : ''}آخر ظهور ${esc(i.last)}${i.auto_fixed && !closed(i) ? ' · <span class="sp-fixed">آخر تشغيل نجح</span>' : ''}</div>
+      <div class="sp-more" id="m_${i.id}">${more(i)}</div></td>
+    <td><div>${esc(KIND === 'dev' ? i.screen : i.test)}</div><div class="sp-sub" dir="ltr" style="text-align:right">${esc(i.site)}</div></td>
+    <td><select class="form-select form-select-sm" onchange="spSet('${i.id}', {status: this.value})">${STATUSES.map(s => `<option ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <input class="form-control form-control-sm mt-1" placeholder="ملاحظة" value="${esc(i.note)}" onchange="spSet('${i.id}', {note: this.value})"></td></tr>`).join('')
+    || '<tr><td colspan="6" class="sp-empty">مفيش مشاكل في الفلتر ده 🎉</td></tr>';
+  spCount();
+}
+function more(i) {
+  const row = (t, v) => v ? `<dt>${t}</dt><dd>${esc(v)}</dd>` : '';
+  if (KIND === 'dev') return `<dl class="mb-0">${row('التفاصيل', i.details)}${row('خطوات التكرار', i.steps)}${row('الدليل', i.evidence)}${row('المستند', i.doc)}
+      ${row('أول ظهور', i.first)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd>` : ''}</dl>`;
+  return `<dl class="mb-0">${row('الرسالة', i.message)}${row('الحل المقترح', i.fix)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd><dt>آخر اللوج</dt><div class="sp-log" id="lg_${i.id}">…</div>` : ''}</dl>`;
+}
+async function spMore(id) {
+  const m = el('m_' + id); m.classList.toggle('on');
+  const i = ITEMS.find(x => x.id === id); const lg = el('lg_' + id);
+  if (lg && m.classList.contains('on') && lg.textContent === '…') {
+    const r = await fetch(`/api/support/${KIND}/log/${encodeURIComponent(i.run_id)}`).then(x => x.json()).catch(() => ({}));
+    lg.textContent = (r.lines || []).join('\n') || 'مفيش لوج';
+  }
+}
+function selIds() { return [...document.querySelectorAll('.spx:checked')].map(x => x.value); }
+function spCount() { const n = selIds().length; el('spSel').textContent = n ? `محدد ${n} — التصدير والنسخ للمحدد بس` : `${filtered().length} مشكلة — التصدير والنسخ للي ظاهر`; }
+document.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('spx')) spCount(); });
+el('spAll').addEventListener('change', e => { document.querySelectorAll('.spx').forEach(x => x.checked = e.target.checked); spCount(); });
+['fq', 'fsite', 'fsev', 'fst'].forEach(id => el(id).addEventListener(id === 'fq' ? 'input' : 'change', spRender));
+async function spSet(id, body) {
+  await fetch('/api/support/status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id, ...body})});
+  const i = ITEMS.find(x => x.id === id); Object.assign(i, body); if (body.status) spRender();
+}
+async function spBulk(v) {
+  const ids = selIds(); el('spBulk').value = ''; if (!v || !ids.length) { if (v) alert('حدد مشاكل الأول'); return; }
+  await fetch('/api/support/status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids, status: v})});
+  ITEMS.forEach(i => { if (ids.includes(i.id)) i.status = v; }); spRender();
+}
+function qs(extra) {
+  const ids = selIds(), p = new URLSearchParams(extra || {});
+  if (ids.length) p.set('ids', ids.join(',')); else { p.set('q', el('fq').value.trim()); p.set('site', el('fsite').value); p.set('sev', el('fsev').value); p.set('status', el('fst').value); }
+  return p.toString();
+}
+function spExport(fmt) { location.href = `/api/support/${KIND}/export?` + qs({fmt}); }
+async function spCopy() {
+  const r = await fetch(`/api/support/${KIND}/bundle?` + qs()).then(x => x.json()).catch(() => ({}));
+  el('spCopyTxt').value = r.text || ''; el('spCopyBox').classList.add('on');
+}
+async function spCopyNow() {
+  const t = el('spCopyTxt'); t.select();
+  try { await navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); }
+  if (KIND === 'tool') { const ids = selIds().length ? selIds() : filtered().map(i => i.id);
+    await fetch('/api/support/status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids: ids.filter(id => (ITEMS.find(i => i.id === id) || {}).status === 'جديد'), status: 'اتبعت للإصلاح'})});
+    ITEMS.forEach(i => { if (ids.includes(i.id) && i.status === 'جديد') i.status = 'اتبعت للإصلاح'; }); spRender(); }
+  el('spCopyBox').classList.remove('on');
+}
+function spAddOpen() { el('spAddBox').classList.add('on'); }
+async function spAdd() {
+  const v = id => el(id).value.trim();
+  const r = await fetch('/api/support/dev/add', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title: v('aT'), severity: v('aS'), screen: v('aSc'), site: v('aSi'), details: v('aD'), steps: v('aSt'), evidence: v('aE')})}).then(x => x.json());
+  if (!r.success) { alert(r.error); return; }
+  el('spAddBox').classList.remove('on'); spLoad();
+}
+spLoad();
+</script>
+{% endblock %}

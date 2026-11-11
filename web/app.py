@@ -59,6 +59,8 @@ from web.automation_health import bp as _autohealth_bp
 app.register_blueprint(_autohealth_bp)
 from web import nav as _nav
 app.register_blueprint(_nav.bp)
+from web.support import bp as _support_bp
+app.register_blueprint(_support_bp)
 from web.reset_api import bp as _reset_bp
 app.register_blueprint(_reset_bp)
 from web.docs_api import bp as _docs_bp
