@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}مقارنة التقارير - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .rc-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .rc-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rc-card > .bd { padding: 14px 16px; }
+  .rc-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .rc-sides { grid-template-columns: 1fr; } }
+  .rc-side { border: 1.5px solid var(--g-line); border-radius: 12px; padding: 12px; min-width: 0; }
+  .rc-side h6 { font-weight: 800; margin-bottom: 8px; }
+  .rc-side label { font-size: 12px; color: var(--g-muted); margin: 8px 0 2px; display: block; }
+  .rc-side select, .rc-side input { width: 100% !important; min-width: 0; box-sizing: border-box; }
+  .rc-st { font-size: 12px; margin-top: 8px; }
+  .rc-f { min-width: 0; } .rc-f input { width: 100% !important; box-sizing: border-box; }
+  .rc-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
+  .rc-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; }
+  .rc-t td { padding: 9px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .rc-t col.s { width: 120px; }
+  .rc-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .rc-b.same { background: rgba(48,164,108,.15); color: #30a46c; } .rc-b.diff, .rc-b.both { background: rgba(229,72,77,.15); color: #e5484d; } .rc-b.info { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .rc-sub { font-size: 12px; color: var(--g-muted); margin-top: 3px; }
+  .rc-teal { background: #0F7C7A; color: #fff !important; border: 0; }
+  .rc-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .rc-verdict { font-size: 18px; font-weight: 800; }
+  .rc-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">نفس التقرير بنفس السيناريو على موقع الاختبار وموقع العميل (قراءة بس على الاتنين). الداتا مختلفة أكيد، فالمقارنة على اللي الكود والإجراء المخزن بيحددوه: البارامترات، الحقول اللي الاستورد بيرجّعها، عناوين التقرير، تنسيق الأرقام، وقواعد لازم تمشي على داتا كل موقع (الرصيد = اللي قبله + الوارد − الصادر، آخر رصيد = رصيد المخزن).</div>
+
+  <div class="rc-card">
+    <div class="hd"><b>🆚 السيناريو</b><span class="small text-muted" id="rcInfo"></span></div>
+    <div class="bd">
+      <div class="rc-sides mb-3">
+        <div class="rc-f"><label class="small text-muted">التقرير</label><input id="rcReport" class="form-control form-control-sm" dir="ltr"></div>
+        <div class="rc-f"><label class="small text-muted">من تاريخ (اختياري — فاضي = أول السنة زي التقرير)</label><input id="rcFrom" type="date" class="form-control form-control-sm"></div>
+      </div>
+      <div class="rc-sides">
+        <div class="rc-side"><h6>🧪 موقع الاختبار</h6><select id="rcA" class="form-select form-select-sm"></select><div id="rcChA"></div></div>
+        <div class="rc-side"><h6>🏢 موقع العميل</h6><select id="rcB" class="form-select form-select-sm"></select><div id="rcChB"></div></div>
+      </div>
+    </div>
+    <div class="hd" style="border-top:1px solid var(--g-line);border-bottom:0">
+      <span class="small text-muted">أول تشغيل بيقرا قوائم المخازن والأصناف من الموقعين؛ بعدها اختار وشغّل تاني علشان يبني التقرير ويقارن.</span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm rc-out" onclick="rcExport()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm rc-teal" onclick="rcRun()"><i class="bi bi-play-fill"></i> قارن</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rc-card">
+    <div class="hd"><span class="rc-verdict" id="rcVerdict">—</span><span class="small text-muted" id="rcAt"></span></div>
+    <div class="bd p-0"><div class="table-responsive">
+      <table class="rc-t"><colgroup><col style="width:22%"><col><col><col class="s"><col style="width:28%"></colgroup>
+        <thead><tr><th>البند</th><th>الاختبار</th><th>العميل</th><th>النتيجة</th><th>التفاصيل</th></tr></thead>
+        <tbody id="rcRows"><tr><td colspan="5" class="rc-empty">جاري التحميل…</td></tr></tbody></table>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+let S = null, poll = null;
+const ST = {same: '✓ متطابق', diff: '✗ مختلف', both: '✗ في الاتنين', info: 'للعلم'};
+async function rcLoad() {
+  const r = await fetch('/api/repcmp').then(x => x.json()).catch(() => ({}));
+  if (!r.success) return; S = r;
+  el('rcReport').value = r.scenario.report; el('rcFrom').value = r.scenario.date_from || '';
+  const opt = (sel, kind) => r.sites.map(s => `<option value="${esc(s.id)}" ${sel && sel.id === s.id ? 'selected' : ''}>${esc(s.name)} — ${esc(s.url)}${s.kind === 'client' ? ' (عميل)' : ''}</option>`).join('');
+  el('rcA').innerHTML = opt(r.a); el('rcB').innerHTML = opt(r.b);
+  el('rcChA').innerHTML = choose(r.a); el('rcChB').innerHTML = choose(r.b);
+  const c = r.compare;
+  el('rcAt').textContent = c.a_at || c.b_at ? `لقطة الاختبار ${c.a_at || '—'} · لقطة العميل ${c.b_at || '—'}` : '';
+  el('rcVerdict').innerHTML = !c.ready ? '⚪ لسه مفيش لقطة مكتملة من الموقعين' : c.diff_n ? `<span style="color:#e5484d">❌ فيه ${c.diff_n} اختلاف</span>` : '<span style="color:#30a46c">✅ التقرير متطابق في الشكل والمنطق</span>';
+  el('rcRows').innerHTML = c.rows.map(x => `<tr><td><b>${esc(x.item)}</b><div class="rc-sub">${esc(x.what)}</div></td><td>${esc(x.a)}</td><td>${esc(x.b)}</td>
+      <td><span class="rc-b ${x.status}">${ST[x.status]}</span></td><td class="small">${esc(x.detail)}</td></tr>`).join('') || '<tr><td colspan="5" class="rc-empty">شغّل «قارن» علشان يتقرا التقرير من الموقعين</td></tr>';
+}
+function choose(site) {
+  if (!site) return '<div class="rc-st text-muted">مفيش موقع</div>';
+  const sn = (S.snaps || {})[site.id] || {}, lk = sn.lookups || {}, ch = sn.chosen || {};
+  const rows = S.scenario.choose.map(([p, lbl]) => { const L = lk[p] || [];
+    if (!L.length) return `<label>${esc(lbl)}</label><input class="form-control form-control-sm" data-site="${esc(site.id)}" data-p="${esc(p)}" value="${esc(ch[p] || '')}" placeholder="القايمة هتتقرا من الموقع أول ما تشغّل">`;
+    return `<label>${esc(lbl)}</label><select class="form-select form-select-sm" data-site="${esc(site.id)}" data-p="${esc(p)}"><option value="">— اختار —</option>${L.map(([v, t]) => `<option value="${esc(v)}" ${String(ch[p]) === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`; }).join('');
+  const st = sn.status === 'ok' ? `✅ آخر لقطة ${esc(sn.at)}` : sn.status === 'error' ? `❌ التقرير فشل في البناء (${esc(sn.at)})` : sn.status === 'empty' ? `⚪ التقرير طلع فاضي (${esc(sn.at)}) — جرّب صنف تاني أو تاريخ أقدم` : sn.status === 'choose' ? `📥 القوائم اتقرت ${esc(sn.at)} — اختار وشغّل تاني` : '⏳ لسه ماتقراش';
+  return rows + `<div class="rc-st">${st}</div>`;
+}
+async function rcSave() {
+  const choices = {};
+  document.querySelectorAll('[data-site][data-p]').forEach(e => { (choices[e.dataset.site] = choices[e.dataset.site] || {})[e.dataset.p] = e.value; });
+  const r = await fetch('/api/repcmp/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({a: el('rcA').value, b: el('rcB').value, report: el('rcReport').value, date_from: el('rcFrom').value, choices})}).then(x => x.json());
+  return r.success;
+}
+['rcA', 'rcB'].forEach(id => el(id).addEventListener('change', async () => { await rcSave(); rcLoad(); }));
+async function rcRun() {
+  if (el('rcA').value === el('rcB').value) { alert('اختار موقعين مختلفين'); return; }
+  if (!(await rcSave())) return;
+  const r = await fetch('/api/repcmp/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}).then(x => x.json());
+  if (!r.success) { alert(r.error); return; }
+  el('rcInfo').textContent = '⏳ دخل الطابور على الموقعين (قراءة بس) — الصفحة هتتحدث لوحدها';
+  clearInterval(poll); let n = 0; poll = setInterval(() => { rcLoad(); if (++n > 60) clearInterval(poll); }, 15000);
+}
+async function rcExport() { await rcSave(); location.href = '/api/repcmp/export?fmt=pdf'; }
+rcLoad();
+</script>
+{% endblock %}

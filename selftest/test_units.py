@@ -340,3 +340,47 @@ def test_ticket_pdf_html():
     d = {"biz": {"screens": ["SAL"], "cases": {"SAL-001": {"status": "FAIL", "plain": "فاتورة", "checks": [["ضريبة القيد", False, "0.00", "150.00"]], "journal": [], "evidence": []}}}}
     r = P.run_report_html(d, "run_1", "admin")
     assert "فشل 1 من 1" in r and "✗ مختلف" in r and "المتوقع 150.00" in r
+
+
+def _xlsx_b64(rows):
+    import base64, io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    for r in rows:
+        ws.append(r)
+    b = io.BytesIO()
+    wb.save(b)
+    return base64.b64encode(b.getvalue()).decode()
+
+
+def test_report_compare_analyze_and_compare(tmp_path, monkeypatch):
+    import base64, json
+    from engine import report_compare as R
+    from config import paths
+    csv_txt = (";;;;تقرير كارت صنف;;xrLabel2;;\r\n;;11 November 2026;; : التاريخ;;1/1;; : عدد الصفحات;;1-1 - ثوب;; : الصنف\r\n"
+               "المخزن;قيمة الرصيد;;الرصيد ;;صادر ;;الوارد ;;نوع المستند;;التاريخ\r\n"
+               "-مخزون خام ;0;;1,000.0000;;0.000;;1000.000;;سند استلام;;08/01/2026\r\n"
+               "-مخزون خام ;0;;200.0000;;800.000;;0.000;;سند صرف;;15/01/2026\r\n"
+               "-مخزون خام ;0;;195.0000;;.000;;0.000;;سند صرف;;19/10/2026\r\n")
+    hdr = ["xrTableCell1", "Warehouse", "BalanceQty", "OutgoingQty", "IncomingQty", "MovementType"]
+    body = [["م", "م", 1000.0, 0.0, 1000.0, "استلام"], ["م", "م", 200.0, 800.0, 0.0, "صرف"], ["م", "م", 195.0, 5.0, 0.0, "صرف"], ["م", "م", 243.0, 2.0, 50.0, "استلام"]]
+    a = R.analyze(base64.b64encode(csv_txt.encode()).decode(), _xlsx_b64([hdr] + body), {"Itemid": "1-1 - ثوب"})
+    assert "تقرير كارت صنف" in a["labels"] and "الرصيد" in a["labels"] and "1-1 - ثوب" not in a["labels"]
+    assert a["controls"] == ["xrLabel2"] and a["fields"] == ["Warehouse", "BalanceQty", "OutgoingQty", "IncomingQty", "MovementType"]
+    assert a["rule"]["found"] and not a["rule"]["bad_rows"] and a["last_balance"] == 243.0 and a["rows_n"] == 3
+    assert any("من غير صفر" in f for f in a["formats"])
+    body_b = [r[:] for r in body]
+    body_b[2][2] = 190.0                      # client: a wrong running balance
+    b = R.analyze(base64.b64encode(csv_txt.replace("الوارد", "وارد").encode()).decode(), _xlsx_b64([hdr[:-1] + ["Type"]] + body_b), {})
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path)
+    for url, x in (("https://t.test", a), ("https://c.test", b)):
+        snap = {"status": "ok", "url": url, "site": url[8:], "at": "now", "params": [{"path": "Itemid", "type": "System.Int32", "label": "الصنف", "visible": True}], **x}
+        snap["stock"] = x["last_balance"]
+        R._snap_file("itemcard", url).write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
+    c = R.compare("itemcard", "https://t.test", "https://c.test")
+    rows = {r["item"]: r for r in c["rows"]}
+    assert c["ready"] and rows["بارامترات التقرير"]["status"] == "same"
+    assert rows["حقول الاستورد"]["status"] == "diff" and "MovementType" in rows["حقول الاستورد"]["detail"]
+    assert rows["عناوين التقرير"]["status"] == "diff" and rows["قاعدة الرصيد"]["status"] == "diff" and "العميل" in rows["قاعدة الرصيد"]["detail"]
+    assert rows["كنترولات ظاهرة باسمها"]["status"] == "both"

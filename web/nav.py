@@ -41,6 +41,8 @@ SECTIONS = [
          "كل الشاشات بتفتح؟ السرعة الحقيقية؟ الحسابات متزنة؟ + تقرير للعميل", "Do all screens open? Real speed? Balanced books? + client report"),
         ("readiness", ["checks.readiness_page"], "/readiness", "bi-traffic-light", "جاهزية الإصدار", "Release readiness",
          "درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش", "Score /100 and a go / care / no-go verdict"),
+        ("repcmp", ["repcmp.page"], "/report-compare", "bi-layout-split", "مقارنة التقارير", "Compare reports",
+         "نفس التقرير بنفس السيناريو على موقع الاختبار وموقع العميل: الشكل والحقول والتنسيق والقواعد", "Same report & scenario on the test site and a client: layout, fields, formats, rules"),
         ("envcmp", ["checks.env_compare_page"], "/env-compare", "bi-arrow-left-right", "مقارنة بيئتين", "Compare environments",
          "موقع الاختبار مقابل نظام العميل: الشاشات والحقول والسرعة", "Test site vs client system: screens, fields, speed"),
     ]),
