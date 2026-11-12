@@ -4588,5 +4588,22 @@
 "من قاعدة بيانات موقع الاختبار (باك أب متسترجع — مش قاعدة عميل): الإجراءات المخزنة اللي بتشاور على جداول أو أعمدة مش موجودة (بتقع وقت التشغيل)، الداتا اليتيمة، القيود اللي مش متزنة، المستندات من غير قيد أو القيود من غير مستند، و«المحاسب الظل» اللي بيعيد حساب كل فاتورة من سطورها، وقواعد الحسابات (ميزان المراجعة، الحسابات الرئيسية، مراكز التكلفة، حساب العملاء)، وكمان بيشغّل إجراءات التقارير فعلًا على النسخة (جوه": "of the test site database (a restored backup — not a client database): stored procedures pointing to tables or columns that don't exist (they fail at run time), orphan data, unbalanced journals, documents without journals or journals without documents, the «shadow accountant» that recomputes every invoice from its lines, account rules (trial balance, parent accounts, cost centres, customers account), and it also runs the report procedures for real on the copy (inside a",
 "ميزان المراجعة كله مش متزن: الفرق": "The whole trial balance is unbalanced: difference",
 "وقع": "failed",
-"وقفت بعد الوقت المحدد — الباقي المرة الجاية": "Stopped after the time limit — the rest next time"
+"وقفت بعد الوقت المحدد — الباقي المرة الجاية": "Stopped after the time limit — the rest next time",
+"اتشال من الطابور": "Removed from the queue",
+"اتوقف بطلبك": "Stopped at your request",
+"اقفل (هيرجع لما تشغيل جديد يبدأ)": "Close (comes back when a new run starts)",
+"بيقف": "Stopping",
+"تجربة فحص": "Check trial",
+"تشغيل شغال / مستني": "run(s) running / waiting",
+"تشيل التشغيل ده من الطابور؟": "Remove this run from the queue?",
+"تصغير / تكبير": "Minimize / expand",
+"تعذّر قراءة التشغيلات": "Couldn't read the runs",
+"توقف التشغيل ده؟": "Stop this run?",
+"شيله من الطابور": "Remove from queue",
+"شيله من هنا": "Hide it from here",
+"في الطابور": "In queue",
+"مفيش فحص شغال": "No scan running",
+"مكسور لحد دلوقتي": "broken so far",
+"هيقف بعد الخطوة الحالية": "Will stop after the current step",
+"وقع لحد دلوقتي": "failed so far"
 }

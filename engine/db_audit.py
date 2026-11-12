@@ -239,7 +239,9 @@ def check_code(db, log):
     log(f"🗄️ بتأكد من {len(mods)} إجراء / فيو / فانكشن إن كل الأعمدة اللي بيستخدمها موجودة")
     broken, t0 = [], time.time()
     cur = db.c.cursor()
-    for m in mods:
+    for k, m in enumerate(mods, 1):
+        if k % 1000 == 0:
+            log(f"🗄️ اتفحص {k}/{len(mods)} — {len(broken)} مكسور لحد دلوقتي")
         if time.time() - t0 > 420:
             log("🗄️ وقف فحص الأعمدة بعد 7 دقايق (الباقي يتفحص المرة الجاية)")
             break
@@ -535,7 +537,9 @@ def check_runtime(conn_factory, db, log, limit=3000, per=25, budget=900):
     c2 = conn_factory(per)
     cur = c2.cursor()
     crashes, slow, other, ok, t0 = [], [], [], 0, time.time()
-    for p in procs:
+    for k, p in enumerate(procs, 1):
+        if k % 150 == 0:
+            log(f"⚙️ {k}/{len(procs)} — {len(crashes)} وقع لحد دلوقتي")
         if time.time() - t0 > budget:
             log("⚙️ وقفت بعد الوقت المحدد — الباقي المرة الجاية")
             break

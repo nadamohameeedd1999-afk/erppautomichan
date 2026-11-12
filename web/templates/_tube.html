@@ -1,0 +1,118 @@
+{# 🎛️ التيوب — live mini-panel for every run, on every page (data: /api/tube) #}
+<style>
+  #gTube { position: fixed; bottom: 16px; left: 16px; width: min(440px, calc(100vw - 32px)); z-index: 1080; background: var(--g-panel-solid, #12161c); backdrop-filter: blur(14px);
+           border: 1px solid var(--g-line, #2a3340); border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.35); display: none; overflow: hidden; direction: rtl; }
+  #gTube.on { display: block; }
+  #gTube .th { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: linear-gradient(90deg, rgba(15,124,122,.25), transparent); cursor: pointer; user-select: none; }
+  #gTube .th b { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #gTube .th .cnt { font-size: 11px; background: #0F7C7A; color: #fff; border-radius: 999px; padding: 1px 8px; }
+  #gTube .ib { border: 0; background: transparent; color: inherit; opacity: .75; padding: 2px 6px; border-radius: 8px; }
+  #gTube .ib:hover { opacity: 1; background: rgba(255,255,255,.08); }
+  #gTube .sp { width: 14px; height: 14px; border: 2px solid rgba(15,124,122,.35); border-top-color: #14b8a6; border-radius: 50%; animation: gtspin 1s linear infinite; flex: none; }
+  @keyframes gtspin { to { transform: rotate(360deg); } }
+  #gTube .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; }
+  #gTube .tab { flex: none; font-size: 11px; border: 1px solid var(--g-line, #2a3340); border-radius: 999px; padding: 3px 9px; cursor: pointer; max-width: 170px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; color: inherit; }
+  #gTube .tab.sel { border-color: #0F7C7A; background: rgba(15,124,122,.18); }
+  #gTube .bd { padding: 10px 12px 12px; }
+  #gTube .nm { font-weight: 800; font-size: 14px; overflow-wrap: anywhere; }
+  #gTube .meta { font-size: 12px; color: var(--g-muted, #8b98a8); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  #gTube .st { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+  #gTube .st.running { background: rgba(20,184,166,.18); color: #14b8a6; } #gTube .st.queued { background: rgba(140,140,140,.2); }
+  #gTube .st.passed, #gTube .st.done { background: rgba(48,164,108,.18); color: #30a46c; } #gTube .st.failed, #gTube .st.error { background: rgba(229,72,77,.18); color: #e5484d; }
+  #gTube .st.stopped { background: rgba(245,166,35,.2); color: #c77d00; }
+  #gTube .steps { margin-top: 8px; max-height: 230px; overflow: auto; border: 1px solid var(--g-line, #2a3340); border-radius: 10px; padding: 4px 0; font-size: 12px; }
+  #gTube .step { display: flex; gap: 8px; padding: 3px 10px; align-items: flex-start; }
+  #gTube .step .t { color: var(--g-muted, #8b98a8); font-family: Consolas, monospace; font-size: 11px; flex: none; padding-top: 1px; }
+  #gTube .step .m { overflow-wrap: anywhere; } #gTube .step.ok .m { color: #30a46c; } #gTube .step.err .m { color: #e5484d; } #gTube .step.warn .m { color: #c77d00; }
+  #gTube .step:last-child { background: rgba(15,124,122,.08); }
+  #gTube .empty { color: var(--g-muted, #8b98a8); font-size: 12px; padding: 10px; text-align: center; }
+  #gTube .acts { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  #gTube .acts a, #gTube .acts button { font-size: 12px; border-radius: 9px; padding: 5px 10px; border: 1px solid #0F7C7A; color: #14b8a6; background: transparent; text-decoration: none; }
+  #gTube .acts .stop { border-color: #e5484d; color: #e5484d; } #gTube .acts .rep { background: #0F7C7A; color: #fff; }
+  #gTube.min .tabs, #gTube.min .bd { display: none; }
+  @media (max-width: 560px) { #gTube { left: 8px; bottom: 8px; width: calc(100vw - 16px); } }
+</style>
+<div id="gTube" aria-live="polite">
+  <div class="th" onclick="gTube.toggle()"><span id="gtIcon"></span><b id="gtTitle">التشغيلات</b><span class="cnt" id="gtCnt">0</span>
+    <button class="ib" title="تصغير / تكبير" onclick="event.stopPropagation(); gTube.toggle()"><i class="bi bi-chevron-down" id="gtChev"></i></button>
+    <button class="ib" title="اقفل (هيرجع لما تشغيل جديد يبدأ)" onclick="event.stopPropagation(); gTube.close()"><i class="bi bi-x-lg"></i></button></div>
+  <div class="tabs" id="gtTabs"></div>
+  <div class="bd" id="gtBody"></div>
+</div>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  const LS = {get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }};
+  const ST = {running: 'شغال', queued: 'في الطابور', passed: '✓ نجح', done: '✓ خلص', failed: '✗ فشل', error: '✗ خطأ', stopped: '⏹ اتوقف'};
+  let items = [], sel = null, seen = new Set(LS.get('gtSeen', [])), dismissed = new Set(LS.get('gtDismiss', [])), closed = LS.get('gtClosed', false), timer = null, lastScroll = {};
+  const key = x => x.kind + ':' + x.id + ':' + (x.started || '');
+  const fmt = s => { s = Math.max(0, Math.round(s)); return s >= 3600 ? `${Math.floor(s / 3600)}س ${Math.floor(s % 3600 / 60)}د` : s >= 60 ? `${Math.floor(s / 60)}د ${s % 60}ث` : `${s}ث`; };
+  async function poll() {
+    clearTimeout(timer);
+    let r = null;
+    try { r = await fetch('/api/tube', {headers: {'X-Tube': '1'}}).then(x => x.ok ? x.json() : null); } catch (e) {}
+    if (r && r.success) {
+      items = r.items.filter(x => !dismissed.has(key(x)));
+      const fresh = items.filter(x => (x.status === 'running' || x.status === 'queued') && !seen.has(key(x)));
+      if (fresh.length) { closed = false; LS.set('gtClosed', false); sel = key(fresh[0]); $('gTube').classList.remove('min'); }
+      items.forEach(x => seen.add(key(x))); LS.set('gtSeen', [...seen].slice(-200));
+      render();
+    }
+    const active = items.some(x => x.status === 'running' || x.status === 'queued');
+    timer = setTimeout(poll, active ? 2500 : 8000);
+  }
+  function render() {
+    const box = $('gTube');
+    if (!items.length || closed) { box.classList.remove('on'); return; }
+    box.classList.add('on');
+    if (!items.some(x => key(x) === sel)) sel = key(items[0]);
+    const active = items.filter(x => x.status === 'running' || x.status === 'queued').length;
+    $('gtIcon').innerHTML = active ? '<span class="sp"></span>' : '<i class="bi bi-check2-circle"></i>';
+    $('gtTitle').textContent = active ? `${active} تشغيل شغال / مستني` : 'آخر التشغيلات';
+    $('gtCnt').textContent = items.length;
+    $('gtChev').className = 'bi ' + (box.classList.contains('min') ? 'bi-chevron-up' : 'bi-chevron-down');
+    $('gtTabs').innerHTML = items.length > 1 ? items.map(x => `<button class="tab ${key(x) === sel ? 'sel' : ''}" data-k="${esc(key(x))}">${x.status === 'running' ? '● ' : x.status === 'queued' ? '◌ ' : ''}${esc(x.name)}${x.site ? ' · ' + esc(x.site) : ''}</button>`).join('') : '';
+    $('gtTabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { sel = b.dataset.k; render(); });
+    const x = items.find(i => key(i) === sel);
+    const now = Date.now();
+    const el = x.started ? fmt(((x.ended ? Date.parse(x.ended) : now) - Date.parse(x.started)) / 1000) : '';
+    const steps = (x.steps || []).map(s => `<div class="step ${s.lvl}"><span class="t">${esc(s.t)}</span><span class="m">${esc(s.msg)}</span></div>`).join('');
+    const body = $('gtBody'), old = body.querySelector('.steps'), atBottom = !old || old.scrollTop + old.clientHeight >= old.scrollHeight - 20;
+    body.innerHTML = `<div class="nm">${esc(x.name)}</div>
+      <div class="meta"><span class="st ${x.status}">${ST[x.status] || esc(x.status)}</span>${x.site ? `<span><i class="bi bi-globe2"></i> ${esc(x.site)}</span>` : ''}
+        ${el ? `<span><i class="bi bi-stopwatch"></i> ${el}</span>` : ''}${x.position ? `<span>رقم ${x.position} في الطابور</span>` : ''}${(x.steps || []).length ? `<span>${x.steps.length} خطوة</span>` : ''}</div>
+      <div class="steps">${steps || `<div class="empty">${x.status === 'queued' ? 'مستني دوره…' : 'بيبدأ…'}</div>`}</div>
+      <div class="acts">
+        ${x.status === 'running' || x.status === 'queued' ? `<button class="stop" id="gtStop"><i class="bi bi-stop-fill"></i> ${x.status === 'queued' ? 'شيله من الطابور' : 'إيقاف'}</button>` : ''}
+        ${x.report ? `<a class="rep" href="${esc(x.report)}" target="_blank"><i class="bi bi-file-earmark-text"></i> التقرير</a>` : ''}
+        ${x.page ? `<a href="${esc(x.page.url)}"><i class="bi bi-box-arrow-up-left"></i> ${esc(x.page.name)}</a>` : ''}
+        ${x.status !== 'running' && x.status !== 'queued' ? `<button id="gtHide"><i class="bi bi-eye-slash"></i> شيله من هنا</button>` : ''}
+      </div>`;
+    const sv = body.querySelector('.steps'); if (sv && atBottom) sv.scrollTop = sv.scrollHeight;
+    const st = $('gtStop'); if (st) st.onclick = async () => {
+      if (!confirm(x.status === 'queued' ? 'تشيل التشغيل ده من الطابور؟' : 'توقف التشغيل ده؟')) return;
+      st.disabled = true; st.textContent = '…';
+      await fetch('/api/tube/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({kind: x.kind, id: x.id})}).catch(() => {});
+      poll();
+    };
+    const hd = $('gtHide'); if (hd) hd.onclick = () => { dismissed.add(key(x)); LS.set('gtDismiss', [...dismissed].slice(-200)); items = items.filter(i => key(i) !== key(x)); render(); };
+  }
+  window.gTube = {
+    toggle() { $('gTube').classList.toggle('min'); render(); },
+    close() { closed = true; LS.set('gtClosed', true); render(); },
+    open() { closed = false; LS.set('gtClosed', false); $('gTube').classList.remove('min'); poll(); },
+    poke() { setTimeout(poll, 700); },
+  };
+  // any page that starts something (POST …/run, …/try, …/discover, …/start, …/queue …) → the tube looks right away
+  const of = window.fetch;
+  window.fetch = function (u, o) {
+    const p = of.apply(this, arguments);
+    try { if (o && String(o.method || '').toUpperCase() === 'POST' && /\/(run|run-test|try|discover|start|queue|rerun|scan)(\/|\?|$)|\/api\/(sites\/run|run-center\/rerun|repcmp\/run|xray\/run|dbaudit\/run|bizcases\/run|checks\/run|auto-test)/.test(String(u))) p.then(() => gTube.poke()).catch(() => {}); } catch (e) {}
+    return p;
+  };
+  setInterval(() => { if (items.some(x => x.status === 'running') && !$('gTube').classList.contains('min')) render(); }, 1000);
+  poll();
+})();
+</script>

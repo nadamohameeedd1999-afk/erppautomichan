@@ -124,7 +124,7 @@ def check_permission():
 
 
 # ==================== audit log (سجل النشاط) ====================
-_SKIP_AUDIT = ("/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center")
+_SKIP_AUDIT = ("/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center", "/api/tube")
 
 
 def audit(event, detail="", status=""):

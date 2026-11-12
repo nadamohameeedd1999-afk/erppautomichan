@@ -457,3 +457,13 @@ def test_db_audit_classify():
     assert D._classify("The column 'TypeName' was specified multiple times for 'X'.")[0] == "عمود متكرر في نفس الاستعلام"
     assert D._classify("Cannot insert the value NULL") == (None, None)
     assert D.SKIP_RUN.search("DeleteSalesInvoiceCommand") and not D.SKIP_RUN.search("Bank")
+
+
+def test_tube_steps_and_pages():
+    from web.tube_api import steps_from_log, _page_for
+    lines = ["===== START =====", "tests/x.py::test_check \x1b[32m10:57:09\x1b[0m | \x1b[1mINFO    \x1b[0m | \x1b[36m🆚 [1/3] /Report/A\x1b[0m",
+             "10:57:10 | SUCCESS  | ✅ اتبنى", "10:57:10 | INFO     | Screenshot: /x.png", "10:57:11 | ERROR    | ❌ فشل", "=== FAILURES ===", "10:57:12 | INFO | after"]
+    st = steps_from_log(lines)
+    assert [s["lvl"] for s in st] == ["info", "ok", "err"] and st[0]["msg"] == "🆚 [1/3] /Report/A"
+    assert _page_for("tests/checks/test_check_repcmp_batch.py::test_check")["url"] == "/report-compare"
+    assert _page_for("tests/checks/test_check_xray_scan.py::test_check")["url"] == "/xray"

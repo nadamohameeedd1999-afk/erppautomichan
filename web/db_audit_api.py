@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 from web import auth
 
 bp = Blueprint("dbaudit", __name__)
-_job = {"running": False, "log": [], "error": "", "started": ""}
+_job = {"running": False, "log": [], "error": "", "started": "", "started_at": "", "finished": "", "stop": False}
 
 
 @bp.route("/db-audit")
@@ -63,18 +63,29 @@ def api_run():
     from engine import db_audit as D
     if _job["running"]:
         return jsonify({"success": False, "error": "فيه فحص شغال دلوقتي"}), 409
-    _job.update({"running": True, "log": [], "error": "", "started": datetime.now().strftime("%H:%M")})
+    _job.update({"running": True, "log": [], "error": "", "started": datetime.now().strftime("%H:%M"),
+                 "started_at": datetime.now().isoformat(timespec="seconds"), "finished": "", "stop": False})
+
+    class Stopped(BaseException):
+        pass
+
+    def log(m):
+        _job["log"].append(f"{datetime.now():%H:%M:%S} {m}")
+        if _job.get("stop"):
+            raise Stopped()
 
     def work():
         try:
             conn = D.connect()
             conn.autocommit(True)
-            D.run(conn, log=lambda m: _job["log"].append(f"{datetime.now():%H:%M:%S} {m}"), label=D.load_cfg().get("label") or "",
-                  conn_factory=D.connect_timeout)
+            D.run(conn, log=log, label=D.load_cfg().get("label") or "", conn_factory=D.connect_timeout)
+        except Stopped:
+            _job["error"] = "⏹️ اتوقف بطلبك"
         except Exception as e:
             _job["error"] = str(e)[:400]
         finally:
             _job["running"] = False
+            _job["finished"] = datetime.now().isoformat(timespec="seconds")
     threading.Thread(target=work, daemon=True).start()
     return jsonify({"success": True})
 
