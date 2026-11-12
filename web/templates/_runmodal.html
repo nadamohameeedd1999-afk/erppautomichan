@@ -1,0 +1,220 @@
+{# 🪟 نافذة التشغيل — opens in the middle of the screen when a run is started from the current page.
+   Three layouts (chosen by the run): A = progress ring + counters + steps (default: health, checks, cases, DB audit …),
+   B = report comparison (a card per report × site + live feed), C = system X-ray (stages + findings).
+   «صغّره» / ✕ hand the run over to the small tube. Data: /api/tube. #}
+<style>
+  #rmOv { position: fixed; inset: 0; background: rgba(6,20,20,.5); backdrop-filter: blur(3px); z-index: 1090; display: none; }
+  #rmOv.on { display: block; }
+  body.rm-open #gTube { display: none !important; }
+  #rm { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1091; display: none; direction: rtl; color: #1C2B2A;
+        background: #fff; border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.35); overflow: hidden; width: min(640px, calc(100vw - 24px)); max-height: calc(100vh - 24px);
+        flex-direction: column; font-size: 14px; }
+  #rm b, #rm strong { color: inherit; }
+  #rm.on { display: flex; } #rm.b { width: min(920px, calc(100vw - 24px)); } #rm.c { width: min(780px, calc(100vw - 24px)); }
+  #rm .hd { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #D5E2E1; }
+  #rm .ic { width: 42px; height: 42px; border-radius: 12px; background: #E7F3F2; display: grid; place-items: center; font-size: 22px; flex: none; }
+  #rm .tt { flex: 1; min-width: 0; } #rm .tt b { font-size: 18px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #rm .tt span { font-size: 12.5px; color: #6B7B7A; }
+  #rm .x { width: 34px; height: 34px; border-radius: 10px; border: 1px solid #D5E2E1; background: #fff; color: #6B7B7A; font-size: 16px; flex: none; }
+  #rm .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #E7F3F2; color: #0A5654; white-space: nowrap; }
+  #rm .chip.run { background: #E0F5F3; color: #0F7C7A; } #rm .chip.ok { background: #E6F4EA; color: #1E8E3E; } #rm .chip.bad { background: #FDECEC; color: #C62828; }
+  #rm .chip.warn { background: #FFF4E5; color: #B26A00; }
+  #rm .bd { overflow: auto; flex: 1; min-height: 0; }
+  #rm .ft { display: flex; gap: 8px; align-items: center; padding: 12px 20px; border-top: 1px solid #D5E2E1; background: #F7FBFB; flex-wrap: wrap; }
+  #rm .btn2 { font-size: 13.5px; font-weight: 700; padding: 8px 16px; border-radius: 11px; border: 1.5px solid #0F7C7A; color: #0F7C7A; background: #fff; text-decoration: none; }
+  #rm .btn2.stop { border-color: #C62828; color: #C62828; } #rm .btn2.main { background: #0F7C7A; color: #fff; } #rm .btn2.dis { opacity: .4; pointer-events: none; }
+  #rm .sp { flex: 1; } #rm .muted { color: #6B7B7A; font-size: 12.5px; }
+  #rm .tabs { display: flex; gap: 6px; padding: 10px 20px 0; flex-wrap: wrap; }
+  #rm .tab { font-size: 12px; border: 1px solid #D5E2E1; border-radius: 999px; padding: 3px 10px; background: #fff; color: #1C2B2A; }
+  #rm .tab.sel { border-color: #0F7C7A; background: #E7F3F2; }
+  #rm .steps { font-size: 13px; border: 1px solid #D5E2E1; border-radius: 12px; padding: 2px 12px; max-height: 220px; overflow: auto; }
+  #rm .st { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
+  #rm .st i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; flex: none; background: #EEF2F2; color: #6B7B7A; }
+  #rm .st.ok i { background: #E6F4EA; color: #1E8E3E; } #rm .st.err i { background: #FDECEC; color: #C62828; } #rm .st.warn i { background: #FFF4E5; color: #B26A00; }
+  #rm .st.now i { background: #0F7C7A; color: #fff; } #rm .st .m { flex: 1; overflow-wrap: anywhere; } #rm .st.err .m { color: #C62828; }
+  #rm .st .t { font-family: Consolas, monospace; font-size: 11px; color: #9AA9A8; padding-top: 3px; }
+  #rm .ring { width: 160px; height: 160px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  #rm .ring > div { width: 128px; height: 128px; border-radius: 50%; background: #fff; display: grid; place-items: center; text-align: center; }
+  #rm .ring b { font-size: 32px; color: #0A5654; display: block; } #rm .ring span { font-size: 12px; color: #6B7B7A; }
+  #rm .ring.ind { background: conic-gradient(#0F7C7A 0 25%, #E7F3F2 0); animation: rmspin 1.2s linear infinite; }
+  #rm .ring.ind > div { animation: rmspin 1.2s linear infinite reverse; }
+  @keyframes rmspin { to { transform: rotate(360deg); } }
+  #rm .cnt3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+  #rm .cnt3 > div { border-radius: 12px; padding: 9px; } #rm .cnt3 b { font-size: 21px; display: block; }
+  #rm .bar { height: 10px; border-radius: 99px; background: #E7F3F2; overflow: hidden; } #rm .bar > div { height: 100%; background: linear-gradient(90deg, #14b8a6, #0F7C7A); border-radius: 99px; transition: width .4s; }
+  #rm .card { background: #fff; border: 1px solid #D5E2E1; border-radius: 12px; padding: 9px 12px; }
+  #rm .card.now { border: 2px solid #0F7C7A; } #rm .card.wait { border-style: dashed; color: #9AA9A8; }
+  #rm .stg { display: flex; align-items: center; padding: 18px 24px 4px; }
+  #rm .sg { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 110px; font-size: 12.5px; font-weight: 700; text-align: center; }
+  #rm .sg i { font-style: normal; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: #EEF2F2; color: #9AA9A8; }
+  #rm .sg.done i { background: #0F7C7A; color: #fff; } #rm .sg.now i { background: #fff; border: 3px solid #0F7C7A; color: #0F7C7A; } #rm .sg.wait { color: #9AA9A8; }
+  #rm .ln { flex: 1; height: 3px; background: #E7F3F2; margin-bottom: 24px; } #rm .ln.done { background: #0F7C7A; }
+  #rm table.ft2 { width: 100%; border-collapse: collapse; font-size: 13px; } #rm table.ft2 th { background: #0F7C7A; color: #fff; padding: 7px 8px; text-align: right; }
+  #rm table.ft2 td { padding: 7px 8px; border-bottom: 1px solid #D5E2E1; }
+  #rm .verd { width: 80px; height: 80px; border-radius: 50%; font-size: 38px; display: grid; place-items: center; margin: 0 auto; }
+  @media (max-width: 760px) { #rm .rowA { flex-direction: column; } #rm .split { flex-direction: column; } #rm .split > div:first-child { width: auto !important; border: 0 !important; } #rm .sg { width: 64px; font-size: 11px; } }
+</style>
+<div id="rmOv" onclick="RM.min()"></div>
+<div id="rm" role="dialog" aria-modal="true"></div>
+<script>
+(function () {
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  const fmt = s => { s = Math.max(0, Math.round(s)); return s >= 3600 ? `${Math.floor(s / 3600)}س ${Math.floor(s % 3600 / 60)}د` : s >= 60 ? `${Math.floor(s / 60)}د ${String(s % 60).padStart(2, '0')}ث` : `${s}ث`; };
+  const ICON = {ok: '✓', err: '✕', warn: '!', info: '•'};
+  const LIVE = x => x.status === 'running' || x.status === 'queued';
+  let track = null, items = [], sel = 0, timer = null, open = false;
+  const box = () => document.getElementById('rm');
+
+  function lead(name) { const m = String(name || '').match(/^\s*(\p{Extended_Pictographic}️?)\s*(.*)$/u); return m ? [m[1], m[2]] : ['▶', name || 'تشغيل']; }
+  function elapsed(x) { return x.started ? ((x.ended ? Date.parse(x.ended) : Date.now()) - Date.parse(x.started)) / 1000 : 0; }
+  function stepsHtml(list, live, prefix) {
+    return (list || []).map((s, k) => `<div class="st ${live && k === list.length - 1 ? 'now' : s.lvl}"><i>${live && k === list.length - 1 ? '▶' : ICON[s.lvl] || '•'}</i>
+      <span class="m">${prefix && s.site ? `<b>${esc(s.site)}:</b> ` : ''}${esc(s.msg)}</span><span class="t">${esc(s.t)}</span></div>`).join('') || '<div class="muted" style="padding:10px">بيبدأ…</div>';
+  }
+  function chip(list) {
+    const live = list.some(LIVE), err = list.some(x => ['failed', 'error'].includes(x.status)), stop = list.some(x => x.status === 'stopped');
+    const t = fmt(Math.max(...list.map(elapsed)));
+    if (live) return `<span class="chip run">● ${list.every(x => x.status === 'queued') ? 'في الطابور' : 'شغال'} · ${t}</span>`;
+    if (stop) return `<span class="chip warn">⏹ اتوقف · ${t}</span>`;
+    const bad = err || list.some(x => (x.counts || {}).err);
+    return bad ? `<span class="chip bad">✕ فيه مشاكل · ${t}</span>` : `<span class="chip ok">✓ خلص · ${t}</span>`;
+  }
+  function footer(list, extra) {
+    const live = list.some(LIVE), x = list[0], rep = list.find(i => i.report);
+    return `<div class="ft">${live ? `<button class="btn2 stop" onclick="RM.stop()">⏹ إيقاف</button>` : ''}
+      <button class="btn2" onclick="RM.min()">↘ صغّره للتيوب</button><span class="sp"></span>${extra || ''}
+      ${x.page ? `<a class="btn2" href="${esc(x.page.url)}">↗ ${esc(x.page.name)}</a>` : ''}
+      ${!live && list.some(i => (i.counts || {}).err) ? `<a class="btn2" href="/dev-support">🎫 دعم المطورين</a>` : ''}
+      ${rep && !live ? `<a class="btn2 main" href="${esc(rep.report)}" target="_blank">📄 التقرير</a>` : `<span class="btn2 main dis">📄 التقرير${live ? ' (لما يخلص)' : ''}</span>`}</div>`;
+  }
+  function header(list, sub) {
+    const [ic, nm] = lead(list[0].name);
+    return `<div class="hd"><div class="ic">${esc(ic)}</div><div class="tt"><b>${esc(nm)}</b><span>${esc(sub)}</span></div>${chip(list)}<button class="x" onclick="RM.min()" title="اقفل (يكمل في التيوب)">✕</button></div>`;
+  }
+  const sites = list => [...new Set(list.map(x => x.site).filter(Boolean))].join(' · ');
+
+  // ---------------- A ----------------
+  function viewA(list) {
+    const x = list[Math.min(sel, list.length - 1)], live = LIVE(x), c = x.counts || {ok: 0, err: 0, warn: 0}, p = x.progress;
+    const tabs = list.length > 1 ? `<div class="tabs">${list.map((i, k) => `<button class="tab ${k === sel ? 'sel' : ''}" onclick="RM.sel(${k})">${LIVE(i) ? '● ' : ''}${esc(i.site || lead(i.name)[1])}</button>`).join('')}</div>` : '';
+    let top;
+    if (live) {
+      const el = elapsed(x), eta = p && p.done ? el / p.done * (p.total - p.done) : null;
+      top = `<div class="rowA" style="display:flex;gap:24px;padding:20px 22px 8px;align-items:center">
+        ${p ? `<div class="ring" style="background:conic-gradient(#0F7C7A ${p.pct}%, #E7F3F2 0)"><div><div><b>${p.pct}%</b><span>${p.done} من ${p.total}</span></div></div></div>`
+            : `<div class="ring ind"><div><div><b style="font-size:24px">${(x.steps || []).length}</b><span>خطوة</span></div></div></div>`}
+        <div style="flex:1;min-width:0"><div class="muted">${x.status === 'queued' ? 'مستني دوره في الطابور' : 'الخطوة الحالية'}</div>
+          <div style="font-size:16px;font-weight:700;margin:4px 0 12px;overflow-wrap:anywhere">${esc(x.status === 'queued' ? `رقم ${x.position || 1} في الطابور` : x.current || 'بيبدأ…')}</div>
+          <div class="cnt3"><div style="background:#E6F4EA"><b style="color:#1E8E3E">${c.ok}</b><span class="muted">سليم</span></div>
+            <div style="background:#FDECEC"><b style="color:#C62828">${c.err}</b><span class="muted">فيه مشكلة</span></div>
+            <div style="background:#FFF4E5"><b style="color:#B26A00">${c.warn}</b><span class="muted">تنبيه</span></div></div>
+          <div class="muted" style="margin-top:10px">⏱ ${fmt(el)}${eta ? ` · المتوقع يخلص كمان ~${fmt(eta)}` : ''}</div></div></div>`;
+    } else {
+      const bad = ['failed', 'error'].includes(x.status) || c.err, stopped = x.status === 'stopped';
+      const probs = (x.steps || []).filter(s => s.lvl === 'err' || s.lvl === 'warn').slice(-4);
+      top = `<div style="padding:22px 22px 8px;text-align:center">
+        <div class="verd" style="background:${stopped ? '#FFF4E5' : bad ? '#FDECEC' : '#E6F4EA'};color:${stopped ? '#B26A00' : bad ? '#C62828' : '#1E8E3E'}">${stopped ? '⏹' : bad ? '!' : '✓'}</div>
+        <div style="font-size:20px;font-weight:800;margin-top:10px">${stopped ? 'اتوقف' : bad ? `خلص — ${c.ok} سليم · ${c.err} فيه مشكلة` : `خلص بنجاح — ${c.ok} سليم`}</div>
+        <div class="muted" style="margin-top:4px">${esc(probs.length ? 'أهم حاجة: ' + probs[0].msg : (x.current || ''))}</div></div>`;
+    }
+    return header(list, (x.site || sites(list)) + (x.duration ? ` · ${fmt(x.duration)}` : '')) + tabs +
+      `<div class="bd">${top}<div style="padding:6px 22px 16px"><div class="muted" style="margin-bottom:4px">التفاصيل</div>
+        <div class="steps" id="rmSteps">${stepsHtml(x.steps, live)}</div></div></div>` + footer([x]);
+  }
+
+  // ---------------- B (report comparison) ----------------
+  function viewB(list) {
+    const live = list.some(LIVE), units = {}, order = [];
+    list.forEach(x => (x.units || []).forEach(u => { if (!units[u.key]) { units[u.key] = {key: u.key, i: u.i, n: u.n, by: {}}; order.push(u.key); } units[u.key].by[x.site || x.id] = u; }));
+    const n = Math.max(0, ...list.map(x => (x.units || [])[0] ? x.units[0].n : 0));
+    const done = order.filter(k => list.every(x => { const u = units[k].by[x.site || x.id]; return u && u.status !== 'running'; })).length;
+    const pct = n ? Math.round(100 * done / n) : (live ? 0 : 100);
+    const ST = {ok: '✓', err: '✕ فشل', empty: '⚪ فاضي', running: '⏳'};
+    const cards = order.map(k => { const U = units[k], all = Object.values(U.by), bad = all.some(u => u.status === 'err'), run = all.some(u => u.status === 'running') || all.length < list.length;
+      return `<div class="card ${run && live ? 'now' : ''}"><div style="display:flex;justify-content:space-between;gap:8px"><b dir="ltr" style="overflow-wrap:anywhere">${esc(k.replace(/^\/Report\//, ''))}</b>
+        <span class="chip ${bad ? 'bad' : run ? 'run' : 'ok'}">${bad ? 'فيه مشكلة' : run ? 'بيتقارن…' : 'اتقرا'}</span></div>
+        <div class="muted">${list.map(x => { const u = U.by[x.site || x.id]; return `${esc(x.site || 'الموقع')} ${u ? ST[u.status] || '⏳' : '⏳'}`; }).join(' · ')}</div>
+        ${all.filter(u => u.note && u.status !== 'ok').map(u => `<div class="muted" style="color:#C62828;overflow-wrap:anywhere">${esc(u.note)}</div>`).join('')}</div>`; });
+    for (let k = order.length; k < n; k++) cards.push(`<div class="card wait"><b>تقرير ${k + 1}</b><div class="muted">مستني</div></div>`);
+    const feed = list.flatMap(x => (x.steps || []).map(s => ({...s, site: x.site}))).sort((a, b) => (a.t || '').localeCompare(b.t || '')).slice(-40);
+    return header(list, sites(list) + ' (قراءة بس)') + `<div class="bd"><div class="split" style="display:flex;min-height:360px">
+      <div style="width:320px;background:#F7FBFB;border-inline-end:1px solid #D5E2E1;padding:18px">
+        <div class="muted">التقدم</div><div style="display:flex;justify-content:space-between;margin:6px 0"><b>${n ? `التقرير ${Math.min(done + (live ? 1 : 0), n)} من ${n}` : 'بيقرا القايمة…'}</b><b style="color:#0F7C7A">${pct}%</b></div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">${cards.join('') || '<div class="muted">لسه مبدأش يقرا التقارير</div>'}</div></div>
+      <div style="flex:1;padding:16px 20px;min-width:0"><div style="display:flex;justify-content:space-between"><b>اللي بيحصل دلوقتي</b><span class="muted">${list.length} موقع</span></div>
+        <div class="steps" id="rmSteps" style="margin-top:8px;max-height:340px;border:0;padding:0">${stepsHtml(feed, live, list.length > 1)}</div></div></div></div>` + footer(list);
+  }
+
+  // ---------------- C (system X-ray) ----------------
+  function viewC(list) {
+    const x = list[Math.min(sel, list.length - 1)], live = LIVE(x), stg = x.stage || 1, p = x.progress;
+    const names = ['الدخول', 'المنيو والمكتبات', 'قراءة الصفحات', 'صور الشاشات', 'النت الضعيف'];
+    const tabs = list.length > 1 ? `<div class="tabs">${list.map((i, k) => `<button class="tab ${k === sel ? 'sel' : ''}" onclick="RM.sel(${k})">${LIVE(i) ? '● ' : ''}${esc(i.site || '')}</button>`).join('')}</div>` : '';
+    const stages = names.map((n, k) => { const s = k + 1, cls = stg > s ? 'done' : stg === s ? 'now' : 'wait';
+      return (k ? `<div class="ln ${stg > s ? 'done' : ''}"></div>` : '') + `<div class="sg ${cls}"><i>${stg > s ? '✓' : s}</i>${n}</div>`; }).join('');
+    const fx = x.findings || [];
+    const sevCls = s => s === 'عالية' ? 'bad' : s === 'متوسطة' ? 'warn' : '';
+    const lower = !live && fx.length ? `<b>اللي اتلقى</b><table class="ft2" style="margin-top:8px"><tr><th style="width:90px">الخطورة</th><th>الملاحظة</th></tr>
+        ${fx.map(f => `<tr><td><span class="chip ${sevCls(f.sev)}">${esc(f.sev)}</span></td><td>${esc(f.title)}</td></tr>`).join('')}</table>`
+      : `<b>${live ? 'اللي بيحصل دلوقتي' : 'الخطوات'}</b><div class="steps" id="rmSteps" style="margin-top:8px">${stepsHtml(x.steps, live)}</div>`;
+    return header(list, (x.site || '') + ' · قراءة بس') + tabs + `<div class="bd"><div class="stg">${stages}</div>
+      ${live ? `<div style="padding:6px 24px 2px"><div style="display:flex;justify-content:space-between" class="muted"><span>${esc(x.current || '')}</span><span>${p ? p.pct + '%' : ''}</span></div>
+        <div class="bar" style="margin-top:6px"><div style="width:${p ? p.pct : Math.min(95, stg * 18)}%"></div></div></div>` : ''}
+      <div style="padding:14px 24px">${lower}</div></div>` + footer([x]);
+  }
+
+  function render() {
+    if (!open || !track) return;
+    const list = items;
+    const b = box();
+    if (!list.length) { b.className = 'on'; b.innerHTML = `<div class="hd"><div class="ic">⏳</div><div class="tt"><b>بيبدأ التشغيل…</b><span>ثانية واحدة</span></div><button class="x" onclick="RM.min()">✕</button></div><div class="bd" style="padding:30px;text-align:center"><div class="muted">بيجهز…</div></div>`; return; }
+    const lay = list[0].layout || 'a';
+    const old = document.getElementById('rmSteps'), atBottom = !old || old.scrollTop + old.clientHeight >= old.scrollHeight - 20;
+    b.className = 'on ' + lay;
+    b.innerHTML = lay === 'b' ? viewB(list) : lay === 'c' ? viewC(list) : viewA(list);
+    const sv = document.getElementById('rmSteps'); if (sv && atBottom) sv.scrollTop = sv.scrollHeight;
+  }
+  async function poll() {
+    clearTimeout(timer);
+    if (!open || !track) return;
+    try {
+      const r = await fetch('/api/tube').then(x => x.json());
+      if (r && r.success) items = r.items.filter(x => track.ids.has(x.kind + ':' + x.id) || (track.dbaudit && x.kind === 'dbaudit'));
+    } catch (e) {}
+    render();
+    timer = setTimeout(poll, items.some(LIVE) || !items.length ? 2000 : 6000);
+  }
+  window.RM = {
+    track(ids, opts) {
+      track = {ids: new Set(ids), dbaudit: !!(opts || {}).dbaudit, at: Date.now()}; items = []; sel = 0; open = true;
+      document.getElementById('rmOv').classList.add('on'); document.body.classList.add('rm-open'); render(); setTimeout(poll, 600);
+    },
+    min() { open = false; clearTimeout(timer); box().className = ''; document.getElementById('rmOv').classList.remove('on'); document.body.classList.remove('rm-open'); if (window.gTube) gTube.open(); },
+    sel(k) { sel = k; render(); },
+    async stop() {
+      if (!confirm('توقف التشغيل ده؟')) return;
+      for (const x of items.filter(LIVE)) await fetch('/api/tube/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({kind: x.kind, id: x.id})}).catch(() => {});
+      poll();
+    },
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) RM.min(); });
+  setInterval(() => { if (open && items.some(x => x.status === 'running')) render(); }, 1000);
+  // a run started from THIS page opens the window: any POST whose answer carries task_id / task_ids / job_id (+ the DB audit)
+  const of = window.fetch;
+  window.fetch = function (u, o) {
+    const p = of.apply(this, arguments);
+    try {
+      if (o && String(o.method || '').toUpperCase() === 'POST' && !/\/api\/(tube|run-center\/(stop|remove|move|clear|workers))/.test(String(u))) {
+        p.then(res => res.clone().json().then(j => {
+          if (!j || j.success === false) return;
+          const ids = [...(j.task_ids || (j.task_id ? [j.task_id] : [])).map(i => 'queue:' + i), ...(j.job_id ? ['job:' + j.job_id] : [])];
+          if (ids.length) RM.track(ids);
+          else if (/\/api\/dbaudit\/run/.test(String(u))) RM.track([], {dbaudit: true});
+        }).catch(() => {})).catch(() => {});
+      }
+    } catch (e) {}
+    return p;
+  };
+})();
+</script>

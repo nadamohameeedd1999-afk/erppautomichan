@@ -46,6 +46,102 @@ def steps_from_log(lines, limit=30):
     return out[-limit:]
 
 
+_FRAC = re.compile(r"(?<![\d/.])(\d{1,5})\s*/\s*(\d{1,5})(?![\d/.])")
+_UNIT = re.compile(r"\[(\d+)/(\d+)\]\s*(/\S+)")
+
+
+_PROGRESS_ONLY = re.compile(r"^…\s*\d+\s*/\s*\d+")
+
+
+def _visible(steps):
+    """steps worth showing: progress-only lines («… 40/80 صفحة») feed the progress bar instead"""
+    return [x for x in steps if not _PROGRESS_ONLY.match(x["msg"])]
+
+
+def layout_for(path):
+    p = path or ""
+    if re.search(r"repcmp", p, re.I):
+        return "b"
+    if re.search(r"xray", p, re.I):
+        return "c"
+    return "a"
+
+
+def enrich(item, all_steps, path=""):
+    """progress / counters / current step + the extra structure the big run window needs (units for B, stages for C)"""
+    item["layout"] = layout_for(path) if path else item.get("layout", "a")
+    prog = None
+    for st in all_steps:
+        for a, b in _FRAC.findall(st["msg"]):
+            a, b = int(a), int(b)
+            if 0 < b and a <= b and not (b > 2100 and a > 1900):
+                prog = (a, b)
+    if prog:
+        item["progress"] = {"done": prog[0], "total": prog[1], "pct": round(100 * prog[0] / prog[1])}
+    item["counts"] = {"ok": sum(1 for x in all_steps if x["lvl"] == "ok" or x["msg"].startswith("✅")),
+                      "err": sum(1 for x in all_steps if x["lvl"] == "err" or x["msg"].startswith("❌")),
+                      "warn": sum(1 for x in all_steps if x["lvl"] == "warn" or x["msg"].startswith("⚠"))}
+    item["current"] = all_steps[-1]["msg"] if all_steps else ""
+    if item["layout"] == "b":
+        units, cur = [], None
+        for st in all_steps:
+            m = _UNIT.search(st["msg"])
+            if m:
+                cur = {"key": m.group(3), "i": int(m.group(1)), "n": int(m.group(2)), "status": "running", "note": ""}
+                units.append(cur)
+                continue
+            if cur and cur["status"] == "running":
+                msg = st["msg"]
+                if "طلع فاضي بالافتراضي" in msg:
+                    cur["note"] = "بيجرب أول قيمة…"
+                elif msg.startswith("✅"):
+                    cur.update(status="ok", note=msg[2:160])
+                elif st["lvl"] == "err" or "فشل" in msg or "وقف" in msg:
+                    cur.update(status="err", note=msg[:160])
+                elif "فاضي" in msg:
+                    cur.update(status="empty", note=msg[:160])
+        if item.get("status") not in ("running", "queued"):
+            for u in units:
+                if u["status"] == "running":
+                    u["status"] = "ok"
+        else:
+            for u in units[:-1]:
+                if u["status"] == "running":
+                    u["status"] = "ok"
+        item["units"] = units
+    if item["layout"] == "c":
+        stage, sub = 1, None
+        for st in all_steps:
+            msg = st["msg"]
+            if "المنيو" in msg or "المكتبات" in msg:
+                stage = max(stage, 2)
+            if re.search(r"…\s*\d+/\d+ صفحة", msg):
+                stage = max(stage, 3)
+                a, b = _FRAC.findall(msg)[-1]
+                sub = {"done": int(a), "total": int(b)}
+            if msg.startswith("📸"):
+                stage = max(stage, 4)
+            if msg.startswith("🐢") or "خلص في" in msg:
+                stage = max(stage, 5)
+        if item.get("status") not in ("running", "queued"):
+            stage = 6
+        item["stage"] = stage
+        if sub:
+            item["progress"] = {**sub, "pct": round(100 * sub["done"] / max(1, sub["total"]))}
+    return item
+
+
+def _xray_findings(site_id):
+    try:
+        from engine import xray as X
+        from web import test_sites_helper as ts
+        p = next((x for x in ts.load_all().get("profiles", []) if x.get("id") == site_id), None)
+        d = X.load((p or {}).get("base_url", "")) if p else None
+        return [{"sev": f["sev"], "title": f["title"]} for f in (d or {}).get("findings", [])[:8]]
+    except Exception:
+        return []
+
+
 def _page_for(path):
     for pat, url, name in PAGES:
         if re.search(pat, path or "", re.I):
@@ -69,23 +165,34 @@ def _queue_items():
     qm = get_manager()
     st = qm.get_status()
     items = []
+
+    def build(t, status, extra=None):
+        log = qm.read_log(t["task_id"], max_lines=3000) if status != "queued" else {}
+        steps = steps_from_log(log.get("lines") or [], limit=100000)
+        it = {"kind": "queue", "id": t["task_id"], "name": t.get("test_name") or t.get("test_path"), "site": _site_name(t.get("site")), "site_id": t.get("site") or "",
+              "path": t.get("test_path") or "", "status": status, "started": t.get("started_at") or t.get("added_at"), "steps": _visible(steps)[-30:],
+              "page": _page_for(t.get("test_path")), "report": None, **(extra or {})}
+        enrich(it, steps, t.get("test_path") or "")
+        if it["layout"] == "c" and status not in ("running", "queued"):
+            it["findings"] = _xray_findings(t.get("site"))
+            it["report"] = f"/api/xray/export?site={t.get('site') or ''}"
+        if it["layout"] == "b" and status not in ("running", "queued"):
+            it["report"] = "/api/repcmp/export?fmt=pdf&scope=selected"
+        return it
+
     for t in st.get("running_all") or []:
-        log = qm.read_log(t["task_id"], max_lines=400)
-        items.append({"kind": "queue", "id": t["task_id"], "name": t.get("test_name") or t.get("test_path"), "site": _site_name(t.get("site")),
-                      "status": "running", "started": t.get("started_at") or t.get("added_at"), "steps": steps_from_log(log.get("lines") or []),
-                      "page": _page_for(t.get("test_path")), "report": None})
+        items.append(build(t, "running"))
     for i, t in enumerate(st.get("queue") or []):
-        items.append({"kind": "queue", "id": t["task_id"], "name": t.get("test_name") or t.get("test_path"), "site": _site_name(t.get("site")),
-                      "status": "queued", "position": i + 1, "started": t.get("added_at"), "steps": [], "page": _page_for(t.get("test_path")), "report": None})
+        items.append(build(t, "queued", {"position": i + 1}))
     cut = (datetime.now() - timedelta(minutes=RECENT_MIN)).isoformat()
     for t in qm.recent_history(15):
         if (t.get("completed_at") or "") < cut:
             continue
-        log = qm.read_log(t["task_id"], max_lines=400)
-        items.append({"kind": "queue", "id": t["task_id"], "name": t.get("test_name") or t.get("test_path"), "site": _site_name(t.get("site")),
-                      "status": {"completed": "passed"}.get(t.get("status"), t.get("status")), "started": t.get("started_at"), "ended": t.get("completed_at"),
-                      "duration": t.get("duration_seconds"), "steps": steps_from_log(log.get("lines") or []), "page": _page_for(t.get("test_path")),
-                      "report": f"/reports/{t['task_id']}"})
+        it = build(t, {"completed": "passed"}.get(t.get("status"), t.get("status")),
+                   {"ended": t.get("completed_at"), "duration": t.get("duration_seconds")})
+        it["report"] = it["report"] or f"/reports/{t['task_id']}"
+        it["run_report"] = f"/reports/{t['task_id']}"
+        items.append(it)
     return items
 
 
@@ -103,10 +210,12 @@ def _job_items():
         except Exception:
             pass
         kind = j.get("kind", "")
+        steps = steps_from_log(lines, limit=100000)
         items.append({"kind": "job", "id": j["id"], "name": j.get("title") or {"check": "تجربة فحص", "auto": "الاختبار الآلي"}.get(kind.split("_")[0], kind or "عملية"),
                       "site": "", "status": "running" if j["status"] == "running" else ("stopped" if j["status"] == "stopped" else "done"),
-                      "started": j.get("started_at"), "ended": j.get("finished_at"), "steps": steps_from_log(lines),
+                      "started": j.get("started_at"), "ended": j.get("finished_at"), "steps": _visible(steps)[-30:],
                       "page": {"url": "/auto-test" if kind.startswith("auto") else "/checks", "name": "النتيجة"}, "report": None})
+        enrich(items[-1], steps)
     return items
 
 
@@ -126,9 +235,10 @@ def _dbaudit_items():
     done = not _job.get("running")
     if done and _job.get("finished") and _job["finished"] < (datetime.now() - timedelta(minutes=RECENT_MIN)).isoformat():
         return []
-    return [{"kind": "dbaudit", "id": "dbaudit", "name": "🗄️ فحص قاعدة البيانات", "site": "", "status": "running" if not done else ("failed" if _job.get("error") else "passed"),
+    it = {"kind": "dbaudit", "id": "dbaudit", "name": "🗄️ فحص قاعدة البيانات", "site": "", "status": "running" if not done else ("failed" if _job.get("error") else "passed"),
              "started": _job.get("started_at") or "", "ended": _job.get("finished") or "", "steps": steps, "page": {"url": "/db-audit", "name": "فحص قاعدة البيانات"},
-             "report": "/api/dbaudit/export?fmt=pdf" if done and not _job.get("error") else None}]
+             "report": "/api/dbaudit/export?fmt=pdf" if done and not _job.get("error") else None}
+    return [enrich(it, steps)]
 
 
 @bp.route("/api/tube")

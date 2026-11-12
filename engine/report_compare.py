@@ -237,6 +237,9 @@ def capture(driver, credentials, cfg, result=None):
                "stuck": "ماتبناش — غالبًا فيه فلتر مطلوب فاضي " + str(snap.get("msg", "")), "noviewer": "الصفحة مفيهاش عارض تقارير: " + str(snap.get("body", ""))[:160],
                "crash": "الأداة وقفت: " + str(snap.get("error", ""))}.get(snap.get("status"), snap.get("status"))
         auto = snap.get("auto") or {}
+        st_ = snap.get("status")
+        (logger.success if st_ == "ok" else logger.error if st_ in ("error", "noviewer", "crash", "stuck") else logger.warning)(
+            ("✅ " if st_ == "ok" else "❌ " if st_ in ("error", "noviewer", "crash", "stuck") else "⚪ ") + txt)
         rows.append({"cells": [names.get(path.lower()) or report_conf(path, conf).get("name") or path, path, txt,
                                " · ".join(f"{k}={v}" for k, v in (snap.get("chosen_names") or {}).items()) + (" (اختيار تلقائي)" if auto else "")],
                      "ok": {"ok": True, "error": False, "noviewer": False, "crash": False}.get(snap.get("status"))})
