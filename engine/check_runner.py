@@ -362,6 +362,9 @@ def run_check(driver, credentials, cfg):
         elif cfg["type"] == "api":
             from engine.api_check import run_api
             run_api(driver, credentials, cfg, result=result)
+        elif cfg["type"] == "xray":
+            from engine.xray import run_xray
+            run_xray(driver, credentials, cfg, result=result)
         elif cfg["type"] == "health":
             from engine.health import run_health
             run_health(driver, credentials, cfg, result=result)

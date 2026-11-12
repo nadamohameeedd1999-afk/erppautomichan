@@ -17,7 +17,7 @@ for f in sorted(glob.glob("web/templates/**/*.html", recursive=True) + glob.glob
     s = re.sub(r"/\*.*?\*/", "", s, flags=re.S); s = re.sub(r"(?m)^\s*//.*$", "", s)
     s = re.sub(r"(?m)\s//\s.*$", "", s)
     add(s, f)
-for f in sorted(glob.glob("web/*.py") + ["engine/risk.py", "engine/readiness.py", "engine/explain.py", "engine/api_check.py", "engine/reconcile.py", "engine/sod.py", "engine/journal_check.py", "engine/test_library.py", "engine/biz_sales_invoice.py", "engine/biz_cases.py", "engine/biz_addons.py", "engine/biz_report.py", "web/pdf_reports.py", "utils/pdf.py", "engine/report_compare.py"] ):
+for f in sorted(glob.glob("web/*.py") + ["engine/risk.py", "engine/readiness.py", "engine/explain.py", "engine/api_check.py", "engine/reconcile.py", "engine/sod.py", "engine/journal_check.py", "engine/test_library.py", "engine/biz_sales_invoice.py", "engine/biz_cases.py", "engine/biz_addons.py", "engine/biz_report.py", "web/pdf_reports.py", "utils/pdf.py", "engine/report_compare.py", "engine/xray.py", "engine/db_audit.py"] ):
     try: src = open(f, encoding="utf-8").read()
     except FileNotFoundError: continue
     try:

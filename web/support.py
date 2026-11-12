@@ -133,7 +133,7 @@ def collect():
         handled = False
 
         # 🆚 report comparison runs: their differences are added below from the comparison itself
-        if key.startswith("repcmp"):
+        if key.startswith("repcmp") or key.startswith("xray"):
             handled = True
 
         # 📚 developer case files
@@ -255,6 +255,13 @@ def collect():
         from engine.report_compare import support_issues
         from web.repcmp_api import pair_urls
         for it in support_issues(*pair_urls()):
+            dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
+    except Exception:
+        pass
+    try:
+        from engine.xray import support_issues as xray_issues
+        from engine.db_audit import support_issues as db_issues
+        for it in xray_issues() + db_issues():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass

@@ -415,3 +415,52 @@ def test_report_compare_rules_and_values():
     assert vals["dateFrom"][1] == "2020-01-01" and vals["dateTo"][1] == "2026-11-01" and vals["WarehouseId"][1] == "76"
     assert vals["Itemid"][1] == "19102" and auto == {"Itemid": True} and names["المخزن"] == "مخزن 1"
     assert R.fmt_sig("(1,200.00)") == "سالب بين قوسين" and R.norm_path("https://x.test/Report/A?x=1") == "/Report/A"
+
+
+def test_xray_findings():
+    import io
+    from PIL import Image
+    from engine import xray as X
+    links = [{"href": "http://localhost:63733/Report/CostCenters_Get", "name": "تقرير مراكز", "group": "حسابات"},
+             {"href": "https://rtconq.premiumasp.net/Report/Concretebookings_Report", "name": "الحجوزات", "group": "خرسانة"},
+             {"href": "/Items", "name": "الأصناف", "group": "مخازن"}, {"href": "/Items/", "name": "الأصناف والخدمات", "group": "مخازن"},
+             {"href": "/A", "name": "تقرير", "group": "ج"}, {"href": "/B", "name": "تقرير", "group": "ج"}, {"href": "javascript:void(0)", "name": "x", "group": ""}]
+    f = X.menu_findings(links, "https://retcotest.runasp.net")
+    t = " | ".join(x["title"] for x in f)
+    assert "جهاز المطور" in t and "موقع تاني (rtconq.premiumasp.net)" in t and "بـ 2 أسماء" in t and "2 صفحات مختلفة" in t
+    assert sum(1 for x in f if x["sev"] == "عالية") == 2
+    lf = X.lib_findings({"jQuery": "3.3.1", "moment": "2.30.1", "Bootstrap": "4.1.3", "Knockout": "3.5.1"})
+    assert [x["title"].split(" ")[0] for x in lf] == ["jQuery", "Bootstrap"] and lf[0]["sev"] == "عالية"
+    pages = {"/": {"s": 200, "h": {"x-aspnet-version": "4.0.30319", "server": "Microsoft-IIS/10.0"}}}
+    sf = X.security_findings(pages, ["ASP.NET_SessionId", "lang"], [{"src": "https://cdn.x/a.js", "sri": False}], True)
+    st = " | ".join(x["title"] for x in sf)
+    assert "Clickjacking" in st and "X-AspNet-Version" in st and "IIS/10.0" in st and "ASP.NET_SessionId" in st and "SRI" in st and "HSTS" in st
+    lg = X.language_findings({"/x": {"s": 200, "ar": 500, "en": 9, "words": ["Save", "Cancel"], "odd": ["undefined"]}}, {"/x": "الشاشة"})
+    assert len(lg) == 2 and lg[0]["sev"] == "متوسطة"
+    def png(color, box=None):
+        im = Image.new("RGB", (640, 400), "white")
+        if box:
+            im.paste(color, box)
+        b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
+    assert X.img_diff(png("white"), png("white")) == 0 and X.img_diff(png("white"), png("black", (0, 0, 320, 400))) > 40
+    a = {"menu": [{"path": "/Items", "name": "الأصناف"}, {"path": "/X", "name": "x"}], "libs": {"jQuery": "3.3.1"}, "findings": []}
+    b = {"menu": [{"path": "/items", "name": "الأصناف والخدمات"}], "libs": {"jQuery": "3.7.1"}, "findings": [{"area": "الأمان", "title": "مفيش HSTS"}]}
+    rows = {r["item"]: r for r in X.compare_sites(a, b)}
+    assert rows["شاشات المنيو"]["status"] == "diff" and rows["أسماء مختلفة لنفس الصفحة"]["status"] == "warn" and rows["مكتبة jQuery"]["status"] == "diff"
+
+
+def test_db_audit_pure(tmp_path, monkeypatch):
+    import json
+    from engine import db_audit as D
+    from config import paths
+    rows = [{"lines": 100, "ldisc": 0, "Total": 100}, {"lines": 50, "ldisc": 0, "Total": 50}, {"lines": 10, "ldisc": 0, "Total": 1000}]
+    name, share, bad = D._dominant(rows, {"a": lambda r: (r["lines"], r["Total"]), "b": lambda r: (r["lines"] - 1, r["Total"])})
+    assert name == "a" and round(share, 2) == 0.67 and bad[0][2] == 1000
+    assert D.CLUTTER.search("ChartOfAccount_Backup_BeforeFix") and D.CLUTTER.search("Wael_TransactionCancellationJournalLines") and not D.CLUTTER.search("SalesInvoice")
+    assert D.MONEY_NAME.search("UnitPrice") and not D.MONEY_NAME.search("Equivalent")
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path)
+    D.save_result({"at": "2026-11-12 11:40", "label": "x", "info": {"db": "ErpTest"}, "findings": [
+        D.F("الكود", "عالية", "إجراءات مكسورة", "تفاصيل", [{"الكائن": "AI_X", "بيشاور على": "Items"}], 1, fix="صلّح"),
+        D.F("الكود", "منخفضة", "cursor")]})
+    iss = D.support_issues()
+    assert len(iss) == 1 and "AI_X" in iss[0]["details"] and iss[0]["severity"] == "عالية"

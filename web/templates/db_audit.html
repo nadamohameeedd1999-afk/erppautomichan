@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}فحص قاعدة البيانات - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .db-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .db-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .db-card > .bd { padding: 14px 16px; }
+  .db-g { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 1000px) { .db-g { grid-template-columns: 1fr 1fr; } }
+  .db-f label { font-size: 12px; color: var(--g-muted); display: block; margin-bottom: 3px; } .db-f input { width: 100% !important; box-sizing: border-box; }
+  .db-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .db-kpi div { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+  .db-kpi b { font-size: 22px; display: block; } .db-kpi span { font-size: 12px; color: var(--g-muted); }
+  .db-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .db-b.s0 { background: rgba(229,72,77,.15); color: #e5484d; } .db-b.s1 { background: rgba(245,166,35,.18); color: #c77d00; }
+  .db-b.s2 { background: rgba(15,124,122,.12); color: #0F7C7A; } .db-b.s3 { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .db-item { border-top: 1px solid var(--g-line); padding: 10px 2px; }
+  .db-item summary { cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: flex-start; }
+  .db-item summary::-webkit-details-marker { display: none; }
+  .db-item .t { flex: 1; min-width: 0; } .db-item .t b { overflow-wrap: anywhere; }
+  .db-sub { font-size: 12px; color: var(--g-muted); }
+  .db-tw { overflow: auto; max-height: 360px; margin-top: 8px; border: 1px solid var(--g-line); border-radius: 8px; }
+  .db-tw table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .db-tw th { position: sticky; top: 0; background: #0F7C7A; color: #fff; padding: 6px; font-weight: 700; white-space: nowrap; }
+  .db-tw td { padding: 5px 6px; border-top: 1px solid var(--g-line); overflow-wrap: anywhere; }
+  .db-teal { background: #0F7C7A; color: #fff !important; border: 0; }
+  .db-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .db-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .db-chip { font-size: 12px; border: 1px solid var(--g-line); border-radius: 999px; padding: 3px 10px; cursor: pointer; background: transparent; color: inherit; }
+  .db-chip.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .db-log { font-family: monospace; font-size: 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.15); border-radius: 8px; padding: 8px; }
+  .db-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .db-map td { vertical-align: top; } .db-map .procs { font-family: monospace; font-size: 11px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">بيقرا <b>نسخة</b> من قاعدة بيانات موقع الاختبار (باك أب متسترجع — مش قاعدة عميل): الإجراءات المخزنة اللي بتشاور على جداول أو أعمدة مش موجودة (بتقع وقت التشغيل)، الداتا اليتيمة، القيود اللي مش متزنة، المستندات من غير قيد أو القيود من غير مستند، و«المحاسب الظل» اللي بيعيد حساب كل فاتورة من سطورها. وكمان خريطة: الشاشة ← الجدول ← الإجراءات اللي بتقرا وتكتب فيه.</div>
+
+  <div class="db-card">
+    <div class="hd"><b>🔌 الاتصال بالنسخة</b><span class="small" id="dbMsg"></span></div>
+    <div class="bd">
+      <div class="db-g">
+        <div class="db-f"><label>السيرفر</label><input id="dbServer" class="form-control form-control-sm" dir="ltr" placeholder="localhost"></div>
+        <div class="db-f"><label>البورت</label><input id="dbPort" class="form-control form-control-sm" dir="ltr" placeholder="1433"></div>
+        <div class="db-f"><label>اسم القاعدة</label><input id="dbDb" class="form-control form-control-sm" dir="ltr"></div>
+        <div class="db-f"><label>المستخدم</label><input id="dbUser" class="form-control form-control-sm" dir="ltr" autocomplete="off"></div>
+        <div class="db-f"><label>كلمة السر</label><input id="dbPass" type="password" class="form-control form-control-sm" dir="ltr" autocomplete="new-password" placeholder="(متحفظة)"></div>
+        <div class="db-f"><label>اسم يظهر في التقرير</label><input id="dbLabel" class="form-control form-control-sm" placeholder="test-site-nq نسخة …"></div>
+      </div>
+      <div class="db-sub mt-2">⚠️ استخدم نسخة باك أب متسترجعة عندك — متوصلش الأداة بقاعدة بيانات عميل. كل الفحوصات قراءة بس.</div>
+    </div>
+    <div class="hd" style="border-top:1px solid var(--g-line);border-bottom:0">
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm db-out" onclick="dbSave()">احفظ</button>
+        <button class="btn btn-sm db-out" onclick="dbTest()">جرّب الاتصال</button>
+        <label class="btn btn-sm db-out mb-0"><i class="bi bi-upload"></i> استورد نتيجة (JSON)<input type="file" accept=".json" hidden onchange="dbImport(this)"></label>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm db-out" onclick="dbExport('pdf')"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm db-out" onclick="dbExport('docx')"><i class="bi bi-file-earmark-word"></i> Word</button>
+        <button class="btn btn-sm db-out" onclick="dbExport('json')"><i class="bi bi-filetype-json"></i> JSON</button>
+        <button class="btn btn-sm db-teal" onclick="dbRun()"><i class="bi bi-play-fill"></i> افحص</button>
+      </div>
+    </div>
+    <div class="bd pt-0" id="dbJob" style="display:none"><div class="db-log" id="dbLog"></div></div>
+  </div>
+
+  <div id="dbBody"></div>
+
+  <div class="db-card">
+    <div class="hd"><b>🗺️ الخريطة: الشاشة ← الجدول ← الإجراءات</b><span class="db-sub" id="dbMapN"></span></div>
+    <div class="bd">
+      <input id="dbQ" class="form-control form-control-sm mb-2" placeholder="اكتب اسم شاشة أو جدول أو كنترولر (مثلًا: فواتير البيع · SalesInvoice · JournalEntry)…">
+      <div id="dbMap" class="db-sub">اكتب علشان تدوّر.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const post = (u, b) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(x => x.json()).catch(() => ({}));
+const SEVN = {'عالية': 0, 'متوسطة': 1, 'منخفضة': 2, 'للعلم': 3};
+let R = null, area = '', sev = '', poll = null, first = true;
+async function dbLoad() {
+  const r = await fetch('/api/dbaudit').then(x => x.json()).catch(() => ({}));
+  if (!r.success) return;
+  if (first) { const c = r.cfg; el('dbServer').value = c.server || ''; el('dbPort').value = c.port || ''; el('dbDb').value = c.database || ''; el('dbUser').value = c.user || ''; el('dbLabel').value = c.label || ''; first = false; }
+  const j = r.job;
+  el('dbJob').style.display = j.running || j.log.length || j.error ? '' : 'none';
+  el('dbLog').textContent = j.log.join('\n') + (j.error ? '\n❌ ' + j.error : '');
+  el('dbLog').scrollTop = 1e9;
+  if (!j.running && poll) { clearInterval(poll); poll = null; }
+  R = r.result; body();
+}
+function body() {
+  if (!R) { el('dbBody').innerHTML = '<div class="db-card"><div class="db-empty">لسه مفيش فحص — اتوصل بالنسخة ودوس «افحص»، أو استورد نتيجة JSON</div></div>'; return; }
+  const f = R.findings, i = R.info || {};
+  el('dbMapN').textContent = `${R.map_n.pages} شاشة · ${R.map_n.tables} جدول ليه إجراءات`;
+  const k = (n, t, s, a) => `<div onclick="setF('${a || ''}','${s || ''}')"><b>${n}</b><span>${t}</span></div>`;
+  const list = f.filter(x => (!area || x.area === area) && (!sev || x.sev === sev));
+  el('dbBody').innerHTML = `
+  <div class="db-kpi">${k(f.filter(x => x.sev === 'عالية').length, 'عالية', 'عالية')}${k(f.filter(x => x.sev === 'متوسطة').length, 'متوسطة', 'متوسطة')}${k(f.filter(x => x.sev === 'منخفضة').length, 'منخفضة', 'منخفضة')}
+    ${k(f.filter(x => x.new).length, 'جديدة من آخر فحص')}${k((R.fixed || []).length, 'اتصلحت من آخر فحص')}${k((i.tables || 0).toLocaleString(), 'جدول')}${k((i.procs || 0).toLocaleString(), 'إجراء مخزن')}</div>
+  <div class="db-card"><div class="hd"><b>📋 الملاحظات — ${esc(R.label || i.db)}</b><span class="db-sub">فحص ${esc(R.at)} · ${R.secs} ث</span></div><div class="bd">
+    <div class="db-chips"><button class="db-chip ${!area ? 'on' : ''}" onclick="setF('','${sev}')">الكل (${f.length})</button>${['الهيكل', 'الكود', 'الداتا'].map(a => `<button class="db-chip ${area === a ? 'on' : ''}" onclick="setF('${a}','${sev}')">${a} (${f.filter(x => x.area === a).length})</button>`).join('')}</div>
+    ${list.map((x, n) => `<details class="db-item"><summary><span class="db-b s${SEVN[x.sev]}">${esc(x.sev)}</span>${x.new ? '<span class="db-b s1">🆕</span>' : ''}
+      <div class="t"><b>${esc(x.title)}</b><div class="db-sub">${esc(x.area)}${x.fix ? ' · التصليح: ' + esc(x.fix) : ''}</div></div></summary>
+      ${x.detail ? `<div class="db-sub mt-2">${esc(x.detail)}</div>` : ''}${table(x.sample)}</details>`).join('') || '<div class="db-empty">مفيش ملاحظات بالفلتر ده</div>'}
+  </div></div>`;
+}
+function table(rows) {
+  if (!rows || !rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  return `<div class="db-tw"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function setF(a, s) { area = a; sev = s; body(); }
+const cfg = () => ({server: el('dbServer').value, port: el('dbPort').value, database: el('dbDb').value, user: el('dbUser').value, password: el('dbPass').value, label: el('dbLabel').value});
+async function dbSave() { const r = await post('/api/dbaudit/config', cfg()); el('dbMsg').textContent = r.success ? '✓ اتحفظ' : '❌ ' + (r.error || ''); el('dbPass').value = ''; }
+async function dbTest() { await dbSave(); const r = await post('/api/dbaudit/test'); el('dbMsg').textContent = r.success ? '✅ ' + r.msg : '❌ ' + (r.error || ''); }
+async function dbRun() {
+  const r = await post('/api/dbaudit/run');
+  if (!r.success) { el('dbMsg').textContent = '❌ ' + (r.error || ''); return; }
+  el('dbMsg').textContent = '⏳ الفحص شغال…';
+  clearInterval(poll); poll = setInterval(dbLoad, 4000); dbLoad();
+}
+async function dbImport(inp) {
+  const fd = new FormData(); fd.append('file', inp.files[0]);
+  const r = await fetch('/api/dbaudit/import', {method: 'POST', body: fd}).then(x => x.json()).catch(() => ({}));
+  el('dbMsg').textContent = r.success ? '✓ اتستوردت' : '❌ ' + (r.error || ''); inp.value = ''; dbLoad();
+}
+function dbExport(f) { location.href = '/api/dbaudit/export?fmt=' + f; }
+let mt = null;
+el('dbQ').addEventListener('input', () => { clearTimeout(mt); mt = setTimeout(async () => {
+  const q = el('dbQ').value.trim(); if (!q) { el('dbMap').innerHTML = 'اكتب علشان تدوّر.'; return; }
+  const r = await fetch('/api/dbaudit/map?q=' + encodeURIComponent(q)).then(x => x.json()).catch(() => ({}));
+  const rows = r.rows || [];
+  el('dbMap').innerHTML = rows.length ? `<div class="db-tw" style="max-height:520px"><table class="db-map"><thead><tr><th>الشاشة</th><th>الجدول</th><th>الكنترولر</th><th>إجراءات بتكتب فيه</th><th>إجراءات بتقرا منه</th></tr></thead><tbody>
+    ${rows.map(x => `<tr><td>${esc(x.ar || '—')}</td><td dir="ltr">${esc(x.table || '—')}</td><td dir="ltr">${esc(x.controller || '—')}</td>
+      <td class="procs" dir="ltr">${esc((x.write || []).join(', ') || '—')}</td><td class="procs" dir="ltr">${esc((x.read || []).join(', ') || '—')}</td></tr>`).join('')}</tbody></table></div>` : 'مفيش نتيجة';
+}, 300); });
+dbLoad();
+</script>
+{% endblock %}

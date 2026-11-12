@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}أشعة النظام - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .xr-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .xr-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .xr-card > .bd { padding: 14px 16px; }
+  .xr-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .xr-site { border: 1.5px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; min-width: 0; }
+  .xr-site.on { border-color: #0F7C7A; background: rgba(15,124,122,.07); }
+  .xr-site b { display: block; } .xr-site .u { font-size: 11px; color: var(--g-muted); overflow-wrap: anywhere; }
+  .xr-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .xr-kpi div { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+  .xr-kpi b { font-size: 22px; display: block; } .xr-kpi span { font-size: 12px; color: var(--g-muted); }
+  .xr-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
+  .xr-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; }
+  .xr-t td { padding: 8px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .xr-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .xr-b.s0 { background: rgba(229,72,77,.15); color: #e5484d; } .xr-b.s1 { background: rgba(245,166,35,.18); color: #c77d00; }
+  .xr-b.s2 { background: rgba(15,124,122,.12); color: #0F7C7A; } .xr-b.s3 { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .xr-b.same { background: rgba(48,164,108,.15); color: #30a46c; } .xr-b.diff { background: rgba(229,72,77,.15); color: #e5484d; } .xr-b.warn { background: rgba(245,166,35,.18); color: #c77d00; }
+  .xr-teal { background: #0F7C7A; color: #fff !important; border: 0; }
+  .xr-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .xr-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .xr-chip { font-size: 12px; border: 1px solid var(--g-line); border-radius: 999px; padding: 3px 10px; cursor: pointer; background: transparent; color: inherit; }
+  .xr-chip.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .xr-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .xr-shot { border: 1px solid var(--g-line); border-radius: 10px; overflow: hidden; }
+  .xr-shot img { width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover; object-position: top; background: #eee; cursor: zoom-in; }
+  .xr-shot .c { padding: 6px 8px; font-size: 12px; }
+  .xr-opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .xr-opts input[type=number] { width: 80px; }
+  .xr-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .xr-sub { font-size: 12px; color: var(--g-muted); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">بيقرا الموقع من بره زي ما المتصفح بيشوفه (قراءة بس — آمن على نظام العميل): روابط المنيو اللي رايحة لمكان غلط، المكتبات القديمة اللي فيها ثغرات معروفة، إعدادات الأمان، الإنجليزي والقيم البرمجية اللي ظاهرة في الشاشات العربي، صور الشاشات مقابل آخر مرة، والسرعة على نت ضعيف. وكل ملاحظة عالية أو متوسطة بتظهر في «دعم المطورين».</div>
+
+  <div class="xr-card">
+    <div class="hd"><b>🔬 المواقع</b><span class="small text-muted" id="xrInfo"></span></div>
+    <div class="bd">
+      <div class="xr-sites" id="xrSites"></div>
+      <div class="xr-opts mt-3">
+        <label>عدد الصفحات اللي تتقري <input type="number" id="xrPages" class="form-control form-control-sm d-inline-block" value="80" min="10" max="400"></label>
+        <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="xrShots" checked> صور الشاشات</label>
+        <label>عددها <input type="number" id="xrShotsN" class="form-control form-control-sm d-inline-block" value="12" min="1" max="40"></label>
+        <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="xrSlow" checked> نت ضعيف (3G)</label>
+      </div>
+    </div>
+    <div class="hd" style="border-top:1px solid var(--g-line);border-bottom:0">
+      <span class="small text-muted">علّم المواقع اللي عايز تفحصها (✓)، ودوس على أي موقع علشان تشوف نتيجته.</span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm xr-out" onclick="xrExport()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm xr-teal" onclick="xrRun()"><i class="bi bi-play-fill"></i> افحص المواقع المعلّمة</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="xrBody"></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const XS = {same: '✓ متطابق', diff: '✗ مختلف', warn: '⚠ تنبيه'};
+const SEVN = {'عالية': 0, 'متوسطة': 1, 'منخفضة': 2, 'للعلم': 3};
+let S = null, site = '', vs = '', area = '', sev = '', picked = new Set(), poll = null;
+async function xrLoad() {
+  const r = await fetch(`/api/xray?site=${encodeURIComponent(site)}&vs=${encodeURIComponent(vs)}`).then(x => x.json()).catch(() => ({}));
+  if (!r.success) return; S = r; site = r.site ? r.site.id : '';
+  el('xrSites').innerHTML = r.sites.map(s => { const x = s.xray;
+    return `<div class="xr-site ${s.id === site ? 'on' : ''}" onclick="pick('${esc(s.id)}')">
+      <div class="d-flex justify-content-between"><b>${esc(s.name)}</b><input type="checkbox" ${picked.has(s.id) ? 'checked' : ''} onclick="event.stopPropagation(); mark('${esc(s.id)}', this.checked)"></div>
+      <div class="u">${esc(s.url)}${s.kind === 'client' ? ' · عميل (قراءة بس)' : ''}</div>
+      <div class="xr-sub mt-1">${x ? `${esc(x.at)} · <span style="color:#e5484d">${x.high} عالية</span> · ${x.mid} متوسطة · ${x.low} منخفضة` : 'لسه ماتفحصش'}</div></div>`; }).join('');
+  body();
+}
+function pick(id) { site = id; xrLoad(); }
+function mark(id, on) { on ? picked.add(id) : picked.delete(id); }
+function body() {
+  const d = S.data;
+  if (!d) { el('xrBody').innerHTML = '<div class="xr-card"><div class="xr-empty">لسه مفيش فحص للموقع ده — علّمه ودوس «افحص»</div></div>'; return; }
+  const f = d.findings || [];
+  const k = (n, t, a, s) => `<div onclick="setF('${a || ''}','${s || ''}')"><b>${n}</b><span>${t}</span></div>`;
+  const areas = [...new Set(f.map(x => x.area))];
+  const list = f.filter(x => (!area || x.area === area) && (!sev || x.sev === sev));
+  const others = S.sites.filter(s => s.id !== site && s.xray);
+  el('xrBody').innerHTML = `
+  <div class="xr-kpi">${k(f.filter(x => x.sev === 'عالية').length, 'عالية', '', 'عالية')}${k(f.filter(x => x.sev === 'متوسطة').length, 'متوسطة', '', 'متوسطة')}
+    ${k(f.filter(x => x.sev === 'منخفضة').length, 'منخفضة', '', 'منخفضة')}${k(f.filter(x => x.new).length, 'جديدة من آخر فحص')}${k((d.fixed || []).length, 'اتصلحت من آخر فحص')}
+    ${k((d.menu || []).length, 'شاشة في المنيو')}${k(Object.keys(d.pages || {}).length, 'صفحة اتقرت')}${k((d.shots || []).filter(s => (s.diff || 0) >= 8).length, 'شاشة شكلها اتغير')}</div>
+  <div class="xr-card"><div class="hd"><b>📋 الملاحظات</b><span class="xr-sub">فحص ${esc(d.at)} · ${d.secs} ث</span></div><div class="bd">
+    <div class="xr-chips"><button class="xr-chip ${!area ? 'on' : ''}" onclick="setF('','${sev}')">الكل (${f.length})</button>${areas.map(a => `<button class="xr-chip ${area === a ? 'on' : ''}" onclick="setF('${esc(a)}','${sev}')">${esc(a)} (${f.filter(x => x.area === a).length})</button>`).join('')}</div>
+    <table class="xr-t"><colgroup><col style="width:100px"><col style="width:90px"><col><col style="width:24%"><col style="width:22%"></colgroup>
+      <thead><tr><th>النوع</th><th>الخطورة</th><th>الملاحظة</th><th>فين</th><th>التصليح</th></tr></thead>
+      <tbody>${list.map(x => `<tr><td class="small">${esc(x.area)}</td><td><span class="xr-b s${SEVN[x.sev]}">${esc(x.sev)}</span>${x.new ? ' <span class="xr-b s1">🆕</span>' : ''}</td>
+        <td>${esc(x.title)}${x.group ? `<div class="xr-sub">${esc(x.group)}</div>` : ''}</td><td class="small" dir="ltr" style="text-align:right">${esc(x.where || '')}</td><td class="small">${esc(x.fix || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="xr-empty">مفيش ملاحظات بالفلتر ده 🎉</td></tr>'}</tbody></table>
+  </div></div>
+  <div class="xr-card"><div class="hd"><b>📚 المكتبات اللي النظام بيحملها فعلًا</b></div><div class="bd">
+    ${Object.entries(d.libs || {}).map(([a, b]) => `<span class="xr-b s2 me-1 mb-1">${esc(a)} ${esc(b)}</span>`).join('') || '<span class="xr-sub">—</span>'}
+  </div></div>
+  ${(d.shots || []).length ? `<div class="xr-card"><div class="hd"><b>📸 صور الشاشات مقابل آخر مرة</b><span class="xr-sub">التغيير ≥ 8% بيتعلّم</span></div><div class="bd"><div class="xr-shots">
+    ${d.shots.map(s => `<div class="xr-shot"><img loading="lazy" src="/api/xray/shot?site=${encodeURIComponent(site)}&f=${encodeURIComponent(s.file)}&t=${encodeURIComponent(d.at)}" onclick="window.open(this.src)">
+      <div class="c"><b>${esc(s.name)}</b><div class="xr-sub" dir="ltr" style="text-align:right">${esc(s.path)}</div>
+      ${s.diff === null || s.diff === undefined ? '<span class="xr-b s3">أول صورة</span>' : s.diff >= 8 ? `<span class="xr-b s1">اتغير ${s.diff}%</span> <a href="/api/xray/shot?site=${encodeURIComponent(site)}&f=${encodeURIComponent(s.file + '_prev')}" target="_blank">قبل</a>` : `<span class="xr-b same">زي آخر مرة (${s.diff}%)</span>`}
+      ${s.hscroll > 20 ? ` <span class="xr-b s2">اسكرول أفقي ${s.hscroll}px</span>` : ''}</div></div>`).join('')}</div></div></div>` : ''}
+  ${(d.slow || []).length ? `<div class="xr-card"><div class="hd"><b>🐢 على نت ضعيف (3G)</b></div><div class="bd p-0"><table class="xr-t"><thead><tr><th>الشاشة</th><th>اللينك</th><th>الوقت</th></tr></thead><tbody>
+    ${d.slow.map(s => `<tr><td>${esc(s.name)}</td><td class="small" dir="ltr" style="text-align:right">${esc(s.path)}</td><td><b style="color:${s.sec > 20 ? '#e5484d' : s.sec > 10 ? '#c77d00' : '#30a46c'}">${s.sec} ث</b></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  <div class="xr-card"><div class="hd"><b>🆚 قارن بموقع تاني</b>
+    <select class="form-select form-select-sm" style="width:auto" onchange="vs=this.value; xrLoad()"><option value="">— اختار موقع اتفحص —</option>${others.map(s => `<option value="${esc(s.id)}" ${s.id === vs ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
+    <div class="bd p-0">${S.compare.length ? `<table class="xr-t"><colgroup><col style="width:20%"><col><col><col style="width:100px"><col style="width:35%"></colgroup>
+      <thead><tr><th>البند</th><th>${esc(S.site.name)}</th><th>${esc((S.sites.find(s => s.id === vs) || {}).name || '')}</th><th>النتيجة</th><th>التفاصيل</th></tr></thead><tbody>
+      ${S.compare.map(r => `<tr><td><b>${esc(r.item)}</b></td><td>${esc(r.a)}</td><td>${esc(r.b)}</td><td><span class="xr-b ${r.status}">${XS[r.status]}</span></td><td class="small">${esc(r.detail)}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="xr-empty">اختار موقع تاني اتفحص علشان تشوف الفرق في المنيو والمكتبات والأمان</div>'}</div></div>`;
+}
+function setF(a, s) { area = a; sev = s; body(); }
+async function xrRun() {
+  if (!picked.size) { alert('علّم موقع واحد على الأقل (✓)'); return; }
+  const r = await fetch('/api/xray/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sites: [...picked], pages: +el('xrPages').value || 80,
+    shots: el('xrShots').checked, shots_n: +el('xrShotsN').value || 12, slow: el('xrSlow').checked})}).then(x => x.json()).catch(() => ({}));
+  if (!r.success) { alert(r.error || 'حصل خطأ'); return; }
+  el('xrInfo').textContent = `⏳ ${picked.size} موقع دخلوا الطابور (قراءة بس) — الصفحة هتتحدث لوحدها`;
+  clearInterval(poll); let n = 0; poll = setInterval(() => { xrLoad(); if (++n > 80) clearInterval(poll); }, 15000);
+}
+function xrExport() { if (!site) return; location.href = `/api/xray/export?site=${encodeURIComponent(site)}&vs=${encodeURIComponent(vs)}`; }
+xrLoad();
+</script>
+{% endblock %}

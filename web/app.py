@@ -63,6 +63,10 @@ from web.support import bp as _support_bp
 app.register_blueprint(_support_bp)
 from web.repcmp_api import bp as _repcmp_bp
 app.register_blueprint(_repcmp_bp)
+from web.xray_api import bp as _xray_bp  # noqa: E402
+app.register_blueprint(_xray_bp)
+from web.db_audit_api import bp as _dbaudit_bp  # noqa: E402
+app.register_blueprint(_dbaudit_bp)
 from web.reset_api import bp as _reset_bp
 app.register_blueprint(_reset_bp)
 from web.docs_api import bp as _docs_bp

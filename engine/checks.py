@@ -36,6 +36,7 @@ TYPES = {
     "repcmp": ("🆚", "لقطة تقرير للمقارنة", "يقرا قايمة التقارير ويبني التقارير المختارة على الموقع ده (قراءة بس) ويحفظ كودها وبارامتراتها وحقولها وتنسيقها وقواعدها علشان تتقارن بموقع تاني"),
     "sod": ("🛡️", "الصلاحيات والفصل بين المهام", "يقرا صلاحيات كل مستخدم ومجموعته من الموقع (قراءة بس) ويطلع اللي يقدر يعمل الدورة كلها لوحده: مورد + دفع، بيع + تحصيل، جرد + صرف، وتعديل الصلاحيات"),
     "cleanup": ("🧹", "تنظيف بيانات الاختبار", "يحذف السجلات اللي الاختبارات عملتها ومقدرتش تحذفها"),
+    "xray": ("🔬", "أشعة النظام", "يقرا الموقع من بره (قراءة بس): روابط المنيو المكسورة أو الرايحة لمكان غلط، المكتبات القديمة اللي فيها ثغرات، إعدادات الأمان، الإنجليزي والقيم البرمجية في الشاشات العربي، صور الشاشات مقابل آخر مرة، والسرعة على نت ضعيف"),
     "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
 }
 
@@ -240,6 +241,9 @@ def normalize(cfg):
     elif typ == "sod":
         out.update({"allow": [x for x in _list(cfg.get("allow")) if "|" in x], "max_users": max(1, min(1000, int(cfg.get("max_users", 200) or 200)))})
 
+    elif typ == "xray":
+        out.update({"pages": max(10, min(400, int(cfg.get("pages", 80) or 80))), "shots": bool(cfg.get("shots", True)),
+                    "shots_n": max(0, min(40, int(cfg.get("shots_n", 12) or 12))), "slow": bool(cfg.get("slow", True))})
     elif typ == "health":
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],
                     "reports": bool(cfg.get("reports", True)), "forms": bool(cfg.get("forms", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
