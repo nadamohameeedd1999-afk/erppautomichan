@@ -99,8 +99,8 @@ def logout_user():
 # user   = يشغّل ويعدّل الاختبارات (مش الإعدادات ولا المستخدمين)
 # viewer = يشوف بس
 ROLES = {"admin": "أدمن", "user": "مستخدم", "viewer": "مشاهد"}
-_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/api/hooks/token")
-_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/health", "/api/hooks/run", "/static", "/novnc", "/media")
+_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore")
+_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/health", "/static", "/media")
 
 
 def check_permission():
@@ -124,7 +124,7 @@ def check_permission():
 
 
 # ==================== audit log (سجل النشاط) ====================
-_SKIP_AUDIT = ("/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center", "/api/live")
+_SKIP_AUDIT = ("/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center")
 
 
 def audit(event, detail="", status=""):

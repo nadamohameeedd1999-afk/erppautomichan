@@ -36,15 +36,11 @@ diagnostics.install(app)
 from web.storage_api import bp as storage_bp
 app.register_blueprint(storage_bp)
 
-# ==================== Screen Builder (منشئ الشاشات) ====================
+# ==================== Background jobs (checks / automatic test) ====================
 from web.screens_api import bp as screens_bp
 app.register_blueprint(screens_bp)
 
-# ==================== Live view (noVNC through the dashboard) ====================
-from web import live_vnc
-live_vnc.init_app(app)
-
-# ==================== Run center / schedules / compare ====================
+# ==================== Run center / compare ====================
 from web.ops_api import bp as ops_bp
 app.register_blueprint(ops_bp)
 
@@ -73,8 +69,8 @@ from web.docs_api import bp as _docs_bp
 app.register_blueprint(_docs_bp)
 from utils.secret_box import migrate_once as _encrypt_secrets
 _encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
-from web import scheduler as _scheduler
-_scheduler.start()
+from web import background as _background
+_background.start()                                 # daily report e-mail · monthly reports · automatic backups
 
 # ADMIN_PASSWORD in .env = admin's password, always
 try:
@@ -119,7 +115,7 @@ app.after_request(_i18n_rt.after_request)            # 🌐 English: every page 
 @auth.login_required
 def audit_page():
     rows = auth.read_audit()
-    labels = {"/api/screens/": "منشئ الشاشات", "/api/scenarios/": "السيناريوهات", "/api/schedules": "الجدولة",
+    labels = {"/api/screens/": "منشئ الشاشات", "/api/scenarios/": "السيناريوهات", "/api/schedules": "الجدولة",  # old log lines
               "/api/run-test": "تشغيل اختبار", "/api/run-center": "مركز التشغيل", "/settings": "الإعدادات",
               "/users": "المستخدمين", "/api/backups": "النسخ الاحتياطي", "/api/trash": "سلة المحذوفات",
               "/api/hooks": "رابط التشغيل", "/api/datasets": "ملفات البيانات", "/api/stop": "إيقاف"}
@@ -227,13 +223,6 @@ def index():
     from web import insights
     lang = get_current_lang()
     return render_template("index.html", home=insights.compute_home(lang))
-
-
-@app.route("/tests")
-@auth.login_required
-def tests():
-    # «تشغيل الاختبارات» was removed from the dashboard — the automatic test is the way to run tests now
-    return redirect("/auto-test")
 
 
 @app.route("/reports")
@@ -406,23 +395,6 @@ def api_explain(run_id):
 @app.route("/screenshots/<filename>")
 def serve_screenshot(filename):
     return send_from_directory(str(Config.SCREENSHOTS_DIR), filename)
-
-
-@app.route("/live")
-@auth.login_required
-def live_viewer():
-    # «البث المباشر» was removed — what is running is shown in the run center
-    return redirect("/queue")
-    from web import tunnel_helper
-    config = tunnel_helper.load_config()
-    from web import live_vnc
-    ext = (config.get("vnc_url") or "").strip()
-    return render_template(
-        "live_viewer.html",
-        vnc_full_url=tunnel_helper.get_vnc_full_url() if ext else "",
-        tunnel_config=config,
-        vnc_password=live_vnc.VNC_PASSWORD,
-    )
 
 
 # ==================== Health Check ====================

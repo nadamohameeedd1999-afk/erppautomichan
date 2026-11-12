@@ -134,7 +134,7 @@ _last_check = {"t": 0}
 
 
 def auto_tick(now=None):
-    """Called by the scheduler loop every ~20s."""
+    """Called by the background ticker (web/background.py) every ~20s."""
     if time.time() - _last_check["t"] < 300:
         return
     _last_check["t"] = time.time()

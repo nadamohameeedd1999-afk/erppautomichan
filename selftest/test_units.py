@@ -1,6 +1,5 @@
 """Fast checks without a browser."""
 from engine.flows import evaluate_check, normalize_flows
-from engine.recorder import convert
 from engine import screen_config as sc
 
 
@@ -16,22 +15,6 @@ def test_formulas():
 def test_flow_validation():
     flows = normalize_flows([{"name": "x", "after": "__after_save__", "steps": [{"do": "check_print"}]}], ["A"], sc.normalize_field)
     assert flows[0]["steps"][0]["target"] == "طباعة"
-
-
-def test_recorder_convert():
-    ev = [{"type": "change", "id": "CustomerId", "label": "العميل", "kind": "select2", "value": "11", "popup": False, "in_row": False},
-          {"type": "click", "text": "ربط", "id": "btnLink", "popup": False, "in_row": False},
-          {"type": "popup_open"},
-          {"type": "change", "id": "DocType", "label": "نوع", "kind": "select2", "value": "سندات", "popup": True, "in_row": False},
-          {"type": "click", "text": "المصفي", "id": "", "popup": True, "in_row": False},
-          {"type": "click", "text": "اختيار", "id": "", "popup": True, "in_row": True, "row_key": "I-2"},
-          {"type": "popup_close"},
-          {"type": "click", "text": "حفظ", "id": "save", "popup": False, "in_row": False}]
-    items = convert(ev)
-    assert [i["type"] for i in items] == ["field", "action"]
-    steps = [s["do"] for s in items[1]["steps"]]
-    assert steps == ["click", "wait_popup", "fill", "click", "wait_rows", "row_click", "close_popup"]
-    assert items[1]["steps"][5]["match"] == "I-2"
 
 
 def test_smart_values():

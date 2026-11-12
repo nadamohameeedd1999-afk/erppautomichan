@@ -1,6 +1,6 @@
 """
 Numbers for the home dashboard (الرئيسية): KPIs, trend, coverage, failing now,
-flaky tests, slowest tests, recent runs, upcoming schedules.
+flaky tests, slowest tests, recent runs.
 
 Everything is read from data/runs/results/summary_*.json + the tests registry,
 so it needs no database.
@@ -201,19 +201,6 @@ def compute_home(lang="ar"):
     }
     status_now["never"] = total_screens - status_now["passed"] - status_now["failed"]
 
-    # ---------- schedules ----------
-    upcoming = []
-    try:
-        from web import scheduler
-        for sch in scheduler.load():
-            nxt = scheduler.next_run(sch)
-            if not nxt:
-                continue
-            upcoming.append({"name": sch.get("name"), "time": "، ".join(sch.get("times", [])),
-                             "frequency": scheduler.describe_days(sch), "next": nxt.isoformat(timespec="minutes")})
-    except Exception:
-        pass
-    upcoming.sort(key=lambda x: x["next"])
 
     durations7 = [r["duration"] for r in last7 if r["duration"]]
     last = runs[0] if runs else None
@@ -244,7 +231,6 @@ def compute_home(lang="ar"):
         "slow": slow[:6],
         "slower": slower[:6],
         "recent": [{**r, "time": r["time"].isoformat(timespec="minutes")} for r in runs[:10]],
-        "upcoming": upcoming[:5],
     }
 
 

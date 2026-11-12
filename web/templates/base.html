@@ -39,7 +39,7 @@
             {% for it in its %}
             {% if not (it|length > 8 and it[8]) or (current_user and current_user.role == 'admin') %}
             {{ item(it[1], it[2], it[3], it[4] if ar else it[5],
-                    '<span class="cnt d-none" id="navRunBadge"></span>' if it[0] == 'queue' else ('<span class="live-dot d-none" id="navLiveDot"></span>' if it[0] == 'live' else '')) }}
+                    '<span class="cnt d-none" id="navRunBadge"></span>' if it[0] == 'queue' else '') }}
             {% endif %}
             {% endfor %}
             {% endfor %}
@@ -109,15 +109,15 @@ function gSide(open) {
     document.getElementById('gShade').classList.toggle('on', open);
 }
 
-// ---------- running badge / live dot ----------
+// ---------- running badge ----------
 (function () {
-    const b = document.getElementById('navRunBadge'), dot = document.getElementById('navLiveDot'), bell = document.getElementById('gBellDot');
+    const b = document.getElementById('navRunBadge'), bell = document.getElementById('gBellDot');
     async function p() {
         try {
             const q = await fetch('/api/queue').then(r => r.json());
             const n = (q.running_all || (q.running ? [q.running] : [])).length + (q.queue_length || 0);
             b.textContent = n; b.classList.toggle('d-none', !n);
-            dot.classList.toggle('d-none', !q.running); bell.classList.toggle('d-none', !q.running);
+            bell.classList.toggle('d-none', !q.running);
         } catch (e) {}
     }
     p(); setInterval(p, 5000);
@@ -128,8 +128,9 @@ function gSide(open) {
     const AR = {{ 'true' if ar else 'false' }};
     const BASE = [...document.querySelectorAll('.g-nav a')].map(a => ({icon: a.querySelector('i').className, name: a.querySelector('span').textContent, url: a.getAttribute('href'), kind: AR ? 'صفحة' : 'page'}));
     const CMDS = [
-        {icon: 'bi bi-compass', name: AR ? 'اكتشف شاشات النظام' : 'Discover system screens', url: '/screens?discover=1'},
-        {icon: 'bi bi-diagram-3', name: AR ? 'سيناريو جديد' : 'New scenario', url: '/scenarios'},
+        {icon: 'bi bi-clipboard-check', name: AR ? 'سيناريوهات الأعمال' : 'Business scenarios', url: '/business-scenarios'},
+        {icon: 'bi bi-radioactive', name: AR ? 'أشعة النظام' : 'System X-ray', url: '/xray'},
+        {icon: 'bi bi-database-check', name: AR ? 'فحص قاعدة البيانات' : 'Database audit', url: '/db-audit'},
         {icon: 'bi bi-file-earmark-pdf', name: AR ? 'التقرير اليومي' : 'Daily report', url: '/reports/daily'},
         {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
         {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
@@ -146,13 +147,8 @@ function gSide(open) {
     async function loadScreens() {
         if (loaded) return; loaded = true;
         try {
-            const [s, c, k] = await Promise.all([fetch('/api/screens').then(r => r.json()).catch(() => ({})),
-                                              fetch('/api/scenarios').then(r => r.json()).catch(() => ({})),
-                                              fetch('/api/checks').then(r => r.json()).catch(() => ({}))]);
+            const k = await fetch('/api/checks').then(r => r.json()).catch(() => ({}));
             (k.checks || []).forEach(x => ITEMS.push({icon: 'bi bi-diagram-3', name: x.name_ar || x.key, url: '/checks?key=' + encodeURIComponent(x.key), kind: AR ? 'اختبار متقدم' : 'advanced'}));
-            (s.screens || []).forEach(x => ITEMS.push({icon: 'bi bi-ui-checks-grid', name: x.name_ar || x.key, url: '/screens?key=' + encodeURIComponent(x.key), kind: AR ? 'شاشة' : 'screen'}));
-            (c.scenarios || []).forEach(x => ITEMS.push({icon: 'bi bi-film', name: (x.screen_name || x.screen_key) + ' — ' + x.scenario_name,
-                url: `/scenarios?screen=${encodeURIComponent(x.screen_key)}&scn=${encodeURIComponent(x.scenario_key)}`, kind: AR ? 'سيناريو' : 'scenario'}));
             render();
         } catch (e) {}
     }

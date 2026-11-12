@@ -6,7 +6,6 @@ would be locked out), and nothing on any ERP site is touched — this only clear
 The admin picks what goes:
   runs        results, logs, screenshots, evidence / check details, Allure, history, trash
   state       system-health checks, accounts checks, recipes, test-data store, heals, risk weights, leftovers
-  schedules   every schedule
   defs        screen definitions, scenarios, cycles / checks, data files (datasets)
   sites       test sites and their passwords
   settings    alerts (Telegram / WhatsApp), email, Claude key, look & company details
@@ -25,7 +24,6 @@ bp = Blueprint("reset", __name__)
 GROUPS = {
     "runs": ("التشغيلات والتقارير", "Runs & reports"),
     "state": ("نتايج الفحوصات والتعلم", "Checks & learned data"),
-    "schedules": ("الجدولة", "Schedules"),
     "defs": ("تعريفات الاختبارات", "Test definitions"),
     "sites": ("المواقع وكلمات السر", "Sites & passwords"),
     "settings": ("الإعدادات", "Settings"),
@@ -66,8 +64,6 @@ def wipe(groups, me):
                                                   paths.APP_LOGS_DIR))
     if "state" in groups:
         out["state"] = _wipe_dir(paths.STATE_DIR, keep=("chrome_profile",)) + _rm(paths.settings_file("risk_weights.json"))
-    if "schedules" in groups:
-        out["schedules"] = _rm(paths.SCHEDULES_FILE)
     if "defs" in groups:
         out["defs"] = sum(_wipe_dir(d) for d in (paths.SCREENS_DIR, paths.SCENARIOS_DIR, paths.DEFS_DIR / "checks", paths.DATA_DIR / "datasets"))
         try:                                                     # their generated pytest files too

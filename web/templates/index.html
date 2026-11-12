@@ -45,9 +45,6 @@
     .indet { height: 6px; border-radius: 9px; background: var(--g-hover); overflow: hidden; margin-top: 8px; position: relative; }
     .indet:after { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 9px; background: var(--g-grad); animation: slide 1.4s ease-in-out infinite; }
     @keyframes slide { 0% { inset-inline-start: -35%; } 100% { inset-inline-start: 100%; } }
-    .sched .it { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--g-line); }
-    .sched .it:last-child { border: 0; }
-    .sched .tm { font-weight: 800; min-width: 62px; text-align: center; padding: 6px; border-radius: 12px; background: var(--g-acc-soft); color: var(--g-acc-text); font-family: Consolas, monospace; font-size: 13px; }
     .att { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 13px;
            background: rgba(251,113,133,.08); border: 1px solid rgba(251,113,133,.28); }
     .att.w { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.28); }
@@ -163,7 +160,7 @@
         <div class="live" id="live"><div class="empty"><i class="bi bi-moon-stars"></i>مفيش اختبار شغال دلوقتي</div></div>
     </div>
 
-    <!-- ===== attention + schedule ===== -->
+    <!-- ===== attention ===== -->
     <div class="h-card s12">
         <h3><i class="bi bi-bell"></i> محتاج انتباهك</h3>
         {% set ns = namespace(n=0) %}

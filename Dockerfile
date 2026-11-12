@@ -1,5 +1,5 @@
 # ============================================================
-# ERP Automation - Dockerfile with VNC
+# ERP Automation - Dockerfile (Chrome on a virtual screen)
 # ============================================================
 
 FROM python:3.11-slim
@@ -14,7 +14,7 @@ WORKDIR /app
 # ===== System deps =====
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg unzip curl ca-certificates tzdata \
-    xvfb x11vnc novnc websockify xdotool fonts-noto-core \
+    xvfb fonts-noto-core \
     supervisor \
     fonts-liberation \
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \
@@ -52,7 +52,7 @@ COPY . .
 # ===== Data folder (mount a volume here so nothing is lost on redeploy) =====
 ENV DATA_DIR=/app/data \
     DEFS_DIR=/app/data/defs
-RUN mkdir -p /app/data /root/.vnc
+RUN mkdir -p /app/data
 
 # ===== Supervisor config =====
 RUN mkdir -p /etc/supervisor/conf.d
@@ -64,22 +64,12 @@ logfile=/var/log/supervisord.log
 pidfile=/var/run/supervisord.pid
 
 [program:xvfb]
-; the screen Chrome draws on (the live view shows it)
+; the virtual screen Chrome draws on
 command=/usr/bin/Xvfb :99 -screen 0 1600x900x24 -nolisten tcp
 autorestart=true
 priority=10
 stdout_logfile=/var/log/xvfb.log
 stderr_logfile=/var/log/xvfb.log
-
-[program:x11vnc]
-; listens on localhost only — the dashboard proxies it behind its own login (/live)
-; password comes from the VNC_PASSWORD variable (default: erp)
-command=/bin/sh -c 'x11vnc -storepasswd "${VNC_PASSWORD:-erp}" /root/.vnc/passwd >/dev/null 2>&1; exec /usr/bin/x11vnc -display :99 -forever -shared -localhost -rfbauth /root/.vnc/passwd -rfbport 5900' 
-autorestart=true
-priority=20
-startsecs=3
-stdout_logfile=/var/log/x11vnc.log
-stderr_logfile=/var/log/x11vnc.log
 
 [program:flask]
 ; uses Railway's PORT; its output goes to the Deploy Logs

@@ -104,36 +104,6 @@ def cmd_inspect(a):
             pass
 
 
-def cmd_record(a):
-    from engine.form_inspector import FormInspector
-    from engine.recorder import record, convert
-    from engine.screen_runner import login
-    cfg = _load_cfg(a)
-
-    def opened():                       # Chrome crashing while opening is retried (nothing was recorded yet)
-        d = _driver()
-        try:
-            login(d, _credentials())
-            FormInspector(d).open_add_page(cfg["list_url"], cfg.get("add_url", ""), cfg.get("add_button", ""))
-            return d
-        except Exception:
-            try:
-                d.quit()
-            except Exception:
-                pass
-            raise
-    d = _with_retry(opened)
-    try:
-        events = record(d, max_minutes=a.minutes, stop_file=a.stop_file or None)
-        items = convert(events)
-        return {"success": True, "items": items, "events": len(events)}
-    finally:
-        try:
-            d.quit()
-        except Exception:
-            pass
-
-
 def cmd_discover(a):
     from engine.discover import discover, Progress
     from engine.screen_runner import login
@@ -245,13 +215,6 @@ def main(argv=None):
     i.add_argument("--no-deps", action="store_true", help="don't detect dependent dropdowns")
     i.add_argument("--out", default="")
 
-    rc = sub.add_parser("record")
-    rc.add_argument("--config-file", required=True)
-    rc.add_argument("--minutes", type=int, default=20)
-    rc.add_argument("--stop-file", default="", help="recording ends when this file appears (the dashboard's «⏹ خلصت»)")
-    rc.add_argument("--out", default="")
-    rc.add_argument("key", nargs="?", default="")
-
     dc = sub.add_parser("discover")
     dc.add_argument("--no-check", action="store_true")
     dc.add_argument("--limit", type=int, default=3000)
@@ -287,8 +250,6 @@ def main(argv=None):
     try:
         if a.cmd == "inspect":
             data = _with_retry(lambda: cmd_inspect(a))
-        elif a.cmd == "record":
-            data = cmd_record(a)
         elif a.cmd == "discover":
             data = _with_retry(lambda: cmd_discover(a))
         elif a.cmd == "inspect-popup":

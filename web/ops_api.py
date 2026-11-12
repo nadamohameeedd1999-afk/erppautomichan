@@ -1,28 +1,14 @@
 """
-Run center (مركز التشغيل), schedules (الجدولة) and comparison (المقارنة) — pages + JSON API.
+Run center (مركز التشغيل), comparison (المقارنة), backups and reports — pages + JSON API.
 """
 from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, request, send_file
 
-from web import auth, insights, scheduler
+from web import auth, insights
 from web.queue_manager import get_manager
 
 bp = Blueprint("ops", __name__)
-
-
-def _test_catalog():
-    """All runnable full tests (screens + scenarios) for pickers."""
-    out = []
-    for r in scheduler._registry_rows():
-        group = r.get("module_name", "")
-        if r.get("full_path"):
-            out.append({"path": r["full_path"], "name": r["name"], "group": group, "kind": "full"})
-        for sc in r.get("scenarios") or []:
-            out.append({"path": sc["full_path"], "name": f"{r['name']} — {sc['name']}", "group": group, "kind": "scenario"})
-        if r.get("smoke_path") and not r.get("full_path"):
-            out.append({"path": r["smoke_path"], "name": f"{r['name']} (شاشة)", "group": group, "kind": "smoke"})
-    return out
 
 
 # ======================= run center =======================
@@ -104,142 +90,6 @@ def api_rc_rerun():
     task_id = f"run_{datetime.now():%Y%m%d%H%M%S}"
     r = get_manager().add(task_id, path, d.get("name") or path, repeat=int(d.get("repeat") or 1), source="rerun")
     return jsonify({"success": True, "task_id": task_id, **r})
-
-
-# ======================= schedules =======================
-@bp.route("/schedule")
-@auth.login_required
-def schedule_page():
-    # «الجدولة» was removed from the dashboard (schedules already saved keep running)
-    from flask import redirect
-    return redirect("/queue")
-
-
-def _sched_view(s):
-    nxt = scheduler.next_run(s)
-    last = None
-    if s.get("last_batch"):
-        ids = set(s["last_batch"])
-        runs = [r for r in insights.all_runs() if r["run_id"] in ids]
-        if runs:
-            last = {"passed": sum(r["passed"] for r in runs), "failed": sum(not r["passed"] for r in runs),
-                    "total": len(s["last_batch"]), "done": len(runs)}
-    targets = scheduler.resolve_targets(s) if s.get("mode") != "list" else s.get("targets", [])
-    return {**s, "next": nxt.isoformat(timespec="minutes") if nxt else None,
-            "days_text": scheduler.describe_days(s), "last": last, "target_count": len(targets)}
-
-
-@bp.route("/api/schedules")
-@auth.login_required
-def api_sched_list():
-    from web import test_sites_helper as ts
-    sites = [{"id": p.get("id"), "name": p.get("name"), "url": p.get("base_url")} for p in ts.load_all().get("profiles", [])]
-    return jsonify({"success": True, "schedules": [_sched_view(s) for s in scheduler.load()],
-                    "catalog": _test_catalog(), "now": scheduler.now().isoformat(timespec="minutes"),
-                    "tz": scheduler.TZ_NAME, "sites": sites,
-                    "hook": {"url": request.host_url.rstrip("/") + "/api/hooks/run", "token": hook_token()} if auth.is_admin() else None})
-
-
-# ======================= run after every ERP update (رابط تشغيل خارجي) =======================
-def hook_token(new=False):
-    import secrets
-    from config import paths
-    f = paths.settings_file("hook_token")
-    if new or not f.exists():
-        f.write_text(secrets.token_urlsafe(24), encoding="utf-8")
-    return f.read_text(encoding="utf-8").strip()
-
-
-@bp.route("/api/hooks/token", methods=["POST"])
-@auth.login_required
-def api_hook_token_new():
-    if not auth.is_admin():
-        return jsonify({"success": False, "error": "للأدمن بس"}), 403
-    return jsonify({"success": True, "token": hook_token(new=True)})
-
-
-@bp.route("/api/hooks/run", methods=["GET", "POST"])
-def api_hook_run():
-    """Called by the ERP publish script / CI after a new version is on the test site.
-    ?token=...&schedule=<id or name>  [&site=<profile id or name>]   or  &tests=all"""
-    import hmac
-    d = {**request.args, **(request.get_json(silent=True) or {}), **request.form}
-    if not hmac.compare_digest(str(d.get("token") or request.headers.get("X-Token") or ""), hook_token()):
-        return jsonify({"success": False, "error": "token غلط"}), 403
-    want = str(d.get("schedule") or "").strip()
-    if want:
-        s = next((x for x in scheduler.load() if want in (x["id"], x["name"])), None)
-        if not s:
-            return jsonify({"success": False, "error": f"مفيش جدولة اسمها {want}"}), 404
-    elif str(d.get("tests") or "") == "all":
-        s = {"id": "hook_all", "name": "كل الاختبارات (رابط)", "mode": "all_full", "repeat": 1}
-    else:
-        return jsonify({"success": False, "error": "حددي schedule=<اسم الجدولة> أو tests=all"}), 400
-    site = d.get("site")
-    batch = scheduler.fire(s, manual=True, site=site if site is not None else None, source="hook")
-    print(f"[hook] 🚀 {s['name']}: {len(batch)} اختبار (version={d.get('version', '')})", flush=True)
-    return jsonify({"success": True, "queued": len(batch), "schedule": s["name"], "tasks": batch})
-
-
-@bp.route("/api/schedules", methods=["POST"])
-@auth.login_required
-def api_sched_save():
-    try:
-        s = scheduler.upsert(request.get_json(silent=True) or {})
-    except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-    return jsonify({"success": True, "schedule": _sched_view(s)})
-
-
-@bp.route("/api/schedules/daily-preset", methods=["POST"])
-@auth.login_required
-def api_sched_daily_preset():
-    """📅 one click: every morning — the screens check, the books (+ unbalanced entries + reconciliation), the API,
-    the permissions, and every saved automatic test — on the active site (or the one chosen)"""
-    from engine import checks as C
-    d = request.get_json(silent=True) or {}
-    fixed = [("system_health", "health", "🩺 صحة النظام — كل الشاشات"), ("books_check", "books", "⚖️ مطابقة الحسابات"),
-             ("api_check", "api", "🔌 اختبار الـ API"), ("sod_check", "sod", "🛡️ الصلاحيات والفصل بين المهام")]
-    targets = []
-    for key, typ, name in fixed:
-        if not C.exists(key):
-            C.save(C.normalize({"key": key, "type": typ, "name_ar": name}))
-        targets.append({"path": C.test_path_for(key), "name": name})
-    if d.get("autos", True):
-        for c in C.list_all():
-            if c.get("type") == "auto" and not c.get("error"):
-                targets.append({"path": C.test_path_for(c["key"]), "name": c.get("name_ar") or c["key"]})
-    try:
-        s = scheduler.upsert({"id": "sch_daily_ready", "name": "📅 الفحص اليومي الجاهز", "enabled": True, "mode": "list",
-                              "targets": targets, "times": [d.get("time") or "06:30"], "days": [], "repeat": 1, "site": d.get("site") or ""})
-    except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-    return jsonify({"success": True, "schedule": _sched_view(s), "count": len(targets)})
-
-
-@bp.route("/api/schedules/<sch_id>", methods=["DELETE"])
-@auth.login_required
-def api_sched_delete(sch_id):
-    scheduler.delete(sch_id)
-    return jsonify({"success": True})
-
-
-@bp.route("/api/schedules/<sch_id>/toggle", methods=["POST"])
-@auth.login_required
-def api_sched_toggle(sch_id):
-    on = bool((request.get_json(silent=True) or {}).get("enabled"))
-    scheduler.set_enabled(sch_id, on)
-    return jsonify({"success": True})
-
-
-@bp.route("/api/schedules/<sch_id>/run", methods=["POST"])
-@auth.login_required
-def api_sched_run(sch_id):
-    s = next((x for x in scheduler.load() if x["id"] == sch_id), None)
-    if not s:
-        return jsonify({"success": False, "error": "الجدولة مش موجودة"}), 404
-    batch = scheduler.fire(s, manual=True)
-    return jsonify({"success": True, "queued": len(batch)})
 
 
 # ======================= compare =======================

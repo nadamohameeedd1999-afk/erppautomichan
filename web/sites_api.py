@@ -122,6 +122,22 @@ def api_matrix():
     return jsonify({"success": True, **matrix(int(request.args.get("days", 30) or 30))})
 
 
+def all_full_tests():
+    """every full test (screens + their scenarios) in the registry"""
+    try:
+        from config.tests_registry_new import TestsRegistry
+        rows = TestsRegistry.get_enriched("ar")
+    except Exception:
+        rows = []
+    out = []
+    for r in rows:
+        if r.get("full_path"):
+            out.append({"path": r["full_path"], "name": r["name"]})
+        for sc in r.get("scenarios") or []:
+            out.append({"path": sc["full_path"], "name": f"{r['name']} — {sc['name']}"})
+    return out
+
+
 @bp.route("/api/sites/run", methods=["POST"])
 @auth.login_required
 def api_run():
@@ -129,8 +145,7 @@ def api_run():
     d = request.get_json(silent=True) or {}
     tests = [t for t in d.get("tests") or [] if t.get("path")]
     if d.get("all_full"):
-        from web import scheduler
-        tests = scheduler.resolve_targets({"mode": "all_full"})
+        tests = all_full_tests()
     if not tests:
         return jsonify({"success": False, "error": "اختاري اختبار واحد على الأقل"}), 400
     qm, ids = get_manager(), []

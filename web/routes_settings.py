@@ -42,7 +42,6 @@ def settings():
         email_config=email_config,
         users=users,
         test_sites_data=test_sites_data,
-        tunnel_config=__import__("web.tunnel_helper", fromlist=["load_config"]).load_config(),
         ai_models=__import__("web.explain", fromlist=["AI_MODELS"]).AI_MODELS,
         ai_model=site_config.get("anthropic_model") or "claude-sonnet-5-5",
         login_styles_list=LOGIN_STYLE_NAMES[get_current_lang()],
@@ -364,23 +363,3 @@ def settings_test_sites_activate(profile_id):
           "success" if success else "danger")
     return redirect(url_for("settings") + "#test-sites")
 
-
-@route("/settings/tunnel", methods=["POST"])
-@auth.login_required
-def tunnel_settings_save():
-    from web import tunnel_helper
-    flask_url = request.form.get("flask_url", "").strip()
-    vnc_url = request.form.get("vnc_url", "").strip()
-    provider = request.form.get("provider", "cloudflare").strip()
-
-    tunnel_helper.save_config(flask_url, vnc_url, provider)
-    flash("✅ تم حفظ إعدادات Tunnel", "success")
-    return redirect(url_for("settings") + "#tunnel")
-
-
-@route("/settings/tunnel/reload", methods=["POST"])
-@auth.login_required
-def tunnel_settings_reload():
-    """يعيد قراءة الروابط من data/settings/tunnel_config.json"""
-    flash("✅ تم إعادة تحميل الإعدادات", "success")
-    return redirect(url_for("settings") + "#tunnel")
