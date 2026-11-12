@@ -110,7 +110,9 @@ def api_rc_rerun():
 @bp.route("/schedule")
 @auth.login_required
 def schedule_page():
-    return render_template("schedule.html", day_names=scheduler.DAY_NAMES, tz=scheduler.TZ_NAME)
+    # «الجدولة» was removed from the dashboard (schedules already saved keep running)
+    from flask import redirect
+    return redirect("/queue")
 
 
 def _sched_view(s):

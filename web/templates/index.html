@@ -74,14 +74,14 @@
             <span class="chip {{ 'ok' if home.last_run.passed else 'bad' }}">{{ '✓ ناجح' if home.last_run.passed else '✕ فاشل' }}</span>
             · <span class="ago" data-t="{{ home.last_run.time }}"></span>
         {% else %}
-            لسه مفيش تشغيلات — ابدئي بتشغيل اختبار من صفحة الاختبارات.
+            لسه مفيش تشغيلات — ابدأ من «الاختبار الآلي».
         {% endif %}
     </div>
     <div class="d-flex flex-wrap gap-2">
         {% if home.failing %}
         <button class="btn btn-danger btn-sm" onclick="rerunFailing()"><i class="bi bi-arrow-repeat"></i> شغّلي الفاشلين بس ({{ home.failing|length }})</button>
         {% endif %}
-        <a class="btn btn-outline-primary btn-sm" href="/screens?discover=1"><i class="bi bi-compass"></i> اكتشاف الشاشات</a>
+        <a class="btn btn-outline-primary btn-sm" href="/auto-test"><i class="bi bi-robot"></i> الاختبار الآلي</a>
         <a class="btn btn-outline-secondary btn-sm" href="/reports/daily"><i class="bi bi-file-earmark-pdf"></i> التقرير اليومي</a>
     </div>
 </div>
@@ -159,12 +159,12 @@
         {% else %}<div class="empty"><i class="bi bi-inbox"></i>لسه مفيش تشغيلات</div>{% endif %}
     </div>
     <div class="h-card s4">
-        <h3><span class="chip run" id="liveChip">شغال دلوقتي</span><a class="more" href="/live"><i class="bi bi-broadcast"></i> البث</a></h3>
+        <h3><span class="chip run" id="liveChip">شغال دلوقتي</span><a class="more" href="/queue"><i class="bi bi-list-task"></i> مركز التشغيل</a></h3>
         <div class="live" id="live"><div class="empty"><i class="bi bi-moon-stars"></i>مفيش اختبار شغال دلوقتي</div></div>
     </div>
 
     <!-- ===== attention + schedule ===== -->
-    <div class="h-card s6">
+    <div class="h-card s12">
         <h3><i class="bi bi-bell"></i> محتاج انتباهك</h3>
         {% set ns = namespace(n=0) %}
         {% for f in home.failing[:4] %}{% set ns.n = ns.n + 1 %}
@@ -184,18 +184,9 @@
         {% if home.never_run %}{% set ns.n = ns.n + 1 %}
         <div class="att i"><span>⚪</span><div class="tx"><b>{{ k.never_run }} اختبار كامل</b> عمره ما اشتغل
             <div title="{{ home.never_run|join('، ') }}">{{ home.never_run|join('، ') }}</div></div>
-            <a class="btn btn-outline-info" href="/tests">شغّليهم</a></div>
+            <a class="btn btn-outline-info" href="/auto-test">شغّلهم</a></div>
         {% endif %}
         {% if ns.n == 0 %}<div class="empty"><i class="bi bi-emoji-smile"></i>مفيش حاجة محتاجة انتباهك — كله تمام</div>{% endif %}
-    </div>
-    <div class="h-card s6 sched">
-        <h3><i class="bi bi-alarm"></i> الجاي في الجدولة <a class="more" href="/schedule">الجدولة ←</a></h3>
-        {% for u in home.upcoming %}
-        <div class="it"><div class="tm" data-t="{{ u.next }}">{{ u.next[11:16] }}</div>
-            <div style="min-width:0"><div class="fw-bold">{{ u.name }}</div><div class="text-muted small">{{ u.frequency }} · <span class="in" data-t="{{ u.next }}"></span></div></div></div>
-        {% else %}
-        <div class="empty"><i class="bi bi-calendar-x"></i>مفيش مواعيد<br><a href="/schedule" class="small">اعملي جدولة</a></div>
-        {% endfor %}
     </div>
 </div>
 

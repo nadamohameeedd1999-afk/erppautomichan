@@ -65,7 +65,7 @@
             </div>
             <div class="g-search" onclick="gPal(true)"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
             <a class="g-ib" href="{{ url_for('ops.run_center') }}" title="{{ 'مركز التشغيل' if ar else 'Run center' }}" id="gBell"><i class="bi bi-bell"></i><span class="dot d-none" id="gBellDot"></span></a>
-            <a class="btn btn-primary" href="{{ url_for('tests') }}"><i class="bi bi-play-fill"></i> {{ 'تشغيل اختبارات' if ar else 'Run tests' }}</a>
+            <a class="btn btn-primary" href="/auto-test"><i class="bi bi-play-fill"></i> {{ 'تشغيل اختبارات' if ar else 'Run tests' }}</a>
         </header>
 
         <main class="g-content">

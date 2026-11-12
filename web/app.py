@@ -232,9 +232,8 @@ def index():
 @app.route("/tests")
 @auth.login_required
 def tests():
-    lang = get_current_lang()
-    tests_list = data_helper.get_tests_registry(lang)
-    return render_template("tests.html", tests=tests_list)
+    # «تشغيل الاختبارات» was removed from the dashboard — the automatic test is the way to run tests now
+    return redirect("/auto-test")
 
 
 @app.route("/reports")
@@ -412,6 +411,8 @@ def serve_screenshot(filename):
 @app.route("/live")
 @auth.login_required
 def live_viewer():
+    # «البث المباشر» was removed — what is running is shown in the run center
+    return redirect("/queue")
     from web import tunnel_helper
     config = tunnel_helper.load_config()
     from web import live_vnc

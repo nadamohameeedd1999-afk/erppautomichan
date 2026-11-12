@@ -33,8 +33,7 @@
             <div class="text-muted">اللي شغال دلوقتي، واللي مستني دوره، وآخر التشغيلات — كله في مكان واحد.</div>
         </div>
         <div class="d-flex gap-2">
-            <a class="btn btn-primary" href="/tests"><i class="bi bi-plus-lg"></i> ضيفي اختبارات</a>
-            <a class="btn btn-outline-danger" href="/live"><i class="bi bi-broadcast"></i> بث مباشر</a>
+            <a class="btn btn-primary" href="/auto-test"><i class="bi bi-plus-lg"></i> الاختبار الآلي</a>
         </div>
     </div>
 
@@ -159,7 +158,7 @@ function renderNow() {
             <div class="text-end">
                 <div class="fs-4 fw-bold" id="elapsed">${cur.started_at ? since(cur.started_at) : '…'}</div>
                 <div class="d-flex gap-1 mt-1">
-                    <a class="btn btn-sm btn-outline-danger" href="/live"><i class="bi bi-eye"></i> شوفي</a>
+                    
                     <button class="btn btn-sm btn-danger" onclick="stopNow()"><i class="bi bi-stop-fill"></i> إيقاف</button>
                 </div>
             </div>

@@ -260,7 +260,7 @@ function rCycle() {
                 <button class="btn btn-sm btn-outline-danger" onclick="drop('steps', ${i})">✖</button></td></tr>`).join('') ||
             '<tr><td colspan="5" class="text-center text-muted">ضيفي خطوة أو اختاري قالب من فوق</td></tr>'}</tbody></table>
         <button class="btn btn-sm btn-outline-primary" onclick="ED.steps.push({name: 'خطوة ' + (ED.steps.length + 1), key: '', optional: false}); render()">➕ خطوة</button>
-        ${missing ? `<div class="alert alert-warning py-2 small mt-2 mb-0">⚠️ ${missing} خطوة لسه ملهاش اختبار. اعمليها الأول من <a href="/screens" target="_blank">منشئ الشاشات</a> (أو «📊 فحص تقرير» للأرصدة) وارجعي اختاريها — أو امسحي الخطوة.</div>` : ''}
+        ${missing ? `<div class="alert alert-warning py-2 small mt-2 mb-0">⚠️ ${missing} خطوة لسه ملهاش اختبار. اختار لها اختبار من القايمة (أو «📊 فحص تقرير» للأرصدة) — أو امسح الخطوة.</div>` : ''}
     </div>`;
 }
 async function useTpl(k) {

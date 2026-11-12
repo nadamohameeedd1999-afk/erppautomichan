@@ -35,7 +35,7 @@
 {% endblock %}
 {% block content %}
 <div class="container-fluid py-3">
-  <div class="small text-muted mb-3">بيقرا <b>نسخة</b> من قاعدة بيانات موقع الاختبار (باك أب متسترجع — مش قاعدة عميل): الإجراءات المخزنة اللي بتشاور على جداول أو أعمدة مش موجودة (بتقع وقت التشغيل)، الداتا اليتيمة، القيود اللي مش متزنة، المستندات من غير قيد أو القيود من غير مستند، و«المحاسب الظل» اللي بيعيد حساب كل فاتورة من سطورها. وكمان خريطة: الشاشة ← الجدول ← الإجراءات اللي بتقرا وتكتب فيه.</div>
+  <div class="small text-muted mb-3">بيقرا <b>نسخة</b> من قاعدة بيانات موقع الاختبار (باك أب متسترجع — مش قاعدة عميل): الإجراءات المخزنة اللي بتشاور على جداول أو أعمدة مش موجودة (بتقع وقت التشغيل)، الداتا اليتيمة، القيود اللي مش متزنة، المستندات من غير قيد أو القيود من غير مستند، و«المحاسب الظل» اللي بيعيد حساب كل فاتورة من سطورها، وقواعد الحسابات (ميزان المراجعة، الحسابات الرئيسية، مراكز التكلفة، حساب العملاء)، وكمان بيشغّل إجراءات التقارير فعلًا على النسخة (جوه Transaction بتترجع) علشان يلاقي اللي بيقع أو بطيء. وكمان خريطة: الشاشة ← الجدول ← الإجراءات اللي بتقرا وتكتب فيه.</div>
 
   <div class="db-card">
     <div class="hd"><b>🔌 الاتصال بالنسخة</b><span class="small" id="dbMsg"></span></div>
@@ -105,7 +105,7 @@ function body() {
   <div class="db-kpi">${k(f.filter(x => x.sev === 'عالية').length, 'عالية', 'عالية')}${k(f.filter(x => x.sev === 'متوسطة').length, 'متوسطة', 'متوسطة')}${k(f.filter(x => x.sev === 'منخفضة').length, 'منخفضة', 'منخفضة')}
     ${k(f.filter(x => x.new).length, 'جديدة من آخر فحص')}${k((R.fixed || []).length, 'اتصلحت من آخر فحص')}${k((i.tables || 0).toLocaleString(), 'جدول')}${k((i.procs || 0).toLocaleString(), 'إجراء مخزن')}</div>
   <div class="db-card"><div class="hd"><b>📋 الملاحظات — ${esc(R.label || i.db)}</b><span class="db-sub">فحص ${esc(R.at)} · ${R.secs} ث</span></div><div class="bd">
-    <div class="db-chips"><button class="db-chip ${!area ? 'on' : ''}" onclick="setF('','${sev}')">الكل (${f.length})</button>${['الهيكل', 'الكود', 'الداتا'].map(a => `<button class="db-chip ${area === a ? 'on' : ''}" onclick="setF('${a}','${sev}')">${a} (${f.filter(x => x.area === a).length})</button>`).join('')}</div>
+    <div class="db-chips"><button class="db-chip ${!area ? 'on' : ''}" onclick="setF('','${sev}')">الكل (${f.length})</button>${['الهيكل', 'الكود', 'الداتا', 'التشغيل'].map(a => `<button class="db-chip ${area === a ? 'on' : ''}" onclick="setF('${a}','${sev}')">${a} (${f.filter(x => x.area === a).length})</button>`).join('')}</div>
     ${list.map((x, n) => `<details class="db-item"><summary><span class="db-b s${SEVN[x.sev]}">${esc(x.sev)}</span>${x.new ? '<span class="db-b s1">🆕</span>' : ''}
       <div class="t"><b>${esc(x.title)}</b><div class="db-sub">${esc(x.area)}${x.fix ? ' · التصليح: ' + esc(x.fix) : ''}</div></div></summary>
       ${x.detail ? `<div class="db-sub mt-2">${esc(x.detail)}</div>` : ''}${table(x.sample)}</details>`).join('') || '<div class="db-empty">مفيش ملاحظات بالفلتر ده</div>'}

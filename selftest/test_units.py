@@ -464,3 +464,13 @@ def test_db_audit_pure(tmp_path, monkeypatch):
         D.F("الكود", "منخفضة", "cursor")]})
     iss = D.support_issues()
     assert len(iss) == 1 and "AI_X" in iss[0]["details"] and iss[0]["severity"] == "عالية"
+
+
+def test_db_audit_classify():
+    from engine import db_audit as D
+    assert D._classify("Invalid object name 'dbo.Files'.")[0] == "جدول / إجراء مش موجود"
+    assert D._classify("Divide by zero error encountered.")[1] == "عالية"
+    assert D._classify("Conversion failed when converting the nvarchar value 'MTR' to data type int.")[1] == "متوسطة"
+    assert D._classify("The column 'TypeName' was specified multiple times for 'X'.")[0] == "عمود متكرر في نفس الاستعلام"
+    assert D._classify("Cannot insert the value NULL") == (None, None)
+    assert D.SKIP_RUN.search("DeleteSalesInvoiceCommand") and not D.SKIP_RUN.search("Bank")

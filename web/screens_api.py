@@ -44,15 +44,16 @@ def _cfg():
 @bp.route("/screens")
 @auth.login_required
 def screens_page():
-    sc = _cfg()
-    return render_template("screens.html", strategies=sc.STRATEGIES, kinds=sc.KINDS, mode="screen")
+    # «منشئ الاختبارات» was removed from the dashboard — the automatic test + business scenarios replace it
+    from flask import redirect
+    return redirect("/auto-test")
 
 
 @bp.route("/scenarios")
 @auth.login_required
 def scenarios_page():
-    sc = _cfg()
-    return render_template("screens.html", strategies=sc.STRATEGIES, kinds=sc.KINDS, mode="scenario")
+    from flask import redirect
+    return redirect("/business-scenarios")
 
 
 # ---------------- scenarios ----------------

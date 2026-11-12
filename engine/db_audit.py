@@ -11,6 +11,11 @@ database) and finds what the screens can't show:
               journals without lines, journals pointing to a deleted or missing document, posted documents without a
               journal, duplicate document numbers, future dates, and the «shadow accountant»: every sales / purchase
               invoice recomputed from its lines and compared with the totals the ERP saved
+  الحسابات    trial balance in total, journal lines on parent / deleted / inactive accounts, accounts that need a cost centre,
+              customer accounts without the customer (sub-ledger ≠ ledger)
+  التشغيل     every report / read procedure EXECuted for real on the COPY with typical filters (this year, the rest empty)
+              inside a transaction that is always rolled back: the ones that crash (missing table / column, divide by zero,
+              ambiguous / duplicate column, conversion) and the slow ones
   الخريطة     SystemPage (screen → table → controller) + which procedures read / write each table — the seed of the
               digital twin: search a screen or a table and see the code around it
 
@@ -73,6 +78,16 @@ def connect(c=None):
         raise RuntimeError("حدد السيرفر وقاعدة البيانات الأول (من صفحة فحص قاعدة البيانات)")
     return pymssql.connect(server=c["server"], port=int(c.get("port") or 1433), user=c.get("user") or None,
                            password=decrypt(c.get("password") or "") or None, database=c["database"], login_timeout=15, timeout=600, charset="UTF-8")
+
+
+def connect_timeout(timeout):
+    import pymssql
+    from utils.secret_box import decrypt
+    c = load_cfg()
+    conn = pymssql.connect(server=c["server"], port=int(c.get("port") or 1433), user=c.get("user") or None, password=decrypt(c.get("password") or "") or None,
+                           database=c["database"], login_timeout=15, timeout=int(timeout), charset="UTF-8")
+    conn.autocommit(True)
+    return conn
 
 
 def load():
@@ -315,6 +330,45 @@ def check_data(db, log):
         fut = db.one(f"SELECT COUNT(*) FROM JournalEntry je WHERE je.Date > DATEADD(day, 1, GETDATE()) {nd}")
         if fut:
             out.append(F("الداتا", "منخفضة", f"{fut} قيد بتاريخ في المستقبل", "بيطلع في التقارير لما الفترة توصل له — اتأكد إنه مقصود", count=fut))
+    # accounts: trial balance, parent accounts, deleted / inactive accounts, mandatory cost centre, customer sub-ledger
+    if db.has("ChartOfAccount") and db.has("JournalEntryDetail", "AccountId"):
+        tb = db.rows(f"""SELECT SUM(ISNULL(d.Debit,0)) deb, SUM(ISNULL(d.Credit,0)) cre FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id=d.JournalEntryId
+                         WHERE 1=1 {ndd} {nd}""")[0]
+        diff = float(tb["deb"] or 0) - float(tb["cre"] or 0)
+        if abs(diff) > 0.01:
+            out.append(F("الداتا", "عالية", f"ميزان المراجعة كله مش متزن: الفرق {diff:,.2f}", f"إجمالي المدين {float(tb['deb'] or 0):,.2f} · إجمالي الدائن {float(tb['cre'] or 0):,.2f}",
+                         count=1, key="tb_total"))
+        par = db.rows(f"""SELECT TOP 100 a.Code, a.ArName, COUNT(*) n, SUM(ISNULL(d.Debit,0)) deb, SUM(ISNULL(d.Credit,0)) cre FROM JournalEntryDetail d
+                          JOIN JournalEntry je ON je.Id=d.JournalEntryId JOIN ChartOfAccount a ON a.Id=d.AccountId
+                          WHERE EXISTS (SELECT 1 FROM ChartOfAccount c WHERE c.ParentId=a.Id AND ISNULL(c.IsDeleted,0)=0) {ndd} {nd}
+                          GROUP BY a.Code, a.ArName ORDER BY COUNT(*) DESC""")
+        if par:
+            out.append(F("الداتا", "عالية", f"قيود متسجلة على {len(par)} حساب رئيسي (حساب ليه حسابات فرعية) — {sum(r['n'] for r in par):,} سطر",
+                         "الحساب الرئيسي مجمّع لفروعه — لو اتسجل عليه مباشرة، رصيده في الميزان مش هيساوي مجموع فروعه",
+                         [{"الكود": r["Code"], "الحساب": r["ArName"], "سطور": r["n"], "مدين": float(r["deb"] or 0), "دائن": float(r["cre"] or 0)} for r in par], len(par),
+                         fix="امنع الترحيل على حساب ليه فروع، وانقل السطور لحساب فرعي"))
+        dead = db.rows(f"""SELECT TOP 100 a.Code, a.ArName, CASE WHEN ISNULL(a.IsDeleted,0)=1 THEN N'ممسوح' ELSE N'موقوف' END st, COUNT(*) n FROM JournalEntryDetail d
+                           JOIN JournalEntry je ON je.Id=d.JournalEntryId JOIN ChartOfAccount a ON a.Id=d.AccountId
+                           WHERE (ISNULL(a.IsDeleted,0)=1 OR a.IsActive=0) {ndd} {nd} GROUP BY a.Code, a.ArName, a.IsDeleted ORDER BY COUNT(*) DESC""")
+        if dead:
+            out.append(F("الداتا", "متوسطة", f"قيود على {len(dead)} حساب ممسوح أو موقوف", "الحساب اتمسح / اتوقف وهو عليه حركة — رصيده هيختفي من شجرة الحسابات بس فاضل في الميزان",
+                         [{"الكود": r["Code"], "الحساب": r["ArName"], "الحالة": r["st"], "سطور": r["n"]} for r in dead], len(dead)))
+        if db.has("ChartOfAccount", "HasCostCenter") and db.has("JournalEntryDetail", "CostCenterId"):
+            cc = db.rows(f"""SELECT TOP 100 a.Code, a.ArName, COUNT(*) n FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id=d.JournalEntryId
+                             JOIN ChartOfAccount a ON a.Id=d.AccountId WHERE a.HasCostCenter=1 AND ISNULL(d.CostCenterId,0)=0 {ndd} {nd}
+                             GROUP BY a.Code, a.ArName ORDER BY COUNT(*) DESC""")
+            if cc:
+                out.append(F("الداتا", "متوسطة", f"{sum(r['n'] for r in cc):,} سطر على حسابات لازم لها مركز تكلفة ومن غير مركز تكلفة ({len(cc)} حساب)",
+                             "تقارير مراكز التكلفة هتطلع ناقصة", [{"الكود": r["Code"], "الحساب": r["ArName"], "سطور من غير مركز": r["n"]} for r in cc], len(cc)))
+        if db.has("ChartOfAccount", "IsCustomer") and db.has("JournalEntryDetail", "CustomerId"):
+            cu = db.rows(f"""SELECT TOP 100 a.Code, a.ArName, COUNT(*) n FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id=d.JournalEntryId
+                             JOIN ChartOfAccount a ON a.Id=d.AccountId WHERE a.IsCustomer=1 AND ISNULL(d.CustomerId,0)=0 {ndd} {nd}
+                             GROUP BY a.Code, a.ArName ORDER BY COUNT(*) DESC""")
+            if cu:
+                out.append(F("الداتا", "متوسطة", f"{sum(r['n'] for r in cu):,} سطر على حساب عملاء من غير ما يتحدد العميل ({len(cu)} حساب)",
+                             "كشف حساب العميل وأعمار الديون مش هيطابقوا رصيد حساب العملاء في الميزان",
+                             [{"الكود": r["Code"], "الحساب": r["ArName"], "سطور من غير عميل": r["n"]} for r in cu], len(cu)))
+
     # documents ↔ journals, per source page
     if pages and db.has("JournalEntry", "SourcePageId"):
         miss, orphan = [], []
@@ -443,6 +497,124 @@ def shadow_accountant(db, log):
     return out
 
 
+# ------------------------------------------------------------------ 3b) run the report / read procedures for real
+SKIP_RUN = re.compile(r"(Delete|Insert|Update|Fix|Close|Open|Sync|Import|Upload|Send|Post|Generate|Recalc|Rebuild|Backup|Restore|Shrink|Job|Save|Add|Edit|Remove|Clear|Reset|Migrate|Transfer|Approve|Cancel|Move|Copy|Create|Set|Merge|Archive|Purge|Notify|Mail|Sms|Exec|Run)", re.I)
+TYPE_VAL = {"date": "'{f}'", "datetime": "'{f}'", "datetime2": "'{f}'", "smalldatetime": "'{f}'", "bit": "0", "int": "NULL", "bigint": "NULL", "smallint": "NULL",
+            "tinyint": "NULL", "decimal": "NULL", "numeric": "NULL", "money": "NULL", "float": "NULL", "nvarchar": "NULL", "varchar": "NULL", "nchar": "NULL",
+            "char": "NULL", "uniqueidentifier": "NULL"}
+
+
+def _classify(msg):
+    m = msg.lower()
+    for pat, kind, sev in ((r"invalid object name", "جدول / إجراء مش موجود", "عالية"), (r"invalid column name", "عمود مش موجود", "عالية"),
+                           (r"could not find stored procedure", "بينادي إجراء مش موجود", "عالية"), (r"divide by zero", "قسمة على صفر", "عالية"),
+                           (r"conversion failed|error converting|arithmetic overflow", "تحويل نوع / أرقام كبيرة", "متوسطة"),
+                           (r"subquery returned more than 1 value", "استعلام فرعي رجّع أكتر من قيمة", "عالية"),
+                           (r"ambiguous column", "اسم عمود مش واضح", "عالية"), (r"was specified multiple times", "عمود متكرر في نفس الاستعلام", "عالية"),
+                           (r"timeout|timed out", "أبطأ من الحد", "متوسطة")):
+        if re.search(pat, m):
+            return kind, sev
+    return None, None
+
+
+def check_runtime(conn_factory, db, log, limit=3000, per=25, budget=900):
+    """EXEC each report / read procedure with typical parameters (dates = this year, the rest NULL) inside a transaction that is
+    always rolled back — on the COPY only. Finds procedures that crash at run time and the slow ones."""
+    out = []
+    procs = db.rows("""SELECT p.object_id i, SCHEMA_NAME(p.schema_id) s, p.name n FROM sys.procedures p WHERE p.is_ms_shipped=0
+                       AND (p.name LIKE '%Report%' OR p.name LIKE '%Get%' OR p.name LIKE '%Select%' OR p.name LIKE '%List%' OR p.name LIKE '%Statement%' OR p.name LIKE '%Balance%')
+                       ORDER BY p.name""")
+    procs = [p for p in procs if not SKIP_RUN.search(re.sub(r"(Report|Get|Select|List|Statement|Balance)", "", p["n"], flags=re.I))][:limit]
+    params = {}
+    for r in db.rows("""SELECT p.object_id i, p.name pn, TYPE_NAME(p.user_type_id) t, p.is_output o, p.has_default_value hd FROM sys.parameters p
+                        JOIN sys.procedures x ON x.object_id=p.object_id WHERE x.is_ms_shipped=0 ORDER BY p.object_id, p.parameter_id"""):
+        params.setdefault(r["i"], []).append(r)
+    y0 = f"{datetime.now().year}-01-01"
+    today = datetime.now().strftime("%Y-%m-%d")
+    log(f"⚙️ بشغّل {len(procs)} إجراء تقارير / قراءة على النسخة (كل واحد جوه Transaction بتترجع)")
+    c2 = conn_factory(per)
+    cur = c2.cursor()
+    crashes, slow, other, ok, t0 = [], [], [], 0, time.time()
+    for p in procs:
+        if time.time() - t0 > budget:
+            log("⚙️ وقفت بعد الوقت المحدد — الباقي المرة الجاية")
+            break
+        args, decl = [], []
+        for a in params.get(p["i"], []):
+            t = (a["t"] or "").lower()
+            if a["o"]:
+                v = f"@o{len(decl)}"
+                decl.append(f"DECLARE {v} {t if t not in ('nvarchar', 'varchar', 'decimal', 'numeric') else ('nvarchar(4000)' if 'char' in t else 'decimal(18,4)')};")
+                args.append(f"{a['pn']}={v} OUTPUT")
+                continue
+            val = TYPE_VAL.get(t, "NULL")
+            nm = a["pn"].lstrip("@").lower().replace("_", "")
+            if re.search(r"(pagesize|take|top|rows|length|limit|count|perpage|fetch)$", nm) and "int" in t:
+                val = "50"
+            elif re.search(r"(pagenumber|pageindex|pageno|page)$", nm) and "int" in t:
+                val = "1"
+            elif re.search(r"(start|skip|offset)$", nm) and "int" in t:
+                val = "0"
+            elif re.search(r"^(lang|language|culture)$", nm) and "char" in t:
+                val = "'ar'"
+            elif re.search(r"(search|filter|term|keyword|text|q|searchword)$", nm) and "char" in t:
+                val = "''"
+            if "{f}" in val:
+                val = val.format(f=today if re.search(r"to|end|till|until", a["pn"], re.I) else y0)
+            args.append(f"{a['pn']}={val}")
+        sql = " ".join(decl) + f" EXEC [{p['s']}].[{p['n']}] " + ", ".join(args)
+        t1 = time.time()
+        try:
+            cur.execute("SET XACT_ABORT OFF; BEGIN TRAN;")
+            cur.execute(sql)
+            while True:
+                if cur.description:
+                    cur.fetchmany(50)
+                if not cur.nextset():
+                    break
+            ok += 1
+            sec = time.time() - t1
+            if sec > 8:
+                slow.append({"الإجراء": p["n"], "الوقت (ث)": round(sec, 1)})
+        except Exception as e:
+            sec = time.time() - t1
+            msg = re.sub(r"\s+", " ", str(e))
+            kind, sev = _classify(msg)
+            clean = re.sub(r"DB-Lib error message.*$", "", re.sub(r"^\(\d+, b?['\"]", "", msg)).strip()[:180]
+            if kind:
+                crashes.append({"الإجراء": p["n"], "المشكلة": kind, "sev": sev, "الرسالة": clean})
+            elif not re.search(r"expects parameter|too many arguments|is not a parameter|must declare|DB-Lib error message 20018, severity 16:\\nGeneral SQL Server error: Check messages from the SQL Server\\n'\)$", msg, re.I):
+                other.append({"الإجراء": p["n"], "الرسالة": clean})
+            if "timeout" in msg.lower() or sec >= per - 1:
+                c2 = conn_factory(per)
+                cur = c2.cursor()
+                continue
+        finally:
+            try:
+                cur.execute("IF @@TRANCOUNT > 0 ROLLBACK;")
+            except Exception:
+                try:
+                    c2 = conn_factory(per)
+                    cur = c2.cursor()
+                except Exception:
+                    break
+    log(f"⚙️ اشتغل {ok} إجراء سليم · {len(crashes)} وقع · {len(slow)} بطيء")
+    hi = [x for x in crashes if x["sev"] == "عالية"]
+    mid = [x for x in crashes if x["sev"] != "عالية"]
+    for lst, sev, title in ((hi, "عالية", "إجراء تقارير / قراءة بيقع لما يشتغل فعلًا"), (mid, "متوسطة", "إجراء بيقع بخطأ تحويل أو بياخد أكتر من الحد")):
+        if lst:
+            out.append(F("التشغيل", sev, f"{len(lst)} {title}", "اتشغل على النسخة بقيم عادية (تواريخ السنة دي والباقي فاضي) — نفس اللي بيحصل لما مستخدم يفتح التقرير من غير فلاتر",
+                         [{k: v for k, v in x.items() if k != "sev"} for x in lst], len(lst), fix="افتح الإجراء وصلّح السطر اللي في الرسالة", key=f"run_{sev}"))
+    if slow:
+        slow.sort(key=lambda x: -x["الوقت (ث)"])
+        out.append(F("التشغيل", "متوسطة", f"{len(slow)} إجراء بياخد أكتر من 8 ثواني على داتا موقع الاختبار", "عند عميل داتاه أكبر هيبقى أبطأ بكتير", slow, len(slow),
+                     fix="راجع خطة التنفيذ والفهارس", key="run_slow"))
+    if other:
+        out.append(F("التشغيل", "منخفضة", f"{len(other)} إجراء وقع بخطأ تاني (محتاج مراجعة يدوية)", "ممكن يكون محتاج قيم فلاتر معينة علشان يشتغل", other, len(other), key="run_other"))
+    out.append(F("التشغيل", "للعلم", f"اتشغل {ok + len(crashes) + len(other)} إجراء من {len(procs)} — {ok} اشتغلوا من غير مشاكل", count=ok, key="run_total"))
+    return out
+
+
 # ------------------------------------------------------------------ 4) the map (seed of the digital twin)
 def build_map(db, log):
     pages = db.rows("SELECT Id, ArName, EnName, TableName, ControllerName, IsReport, IsTransaction FROM SystemPage WHERE ISNULL(IsDeleted,0)=0") if db.has("SystemPage") else []
@@ -466,9 +638,11 @@ def build_map(db, log):
 
 
 # ------------------------------------------------------------------ the run
-def run(conn=None, log=None, label=""):
+def run(conn=None, log=None, label="", conn_factory=None, run_procs=True, proc_limit=3000):
     log = log or (lambda m: logger.info(m))
-    conn = conn or connect()
+    if conn is None:
+        conn = connect()
+        conn_factory = conn_factory or (lambda t: connect_timeout(t))
     db = DB(conn)
     t0 = time.time()
     info = db.rows("""SELECT DB_NAME() db, @@VERSION v, (SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0) tables,
@@ -477,7 +651,10 @@ def run(conn=None, log=None, label=""):
                       (SELECT COUNT(*) FROM sys.triggers WHERE parent_class=1) triggers""")[0]
     log(f"🗄️ {info['db']}: {info['tables']} جدول · {info['procs']} إجراء · {info['views']} فيو · {info['funcs']} فانكشن")
     findings, sections = [], {}
-    for name, fn in (("الهيكل", check_structure), ("الكود", check_code), ("الداتا", check_data)):
+    steps = [("الهيكل", check_structure), ("الكود", check_code), ("الداتا", check_data)]
+    if conn_factory and run_procs:
+        steps.append(("التشغيل", lambda d, l: check_runtime(conn_factory, d, l, limit=proc_limit)))
+    for name, fn in steps:
         t1 = time.time()
         try:
             r = fn(db, log)

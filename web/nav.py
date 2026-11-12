@@ -16,8 +16,6 @@ SECTIONS = [
          "خريطة المشروع: كل صفحة وبتعمل إيه", "Every page of the project and what it does"),
     ]),
     ("build", "بناء الاختبارات", "Build tests", [
-        ("builder", ["screens.screens_page", "screens.scenarios_page"], "/screens", "bi-tools", "منشئ الاختبارات", "Test builder",
-         "اكتشاف شاشات الـ ERP، قراءة الفورم، تسجيل الخطوات، السيناريوهات، جدول التوافيق", "Discover ERP screens, read forms, record steps, scenarios, combinations"),
         ("auto", ["checks.auto_page"], "/auto-test", "bi-robot", "الاختبار الآلي", "Automatic test",
          "شاشة بكل الطرق: إضافة وتعديل وحذف وطباعة + المختبر العنيد + بيانات الاختبار + مكتبة الشاشات",
          "A screen every way: add / edit / delete / print + stubborn tester + test data + screen library"),
@@ -27,14 +25,8 @@ SECTIONS = [
          "دورة كاملة (فاتورة ← قبض ← قيد)، فحص تقرير، سرعة، مطابقة الحسابات، تنظيف", "Full cycles, report checks, speed, account reconciliation, cleanup"),
     ]),
     ("run", "التشغيل", "Run", [
-        ("tests", ["tests"], "/tests", "bi-play-circle", "تشغيل الاختبارات", "Run tests",
-         "كل الاختبارات المتسجلة — اختاري وشغّلي على موقع أو أكتر", "Every saved test — pick and run on one site or more"),
         ("queue", ["ops.run_center"], "/queue", "bi-list-task", "مركز التشغيل", "Run center",
          "الشغال دلوقتي والطابور، إيقاف وترتيب", "What's running and waiting; stop and reorder"),
-        ("schedule", ["ops.schedule_page"], "/schedule", "bi-calendar-week", "الجدولة", "Schedule",
-         "تشغيل تلقائي بالمواعيد", "Automatic runs on a timetable"),
-        ("live", ["live_viewer"], "/live", "bi-broadcast", "البث المباشر", "Live view",
-         "اتفرجي على المتصفح وهو بيختبر", "Watch the browser while it tests"),
     ]),
     ("health", "صحة الأنظمة", "System health", [
         ("health", ["checks.health_page"], "/health", "bi-heart-pulse", "صحة النظام", "System health",

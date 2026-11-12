@@ -69,7 +69,8 @@ def api_run():
         try:
             conn = D.connect()
             conn.autocommit(True)
-            D.run(conn, log=lambda m: _job["log"].append(f"{datetime.now():%H:%M:%S} {m}"), label=D.load_cfg().get("label") or "")
+            D.run(conn, log=lambda m: _job["log"].append(f"{datetime.now():%H:%M:%S} {m}"), label=D.load_cfg().get("label") or "",
+                  conn_factory=D.connect_timeout)
         except Exception as e:
             _job["error"] = str(e)[:400]
         finally:
