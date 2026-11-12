@@ -5,58 +5,123 @@
   .rc-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
   .rc-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
   .rc-card > .bd { padding: 14px 16px; }
-  .rc-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 800px) { .rc-sides { grid-template-columns: 1fr; } }
+  .rc-g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .rc-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .rc-g, .rc-g2 { grid-template-columns: 1fr; } }
+  .rc-f { min-width: 0; } .rc-f label { font-size: 12px; color: var(--g-muted); margin-bottom: 3px; display: block; }
+  .rc-f input, .rc-f select { width: 100% !important; min-width: 0; box-sizing: border-box; }
   .rc-side { border: 1.5px solid var(--g-line); border-radius: 12px; padding: 12px; min-width: 0; }
-  .rc-side h6 { font-weight: 800; margin-bottom: 8px; }
-  .rc-side label { font-size: 12px; color: var(--g-muted); margin: 8px 0 2px; display: block; }
-  .rc-side select, .rc-side input { width: 100% !important; min-width: 0; box-sizing: border-box; }
-  .rc-st { font-size: 12px; margin-top: 8px; }
-  .rc-f { min-width: 0; } .rc-f input { width: 100% !important; box-sizing: border-box; }
+  .rc-side h6 { font-weight: 800; margin-bottom: 6px; }
+  .rc-side .rc-f { margin-top: 8px; }
+  .rc-st { font-size: 12px; margin-top: 10px; }
+  .rc-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .rc-kpi div { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+  .rc-kpi b { font-size: 22px; display: block; } .rc-kpi span { font-size: 12px; color: var(--g-muted); }
   .rc-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
-  .rc-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; }
-  .rc-t td { padding: 9px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
-  .rc-t col.s { width: 120px; }
+  .rc-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; position: sticky; top: 0; background: var(--g-panel); z-index: 1; }
+  .rc-t td { padding: 8px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .rc-t tr.on td { background: rgba(15,124,122,.08); }
+  .rc-list { max-height: 520px; overflow: auto; }
   .rc-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
-  .rc-b.same { background: rgba(48,164,108,.15); color: #30a46c; } .rc-b.diff, .rc-b.both { background: rgba(229,72,77,.15); color: #e5484d; } .rc-b.info { background: rgba(140,140,140,.15); color: var(--g-muted); }
-  .rc-sub { font-size: 12px; color: var(--g-muted); margin-top: 3px; }
+  .rc-b.same { background: rgba(48,164,108,.15); color: #30a46c; } .rc-b.diff, .rc-b.both { background: rgba(229,72,77,.15); color: #e5484d; }
+  .rc-b.warn { background: rgba(245,166,35,.18); color: #c77d00; } .rc-b.info, .rc-b.na { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .rc-sub { font-size: 12px; color: var(--g-muted); margin-top: 2px; }
   .rc-teal { background: #0F7C7A; color: #fff !important; border: 0; }
   .rc-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
   .rc-verdict { font-size: 18px; font-weight: 800; }
   .rc-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .rc-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rc-chip { font-size: 12px; border: 1px solid var(--g-line); border-radius: 999px; padding: 3px 10px; cursor: pointer; background: transparent; color: inherit; }
+  .rc-chip.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .rc-link { color: #0F7C7A; cursor: pointer; font-weight: 700; }
+  .rc-cat td { background: rgba(15,124,122,.07); font-weight: 800; color: #0F7C7A; font-size: 12px; }
+  .rc-mini { font-size: 11px; }
+  .rc-find { margin-bottom: 4px; }
+  .rc-saved { font-size: 11px; color: #30a46c; margin-inline-start: 6px; opacity: 0; transition: opacity .3s; }
+  .rc-saved.on { opacity: 1; }
 </style>
 {% endblock %}
 {% block content %}
 <div class="container-fluid py-3">
-  <div class="small text-muted mb-3">نفس التقرير بنفس السيناريو على موقع الاختبار وموقع العميل (قراءة بس على الاتنين). الداتا مختلفة أكيد، فالمقارنة على اللي الكود والإجراء المخزن بيحددوه: البارامترات، الحقول اللي الاستورد بيرجّعها، عناوين التقرير، تنسيق الأرقام، وقواعد لازم تمشي على داتا كل موقع (الرصيد = اللي قبله + الوارد − الصادر، آخر رصيد = رصيد المخزن).</div>
+  <div class="small text-muted mb-3">نفس التقرير بنفس السيناريو على موقع الاختبار وموقع العميل (قراءة بس على الاتنين). الداتا مختلفة أكيد، فالمقارنة على اللي الكود والإجراء المخزن بيحددوه: وجوده في المنيو، تعريفه على السيرفر، نسخة DevExpress وملفات الجافاسكربت، البارامترات وخصائصها وقيمها الافتراضية، الحقول اللي الاستورد بيرجّعها، العناوين، الأعمدة، تنسيق الأرقام، حجم الصفحة والخطوط، وقواعد لازم تمشي على داتا كل موقع (الرصيد، الإجماليات، الترتيب).</div>
 
   <div class="rc-card">
-    <div class="hd"><b>🆚 السيناريو</b><span class="small text-muted" id="rcInfo"></span></div>
+    <div class="hd"><b>🆚 الموقعين والإعدادات</b><span class="small text-muted" id="rcInfo"></span></div>
     <div class="bd">
-      <div class="rc-sides mb-3">
-        <div class="rc-f"><label class="small text-muted">التقرير</label><input id="rcReport" class="form-control form-control-sm" dir="ltr"></div>
-        <div class="rc-f"><label class="small text-muted">من تاريخ (اختياري — فاضي = أول السنة زي التقرير)</label><input id="rcFrom" type="date" class="form-control form-control-sm"></div>
+      <div class="rc-g">
+        <div class="rc-f"><label>🧪 موقع الاختبار</label><select id="rcA" class="form-select form-select-sm"></select></div>
+        <div class="rc-f"><label>🏢 موقع العميل</label><select id="rcB" class="form-select form-select-sm"></select></div>
+        <div class="rc-f"><label>من تاريخ (لكل التقارير — فاضي = افتراضي التقرير)</label><input id="rcFrom" type="date" class="form-control form-control-sm"></div>
+        <div class="rc-f"><label>إلى تاريخ</label><input id="rcTo" type="date" class="form-control form-control-sm"></div>
       </div>
-      <div class="rc-sides">
-        <div class="rc-side"><h6>🧪 موقع الاختبار</h6><select id="rcA" class="form-select form-select-sm"></select><div id="rcChA"></div></div>
-        <div class="rc-side"><h6>🏢 موقع العميل</h6><select id="rcB" class="form-select form-select-sm"></select><div id="rcChB"></div></div>
+      <div class="d-flex gap-3 flex-wrap mt-3 small">
+        <label class="d-flex gap-2 align-items-center"><input type="checkbox" id="rcAuto"> لو فلتر قايمة فاضي، اختار أول قيمة لوحده</label>
       </div>
     </div>
     <div class="hd" style="border-top:1px solid var(--g-line);border-bottom:0">
-      <span class="small text-muted">أول تشغيل بيقرا قوائم المخازن والأصناف من الموقعين؛ بعدها اختار وشغّل تاني علشان يبني التقرير ويقارن.</span>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm rc-out" onclick="rcExport()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
-        <button class="btn btn-sm rc-teal" onclick="rcRun()"><i class="bi bi-play-fill"></i> قارن</button>
+      <span class="small text-muted" id="rcCatInfo"></span>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm rc-out" onclick="rcCatalog()"><i class="bi bi-list-ul"></i> اقرا قايمة التقارير من الموقعين</button>
+        <button class="btn btn-sm rc-teal" onclick="rcRunSel()"><i class="bi bi-play-fill"></i> <span id="rcRunTxt">قارن المحدد</span></button>
       </div>
     </div>
   </div>
 
+  <div class="rc-kpi" id="rcKpi"></div>
+
   <div class="rc-card">
-    <div class="hd"><span class="rc-verdict" id="rcVerdict">—</span><span class="small text-muted" id="rcAt"></span></div>
+    <div class="hd">
+      <b>📑 التقارير</b>
+      <div class="d-flex gap-2 flex-wrap align-items-center">
+        <select id="rcScope" class="form-select form-select-sm" style="width:auto">
+          <option value="all">كل اللي اتقارن</option><option value="selected">المحدد بس</option><option value="diff">اللي فيه اختلافات بس</option>
+        </select>
+        <button class="btn btn-sm rc-out" onclick="rcExport('pdf')"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm rc-out" onclick="rcExport('docx')"><i class="bi bi-file-earmark-word"></i> Word</button>
+        <button class="btn btn-sm rc-out" onclick="rcExport('xlsx')"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+      </div>
+    </div>
+    <div class="bd">
+      <div class="rc-g mb-2">
+        <div class="rc-f" style="grid-column: span 2"><input id="rcQ" class="form-control form-control-sm" placeholder="دوّر باسم التقرير أو اللينك…"></div>
+        <div class="rc-f"><select id="rcGroup" class="form-select form-select-sm"><option value="">كل المجموعات</option></select></div>
+        <div class="rc-f d-flex gap-2"><button class="btn btn-sm rc-out flex-fill" onclick="rcPickVisible(true)">حدد الظاهر</button><button class="btn btn-sm rc-out flex-fill" onclick="rcPickVisible(false)">شيل التحديد</button></div>
+      </div>
+      <div class="rc-chips mb-2" id="rcChips"></div>
+      <div class="rc-list"><table class="rc-t">
+        <colgroup><col style="width:34px"><col><col style="width:18%"><col style="width:80px"><col style="width:80px"><col style="width:150px"></colgroup>
+        <thead><tr><th></th><th>التقرير</th><th>المجموعة</th><th>الاختبار</th><th>العميل</th><th>النتيجة</th></tr></thead>
+        <tbody id="rcRows"><tr><td colspan="6" class="rc-empty">جاري التحميل…</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="rc-card" id="rcDet" style="display:none">
+    <div class="hd">
+      <div><b id="rcDName"></b><div class="rc-sub" dir="ltr" id="rcDPath"></div></div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm rc-out" onclick="rcExport('pdf', true)"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm rc-out" onclick="rcExport('docx', true)"><i class="bi bi-file-earmark-word"></i> Word</button>
+        <button class="btn btn-sm rc-teal" onclick="rcRunOne()"><i class="bi bi-play-fill"></i> قارن التقرير ده</button>
+      </div>
+    </div>
+    <div class="bd">
+      <div class="rc-g mb-3">
+        <div class="rc-f"><label>من تاريخ (للتقرير ده بس)</label><input id="rcDFrom" type="date" class="form-control form-control-sm"></div>
+        <div class="rc-f"><label>إلى تاريخ</label><input id="rcDTo" type="date" class="form-control form-control-sm"></div>
+      </div>
+      <div class="rc-g2">
+        <div class="rc-side"><h6>🧪 الاختبار <span class="rc-saved" id="rcSv_a">✓ اتحفظ</span></h6><div id="rcP_a"></div><div class="rc-st" id="rcS_a"></div></div>
+        <div class="rc-side"><h6>🏢 العميل <span class="rc-saved" id="rcSv_b">✓ اتحفظ</span></h6><div id="rcP_b"></div><div class="rc-st" id="rcS_b"></div></div>
+      </div>
+    </div>
+    <div class="hd" style="border-top:1px solid var(--g-line)">
+      <span class="rc-verdict" id="rcVerdict">—</span>
+      <label class="small d-flex gap-2 align-items-center"><input type="checkbox" id="rcOnlyDiff"> الاختلافات والتنبيهات بس</label>
+    </div>
     <div class="bd p-0"><div class="table-responsive">
-      <table class="rc-t"><colgroup><col style="width:22%"><col><col><col class="s"><col style="width:28%"></colgroup>
+      <table class="rc-t"><colgroup><col style="width:20%"><col><col><col style="width:120px"><col style="width:28%"></colgroup>
         <thead><tr><th>البند</th><th>الاختبار</th><th>العميل</th><th>النتيجة</th><th>التفاصيل</th></tr></thead>
-        <tbody id="rcRows"><tr><td colspan="5" class="rc-empty">جاري التحميل…</td></tr></tbody></table>
+        <tbody id="rcCmp"></tbody></table>
     </div></div>
   </div>
 </div>
@@ -65,47 +130,163 @@
 <script>
 const el = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-let S = null, poll = null;
-const ST = {same: '✓ متطابق', diff: '✗ مختلف', both: '✗ في الاتنين', info: 'للعلم'};
+const post = (u, b) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(x => x.json()).catch(() => ({}));
+const ST = {same: '✓ متطابق', diff: '✗ مختلف', both: '✗ في الاتنين', warn: '⚠ تنبيه', info: 'للعلم'};
+const SS = {ok: '✅ اتبنى', error: '❌ فشل', empty: '⚪ فاضي', stuck: '⏸ ماتبناش', noviewer: '❌ مش بيفتح', crash: '⚠ الأداة وقفت'};
+let S = null, cur = null, D = null, filter = 'all', poll = null, firstLoad = true;
+
 async function rcLoad() {
   const r = await fetch('/api/repcmp').then(x => x.json()).catch(() => ({}));
   if (!r.success) return; S = r;
-  el('rcReport').value = r.scenario.report; el('rcFrom').value = r.scenario.date_from || '';
-  const opt = (sel, kind) => r.sites.map(s => `<option value="${esc(s.id)}" ${sel && sel.id === s.id ? 'selected' : ''}>${esc(s.name)} — ${esc(s.url)}${s.kind === 'client' ? ' (عميل)' : ''}</option>`).join('');
-  el('rcA').innerHTML = opt(r.a); el('rcB').innerHTML = opt(r.b);
-  el('rcChA').innerHTML = choose(r.a); el('rcChB').innerHTML = choose(r.b);
+  if (firstLoad) {
+    const opt = sel => r.sites.map(s => `<option value="${esc(s.id)}" ${sel && sel.id === s.id ? 'selected' : ''}>${esc(s.name)} — ${esc(s.url)}${s.kind === 'client' ? ' (عميل)' : ''}</option>`).join('');
+    el('rcA').innerHTML = opt(r.a); el('rcB').innerHTML = opt(r.b);
+    el('rcFrom').value = r.glob.date_from || ''; el('rcTo').value = r.glob.date_to || ''; el('rcAuto').checked = !!r.glob.auto_pick;
+    firstLoad = false;
+  }
+  const m = r.meta || {};
+  el('rcCatInfo').textContent = m.at_a || m.at_b ? `المنيو: الاختبار ${m.n_a || 0} تقرير (${m.at_a || '—'}) · العميل ${m.n_b || 0} تقرير (${m.at_b || '—'})` : 'اقرا قايمة التقارير من الموقعين الأول علشان تظهر كل التقارير';
+  el('rcRunTxt').textContent = `قارن المحدد (${r.kpi.selected})`;
+  const k = r.kpi;
+  el('rcKpi').innerHTML = [['all', k.total, 'تقرير'], ['sel', k.selected, 'محدد'], ['done', k.compared, 'اتقارن'], ['same', k.same, 'متطابق'], ['diff', k.diff, 'فيه اختلافات'],
+    ['failb', k.fail_b, 'بيفشل عند العميل'], ['faila', k.fail_a, 'بيفشل في الاختبار'], ['onlya', k.only_a, 'في منيو الاختبار بس'], ['onlyb', k.only_b, 'في منيو العميل بس']]
+    .map(([f, n, t]) => `<div onclick="setFilter('${f}')"><b>${n}</b><span>${t}</span></div>`).join('');
+  const groups = [...new Set(r.rows.map(x => x.group).filter(Boolean))].sort();
+  const g = el('rcGroup').value;
+  el('rcGroup').innerHTML = '<option value="">كل المجموعات</option>' + groups.map(x => `<option ${x === g ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  chips(); rows();
+  if (cur) rcOpen(cur, true);
+}
+const FILTERS = [['all', 'الكل'], ['sel', 'المحدد'], ['done', 'اتقارن'], ['diff', 'فيه اختلافات'], ['same', 'متطابق'], ['failb', 'بيفشل عند العميل'], ['faila', 'بيفشل في الاختبار'], ['onlya', 'في الاختبار بس'], ['onlyb', 'عند العميل بس'], ['todo', 'لسه ماتقارنش']];
+function chips() { el('rcChips').innerHTML = FILTERS.map(([f, t]) => `<button class="rc-chip ${filter === f ? 'on' : ''}" onclick="setFilter('${f}')">${t}</button>`).join(''); }
+function setFilter(f) { filter = f; chips(); rows(); }
+const BAD = ['error', 'stuck', 'noviewer'];
+function match(x) {
+  const q = el('rcQ').value.trim().toLowerCase(), g = el('rcGroup').value;
+  if (q && !(x.name + ' ' + x.path).toLowerCase().includes(q)) return false;
+  if (g && x.group !== g) return false;
+  return {all: true, sel: x.selected, done: x.ready, diff: x.ready && x.diff_n, same: x.ready && !x.diff_n, failb: BAD.includes(x.sb), faila: BAD.includes(x.sa),
+          onlya: x.in_a && x.in_b === false, onlyb: x.in_b && x.in_a === false, todo: !x.ready}[filter];
+}
+function where(v) { return v === null ? '<span class="rc-sub">—</span>' : v ? '✓' : '<span style="color:#e5484d">✗</span>'; }
+function verdict(x) {
+  if (!x.ready) return x.sa || x.sb ? `<span class="rc-b na">${SS[x.sa] || '—'} / ${SS[x.sb] || '—'}</span>` : '<span class="rc-b na">لسه</span>';
+  return x.diff_n ? `<span class="rc-b diff">❌ ${x.diff_n} اختلاف</span>` : x.warn_n ? `<span class="rc-b warn">⚠ ${x.warn_n} تنبيه</span>` : '<span class="rc-b same">✅ متطابق</span>';
+}
+function rows() {
+  const list = S.rows.filter(match);
+  el('rcRows').innerHTML = list.map(x => `<tr class="${cur && cur.toLowerCase() === x.path.toLowerCase() ? 'on' : ''}">
+    <td><input type="checkbox" ${x.selected ? 'checked' : ''} onchange="rcPick('${esc(x.path)}', this.checked)"></td>
+    <td><span class="rc-link" onclick="rcOpen('${esc(x.path)}')">${esc(x.name)}</span><div class="rc-sub" dir="ltr">${esc(x.path)}</div></td>
+    <td class="small">${esc(x.group || '—')}</td><td>${where(x.in_a)}</td><td>${where(x.in_b)}</td>
+    <td>${verdict(x)}<div class="rc-sub">${esc(x.at_b || x.at_a || '')}</div></td></tr>`).join('') || '<tr><td colspan="6" class="rc-empty">مفيش تقارير بالفلتر ده</td></tr>';
+}
+['rcQ'].forEach(id => el(id).addEventListener('input', rows));
+el('rcGroup').addEventListener('change', rows);
+async function rcPick(path, on) {
+  const x = S.rows.find(r => r.path === path); if (x) x.selected = on;
+  await post('/api/repcmp/save', on ? {select_add: [path]} : {select_remove: [path]});
+  S.kpi.selected = S.rows.filter(r => r.selected).length; el('rcRunTxt').textContent = `قارن المحدد (${S.kpi.selected})`;
+}
+async function rcPickVisible(on) {
+  const list = S.rows.filter(match).map(x => x.path);
+  S.rows.forEach(x => { if (list.includes(x.path)) x.selected = on; });
+  await post('/api/repcmp/save', on ? {select_add: list} : {select_remove: list});
+  rcLoad();
+}
+async function saveGlob() { await post('/api/repcmp/save', {a: el('rcA').value, b: el('rcB').value, date_from: el('rcFrom').value, date_to: el('rcTo').value, auto_pick: el('rcAuto').checked}); }
+['rcA', 'rcB'].forEach(id => el(id).addEventListener('change', async () => { await saveGlob(); rcLoad(); }));
+['rcFrom', 'rcTo', 'rcAuto'].forEach(id => el(id).addEventListener('change', saveGlob));
+
+// ---------------------------------------------------------- one report
+async function rcOpen(path, refresh) {
+  const first = !refresh || cur !== path; cur = path;
+  const r = await fetch('/api/repcmp/report?path=' + encodeURIComponent(path)).then(x => x.json()).catch(() => ({}));
+  if (!r.success) return;
+  const prev = D; D = r;
+  el('rcDet').style.display = '';
+  el('rcDName').textContent = r.name; el('rcDPath').textContent = r.path;
+  if (first) { el('rcDFrom').value = r.conf.date_from || ''; el('rcDTo').value = r.conf.date_to || ''; }
+  for (const side of ['a', 'b']) {
+    const sn = r.snaps[side] || {};
+    // rebuild the filters only when the report changed or the site's filter list changed — never on the auto refresh,
+    // so a choice is never wiped while you are picking
+    const sig = (sn.params || []).map(p => p.path + ':' + p.lookups.length).join('|');
+    const box = el('rcP_' + side);
+    if (first || box.dataset.sig !== sig) { const keep = first ? {} : values(side); box.innerHTML = params(side, sn, keep); box.dataset.sig = sig; }
+    el('rcS_' + side).innerHTML = status(sn);
+  }
   const c = r.compare;
-  el('rcAt').textContent = c.a_at || c.b_at ? `لقطة الاختبار ${c.a_at || '—'} · لقطة العميل ${c.b_at || '—'}` : '';
-  el('rcVerdict').innerHTML = !c.ready ? '⚪ لسه مفيش لقطة مكتملة من الموقعين' : c.diff_n ? `<span style="color:#e5484d">❌ فيه ${c.diff_n} اختلاف</span>` : '<span style="color:#30a46c">✅ التقرير متطابق في الشكل والمنطق</span>';
-  el('rcRows').innerHTML = c.rows.map(x => `<tr><td><b>${esc(x.item)}</b><div class="rc-sub">${esc(x.what)}</div></td><td>${esc(x.a)}</td><td>${esc(x.b)}</td>
-      <td><span class="rc-b ${x.status}">${ST[x.status]}</span></td><td class="small">${esc(x.detail)}</td></tr>`).join('') || '<tr><td colspan="5" class="rc-empty">شغّل «قارن» علشان يتقرا التقرير من الموقعين</td></tr>';
+  el('rcVerdict').innerHTML = !c.ready ? '⚪ لسه مفيش لقطة مكتملة من الموقعين' : c.diff_n ? `<span style="color:#e5484d">❌ فيه ${c.diff_n} اختلاف</span>` + (c.warn_n ? ` <span style="color:#c77d00;font-size:14px">· ⚠ ${c.warn_n} تنبيه</span>` : '') : c.warn_n ? `<span style="color:#c77d00">⚠ متطابق مع ${c.warn_n} تنبيه</span>` : '<span style="color:#30a46c">✅ التقرير متطابق في الكود والشكل والمنطق</span>';
+  cmpRows();
+  rows();
+  if (first && !refresh) el('rcDet').scrollIntoView({behavior: 'smooth', block: 'start'});
 }
-function choose(site) {
-  if (!site) return '<div class="rc-st text-muted">مفيش موقع</div>';
-  const sn = (S.snaps || {})[site.id] || {}, lk = sn.lookups || {}, ch = sn.chosen || {};
-  const rows = S.scenario.choose.map(([p, lbl]) => { const L = lk[p] || [];
-    if (!L.length) return `<label>${esc(lbl)}</label><input class="form-control form-control-sm" data-site="${esc(site.id)}" data-p="${esc(p)}" value="${esc(ch[p] || '')}" placeholder="القايمة هتتقرا من الموقع أول ما تشغّل">`;
-    return `<label>${esc(lbl)}</label><select class="form-select form-select-sm" data-site="${esc(site.id)}" data-p="${esc(p)}"><option value="">— اختار —</option>${L.map(([v, t]) => `<option value="${esc(v)}" ${String(ch[p]) === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`; }).join('');
-  const st = sn.status === 'ok' ? `✅ آخر لقطة ${esc(sn.at)}` : sn.status === 'error' ? `❌ التقرير فشل في البناء (${esc(sn.at)})` : sn.status === 'empty' ? `⚪ التقرير طلع فاضي (${esc(sn.at)}) — جرّب صنف تاني أو تاريخ أقدم` : sn.status === 'choose' ? `📥 القوائم اتقرت ${esc(sn.at)} — اختار وشغّل تاني` : '⏳ لسه ماتقراش';
-  return rows + `<div class="rc-st">${st}</div>`;
+function cmpRows() {
+  const c = D.compare, only = el('rcOnlyDiff').checked; let cat = '', html = '';
+  for (const x of c.rows) {
+    if (only && !['diff', 'both', 'warn'].includes(x.status)) continue;
+    if (x.cat !== cat) { cat = x.cat; html += `<tr class="rc-cat"><td colspan="5">${esc(cat)}</td></tr>`; }
+    html += `<tr><td><b>${esc(x.item)}</b><div class="rc-sub">${esc(x.what)}</div></td><td>${esc(x.a)}</td><td>${esc(x.b)}</td>
+      <td><span class="rc-b ${x.status}">${ST[x.status]}</span></td><td class="small">${esc(x.detail)}</td></tr>`;
+  }
+  el('rcCmp').innerHTML = html || `<tr><td colspan="5" class="rc-empty">${c.rows.length ? 'مفيش اختلافات' : 'دوس «قارن التقرير ده» علشان يتقرا من الموقعين'}</td></tr>`;
 }
-async function rcSave() {
-  const choices = {};
-  document.querySelectorAll('[data-site][data-p]').forEach(e => { (choices[e.dataset.site] = choices[e.dataset.site] || {})[e.dataset.p] = e.value; });
-  const r = await fetch('/api/repcmp/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({a: el('rcA').value, b: el('rcB').value, report: el('rcReport').value, date_from: el('rcFrom').value, choices})}).then(x => x.json());
-  return r.success;
+el('rcOnlyDiff').addEventListener('change', () => D && cmpRows());
+function params(side, sn, keep) {
+  const ps = sn.params || [];
+  if (!ps.length) return '<div class="rc-st text-muted">الفلاتر هتتقرا من الموقع أول ما تقارن التقرير ده — وبعدها تقدر تختار قيمها هنا</div>';
+  return ps.map(p => {
+    const v = keep[p.path] !== undefined ? keep[p.path] : (sn.values[p.path] || '');
+    const lbl = `<label>${esc(p.label || p.path)} <span class="rc-mini text-muted" dir="ltr">${esc(p.path)}</span></label>`;
+    const attrs = `data-side="${side}" data-p="${esc(p.path)}" onchange="saveParam('${side}')"`;
+    if (p.type === 'System.DateTime') return `<div class="rc-f">${lbl}<input type="date" class="form-control form-control-sm" value="${esc(v)}" ${attrs}><div class="rc-mini text-muted">فاضي = التاريخ العام فوق</div></div>`;
+    if (p.lookups.length) {
+      const find = p.lookups.length > 40 ? `<input class="form-control form-control-sm rc-find" placeholder="دوّر في ${p.lookups.length} اختيار…" oninput="filterSel(this)">` : '';
+      return `<div class="rc-f">${lbl}${find}<select class="form-select form-select-sm" ${attrs}><option value="">— الافتراضي${sn.auto && sn.auto[p.path] ? ' / أول قيمة' : ''} —</option>${p.lookups.map(([val, t]) => `<option value="${esc(val)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+    }
+    return `<div class="rc-f">${lbl}<input class="form-control form-control-sm" value="${esc(v)}" placeholder="${esc(p.def || 'الافتراضي')}" ${attrs}></div>`;
+  }).join('');
 }
-['rcA', 'rcB'].forEach(id => el(id).addEventListener('change', async () => { await rcSave(); rcLoad(); }));
-async function rcRun() {
+function filterSel(inp) {
+  const q = inp.value.trim().toLowerCase(), sel = inp.nextElementSibling;
+  for (const o of sel.options) o.hidden = !!q && o.value !== '' && !o.text.toLowerCase().includes(q) && o.value !== q;
+}
+function values(side) { const v = {}; document.querySelectorAll(`[data-side="${side}"][data-p]`).forEach(e => v[e.dataset.p] = e.value); return v; }
+async function saveParam(side) {
+  const r = await post('/api/repcmp/save', {report: {path: cur, name: D.name, site: S[side].id, values: values(side)}});
+  if (r.success) { const s = el('rcSv_' + side); s.classList.add('on'); setTimeout(() => s.classList.remove('on'), 1500); }
+}
+['rcDFrom', 'rcDTo'].forEach(id => el(id).addEventListener('change', () => post('/api/repcmp/save', {report: {path: cur, name: D && D.name, date_from: el('rcDFrom').value, date_to: el('rcDTo').value}})));
+function status(sn) {
+  if (!sn.status) return '⏳ لسه ماتقراش';
+  const ch = Object.entries(sn.chosen_names || {}).map(([k, v]) => `${esc(k)}: <b>${esc(v)}</b>`).join(' · ');
+  const auto = Object.keys(sn.auto || {}).length ? ' <span class="rc-b warn">فيه اختيار تلقائي</span>' : '';
+  return `${SS[sn.status] || esc(sn.status)} — ${esc(sn.at)}${sn.status === 'error' ? `<div class="text-danger small mt-1">${esc(sn.fault)}</div>` : ''}${ch ? `<div class="rc-sub mt-1">السيناريو: ${ch}${auto}</div>` : ''}`;
+}
+
+// ---------------------------------------------------------- run / export
+async function queue(body, msg) {
   if (el('rcA').value === el('rcB').value) { alert('اختار موقعين مختلفين'); return; }
-  if (!(await rcSave())) return;
-  const r = await fetch('/api/repcmp/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}).then(x => x.json());
-  if (!r.success) { alert(r.error); return; }
-  el('rcInfo').textContent = '⏳ دخل الطابور على الموقعين (قراءة بس) — الصفحة هتتحدث لوحدها';
-  clearInterval(poll); let n = 0; poll = setInterval(() => { rcLoad(); if (++n > 60) clearInterval(poll); }, 15000);
+  await saveGlob();
+  const r = await post('/api/repcmp/run', body);
+  if (!r.success) { alert(r.error || 'حصل خطأ'); return; }
+  el('rcInfo').textContent = msg;
+  clearInterval(poll); let n = 0; poll = setInterval(() => { rcLoad(); if (++n > 120) clearInterval(poll); }, 15000);
 }
-async function rcExport() { await rcSave(); location.href = '/api/repcmp/export?fmt=pdf'; }
+function rcCatalog() { queue({catalog: true}, '⏳ بيقرا قايمة التقارير من الموقعين (قراءة بس) — الصفحة هتتحدث لوحدها'); }
+function rcRunSel() {
+  const list = S.rows.filter(x => x.selected).map(x => x.path);
+  if (!list.length) { alert('حدد تقرير واحد على الأقل من الجدول'); return; }
+  if (list.length > 30 && !confirm(`هيتقارن ${list.length} تقرير على الموقعين — ده ممكن ياخد وقت طويل. نكمل؟`)) return;
+  queue({reports: list}, `⏳ ${list.length} تقرير دخلوا الطابور على الموقعين (قراءة بس) — الصفحة هتتحدث لوحدها`);
+}
+async function rcRunOne() {
+  if (!cur) return;
+  await saveParam('a'); await saveParam('b');
+  queue({reports: [cur]}, '⏳ التقرير دخل الطابور على الموقعين — الصفحة هتتحدث لوحدها، واختياراتك محفوظة');
+}
+function rcExport(fmt, one) { location.href = `/api/repcmp/export?fmt=${fmt}&scope=${one ? 'one' : el('rcScope').value}&path=${encodeURIComponent(one ? cur : '')}`; }
 rcLoad();
 </script>
 {% endblock %}

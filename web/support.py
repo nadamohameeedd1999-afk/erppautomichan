@@ -132,8 +132,12 @@ def collect():
         surl = _site_url(r, d)
         handled = False
 
+        # 🆚 report comparison runs: their differences are added below from the comparison itself
+        if key.startswith("repcmp"):
+            handled = True
+
         # 📚 developer case files
-        if key.startswith("bizcases_") and biz.get("cases") is not None:
+        elif key.startswith("bizcases_") and biz.get("cases") is not None:
             handled = True
             screen = biz.get("screen", "")
             for row in det.get("rows") or []:
@@ -247,6 +251,13 @@ def collect():
 
     for k in __import__("engine.known_issues", fromlist=["KNOWN"]).KNOWN:
         dev.setdefault(k["id"], {**k, "url": k.get("url") or ("https://" + k["site"] + k.get("path", "")), "source": "اتلاحظت يدويًا", "doc": "", "count": 1, "first": k["found"], "last": k["found"], "run_id": "", "runs": []})
+    try:
+        from engine.report_compare import support_issues
+        from web.repcmp_api import pair_urls
+        for it in support_issues(*pair_urls()):
+            dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
+    except Exception:
+        pass
     for m in _load("support_manual.json", []):
         dev.setdefault(m["id"], {**m, "source": "اتضافت يدويًا", "count": 1, "first": m.get("found", ""), "last": m.get("found", ""), "run_id": "", "runs": []})
     return _finish(dev, "dev"), _finish(tool, "tool")

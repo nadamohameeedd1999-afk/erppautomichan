@@ -369,18 +369,49 @@ def test_report_compare_analyze_and_compare(tmp_path, monkeypatch):
     assert "تقرير كارت صنف" in a["labels"] and "الرصيد" in a["labels"] and "1-1 - ثوب" not in a["labels"]
     assert a["controls"] == ["xrLabel2"] and a["fields"] == ["Warehouse", "BalanceQty", "OutgoingQty", "IncomingQty", "MovementType"]
     assert a["rule"]["found"] and not a["rule"]["bad_rows"] and a["last_balance"] == 243.0 and a["rows_n"] == 3
-    assert any("من غير صفر" in f for f in a["formats"])
+    assert any("من غير صفر" in f for f in a["formats"]) and a["sort"] == "تصاعدي بالتاريخ"
     body_b = [r[:] for r in body]
     body_b[2][2] = 190.0                      # client: a wrong running balance
-    b = R.analyze(base64.b64encode(csv_txt.replace("الوارد", "وارد").encode()).decode(), _xlsx_b64([hdr[:-1] + ["Type"]] + body_b), {})
+    csv_b = csv_txt.replace("الوارد", "وارد").replace("15/01/2026", "20/10/2026")
+    b = R.analyze(base64.b64encode(csv_b.encode()).decode(), _xlsx_b64([hdr[:-1] + ["Type"]] + body_b), {})
     monkeypatch.setattr(paths, "STATE_DIR", tmp_path)
-    for url, x in (("https://t.test", a), ("https://c.test", b)):
-        snap = {"status": "ok", "url": url, "site": url[8:], "at": "now", "params": [{"path": "Itemid", "type": "System.Int32", "label": "الصنف", "visible": True}], **x}
+    monkeypatch.setattr(paths, "SETTINGS_DIR", tmp_path)
+    P = R.ITEMCARD
+    par = lambda fx: [{"path": "Itemid", "type": "System.Int32", "label": "الصنف", "visible": True, "has_lookups": True, "def": ""},
+                      {"path": "DisplayMethod", "type": "System.Int32", "label": "", "visible": True, "has_lookups": True, "def": "0", "fixed": fx}]
+    for url, x, fx, fp in (("https://t.test", a, [["0", "تفصيلي"], ["1", "مجمع"]], {"dx": "23.2.3", "reportUrl": "ItemCard", "scripts": ["/Scripts/a.js?v=1"]}),
+                           ("https://c.test", b, [["0", "تفصيلي"], ["1", "إجمالي"]], {"dx": "23.2.3", "reportUrl": "ItemCard", "scripts": ["/Scripts/a.js?v=2"]})):
+        snap = {"status": "ok", "url": url, "site": url[8:], "at": "now", "params": par(fx), "fp": fp, **x}
         snap["stock"] = x["last_balance"]
-        R._snap_file("itemcard", url).write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
-    c = R.compare("itemcard", "https://t.test", "https://c.test")
+        R._write(R._snap_file(P, url), snap)
+    R._write(R._cat_file("https://t.test"), {"at": "now", "reports": [{"path": P, "name": "كارت صنف"}, {"path": "/Report/X", "name": "x"}]})
+    R._write(R._cat_file("https://c.test"), {"at": "now", "reports": [{"path": P, "name": "كارت صنف"}]})
+    c = R.compare(P, "https://t.test", "https://c.test")
     rows = {r["item"]: r for r in c["rows"]}
-    assert c["ready"] and rows["بارامترات التقرير"]["status"] == "same"
+    assert c["ready"] and rows["بارامترات التقرير"]["status"] == "same" and rows["موجود في المنيو"]["status"] == "same"
     assert rows["حقول الاستورد"]["status"] == "diff" and "MovementType" in rows["حقول الاستورد"]["detail"]
     assert rows["عناوين التقرير"]["status"] == "diff" and rows["قاعدة الرصيد"]["status"] == "diff" and "العميل" in rows["قاعدة الرصيد"]["detail"]
-    assert rows["كنترولات ظاهرة باسمها"]["status"] == "both"
+    assert rows["كنترولات ظاهرة باسمها"]["status"] == "both" and rows["بارامتر من غير عنوان"]["status"] == "both"
+    assert rows["قيم الفلاتر الثابتة"]["status"] == "diff" and "إجمالي" in rows["قيم الفلاتر الثابتة"]["detail"]
+    assert rows["ملفات الجافاسكربت"]["status"] == "warn" and rows["ترتيب السطور"]["status"] == "diff"
+    cat, meta = R.catalog_rows("https://t.test", "https://c.test")
+    x = next(r for r in cat if r["path"] == "/Report/X")
+    assert x["in_a"] and x["in_b"] is False and meta["n_a"] == 2
+    assert next(r for r in cat if r["path"] == P)["diff_n"] == c["diff_n"] > 0
+    iss = R.support_issues("https://t.test", "https://c.test")
+    assert len(iss) == 1 and iss[0]["url"] == "https://c.test" + P and "حقول الاستورد" in iss[0]["details"]
+
+
+def test_report_compare_rules_and_values():
+    from engine import report_compare as R
+    t = R.totals_rule([["أ", 10.0, 1.0], ["ب", 5.0, 2.0], ["الإجمالي", 15.0, 4.0]])
+    assert t["found"] and t["checked"] == 2 and len(t["bad"]) == 1 and "عمود 3" in t["bad"][0]
+    params = [{"path": "dateFrom", "type": "System.DateTime", "label": "من", "visible": True},
+              {"path": "dateTo", "type": "System.DateTime", "label": "إلى", "visible": True},
+              {"path": "WarehouseId", "type": "System.Int32", "label": "المخزن", "visible": True, "has_lookups": True, "def": ""},
+              {"path": "Itemid", "type": "System.Int32", "label": "الصنف", "visible": True, "has_lookups": True, "def": ""}]
+    lk = {"WarehouseId": [["76", "مخزن 1"]], "Itemid": [["0", "الكل"], ["19102", "صنف"]]}
+    vals, names, auto = R.plan_values(params, lk, {"WarehouseId": "76"}, {"date_from": "2020-01-01"}, {"date_to": "2026-11-01"}, True)
+    assert vals["dateFrom"][1] == "2020-01-01" and vals["dateTo"][1] == "2026-11-01" and vals["WarehouseId"][1] == "76"
+    assert vals["Itemid"][1] == "19102" and auto == {"Itemid": True} and names["المخزن"] == "مخزن 1"
+    assert R.fmt_sig("(1,200.00)") == "سالب بين قوسين" and R.norm_path("https://x.test/Report/A?x=1") == "/Report/A"
