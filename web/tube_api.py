@@ -241,11 +241,34 @@ def _dbaudit_items():
     return [enrich(it, steps)]
 
 
+def _twin_items():
+    try:
+        from web.twin_api import JOB
+    except Exception:
+        return []
+    if not (JOB.get("running") or JOB.get("log")):
+        return []
+    done = not JOB.get("running")
+    if done and JOB.get("finished") and JOB["finished"] < (datetime.now() - timedelta(minutes=RECENT_MIN)).isoformat():
+        return []
+    steps = []
+    for l in JOB.get("log", [])[-200:]:
+        m = re.match(r"^(\d{2}:\d{2}:\d{2}) (.*)$", l)
+        msg = (m.group(2) if m else l)[:300]
+        steps.append({"t": m.group(1) if m else "", "lvl": "err" if msg.startswith(("⚠️", "❌")) else ("ok" if "خلص" in msg else "info"), "msg": msg})
+    if JOB.get("error"):
+        steps.append({"t": "", "lvl": "err", "msg": JOB["error"]})
+    it = {"kind": "twin", "id": "twin", "name": "🧬 التوأم الرقمي — تحليل الكود", "site": "", "status": "running" if not done else ("failed" if JOB.get("error") else "passed"),
+          "started": JOB.get("started_at") or "", "ended": JOB.get("finished") or "", "steps": steps[-30:], "page": {"url": "/twin", "name": "التوأم الرقمي"},
+          "report": "/api/twin/export?fmt=pdf" if done and not JOB.get("error") else None}
+    return [enrich(it, steps)]
+
+
 @bp.route("/api/tube")
 @auth.login_required
 def api_tube():
     items = []
-    for fn in (_queue_items, _job_items, _dbaudit_items):
+    for fn in (_queue_items, _job_items, _dbaudit_items, _twin_items):
         try:
             items += fn()
         except Exception as e:
@@ -282,6 +305,12 @@ def api_tube_stop():
         if p and p.poll() is None:
             p.terminate()
         return jsonify({"success": True, "msg": "بيقف…"})
+    if kind == "twin":
+        from web.twin_api import JOB
+        if not JOB.get("running"):
+            return jsonify({"success": False, "error": "مفيش تحليل شغال"})
+        JOB["stop"] = True
+        return jsonify({"success": True, "msg": "هيقف بعد الخطوة الحالية…"})
     if kind == "dbaudit":
         from web.db_audit_api import _job
         if not _job.get("running"):

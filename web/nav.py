@@ -35,6 +35,8 @@ SECTIONS = [
          "درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش", "Score /100 and a go / care / no-go verdict"),
         ("xray", ["xray.page"], "/xray", "bi-radioactive", "أشعة النظام", "System X-ray",
          "قراءة الموقع من بره: روابط غلط، مكتبات فيها ثغرات، أمان، لغة، صور الشاشات، نت ضعيف + مقارنة موقعين", "Read the site from outside: wrong links, vulnerable libraries, security, language, screenshots, slow network + compare two sites"),
+        ("twin", ["twin.page"], "/twin", "bi-diagram-3-fill", "التوأم الرقمي", "Digital twin",
+         "بيقرا كود الـ ERP ويربطه بقاعدة البيانات: الشاشة ← الكنترولر ← الإجراءات ← الجداول، والأزرار والإجراءات والتقارير المكسورة", "Reads the ERP code and ties it to the database: screen → controller → procedures → tables, broken buttons, procedures and reports"),
         ("dbaudit", ["dbaudit.page"], "/db-audit", "bi-database-check", "فحص قاعدة البيانات", "Database audit",
          "نسخة من قاعدة موقع الاختبار: إجراءات مكسورة، داتا يتيمة، قيود مش متزنة، المحاسب الظل، وخريطة الشاشة ← الجدول ← الإجراء", "A copy of the test database: broken procedures, orphan data, unbalanced journals, shadow accountant, screen → table → procedure map"),
         ("repcmp", ["repcmp.page"], "/report-compare", "bi-layout-split", "مقارنة التقارير", "Compare reports",

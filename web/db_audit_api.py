@@ -87,7 +87,7 @@ def api_run():
             _job["running"] = False
             _job["finished"] = datetime.now().isoformat(timespec="seconds")
     threading.Thread(target=work, daemon=True).start()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "bg": "dbaudit"})
 
 
 @bp.route("/api/dbaudit/import", methods=["POST"])

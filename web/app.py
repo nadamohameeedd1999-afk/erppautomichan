@@ -63,6 +63,8 @@ from web.xray_api import bp as _xray_bp  # noqa: E402
 app.register_blueprint(_xray_bp)
 from web.db_audit_api import bp as _dbaudit_bp  # noqa: E402
 app.register_blueprint(_dbaudit_bp)
+from web.twin_api import bp as _twin_bp  # noqa: E402
+app.register_blueprint(_twin_bp)
 from web.tube_api import bp as _tube_bp  # noqa: E402
 app.register_blueprint(_tube_bp)
 from web.reset_api import bp as _reset_bp

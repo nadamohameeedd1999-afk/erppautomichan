@@ -467,3 +467,28 @@ def test_tube_steps_and_pages():
     assert [s["lvl"] for s in st] == ["info", "ok", "err"] and st[0]["msg"] == "🆚 [1/3] /Report/A"
     assert _page_for("tests/checks/test_check_repcmp_batch.py::test_check")["url"] == "/report-compare"
     assert _page_for("tests/checks/test_check_xray_scan.py::test_check")["url"] == "/xray"
+
+
+def test_code_twin_scan(tmp_path, monkeypatch):
+    from engine import code_twin as T
+    from config import paths
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path / "st")
+    root = tmp_path / "src" / "MyERP"
+    (root / "Controllers").mkdir(parents=True)
+    (root / "Views" / "Bank").mkdir(parents=True)
+    (root / "Reporting" / "Reports").mkdir(parents=True)
+    (root / "Controllers" / "BankController.cs").write_text('public partial class BankController : Controller { public ActionResult Index() {} public JsonResult AddEdit(int id) {} }')
+    (root / "Controllers" / "BankController.Extra.cs").write_text('public partial class BankController { [ActionName("Delete")] public ActionResult DeleteConfirmed(int id) {} }')
+    (root / "Views" / "Bank" / "Index.cshtml").write_text("""<script>$.ajax({url: '/Bank/AddEdit', type:'POST'}); $.post('/Bank/Delete?id=1');
+      $.ajax({url: '/Bank/ActivateDeactivate'}); fetch('/Banks/Get?x=1'); @* $.post('/Bank/Old') *@ </script>""")
+    (root / "Reporting" / "Reports" / "R1.Designer.cs").write_text('''storedProcQuery1.StoredProcName = "R1_Get";
+        this.xrLabel5.ExpressionBindings.AddRange(new DevExpress.XtraReports.UI.ExpressionBinding[] {
+        new DevExpress.XtraReports.UI.ExpressionBinding("BeforePrint", "Text", "sumSum([Qty])")});''')
+    res = T.scan(T.find_root(tmp_path / "src"), conn=None)
+    ids = {f["id"]: f for f in res["findings"]}
+    ma = next(f for f in res["findings"] if f["id"].endswith("missing_action"))
+    assert ma["count"] == 1 and ma["sample"][0]["الأكشن المطلوب"] == "activatedeactivate"
+    assert any(f["id"].endswith("missing_controller") and f["sample"][0]["الطلب"] == "/banks/get" for f in res["findings"])
+    assert any(f["id"].endswith("report_summary") for f in res["findings"])
+    sc = res["screens"]["bank"]
+    assert {"index", "addedit", "delete"} <= set(sc["actions"]) and any(not c["ok"] for c in sc["calls"]) and not any("/old" in c["url"].lower() for c in sc["calls"])

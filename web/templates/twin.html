@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}التوأم الرقمي - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .tw-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .tw-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tw-card > .bd { padding: 14px 16px; }
+  .tw-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tw-kpi div { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; padding: 12px; }
+  .tw-kpi b { font-size: 26px; display: block; } .tw-kpi span { font-size: 12px; color: var(--g-muted); }
+  .tw-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; } @media (max-width: 1000px) { .tw-grid { grid-template-columns: 1fr; } }
+  .tw-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .tw-b.s0 { background: rgba(229,72,77,.15); color: #e5484d; } .tw-b.s1 { background: rgba(245,166,35,.18); color: #c77d00; } .tw-b.s2, .tw-b.s3 { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .tw-item { border-top: 1px solid var(--g-line); padding: 10px 2px; } .tw-item summary { cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: flex-start; }
+  .tw-item summary::-webkit-details-marker { display: none; } .tw-item .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .tw-sub { font-size: 12px; color: var(--g-muted); }
+  .tw-tw { overflow: auto; max-height: 340px; margin-top: 8px; border: 1px solid var(--g-line); border-radius: 8px; }
+  .tw-tw table { width: 100%; font-size: 12px; border-collapse: collapse; } .tw-tw th { position: sticky; top: 0; background: #0F7C7A; color: #fff; padding: 6px; white-space: nowrap; }
+  .tw-tw td { padding: 5px 6px; border-top: 1px solid var(--g-line); overflow-wrap: anywhere; }
+  .tw-hm { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .tw-hm div { border-radius: 12px; padding: 10px; font-size: 12px; color: #fff; font-weight: 700; cursor: pointer; min-height: 64px; }
+  .tw-hm div small { display: block; font-weight: 400; opacity: .9; margin-top: 4px; }
+  .tw-teal { background: #0F7C7A; color: #fff !important; border: 0; } .tw-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .tw-tabs { display: flex; gap: 6px; margin-bottom: 14px; } .tw-tab { border: 1px solid var(--g-line); border-radius: 999px; padding: 6px 16px; background: transparent; color: inherit; font-weight: 700; }
+  .tw-tab.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .tw-chain { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; padding-bottom: 6px; }
+  .tw-node { flex: 1; min-width: 190px; background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; padding: 10px; }
+  .tw-node h6 { margin: 0 0 8px; font-size: 13px; color: #14b8a6; font-weight: 800; }
+  .tw-node .it { font-family: Consolas, monospace; font-size: 11.5px; padding: 4px 7px; border-radius: 7px; background: rgba(15,124,122,.08); margin-bottom: 4px; direction: ltr; text-align: left; overflow-wrap: anywhere; }
+  .tw-node .it.bad { background: rgba(229,72,77,.15); color: #e5484d; font-weight: 700; } .tw-node .more { font-size: 11px; color: var(--g-muted); }
+  .tw-arrow { align-self: center; color: #14b8a6; font-size: 20px; }
+  .tw-list { max-height: 520px; overflow: auto; } .tw-list .r { display: flex; gap: 8px; padding: 7px 4px; border-top: 1px solid var(--g-line); cursor: pointer; align-items: center; }
+  .tw-list .r:hover, .tw-list .r.on { background: rgba(15,124,122,.08); }
+  .tw-list .r b, .tw-list .r .tw-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #twScreen, #twMap .tw-grid > div { min-width: 0; }
+  .tw-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .tw-f label { font-size: 12px; color: var(--g-muted); display: block; margin-bottom: 3px; } .tw-f input { width: 100% !important; box-sizing: border-box; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">بيقرا كود الـ ERP نفسه (الكنترولرات والفيوهات والجافاسكربت والتقارير) ويربطه بنسخة قاعدة موقع الاختبار: كل شاشة ← الطلبات اللي بتبعتها ← الكنترولر ← الإجراءات المخزنة ← الجداول، وبيلاقي الأزرار اللي بتنادي حاجة مش موجودة، والإجراءات الناقصة أو المكسورة اللي الشاشات بتناديها، ولينكات المنيو الغلط، وعيوب التقارير — قبل ما حد يشغّل حاجة. قراءة بس.</div>
+
+  <div class="tw-card">
+    <div class="hd"><b>📂 الكود</b><span class="small" id="twMsg"></span></div>
+    <div class="bd">
+      <div class="row g-2">
+        <div class="col-md-5 tw-f"><label>فولدر الكود (على الجهاز اللي الأداة شغالة عليه)</label><input id="twPath" class="form-control form-control-sm" dir="ltr" placeholder="F:\Source Code\MyERP"></div>
+        <div class="col-md-3 tw-f"><label>اسم يظهر في التقرير</label><input id="twLabel" class="form-control form-control-sm" placeholder="MyERP · Fahad-Test"></div>
+        <div class="col-md-4 tw-f"><label>قاعدة البيانات</label><div class="small mt-1" id="twDb"></div></div>
+      </div>
+    </div>
+    <div class="hd" style="border-top:1px solid var(--g-line);border-bottom:0">
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm tw-out" onclick="twSave()">احفظ</button>
+        <label class="btn btn-sm tw-out mb-0"><i class="bi bi-file-zip"></i> حلّل ملف ZIP للكود<input type="file" accept=".zip" hidden onchange="twZip(this)"></label>
+        <label class="btn btn-sm tw-out mb-0"><i class="bi bi-upload"></i> استورد نتيجة (JSON)<input type="file" accept=".json" hidden onchange="twImport(this)"></label>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm tw-out" onclick="location.href='/api/twin/export?fmt=pdf'"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        <button class="btn btn-sm tw-out" onclick="location.href='/api/twin/export?fmt=json'"><i class="bi bi-filetype-json"></i> JSON</button>
+        <button class="btn btn-sm tw-teal" onclick="twRun()"><i class="bi bi-play-fill"></i> حلّل الفولدر</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tw-tabs"><button class="tw-tab on" id="tabDash" onclick="twTab('dash')">🧬 صحة الكود</button><button class="tw-tab" id="tabMap" onclick="twTab('map')">🗺️ خريطة الشاشة</button></div>
+  <div id="twDash"></div>
+  <div id="twMap" style="display:none">
+    <div class="tw-grid" style="grid-template-columns: 340px 1fr">
+      <div class="tw-card"><div class="hd"><b>الشاشات</b><span class="tw-sub" id="twCount"></span></div><div class="bd">
+        <input id="twQ" class="form-control form-control-sm mb-2" placeholder="دوّر باسم الشاشة أو الكنترولر أو جدول…">
+        <div class="d-flex gap-2 mb-2 small"><select id="twMod" class="form-select form-select-sm"><option value="">كل الموديولات</option></select>
+          <label class="d-flex gap-1 align-items-center text-nowrap"><input type="checkbox" id="twBad"> فيها مشاكل</label></div>
+        <div class="tw-list" id="twList"></div></div></div>
+      <div id="twScreen"><div class="tw-card"><div class="tw-empty">اختار شاشة من القايمة</div></div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const post = (u, b) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(x => x.json()).catch(() => ({}));
+const SEVN = {'عالية': 0, 'متوسطة': 1, 'منخفضة': 2, 'للعلم': 3};
+let R = null, first = true, area = '', poll = null, cur = '';
+async function twLoad() {
+  const r = await fetch('/api/twin').then(x => x.json()).catch(() => ({}));
+  if (!r.success) return;
+  if (first) { el('twPath').value = r.cfg.path || ''; el('twLabel').value = r.cfg.label || ''; first = false; }
+  el('twDb').innerHTML = r.db.server ? `✅ متوصل بـ <b dir="ltr">${esc(r.db.database)}</b> (من فحص قاعدة البيانات) — هيتربط الكود بالإجراءات والجداول` : '⚪ مش متوصل — هيتحلل الكود لوحده. اربطه من <a href="/db-audit">فحص قاعدة البيانات</a> علشان تتربط الشاشات بالإجراءات';
+  if (r.job.running) el('twMsg').textContent = '⏳ ' + (r.job.log.slice(-1)[0] || 'بيحلل…'); else if (r.job.error) el('twMsg').textContent = '❌ ' + r.job.error;
+  if (!r.job.running && poll) { clearInterval(poll); poll = null; el('twMsg').textContent = r.job.error ? '❌ ' + r.job.error : '✓ خلص'; }
+  R = r.result; dash(); mods();
+}
+function dash() {
+  if (!R) { el('twDash').innerHTML = '<div class="tw-card"><div class="tw-empty">لسه مفيش تحليل — حدد فولدر الكود أو ارفع ZIP، أو استورد نتيجة JSON</div></div>'; return; }
+  const f = R.findings, c = R.counts;
+  const num = id => { const x = f.find(y => y.id.includes(id)); return x ? (x.count || 0) : 0; };
+  const k = (n, t, col) => `<div><b style="color:${col || 'inherit'}">${Number(n).toLocaleString()}</b><span>${t}</span></div>`;
+  const list = f.filter(x => !area || x.area === area);
+  const areas = [...new Set(f.map(x => x.area))];
+  const maxI = Math.max(1, ...R.modules.map(m => m.issues));
+  const color = n => n === 0 ? '#0A5654' : n / maxI > .6 ? '#C62828' : n / maxI > .3 ? '#E5484D' : n / maxI > .12 ? '#F59E0B' : '#14b8a6';
+  el('twDash').innerHTML = `
+  <div class="tw-kpi">${k(num('missing_action'), 'نداء من الشاشات لأكشن مش موجود', '#e5484d')}${k(num('missing_controller'), 'نداء لكنترولر مش موجود', '#e5484d')}
+    ${k(num('code_missing_proc'), 'إجراء الكود بيناديه ومش موجود', '#e5484d')}${k(num('broken_called'), 'إجراء مكسور الشاشات بتناديه', '#e5484d')}
+    ${k(num('report_missing_proc'), 'تقرير بينادي إجراء مش موجود', '#e5484d')}${k(num('dead_procs'), 'إجراء محدش بيناديه')}</div>
+  <div class="tw-sub mb-2">${esc(R.label || '')} · ${Number(c.controllers).toLocaleString()} كنترولر · ${Number(c.views).toLocaleString()} فيو · ${c.reports} تقرير · ${Number(c.procs).toLocaleString()} إجراء · تحليل ${esc(R.at)} (${R.secs} ث)${c.db ? '' : ' · ⚠️ من غير قاعدة بيانات'}</div>
+  <div class="tw-grid">
+    <div class="tw-card"><div class="hd"><b>📋 الملاحظات</b><div class="d-flex gap-1 flex-wrap"><button class="tw-tab ${!area ? 'on' : ''}" style="padding:3px 10px;font-size:12px" onclick="area='';dash()">الكل</button>${areas.map(a => `<button class="tw-tab ${area === a ? 'on' : ''}" style="padding:3px 10px;font-size:12px" onclick="area='${esc(a)}';dash()">${esc(a)}</button>`).join('')}</div></div><div class="bd">
+      ${list.map(x => `<details class="tw-item"><summary><span class="tw-b s${SEVN[x.sev]}">${esc(x.sev)}</span>${x.new ? '<span class="tw-b s1">🆕</span>' : ''}<div class="t"><b>${esc(x.title)}</b><div class="tw-sub">${esc(x.area)}${x.fix ? ' · التصليح: ' + esc(x.fix) : ''}</div></div></summary>
+        ${x.detail ? `<div class="tw-sub mt-2">${esc(x.detail)}</div>` : ''}${tbl(x.sample)}</details>`).join('') || '<div class="tw-empty">مفيش</div>'}</div></div>
+    <div class="tw-card"><div class="hd"><b>🧩 حسب الموديول</b><span class="tw-sub">دوس على موديول</span></div><div class="bd"><div class="tw-hm">
+      ${R.modules.map(m => `<div style="background:${color(m.issues)}" onclick="openMod('${esc(m.code)}')">${esc(m.name)}<small>${m.screens} شاشة · ${m.issues} مشكلة</small></div>`).join('')}</div></div></div>
+  </div>`;
+}
+function tbl(rows) {
+  if (!rows || !rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  return `<div class="tw-tw"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${cols.map(c => `<td${c === 'الشاشة' ? ` style="cursor:pointer;color:#14b8a6" onclick="openScreen('${esc(String(r[c]).toLowerCase())}')"` : ''}>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function mods() { if (!R) return; const v = el('twMod').value; el('twMod').innerHTML = '<option value="">كل الموديولات</option>' + R.modules.map(m => `<option ${m.code === v ? 'selected' : ''} value="${esc(m.code)}">${esc(m.name)} (${m.screens})</option>`).join(''); }
+function twTab(t) { el('twDash').style.display = t === 'dash' ? '' : 'none'; el('twMap').style.display = t === 'map' ? '' : 'none'; el('tabDash').classList.toggle('on', t === 'dash'); el('tabMap').classList.toggle('on', t === 'map'); if (t === 'map') list(); }
+function openMod(m) { el('twMod').value = m; twTab('map'); }
+let lt = null;
+async function list() {
+  const r = await fetch(`/api/twin/screens?q=${encodeURIComponent(el('twQ').value)}&module=${encodeURIComponent(el('twMod').value)}&issues=${el('twBad').checked ? 1 : 0}`).then(x => x.json()).catch(() => ({rows: []}));
+  el('twCount').textContent = r.total ? `${r.total}` : '';
+  el('twList').innerHTML = (r.rows || []).map(x => `<div class="r ${x.key === cur ? 'on' : ''}" onclick="openScreen('${esc(x.key)}')"><div style="flex:1;min-width:0"><b>${esc(x.ar || x.name)}</b><div class="tw-sub" dir="ltr" style="text-align:right">${esc(x.name)}</div></div>${x.bad ? `<span class="tw-b s0">${x.bad}</span>` : ''}</div>`).join('') || '<div class="tw-empty">مفيش</div>';
+}
+['twQ'].forEach(i => el(i).addEventListener('input', () => { clearTimeout(lt); lt = setTimeout(list, 250); }));
+['twMod', 'twBad'].forEach(i => el(i).addEventListener('change', list));
+async function openScreen(k) {
+  twTab('map'); cur = k;
+  const r = await fetch('/api/twin/screen/' + encodeURIComponent(k)).then(x => x.json()).catch(() => ({}));
+  if (!r.success) { el('twScreen').innerHTML = `<div class="tw-card"><div class="tw-empty">${esc(r.error || 'مش موجودة')}</div></div>`; return; }
+  const s = r.screen, broken = new Set((s.broken_procs || []).map(x => x.toLowerCase()));
+  const node = (title, items, cls) => `<div class="tw-node"><h6>${title}</h6>${items.slice(0, 14).map(i => `<div class="it ${cls(i) ? 'bad' : ''}">${esc(typeof i === 'string' ? i : i.url)}${cls(i) ? ' ✕' : ''}</div>`).join('') || '<div class="more">—</div>'}${items.length > 14 ? `<div class="more">+ ${items.length - 14}</div>` : ''}</div>`;
+  const badCalls = s.calls.filter(c => !c.ok);
+  el('twScreen').innerHTML = `<div class="tw-card"><div class="hd"><div><b style="font-size:17px">${esc(s.ar || s.name)}</b><div class="tw-sub" dir="ltr" style="text-align:right">${esc(s.file)} · ${esc(s.module || '')}</div></div>
+      ${badCalls.length + (s.broken_procs || []).length ? `<span class="tw-b s0">${badCalls.length + (s.broken_procs || []).length} حلقة مكسورة</span>` : '<span class="tw-b s3">السلسلة سليمة</span>'}</div>
+    <div class="bd"><div class="tw-chain">
+      ${node('🖥️ الفيوهات', s.views.map(v => v.replace(/^Views\//, '')), () => false)}<div class="tw-arrow">←</div>
+      ${node('🌐 طلبات الشاشة', [...badCalls, ...s.calls.filter(c => c.ok)], c => !c.ok)}<div class="tw-arrow">←</div>
+      ${node('⚙️ أكشنز الكنترولر', s.actions, () => false)}<div class="tw-arrow">←</div>
+      ${node('🗄️ الإجراءات المخزنة', [...(s.broken_procs || []), ...s.procs.filter(p => !broken.has(p.toLowerCase()))], p => broken.has(String(p).toLowerCase()))}<div class="tw-arrow">←</div>
+      ${node('📦 الجداول', s.tables, () => false)}
+    </div></div></div>
+    <div class="tw-card"><div class="hd"><b>مشاكل الشاشة دي (${r.issues.length + badCalls.length})</b></div><div class="bd">
+      ${badCalls.map(c => `<div class="tw-item"><span class="tw-b s0">عالية</span> الطلب <b dir="ltr">${esc(c.url)}</b> مش موجود في الكود <span class="tw-sub">— من ${esc(c.from.join('، '))}</span></div>`).join('')}
+      ${r.issues.map(x => `<details class="tw-item"><summary><span class="tw-b s${SEVN[x.sev]}">${esc(x.sev)}</span><div class="t">${esc(x.title)}${x.fix ? `<div class="tw-sub">التصليح: ${esc(x.fix)}</div>` : ''}</div></summary>${tbl(x.rows)}</details>`).join('')}
+      ${!r.issues.length && !badCalls.length ? '<div class="tw-empty">مفيش مشاكل معروفة في الشاشة دي 🎉</div>' : ''}</div></div>`;
+  list();
+}
+async function twSave() { const r = await post('/api/twin/config', {path: el('twPath').value, label: el('twLabel').value}); el('twMsg').textContent = r.success ? '✓ اتحفظ' : '❌ ' + (r.error || ''); }
+function watch() { clearInterval(poll); poll = setInterval(twLoad, 4000); twLoad(); }
+async function twRun() { await twSave(); const r = await post('/api/twin/run', {label: el('twLabel').value}); if (!r.success) { el('twMsg').textContent = '❌ ' + (r.error || ''); return; } watch(); }
+async function twZip(inp) {
+  const fd = new FormData(); fd.append('file', inp.files[0]); fd.append('label', el('twLabel').value || inp.files[0].name);
+  el('twMsg').textContent = '⏳ بيرفع الملف…';
+  const r = await fetch('/api/twin/run', {method: 'POST', body: fd}).then(x => x.json()).catch(() => ({}));
+  inp.value = ''; if (!r.success) { el('twMsg').textContent = '❌ ' + (r.error || ''); return; }
+  if (window.RM) RM.track([], {bg: 'twin'}); watch();
+}
+async function twImport(inp) {
+  const fd = new FormData(); fd.append('file', inp.files[0]);
+  const r = await fetch('/api/twin/import', {method: 'POST', body: fd}).then(x => x.json()).catch(() => ({}));
+  el('twMsg').textContent = r.success ? '✓ اتستوردت' : '❌ ' + (r.error || ''); inp.value = ''; twLoad();
+}
+const qs = new URLSearchParams(location.search); if (qs.get('screen')) openScreen(qs.get('screen'));
+twLoad();
+</script>
+{% endblock %}

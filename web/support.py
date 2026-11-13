@@ -261,7 +261,8 @@ def collect():
     try:
         from engine.xray import support_issues as xray_issues
         from engine.db_audit import support_issues as db_issues
-        for it in xray_issues() + db_issues():
+        from engine.code_twin import support_issues as twin_issues
+        for it in xray_issues() + db_issues() + twin_issues():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass

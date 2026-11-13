@@ -180,14 +180,14 @@
     if (!open || !track) return;
     try {
       const r = await fetch('/api/tube').then(x => x.json());
-      if (r && r.success) items = r.items.filter(x => track.ids.has(x.kind + ':' + x.id) || (track.dbaudit && x.kind === 'dbaudit'));
+      if (r && r.success) items = r.items.filter(x => track.ids.has(x.kind + ':' + x.id) || (track.bg && x.kind === track.bg));
     } catch (e) {}
     render();
     timer = setTimeout(poll, items.some(LIVE) || !items.length ? 2000 : 6000);
   }
   window.RM = {
     track(ids, opts) {
-      track = {ids: new Set(ids), dbaudit: !!(opts || {}).dbaudit, at: Date.now()}; items = []; sel = 0; open = true;
+      track = {ids: new Set(ids), bg: (opts || {}).bg || ((opts || {}).dbaudit ? 'dbaudit' : ''), at: Date.now()}; items = []; sel = 0; open = true;
       document.getElementById('rmOv').classList.add('on'); document.body.classList.add('rm-open'); render(); setTimeout(poll, 600);
     },
     min() { open = false; clearTimeout(timer); box().className = ''; document.getElementById('rmOv').classList.remove('on'); document.body.classList.remove('rm-open'); if (window.gTube) gTube.open(); },
@@ -210,7 +210,7 @@
           if (!j || j.success === false) return;
           const ids = [...(j.task_ids || (j.task_id ? [j.task_id] : [])).map(i => 'queue:' + i), ...(j.job_id ? ['job:' + j.job_id] : [])];
           if (ids.length) RM.track(ids);
-          else if (/\/api\/dbaudit\/run/.test(String(u))) RM.track([], {dbaudit: true});
+          else if (j.bg) RM.track([], {bg: j.bg});
         }).catch(() => {})).catch(() => {});
       }
     } catch (e) {}
