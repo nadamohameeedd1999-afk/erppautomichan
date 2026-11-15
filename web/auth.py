@@ -100,7 +100,7 @@ def logout_user():
 # viewer = يشوف بس
 ROLES = {"admin": "أدمن", "user": "مستخدم", "viewer": "مشاهد"}
 _ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore")
-_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/health", "/static", "/media")
+_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/health", "/static", "/media", "/uat/s/", "/api/uat/s/")
 
 
 def check_permission():

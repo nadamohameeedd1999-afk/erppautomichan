@@ -675,7 +675,44 @@
     <div class="text-muted small mb-2">وكمان قبل أي اختبار، لو المساحة الفاضية قلت عن 300 MB، أقدم الصور واللوجات بتتمسح لوحدها علشان الاختبارات ماتقفش.</div>
     <button class="btn btn-primary btn-sm" onclick="stSavePolicy()"><i class="bi bi-check-circle"></i> احفظي سياسة التنظيف</button>
   </div></div>
+
+  {% if current_user and current_user.role == 'admin' %}
+  <div class="card border-0 shadow-sm mt-3" style="border:1.5px solid rgba(198,40,40,.5) !important"><div class="card-body">
+    <h6 class="fw-bold mb-1 text-danger">🧨 بداية جديدة — امسح كل الداتا (الأداة ترجع كأنها جديدة)</h6>
+    <div class="text-muted small mb-2">التنظيف اللي فوق بيمسح الصور واللوجات بس. ده بيمسح الداتا نفسها من كل الشاشات: التقارير والتشغيلات، دعم المطورين ودعم الأداة،
+      نتايج صحة النظام والأشعة والتقارير والاستلام والتوأم وقاعدة البيانات، ولو اخترت: المواقع والعملاء والاختبارات المتعرفة والإعدادات.
+      <b>قبل المسح بتتاخد نسخة احتياطية كاملة</b> (تترجع من «النسخ الاحتياطي»)، وحسابك بيفضل، ومفيش أي حاجة بتتلمس على مواقع الـ ERP.</div>
+    <div id="frGroups" class="mb-2"></div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <input class="form-control form-control-sm" style="max-width:220px" id="frConfirm" placeholder="اكتب «امسح» للتأكيد">
+      <button class="btn btn-danger btn-sm" onclick="frRun()"><i class="bi bi-exclamation-octagon"></i> خد نسخة احتياطية وامسح المختار</button>
+    </div>
+    <div id="frOut" class="small mt-2"></div>
+  </div></div>
+  {% endif %}
 </div>
+<script>
+const FR = [['runs', 'التشغيلات والتقارير والصور واللوج + دعم المطورين ودعم الأداة (كل المشاكل وحالاتها)', true],
+            ['state', 'نتايج الفحوصات: صحة النظام، الأشعة، مقارنة التقارير، اختبار الاستلام، الحمل، التوأم الرقمي، فحص قاعدة البيانات + اللي الأداة اتعلمته', true],
+            ['sites', 'المواقع والعملاء وكلمات السر', false],
+            ['defs', 'الاختبارات المتعرفة (الشاشات، السيناريوهات، الدورات، ملفات المطور والبيانات)', false],
+            ['settings', 'الإعدادات (التنبيهات، الإيميل، Slack، التذاكر، المظهر وبيانات الشركة)', false],
+            ['users', 'كل المستخدمين ما عدا حسابي', false]];
+(() => { const b = document.getElementById('frGroups'); if (!b) return;
+  b.innerHTML = FR.map(([k, a, on]) => `<label class="d-block small"><input type="checkbox" class="fr" value="${k}" ${on ? 'checked' : ''}> ${a}</label>`).join('') +
+    `<label class="d-block small mt-1"><input type="checkbox" onchange="document.querySelectorAll('.fr').forEach(c => c.checked = this.checked)"> <b>كل حاجة — زي ما الأداة لسه متركبة</b></label>`; })();
+async function frRun() {
+  const groups = [...document.querySelectorAll('.fr:checked')].map(c => c.value), out = document.getElementById('frOut');
+  if (!groups.length) { out.innerHTML = '<span class="text-danger">اختار حاجة تتمسح</span>'; return; }
+  if (!confirm('هتتاخد نسخة احتياطية كاملة وبعدين يتمسح المختار. تكمّل؟')) return;
+  out.textContent = '⏳ باخد نسخة احتياطية كاملة وبعدين بمسح…';
+  const r = await fetch('/api/factory-reset', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({groups, confirm: document.getElementById('frConfirm').value})}).then(r => r.json()).catch(e => ({success: false, error: String(e)}));
+  if (!r.success) { out.innerHTML = `<span class="text-danger">❌ ${stEsc(r.error)}</span>`; return; }
+  out.innerHTML = `<span class="text-success">✅ اتمسح — النسخة الاحتياطية: <b class="ltr">${stEsc(r.backup)}</b></span>`;
+  setTimeout(() => location.href = groups.includes('sites') ? '/settings#test-sites' : '/', 1800);
+}
+</script>
 <script>
 let ST = null;
 const stEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));

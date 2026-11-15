@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}نقل الأرصدة الافتتاحية - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .mg-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .mg-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mg-card > .bd { padding: 14px 16px; }
+  .mg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .mg-side { border: 1px dashed var(--g-line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .mg-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; }
+  .mg-map label { font-size: 12px; color: var(--g-muted); }
+  .mg-teal { background: #0F7C7A; color: #fff !important; border: 0; font-weight: 800; }
+  .mg-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .mg-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .mg-kpi div { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; } .mg-kpi div.on { border-color: #0F7C7A; background: rgba(15,124,122,.07); }
+  .mg-kpi b { font-size: 22px; display: block; } .mg-kpi span { font-size: 12px; color: var(--g-muted); }
+  .mg-t { width: 100%; font-size: 13px; border-collapse: collapse; } .mg-wrap { overflow-x: auto; }
+  .mg-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; white-space: nowrap; }
+  .mg-t td { padding: 7px 6px; border-top: 1px solid var(--g-line); vertical-align: top; } .mg-t td.n { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mg-sub { font-size: 12px; color: var(--g-muted); } .mg-bad { color: #e5484d; font-weight: 700; }
+  .mg-warn { border: 1px solid #B26A00; color: #B26A00; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .mg-verdict { border: 2px solid; border-radius: 12px; padding: 10px 14px; font-weight: 900; font-size: 17px; margin-bottom: 12px; }
+  .mg-empty { color: var(--g-muted); text-align: center; padding: 20px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">الأرصدة اللي جاية من نظام العميل القديم (Excel) قدام نفس الأرصدة متصدّرة من NQ ERP (ميزان المراجعة / أرصدة العملاء / الموردين / الأصناف ← Excel)، سطر بسطر: المطابق، المختلف، الناقص في NQ، والزيادة في NQ، والإجماليات — وهل ملف النظام القديم نفسه متزن.</div>
+  <div class="mg-card"><div class="hd"><b>1. الملفين</b></div><div class="bd">
+    <div class="mg-grid mb-2">
+      <label class="mg-sub">النوع<select class="form-select form-select-sm" id="mgKind"></select></label>
+      <label class="mg-sub">العميل<input class="form-control form-control-sm" id="mgClient"></label>
+      <label class="mg-sub">السماحية في الفرق<input class="form-control form-control-sm" id="mgTol" type="number" step="0.01" value="0.01"></label>
+    </div>
+    <div class="mg-grid">
+      <div class="mg-side"><b>📂 النظام القديم</b><input type="file" class="form-control form-control-sm mt-1" id="mgSrc" accept=".xlsx,.xlsm,.csv"><div id="pvSrc"></div></div>
+      <div class="mg-side"><b>🟢 NQ ERP (متصدّر من التقرير)</b><input type="file" class="form-control form-control-sm mt-1" id="mgErp" accept=".xlsx,.xlsm,.csv"><div id="pvErp"></div></div>
+    </div>
+    <button class="btn mg-teal btn-sm mt-3" id="mgRun">📥 قارن</button><span id="mgMsg" class="ms-2"></span>
+  </div></div>
+  <div id="mgBody"></div>
+  <div class="mg-card"><div class="hd"><b>المقارنات اللي فاتت</b></div><div class="bd" id="mgHist"></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const ST = {same: '✅ مطابق', diff: '❌ مختلف', missing: '⚠️ ناقص في NQ', extra: '➕ زيادة في NQ'}, FA = {balance: 'الرصيد', qty: 'الكمية', value: 'التكلفة'};
+  const fmt = x => x == null ? '—' : Number(x).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  let L = null, MAP = {src: null, erp: null}, R = null, F = 'bad';
+  async function list() {
+    L = await fetch('/api/migration').then(r => r.json());
+    if (!$('#mgKind').innerHTML) $('#mgKind').innerHTML = Object.entries(L.kinds).map(([k, v]) => `<option value="${k}">${E(v)}</option>`).join('');
+    $('#mgHist').innerHTML = L.runs.map(r => `<div class="d-flex justify-content-between flex-wrap gap-2 py-1" style="border-top:1px solid var(--g-line)">
+      <span>${r.ok ? '✅' : '❌'} <b>${E(L.kinds[r.kind] || r.kind)}</b> ${r.client ? '· ' + E(r.client) : ''} <span class="mg-sub">· ${E(r.at)} · ${E(r.src_file)} ← ${E(r.erp_file)}</span></span>
+      <span class="mg-sub">مختلف ${r.counts.diff} · ناقص ${r.counts.missing} · زيادة ${r.counts.extra} <a href="#" data-id="${E(r.id)}">افتح</a></span></div>`).join('') || '<div class="mg-empty">لسه مفيش</div>';
+    document.querySelectorAll('[data-id]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.id); });
+  }
+  function fd() {
+    const f = new FormData();
+    if ($('#mgSrc').files[0]) f.append('src', $('#mgSrc').files[0]);
+    if ($('#mgErp').files[0]) f.append('erp', $('#mgErp').files[0]);
+    if (MAP.src) f.append('map_src', JSON.stringify(MAP.src)); if (MAP.erp) f.append('map_erp', JSON.stringify(MAP.erp));
+    f.append('kind', $('#mgKind').value); f.append('tol', $('#mgTol').value); f.append('client', $('#mgClient').value);
+    return f;
+  }
+  async function preview() {
+    const j = await fetch('/api/migration/preview', {method: 'POST', body: fd()}).then(r => r.json());
+    for (const side of ['src', 'erp']) {
+      const p = j[side], box = document.getElementById(side === 'src' ? 'pvSrc' : 'pvErp');
+      if (!p) { box.innerHTML = ''; continue; }
+      if (p.error) { box.innerHTML = `<div class="mg-warn">${E(p.error)}</div>`; continue; }
+      MAP[side] = p.mapping;
+      box.innerHTML = `<div class="mg-sub mt-1">صف العناوين: ${p.header_row} · ${p.n} سطر — اتأكد من الأعمدة:</div><div class="mg-map">${Object.entries(L.cols).map(([k, n]) => `<label>${n}
+        <select class="form-select form-select-sm" data-side="${side}" data-k="${k}"><option value="-1">—</option>${p.headers.map((h, i) => `<option value="${i}" ${p.mapping[k] === i ? 'selected' : ''}>${E(h || ('عمود ' + (i + 1)))}</option>`).join('')}</select></label>`).join('')}</div>`;
+      box.querySelectorAll('select').forEach(s => s.onchange = () => { const m = {...MAP[s.dataset.side]}; if (+s.value < 0) delete m[s.dataset.k]; else m[s.dataset.k] = +s.value; MAP[s.dataset.side] = m; });
+    }
+  }
+  $('#mgSrc').onchange = () => { MAP.src = null; preview(); };
+  $('#mgErp').onchange = () => { MAP.erp = null; preview(); };
+  $('#mgRun').onclick = async () => {
+    $('#mgMsg').textContent = '⏳';
+    const j = await fetch('/api/migration/run', {method: 'POST', body: fd()}).then(r => r.json());
+    $('#mgMsg').innerHTML = j.success ? '' : `<span class="mg-bad">${E(j.error)}</span>`;
+    if (j.success) { await list(); show(j.id); }
+  };
+  async function show(id) {
+    const j = await fetch(`/api/migration/${id}`).then(r => r.json()); if (!j.success) return;
+    R = j.run; F = 'bad'; draw();
+  }
+  function draw() {
+    const d = R, c = d.counts;
+    const rows = d.rows.filter(r => F === 'all' || (F === 'bad' ? r.status !== 'same' : r.status === F));
+    $('#mgBody').innerHTML = `<div class="mg-card"><div class="hd"><b>2. النتيجة</b><span class="mg-sub">${E(L.kinds[d.kind])} · ${E(d.at)}</span>
+      <span class="d-flex gap-2"><a class="btn btn-sm mg-teal" href="/api/migration/${d.id}/export?fmt=pdf">📄 PDF</a><a class="btn btn-sm mg-out" href="/api/migration/${d.id}/export?fmt=xlsx">Excel</a></span></div><div class="bd">
+      <div class="mg-verdict" style="color:${d.ok ? '#1B7F3B' : '#C62828'};border-color:${d.ok ? '#1B7F3B' : '#C62828'}">${d.ok ? '✅ النقل مطابق' : '❌ فيه فروق لازم تتراجع قبل التسليم'}</div>
+      ${d.src_balanced === false ? '<div class="mg-warn">⚠️ ملف النظام القديم نفسه مش متزن: إجمالي المدين ≠ إجمالي الدائن</div>' : ''}
+      ${d.name_diffs ? `<div class="mg-sub mb-2">ℹ️ ${d.name_diffs} سطر نفس الكود بس الاسم مختلف</div>` : ''}
+      <div class="mg-kpi">${[['bad', c.diff + c.missing + c.extra, 'كل الفروق'], ['diff', c.diff, ST.diff], ['missing', c.missing, ST.missing], ['extra', c.extra, ST.extra], ['same', c.same, ST.same]]
+        .map(([k, n, t]) => `<div data-f="${k}" class="${F === k ? 'on' : ''}"><b>${n}</b><span>${t}</span></div>`).join('')}</div>
+      <div class="mg-wrap mb-3"><table class="mg-t"><thead><tr><th>الإجمالي</th><th>النظام القديم</th><th>NQ ERP</th><th>الفرق</th></tr></thead><tbody>
+        ${Object.entries(d.totals).map(([f, v]) => `<tr><td>${E(L.cols[f] || FA[f] || f)}</td><td class="n">${fmt(v.src)}</td><td class="n">${fmt(v.erp)}</td><td class="n ${Math.abs(v.erp - v.src) > d.tol ? 'mg-bad' : ''}">${fmt(v.erp - v.src)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="mg-wrap"><table class="mg-t"><thead><tr><th>الحالة</th><th>الكود</th><th>الاسم</th>${d.fields.map(f => `<th>${FA[f]} القديم</th><th>${FA[f]} NQ</th><th>الفرق</th>`).join('')}</tr></thead><tbody>
+        ${rows.slice(0, 1500).map(r => `<tr><td style="white-space:nowrap">${ST[r.status]}</td><td>${E(r.code || '—')}</td><td>${E(r.name || '—')}${r.name_diff ? `<div class="mg-sub">في NQ: ${E(r.erp.name)}</div>` : ''}</td>
+          ${d.fields.map(f => `<td class="n">${fmt((r.src || {})[f])}</td><td class="n">${fmt((r.erp || {})[f])}</td><td class="n ${r.diff[f] != null ? 'mg-bad' : ''}">${r.diff[f] != null ? fmt(r.diff[f]) : '—'}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="9" class="mg-empty">مفيش</td></tr>`}</tbody></table></div>
+    </div></div>`;
+    document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { F = b.dataset.f; draw(); });
+  }
+  list();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}اختبار القبول مع العميل - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .ua-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .ua-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ua-card > .bd { padding: 14px 16px; }
+  .ua-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .ua-mods { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; } .ua-mods label { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+  .ua-teal { background: #0F7C7A; color: #fff !important; border: 0; font-weight: 800; }
+  .ua-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .ua-sess { border: 1px solid var(--g-line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .ua-bar { height: 8px; background: rgba(15,124,122,.12); border-radius: 9px; overflow: hidden; margin: 6px 0; } .ua-bar i { display: block; height: 100%; background: #0F7C7A; }
+  .ua-sub { font-size: 12px; color: var(--g-muted); } .ua-link { font-family: ui-monospace, monospace; font-size: 12px; overflow-wrap: anywhere; }
+  .ua-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; margin-top: 8px; }
+  .ua-t td, .ua-t th { padding: 7px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; text-align: start; }
+  .ua-t th { font-size: 12px; color: var(--g-muted); border-top: 0; }
+  .ua-empty { color: var(--g-muted); text-align: center; padding: 20px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">موظفين العميل بيختبروا النظام بنفسهم قبل الاستلام، كل واحد بلينك (من غير حساب على الأداة): سيناريوهاته خطوة بخطوة، «نجح / فشل / مش منطبق» وملاحظة وصورة لو فشل. إنت بتتابع التقدم هنا، وفي الآخر المسؤول عند العميل بيوقّع على الشاشة وتطلع شهادة استلام موقّعة. اللي فشل بيروح «دعم المطورين».</div>
+  <div class="ua-card"><div class="hd"><b>➕ اختبار قبول جديد</b></div><div class="bd">
+    <div class="ua-grid">
+      <label class="ua-sub">العميل<input class="form-control form-control-sm" id="uaClient" placeholder="مثلًا: روائع التشييد للخرسانة"></label>
+      <label class="ua-sub">العنوان<input class="form-control form-control-sm" id="uaTitle" placeholder="اختبار القبول قبل الاستلام"></label>
+      <label class="ua-sub">الموقع<select class="form-select form-select-sm" id="uaSite"></select></label>
+      <label class="ua-sub">المختبرين عند العميل (افصل بفاصلة)<input class="form-control form-control-sm" id="uaTesters" placeholder="أحمد المحاسب، سارة المبيعات، خالد المخازن"></label>
+    </div>
+    <div class="ua-mods" id="uaMods"></div>
+    <button class="btn ua-teal btn-sm" id="uaCreate">✍️ اعمل الاختبار وطلّع اللينك</button><span id="uaMsg" class="ms-2 ua-sub"></span>
+  </div></div>
+  <div class="ua-card"><div class="hd"><b>الاختبارات</b></div><div class="bd" id="uaList"><div class="ua-empty">⏳</div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const RES = {pass: '✅', fail: '❌', na: '➖', '': '⏳'};
+  let D = null, open = '';
+  async function load() {
+    D = await fetch('/api/uat').then(r => r.json());
+    if (!$('#uaMods').innerHTML) {
+      $('#uaMods').innerHTML = D.templates.map(t => `<label><input type="checkbox" class="ua-m" value="${E(t.key)}" checked> ${E(t.name)} <span class="ua-sub">(${t.n} سيناريو · ${t.steps} خطوة)</span></label>`).join('');
+      $('#uaSite').innerHTML = '<option value="">—</option>' + D.sites.map(s => `<option value="${E(s.url)}">${E(s.name)}</option>`).join('');
+    }
+    $('#uaList').innerHTML = D.sessions.map(s => `<div class="ua-sess">
+      <div class="d-flex justify-content-between flex-wrap gap-2"><div><b>${E(s.client || '—')}</b> · ${E(s.title)} <span class="ua-sub">· ${E(s.created.slice(0, 16).replace('T', ' '))}</span></div>
+        <div>${s.status === 'signed' ? `<b style="color:#1B7F3B">🖊️ اتوقّع: ${E(s.signoff.name)}</b>` : '<span class="ua-sub">مفتوح</span>'}</div></div>
+      <div class="ua-bar"><i style="width:${s.progress.pct}%"></i></div>
+      <div class="ua-sub">${s.progress.done} من ${s.progress.steps} خطوة (${s.progress.pct}%) · ✅ ${s.progress.pass} · ❌ ${s.progress.fail} · ➖ ${s.progress.na} · ${s.progress.scenarios} سيناريو · المختبرين: ${E(s.testers.join('، ') || '—')}</div>
+      <div class="d-flex gap-2 flex-wrap align-items-center mt-2"><span class="ua-link" id="ln_${s.id}">${E(s.link)}</span>
+        <button class="btn btn-sm ua-out" data-copy="${E(s.link)}">📋 انسخ لينك العميل</button>
+        <button class="btn btn-sm ua-out" data-open="${E(s.id)}">${open === s.id ? 'اقفل' : 'التفاصيل'}</button>
+        <a class="btn btn-sm ua-teal" href="/api/uat/${E(s.id)}/certificate?fmt=pdf">📄 الشهادة PDF</a>
+        <button class="btn btn-sm btn-outline-danger" data-del="${E(s.id)}">🗑️</button></div>
+      <div id="det_${s.id}"></div></div>`).join('') || '<div class="ua-empty">لسه مفيش</div>';
+    document.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = '✅ اتنسخ'; } catch (e) {} });
+    document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { open = open === b.dataset.open ? '' : b.dataset.open; load(); });
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('أمسح الاختبار ده؟')) return;
+      await fetch(`/api/uat/${b.dataset.del}/delete`, {method: 'POST'}); load(); });
+    if (open) detail(open);
+  }
+  async function detail(id) {
+    const j = await fetch(`/api/uat/${id}`).then(r => r.json()); if (!j.success) return;
+    const s = j.session, box = document.getElementById('det_' + id); if (!box) return;
+    box.innerHTML = `<table class="ua-t"><thead><tr><th style="width:22%">السيناريو</th><th style="width:18%">المختبر</th><th>الخطوات</th></tr></thead><tbody>
+      ${s.scenarios.map(c => `<tr><td><b>${E(c.title)}</b><div class="ua-sub">${E(c.module)}</div></td>
+        <td><select class="form-select form-select-sm ua-as" data-s="${E(c.id)}" ${s.status !== 'open' ? 'disabled' : ''}><option value="">— أي حد —</option>${s.testers.map(t => `<option ${t === c.assignee ? 'selected' : ''}>${E(t)}</option>`).join('')}</select></td>
+        <td>${c.steps.map(st => `<div>${RES[st.result] || '⏳'} ${E(st.text)}${st.note ? ` <span class="ua-sub">— ${E(st.note)}</span>` : ''}${st.file ? ` <a href="/uat/file/${E(id)}/${encodeURIComponent(st.file)}" target="_blank">🖼️</a>` : ''}${st.by ? ` <span class="ua-sub">(${E(st.by)})</span>` : ''}</div>`).join('')}</td></tr>`).join('')}</tbody></table>`;
+    box.querySelectorAll('.ua-as').forEach(sel => sel.onchange = () => fetch(`/api/uat/${id}/assign`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({scenario: sel.dataset.s, assignee: sel.value})}));
+  }
+  $('#uaCreate').onclick = async () => {
+    const body = {client: $('#uaClient').value, title: $('#uaTitle').value, site_url: $('#uaSite').value, testers: $('#uaTesters').value,
+      modules: [...document.querySelectorAll('.ua-m:checked')].map(x => x.value)};
+    const j = await fetch('/api/uat/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    $('#uaMsg').textContent = j.success ? '✅ اتعمل — انسخ اللينك وابعته للعميل' : j.error;
+    if (j.success) { open = j.session.id; load(); }
+  };
+  load();
+  setInterval(() => { if (!document.hidden && !document.activeElement?.matches('input, select, textarea')) load(); }, 30000);
+})();
+</script>
+{% endblock %}

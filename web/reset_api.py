@@ -4,7 +4,8 @@
 Always: a FULL backup first (it shows on this page and can be restored), the current admin account is kept (or you
 would be locked out), and nothing on any ERP site is touched — this only clears the dashboard's own files.
 The admin picks what goes:
-  runs        results, logs, screenshots, evidence / check details, Allure, history, trash
+  runs        results, logs, screenshots, evidence / check details, Allure, history, trash, the developer / tool support
+              lists (statuses, manual problems, the built-in known problems) and the run list kept in memory
   state       system-health checks, accounts checks, recipes, test-data store, heals, risk weights, leftovers
   defs        screen definitions, scenarios, cycles / checks, data files (datasets)
   sites       test sites and their passwords
@@ -22,7 +23,7 @@ from web import auth
 bp = Blueprint("reset", __name__)
 
 GROUPS = {
-    "runs": ("التشغيلات والتقارير", "Runs & reports"),
+    "runs": ("التشغيلات والتقارير ودعم المطورين", "Runs, reports & support"),
     "state": ("نتايج الفحوصات والتعلم", "Checks & learned data"),
     "defs": ("تعريفات الاختبارات", "Test definitions"),
     "sites": ("المواقع وكلمات السر", "Sites & passwords"),
@@ -56,16 +57,50 @@ def _rm(f):
     return 0
 
 
+def _forget_memory():
+    """what the running server keeps in memory: the finished-runs list, the background jobs' logs"""
+    try:
+        from web.queue_manager import get_manager
+        qm = get_manager()
+        with qm.lock:
+            qm.history.clear()
+            qm.queue.clear()
+    except Exception:
+        pass
+    for mod, name in (("web.db_audit_api", "_job"), ("web.twin_api", "JOB")):
+        try:
+            j = getattr(__import__(mod, fromlist=[name]), name)
+            if not j.get("running"):
+                j.update({"log": [], "error": "", "started": "", "started_at": "", "finished": ""})
+        except Exception:
+            pass
+    try:
+        from web import screens_api
+        for k in [k for k, v in screens_api._jobs.items() if v.get("status") != "running"]:
+            screens_api._jobs.pop(k, None)
+    except Exception:
+        pass
+
+
 def wipe(groups, me):
     out = {}
     if "runs" in groups:
         out["runs"] = sum(_wipe_dir(d) for d in (paths.RESULTS_DIR, paths.RUN_LOGS_DIR, paths.SCREENSHOTS_DIR, paths.ALLURE_RESULTS_DIR,
                                                   paths.ALLURE_REPORT_DIR, paths.RUNS_DIR / "checks", paths.HISTORY_DIR, paths.TRASH_DIR,
                                                   paths.APP_LOGS_DIR))
+        out["runs"] += sum(_rm(paths.settings_file(n)) for n in ("support_status.json", "support_manual.json"))
+        try:                                    # the issues written in code (engine/known_issues.py) stop showing too
+            paths.settings_file("known_issues_off").write_text("1", encoding="utf-8")
+        except Exception:
+            pass
+        _forget_memory()
     if "state" in groups:
         out["state"] = _wipe_dir(paths.STATE_DIR, keep=("chrome_profile",)) + _rm(paths.settings_file("risk_weights.json"))
+        _forget_memory()
     if "defs" in groups:
-        out["defs"] = sum(_wipe_dir(d) for d in (paths.SCREENS_DIR, paths.SCENARIOS_DIR, paths.DEFS_DIR / "checks", paths.DATA_DIR / "datasets"))
+        out["defs"] = sum(_wipe_dir(d) for d in (paths.SCREENS_DIR, paths.SCENARIOS_DIR, paths.DEFS_DIR / "checks", paths.DATA_DIR / "datasets",
+                                                  paths.SETTINGS_DIR / "uploads"))
+        out["defs"] += sum(_rm(paths.settings_file(n)) for n in ("discovered_screens.json", "biz_site_data.json", "report_compare.json"))
         try:                                                     # their generated pytest files too
             from engine import screen_config
             out["defs"] += _wipe_dir(screen_config.TESTS_DIR, keep=("__init__.py",))
@@ -75,7 +110,9 @@ def wipe(groups, me):
         out["sites"] = _rm(paths.settings_file("test_sites.json"))
     if "settings" in groups:
         out["settings"] = sum(_rm(paths.settings_file(n)) for n in ("alerts.json", "email_config.json", "slack_config.json",
-                                                                     "site_config.json", "runs.json", "storage_policy.json"))
+                                                                     "site_config.json", "runs.json", "storage_policy.json", "tickets.json",
+                                                                     "monthly_report.json", "storage.json", "tunnel_config.json", "db_audit.json",
+                                                                     "code_twin.json", ".secrets_encrypted"))
     if "users" in groups:
         from web import settings_helper as sh
         users = sh.load_users()

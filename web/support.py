@@ -249,7 +249,7 @@ def collect():
         elif not handled and r["passed"]:
             latest.setdefault((site, "test", key), "pass")
 
-    for k in __import__("engine.known_issues", fromlist=["KNOWN"]).KNOWN:
+    for k in ([] if paths.settings_file("known_issues_off").exists() else __import__("engine.known_issues", fromlist=["KNOWN"]).KNOWN):
         dev.setdefault(k["id"], {**k, "url": k.get("url") or ("https://" + k["site"] + k.get("path", "")), "source": "اتلاحظت يدويًا", "doc": "", "count": 1, "first": k["found"], "last": k["found"], "run_id": "", "runs": []})
     try:
         from engine.report_compare import support_issues
@@ -263,7 +263,8 @@ def collect():
         from engine.db_audit import support_issues as db_issues
         from engine.code_twin import support_issues as twin_issues
         from engine.golive import support_issues as golive_issues
-        for it in golive_issues() + xray_issues() + db_issues() + twin_issues():
+        from engine.uat import support_issues as uat_issues
+        for it in uat_issues() + golive_issues() + xray_issues() + db_issues() + twin_issues():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass

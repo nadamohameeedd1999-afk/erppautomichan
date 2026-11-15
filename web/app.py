@@ -67,6 +67,12 @@ from web.twin_api import bp as _twin_bp  # noqa: E402
 app.register_blueprint(_twin_bp)
 from web.golive_api import bp as _golive_bp  # noqa: E402
 app.register_blueprint(_golive_bp)
+from web.impact_api import bp as _impact_bp  # noqa: E402
+app.register_blueprint(_impact_bp)
+from web.uat_api import bp as _uat_bp  # noqa: E402
+app.register_blueprint(_uat_bp)
+from web.migration_api import bp as _migration_bp  # noqa: E402
+app.register_blueprint(_migration_bp)
 from web.tube_api import bp as _tube_bp  # noqa: E402
 app.register_blueprint(_tube_bp)
 from web.reset_api import bp as _reset_bp

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}أثر التغيير - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .im-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .im-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .im-card > .bd { padding: 14px 16px; }
+  .im-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .im-tab { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 14px; cursor: pointer; background: transparent; color: inherit; font-size: 13px; }
+  .im-tab.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .im-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .im-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .im-kpi div { border: 1px solid var(--g-line); border-radius: 12px; padding: 10px 12px; }
+  .im-kpi b { font-size: 22px; display: block; } .im-kpi span { font-size: 12px; color: var(--g-muted); }
+  .im-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
+  .im-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; }
+  .im-t td { padding: 8px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .im-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .l-عالي { background: rgba(229,72,77,.15); color: #e5484d; } .l-متوسط { background: rgba(245,166,35,.18); color: #c77d00; } .l-منخفض { background: rgba(15,124,122,.12); color: #0F7C7A; }
+  .im-teal { background: #0F7C7A; color: #fff !important; border: 0; font-weight: 800; }
+  .im-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .im-sub { font-size: 12px; color: var(--g-muted); } .im-code { font-family: ui-monospace, monospace; font-size: 11.5px; }
+  .im-warn { border: 1px solid #B26A00; color: #B26A00; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .im-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .im-tests { display: flex; flex-wrap: wrap; gap: 8px; } .im-tests label { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+  @media (max-width: 760px) { .im-t .hide-sm { display: none; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">إيه اللي اتغير في كود الـ ERP بين نسختين، وبيأثر على أنهي شاشات وتقارير وإجراءات — علشان الإصدار يتختبر في المكان اللي اتغير بدل ما نختبر كل حاجة. كل ملف بيتربط بالشاشة من خريطة «🧬 التوأم الرقمي».</div>
+
+  <div class="im-card"><div class="hd"><b>1. النسختين</b><span class="im-sub" id="imTwin"></span></div><div class="bd">
+    <div class="im-tabs"><button class="im-tab on" data-t="gh">GitHub</button><button class="im-tab" data-t="zip">ملفين ZIP</button></div>
+    <div id="tGh">
+      <div class="im-grid">
+        <label class="im-sub">الريبو (owner/repo)<input class="form-control form-control-sm" id="imRepo" placeholder="National-Quality/MyERP"></label>
+        <label class="im-sub">النسخة القديمة (فرع / tag / commit)<input class="form-control form-control-sm" id="imBase" placeholder="main"></label>
+        <label class="im-sub">النسخة الجديدة<input class="form-control form-control-sm" id="imHead" placeholder="Fahad-Test"></label>
+        <label class="im-sub">توكن قراءة (للريبو الخاص) <span id="imTok"></span><input class="form-control form-control-sm" id="imToken" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+      </div>
+      <button class="btn im-teal btn-sm mt-2" id="imGh">🎯 حلّل الفرق</button>
+    </div>
+    <div id="tZip" style="display:none">
+      <div class="im-grid">
+        <label class="im-sub">النسخة القديمة (ZIP)<input type="file" class="form-control form-control-sm" id="imOld" accept=".zip"></label>
+        <label class="im-sub">النسخة الجديدة (ZIP)<input type="file" class="form-control form-control-sm" id="imNew" accept=".zip"></label>
+      </div>
+      <button class="btn im-teal btn-sm mt-2" id="imZip">🎯 حلّل الفرق</button>
+    </div>
+    <div id="imMsg" class="mt-2"></div>
+  </div></div>
+
+  <div id="imBody"><div class="im-empty">⏳</div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  let D = null, F = 'screens';
+  document.querySelectorAll('.im-tab').forEach(b => b.onclick = () => { document.querySelectorAll('.im-tab').forEach(x => x.classList.toggle('on', x === b));
+    $('#tGh').style.display = b.dataset.t === 'gh' ? '' : 'none'; $('#tZip').style.display = b.dataset.t === 'zip' ? '' : 'none'; });
+  const msg = (t, bad) => $('#imMsg').innerHTML = t ? `<div class="${bad ? 'im-warn' : 'im-sub'}">${E(t)}</div>` : '';
+
+  async function load() {
+    D = await fetch('/api/impact').then(r => r.json());
+    const c = D.cfg;
+    if (!$('#imRepo').value) { $('#imRepo').value = c.repo; $('#imBase').value = c.base; $('#imHead').value = c.head; }
+    $('#imTok').textContent = c.has_token ? '✅ محفوظ' : '';
+    $('#imTwin').textContent = D.twin.at ? `خريطة الكود: ${D.twin.screens} شاشة · ${D.twin.at}` : '⚠️ شغّل «التوأم الرقمي» الأول';
+    draw();
+  }
+
+  function draw() {
+    const d = D.result;
+    if (!d) { $('#imBody').innerHTML = '<div class="im-empty">لسه مفيش تحليل — اختار النسختين فوق</div>'; return; }
+    const c = d.counts;
+    const tests = D.tests || [];
+    $('#imBody').innerHTML = `
+    <div class="im-card"><div class="hd"><b>2. الأثر</b><span class="im-sub">${E(d.label)} · ${E(d.at)}</span>
+      <span class="d-flex gap-2"><a class="btn btn-sm im-teal" href="/api/impact/export?fmt=pdf">📄 PDF</a><a class="btn btn-sm im-out" href="/api/impact/export?fmt=json">JSON</a></span></div><div class="bd">
+      <div class="im-kpi">
+        <div><b>${c.files}</b><span>ملف اتغير</span></div><div><b>${c.screens}</b><span>شاشة متأثرة</span></div>
+        <div><b style="color:#e5484d">${c.high}</b><span>تأثير عالي</span></div><div><b>${c.reports}</b><span>تقرير</span></div>
+        <div><b>${c.procs}</b><span>إجراء مخزن</span></div><div><b>${c.global}</b><span>ملف عام</span></div></div>
+      ${d.global.length ? `<div class="im-warn">⚠️ ملفات عامة اتغيرت (${E(d.global.slice(0, 6).join('، '))}) — بتأثر على كل الشاشات: شغّل «صحة النظام» كمان</div>` : ''}
+      <div class="im-tabs">${[['screens', 'الشاشات'], ['reports', 'التقارير'], ['procs', 'الإجراءات'], ['files', 'الملفات']].map(([k, n]) => `<button class="im-tab ${F === k ? 'on' : ''}" data-f="${k}">${n}</button>`).join('')}</div>
+      ${table(d)}
+    </div></div>
+    <div class="im-card"><div class="hd"><b>3. اختبر المتأثر بس</b></div><div class="bd">
+      <div class="d-flex gap-2 flex-wrap align-items-center mb-2"><select class="form-select form-select-sm" style="max-width:280px" id="imSite">
+        ${D.sites.map(s => `<option value="${E(s.id)}">${E(s.name)} ${s.kind === 'client' ? '🔒' : '🧪'}</option>`).join('')}</select>
+        <label class="im-sub"><input type="checkbox" id="imHealth" ${d.global.length ? 'checked' : ''}> 🩺 صحة النظام (كل الشاشات بتفتح)</label></div>
+      ${tests.length ? `<div class="im-sub mb-1">🤖 الاختبار الآلي للشاشات المتأثرة (إضافة، ترقيم، تعديل، طباعة، حذف):</div>
+        <div class="im-tests">${tests.map(t => `<label><input type="checkbox" class="im-ts" value="${E(t.screen)}" ${t.level !== 'منخفض' ? 'checked' : ''}> <span class="im-b l-${E(t.level)}">${E(t.level)}</span> ${E(t.name)}</label>`).join('')}</div>`
+        : '<div class="im-sub">مالقيتش شاشات متأثرة ليها اختبار آلي في النظام — شغّل «صحة النظام»</div>'}
+      <button class="btn im-teal btn-sm mt-3" id="imRun">▶ شغّل الاختبارات المختارة</button><div id="imRunMsg"></div>
+    </div></div>`;
+    document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { F = b.dataset.f; draw(); });
+    $('#imRun').onclick = async () => {
+      const body = {site: $('#imSite').value, health: $('#imHealth').checked, screens: [...document.querySelectorAll('.im-ts:checked')].map(x => x.value)};
+      const j = await fetch('/api/impact/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+      $('#imRunMsg').innerHTML = j.success ? `<div class="im-sub mt-2">✅ اتضاف ${j.count} اختبار للطابور</div>${j.warn ? `<div class="im-warn">${E(j.warn)}</div>` : ''}` : `<div class="im-warn">${E(j.error)}</div>`;
+    };
+  }
+
+  function table(d) {
+    if (F === 'screens') return d.screens.length ? `<table class="im-t"><thead><tr><th style="width:90px">التأثير</th><th>الشاشة</th><th class="hide-sm" style="width:18%">الموديول</th><th class="hide-sm" style="width:40%">ليه</th></tr></thead><tbody>
+      ${d.screens.slice(0, 400).map(s => `<tr><td><span class="im-b l-${E(s.level)}">${E(s.level)}</span><div class="im-sub">${s.score}</div></td><td><b>${E(s.ar || s.name)}</b><div class="im-sub im-code">${E(s.key)}</div></td>
+        <td class="hide-sm im-sub">${E(s.module || '—')}</td><td class="hide-sm im-sub">${s.why.slice(0, 5).map(E).join('<br>')}</td></tr>`).join('')}</tbody></table>` : '<div class="im-empty">مفيش شاشة اتربطت بالتغيير</div>';
+    if (F === 'reports') return d.reports.length ? `<table class="im-t"><thead><tr><th>التقرير</th><th>الملفات</th></tr></thead><tbody>${d.reports.map(r => `<tr><td><b>${E(r.name)}</b><div class="im-code im-sub">${E(r.path)}</div></td><td class="im-code im-sub">${r.files.map(E).join('<br>')}</td></tr>`).join('')}</tbody></table>` : '<div class="im-empty">مفيش تقارير اتغيرت</div>';
+    if (F === 'procs') return d.procs.length ? `<table class="im-t"><thead><tr><th>الإجراء</th><th>بيتنادي من</th></tr></thead><tbody>${d.procs.map(p => `<tr><td class="im-code"><b>${E(p.name)}</b><div class="im-sub">${p.files.map(E).join('<br>')}</div></td><td class="im-sub">${E(p.screens.join('، ') || '—')}</td></tr>`).join('')}</tbody></table>` : '<div class="im-empty">مفيش إجراءات اتغيرت</div>';
+    return `<table class="im-t"><thead><tr><th>الملف</th><th style="width:100px">النوع</th><th style="width:80px">الحالة</th><th style="width:70px">+/−</th><th class="hide-sm">الشاشات</th></tr></thead><tbody>
+      ${d.files.slice(0, 600).map(f => `<tr><td class="im-code">${E(f.path)}</td><td class="im-sub">${E(f.kind_ar)}</td><td class="im-sub">${E(f.status)}</td><td class="im-sub">+${f.add} −${f.del}</td><td class="hide-sm im-sub">${E((f.screens || []).join('، ') || '—')}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  $('#imGh').onclick = async () => {
+    msg('⏳ بجيب الفرق من GitHub…');
+    const body = {repo: $('#imRepo').value.trim(), base: $('#imBase').value.trim(), head: $('#imHead').value.trim()};
+    if ($('#imToken').value) await fetch('/api/impact/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: $('#imToken').value})});
+    $('#imToken').value = '';
+    const j = await fetch('/api/impact/github', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    msg(j.success ? '' : j.error, !j.success); load();
+  };
+  $('#imZip').onclick = async () => {
+    const a = $('#imOld').files[0], b = $('#imNew').files[0];
+    if (!a || !b) return msg('اختار الملفين', true);
+    msg('⏳ برفع وبقارن…');
+    const fd = new FormData(); fd.append('old', a); fd.append('new', b);
+    const j = await fetch('/api/impact/zips', {method: 'POST', body: fd}).then(r => r.json()).catch(e => ({success: false, error: String(e)}));
+    msg(j.success ? '' : j.error, !j.success); load();
+  };
+  load();
+})();
+</script>
+{% endblock %}

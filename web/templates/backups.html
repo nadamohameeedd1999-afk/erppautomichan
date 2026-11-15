@@ -82,7 +82,7 @@
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KIND = { auto: 'أوتوماتيك', manual: 'يدوي', 'before-restore': 'قبل استرجاع', 'before-reset': 'قبل البداية الجديدة' };
 const RS_AR = {{ 'true' if current_lang == 'ar' else 'false' }};
-const RS = [['runs', 'التشغيلات والتقارير والصور واللوج', 'Runs, reports, screenshots, logs', true],
+const RS = [['runs', 'التشغيلات والتقارير والصور واللوج + دعم المطورين ودعم الأداة', 'Runs, reports, screenshots, logs + developer / tool support', true],
             ['state', 'نتايج صحة النظام والحسابات + اللي الأداة اتعلمته (الوصفات، بيانات الاختبار، الإصلاحات)', 'Health / accounts results + what the tool learned (recipes, test data, heals)', true],
             ['defs', 'تعريفات الاختبارات (الشاشات، السيناريوهات، الدورات، ملفات البيانات)', 'Test definitions (screens, scenarios, cycles, data files)', false],
             ['sites', 'المواقع وكلمات السر', 'Sites & passwords', false],

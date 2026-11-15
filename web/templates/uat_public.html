@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — اختبار القبول</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --line: #D5E2E1; --text: #1C2B2A; --muted: #6b7c7b; --bg: #f5f8f8; --panel: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --light: #12302f; --line: #2a3d3c; --text: #e6efee; --muted: #9db1b0; --bg: #0f1716; --panel: #162120; } }
+  * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", Tahoma, "Microsoft Sans Serif", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+  header { background: var(--teal); color: #fff; padding: 14px 16px; } header b { font-size: 18px; display: block; } header span { font-size: 13px; opacity: .9; }
+  main { max-width: 900px; margin: 0 auto; padding: 14px 16px 60px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .bar { height: 10px; background: var(--light); border-radius: 9px; overflow: hidden; margin: 8px 0; } .bar i { display: block; height: 100%; background: var(--teal); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .scn h3 { margin: 0 0 4px; font-size: 16px; } .mod { font-size: 12px; color: var(--teal); font-weight: 700; }
+  .step { border-top: 1px solid var(--line); padding: 10px 0; } .step .t { font-weight: 700; } .step .e { font-size: 13px; color: var(--muted); margin: 2px 0 8px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btns button { border: 1.5px solid var(--line); background: transparent; color: inherit; border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; min-height: 36px; }
+  .btns .pass.on { background: #1B7F3B; border-color: #1B7F3B; color: #fff; } .btns .fail.on { background: #C62828; border-color: #C62828; color: #fff; }
+  .btns .na.on { background: #6B7280; border-color: #6B7280; color: #fff; }
+  textarea, input[type=text], select { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; background: var(--panel); color: inherit; }
+  .fail-box { margin-top: 8px; display: none; } .fail-box.on { display: block; }
+  .go { background: var(--teal); color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 800; font-size: 15px; cursor: pointer; }
+  canvas { border: 1.5px dashed var(--line); border-radius: 10px; width: 100%; height: 160px; background: #fff; touch-action: none; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+  .dec label { display: block; padding: 6px 0; } .err { color: #C62828; font-size: 13px; margin-top: 6px; } .ok { color: #1B7F3B; font-weight: 700; }
+  .thumb { max-height: 80px; border-radius: 8px; margin-top: 6px; display: block; }
+</style>
+</head>
+<body>
+<header><b>✍️ {{ title }}</b><span>{{ client }} — اختبار القبول قبل استلام النظام</span></header>
+<main>
+  <div class="card" id="who">
+    <b>إنت مين؟</b>
+    <div class="muted">اختار اسمك علشان تظهرلك السيناريوهات بتاعتك.</div>
+    <select id="tester" style="margin-top:8px"></select>
+  </div>
+  <div class="card"><div class="muted" id="progTxt"></div><div class="bar"><i id="prog" style="width:0"></i></div></div>
+  <div id="list"></div>
+  <div class="card" id="signBox"></div>
+</main>
+<script>
+(() => {
+  const tok = location.pathname.split('/').pop(), $ = s => document.querySelector(s);
+  const E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  let me = ''; try { me = localStorage.getItem('uat_' + tok) || ''; } catch (e) {}
+  let D = null;
+  async function load() {
+    D = await fetch(`/api/uat/s/${tok}?tester=${encodeURIComponent(me)}`).then(r => r.json());
+    const sel = $('#tester');
+    sel.innerHTML = '<option value="">— كل السيناريوهات —</option>' + D.testers.map(t => `<option ${t === me ? 'selected' : ''}>${E(t)}</option>`).join('');
+    const p = D.progress;
+    $('#prog').style.width = p.pct + '%';
+    $('#progTxt').textContent = `${p.done} من ${p.steps} خطوة اتختبرت (${p.pct}%) · ✅ ${p.pass} · ❌ ${p.fail} · ➖ ${p.na}`;
+    const closed = D.status !== 'open';
+    $('#list').innerHTML = D.scenarios.map(s => `<div class="card scn"><div class="mod">${E(s.module)}${s.assignee ? ' · ' + E(s.assignee) : ''}</div><h3>${E(s.title)}</h3>
+      ${s.steps.map((st, i) => `<div class="step" data-id="${E(st.id)}"><div class="t">${i + 1}. ${E(st.text)}</div><div class="e">المفروض: ${E(st.expect)}</div>
+        <div class="btns">${[['pass', '✅ نجح'], ['fail', '❌ فشل'], ['na', '➖ مش منطبق']].map(([k, n]) => `<button class="${k} ${st.result === k ? 'on' : ''}" data-r="${k}" ${closed ? 'disabled' : ''}>${n}</button>`).join('')}</div>
+        <div class="fail-box ${st.result === 'fail' ? 'on' : ''}"><textarea rows="2" placeholder="إيه اللي حصل؟" ${closed ? 'disabled' : ''}>${E(st.note)}</textarea>
+          <div style="margin-top:6px"><input type="file" accept="image/*" ${closed ? 'disabled' : ''}> <span class="muted">صورة للشاشة (اختياري)</span></div>
+          ${st.file ? `<img class="thumb" src="/uat/s/${tok}/file/${encodeURIComponent(st.file)}">` : ''}</div>
+        ${st.by ? `<div class="muted">${E(st.by)} · ${E((st.at || '').replace('T', ' '))}</div>` : ''}</div>`).join('')}</div>`).join('') || '<div class="card muted">مفيش سيناريوهات</div>';
+    document.querySelectorAll('.step').forEach(el => {
+      const id = el.dataset.id, ta = el.querySelector('textarea');
+      el.querySelectorAll('[data-r]').forEach(b => b.onclick = () => send(id, b.dataset.r, b.dataset.r === 'fail' ? ta.value : ''));
+      ta.onchange = () => send(id, 'fail', ta.value);
+      el.querySelector('input[type=file]').onchange = async ev => {
+        const f = ev.target.files[0]; if (!f) return;
+        const fd = new FormData(); fd.append('file', f); fd.append('step', id);
+        const j = await fetch(`/api/uat/s/${tok}/file`, {method: 'POST', body: fd}).then(r => r.json());
+        if (!j.success) alert(j.error); load();
+      };
+    });
+    signBox();
+  }
+  async function send(step, result, note) {
+    const j = await fetch(`/api/uat/s/${tok}/step`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({step, result, note, by: me})}).then(r => r.json());
+    if (!j.success) alert(j.error); load();
+  }
+  $('#tester').onchange = e => { me = e.target.value; try { localStorage.setItem('uat_' + tok, me); } catch (x) {} load(); };
+
+  function signBox() {
+    const b = $('#signBox');
+    if (D.status !== 'open' && D.signoff) {
+      b.innerHTML = `<b class="ok">✅ اتوقّع — ${E(D.signoff.name)} (${E(D.signoff.job || '')}) · ${E(D.signoff.at.replace('T', ' '))}</b>
+        <div style="margin-top:10px"><a class="go" style="text-decoration:none;display:inline-block" href="/uat/s/${tok}/certificate">📄 شهادة الاستلام PDF</a></div>`;
+      return;
+    }
+    if (b.dataset.on) return;
+    b.dataset.on = 1;
+    b.innerHTML = `<b>🖊️ الاعتماد والتوقيع</b><div class="muted">للمسؤول عند العميل بعد ما الاختبار يخلص.</div>
+      <div class="row" style="margin-top:10px"><input type="text" id="sgName" placeholder="الاسم"><input type="text" id="sgJob" placeholder="الوظيفة"></div>
+      <div class="dec" style="margin-top:8px">
+        <label><input type="radio" name="dec" value="accept"> ✅ مقبول — نستلم النظام</label>
+        <label><input type="radio" name="dec" value="accept_notes"> ⚠️ مقبول بملاحظات — نستلم ويتصلح اللي فشل</label>
+        <label><input type="radio" name="dec" value="reject"> ⛔ مرفوض — لازم يتصلح الأول</label></div>
+      <textarea id="sgNotes" rows="2" placeholder="ملاحظات (اختياري)"></textarea>
+      <div class="muted" style="margin:8px 0 4px">ارسم توقيعك:</div><canvas id="sgPad"></canvas>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="go" id="sgGo">وقّع واعتمد</button><button id="sgClear" style="border:1px solid var(--line);background:transparent;color:inherit;border-radius:10px;padding:8px 14px">امسح التوقيع</button></div>
+      <div class="err" id="sgErr"></div>`;
+    const cv = $('#sgPad'), ctx = cv.getContext('2d'); let drawing = false, dirty = false;
+    const fit = () => { const r = cv.getBoundingClientRect(); cv.width = r.width * 2; cv.height = r.height * 2; ctx.scale(2, 2); ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0A5654'; };
+    fit();
+    const pt = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    cv.onpointerdown = e => { drawing = true; dirty = true; ctx.beginPath(); ctx.moveTo(...pt(e)); cv.setPointerCapture(e.pointerId); };
+    cv.onpointermove = e => { if (drawing) { ctx.lineTo(...pt(e)); ctx.stroke(); } };
+    cv.onpointerup = () => drawing = false;
+    $('#sgClear').onclick = () => { ctx.clearRect(0, 0, cv.width, cv.height); dirty = false; };
+    $('#sgGo').onclick = async () => {
+      const dec = (document.querySelector('[name=dec]:checked') || {}).value;
+      if (!dirty) return $('#sgErr').textContent = 'ارسم التوقيع';
+      const j = await fetch(`/api/uat/s/${tok}/sign`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: $('#sgName').value, job: $('#sgJob').value, decision: dec, notes: $('#sgNotes').value, sig: cv.toDataURL('image/png')})}).then(r => r.json());
+      if (!j.success) return $('#sgErr').textContent = j.error;
+      load();
+    };
+  }
+  load();
+})();
+</script>
+</body>
+</html>

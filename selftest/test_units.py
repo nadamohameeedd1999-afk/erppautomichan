@@ -567,3 +567,74 @@ def test_golive_odd_states(tmp_path, monkeypatch):
     assert G._ctrl("https://h/Sales/Index?x") == "sales" and G._ctrl("/?a") == ""
     d = G.collect(url)
     assert d["verdict"] in ("no", "care") and G.report_html(d)
+
+
+def test_factory_reset_clears_support(tmp_path, monkeypatch):
+    from config import paths
+    from web import reset_api, support
+    for name in ("RESULTS_DIR", "RUN_LOGS_DIR", "SCREENSHOTS_DIR", "ALLURE_RESULTS_DIR", "ALLURE_REPORT_DIR", "HISTORY_DIR", "TRASH_DIR",
+                 "APP_LOGS_DIR", "STATE_DIR", "SETTINGS_DIR"):
+        d = tmp_path / name.lower()
+        d.mkdir()
+        monkeypatch.setattr(paths, name, d)
+    monkeypatch.setattr(paths, "RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr(support, "paths", paths)
+    from web import data_helper
+    monkeypatch.setattr(data_helper, "RESULTS_DIR", paths.RESULTS_DIR)
+    (paths.SETTINGS_DIR / "support_manual.json").write_text('[{"id": "m1", "title": "x"}]', encoding="utf-8")
+    (paths.STATE_DIR / "xray_a.json").write_text("{}", encoding="utf-8")
+    assert len(support.collect()[0]) > 0
+    out = reset_api.wipe(["runs", "state"], "admin")
+    assert out["runs"] >= 1 and out["state"] >= 1
+    left = support.collect()[0]
+    assert left == [], [(x.get("source"), x.get("title")) for x in left][:3]
+    assert not (paths.STATE_DIR / "xray_a.json").exists()
+
+
+def test_impact_classify_and_analyse():
+    from engine import impact as I
+    assert I.classify("MyERP/Controllers/BanksController.cs") == ("controller", "banks")
+    assert I.classify("MyERP/Views/Banks/Index.cshtml") == ("view", "banks")
+    assert I.classify("MyERP/Views/Shared/_Layout.cshtml")[0] == "global"
+    assert I.classify("MyERP/Reporting/Reports/ItemCard.Designer.cs") == ("report", "ItemCard")
+    twin = {"screens": {"banks": {"name": "Banks", "procs": ["Bank_Get"], "tables": ["Banks"]}, "cash": {"name": "Cash", "procs": ["Bank_Get"], "tables": []}}}
+    files = [{"path": "Controllers/BanksController.cs", "status": "اتعدل", "add": 1, "del": 0, "lines": ["var x = db.Exec(\"Bank_Get\");"]},
+             {"path": "Db/fix.sql", "status": "جديد", "add": 2, "del": 0, "lines": ["ALTER PROCEDURE [dbo].[Bank_Get]", "AS SELECT 1"]},
+             {"path": "Views/Shared/_Layout.cshtml", "status": "اتعدل", "add": 1, "del": 1, "lines": ["<div>"]}]
+    r = I.analyse(files, twin, "t")
+    s = {e["key"]: e for e in r["screens"]}
+    assert s["banks"]["score"] > s["cash"]["score"] > 0 and r["counts"]["global"] == 1 and r["procs"][0]["name"] == "bank_get"
+
+
+def test_uat_flow(tmp_path, monkeypatch):
+    import base64
+    from config import paths
+    from engine import uat as U
+    monkeypatch.setattr(paths, "SETTINGS_DIR", tmp_path)
+    monkeypatch.setattr(paths, "DATA_DIR", tmp_path)
+    d = U.create("قبول", "عميل", "https://x", ["cash"], ["أ", "ب"])
+    assert U.by_token(d["token"])["id"] == d["id"] and U.by_token("x" * 24) is None
+    sid = d["scenarios"][0]["steps"][0]["id"]
+    U.set_step(d, sid, "fail", "غلط", "أ")
+    png = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()
+    import pytest
+    with pytest.raises(ValueError):
+        U.sign(d, "م", "", "accept", "", png)
+    U.sign(d, "م", "مدير", "accept_notes", "", png)
+    assert d["status"] == "signed" and U.support_issues()[0]["severity"] == "عالية" and "شهادة" in U.certificate_html(d)
+    with pytest.raises(ValueError):
+        U.set_step(d, sid, "pass", "", "أ")
+
+
+def test_migration_compare():
+    from engine import migration as M
+    src = {"rows": [{"code": "0101", "name": "الصندوق", "debit": 100, "credit": None, "balance": 100, "qty": None, "value": None},
+                    {"code": "", "name": "البنك الأهلي", "debit": 50, "credit": None, "balance": 50, "qty": None, "value": None},
+                    {"code": "9", "name": "ناقص", "debit": None, "credit": 150, "balance": -150, "qty": None, "value": None}]}
+    erp = {"rows": [{"code": "101", "name": "الصندوق", "debit": 100, "credit": 0, "balance": 100, "qty": None, "value": None},
+                    {"code": "77", "name": "البنك الاهلى", "debit": 40, "credit": 0, "balance": 40, "qty": None, "value": None}]}
+    r = M.compare(src, erp, 0.01, "accounts")
+    st = {x["name"]: x["status"] for x in r["rows"]}
+    assert st == {"الصندوق": "same", "البنك الأهلي": "diff", "ناقص": "missing"} and r["src_balanced"] is True and not r["ok"]
+    assert M._num("(1,250.50)") == -1250.5 and M._num("٣٠٠") == 300
+    assert M.guess(["كود", "اسم الحساب", "رصيد مدين", "رصيد دائن"]) == {"code": 0, "name": 1, "debit": 2, "credit": 3}
