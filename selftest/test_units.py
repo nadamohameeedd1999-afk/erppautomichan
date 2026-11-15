@@ -525,3 +525,16 @@ def test_golive_collect_and_report(tmp_path, monkeypatch):
     assert tg[0]["name"] == "الصفحة الرئيسية" and tg[1]["url"].endswith("/Sales/Index") and tg[-1]["kind"] == "طلب بيانات"
     G.save_plan(url, {"last": d})
     assert any(i["source"] == "🚀 اختبار الاستلام" for i in G.support_issues())
+
+
+def test_all_templates_compile():
+    import os
+    from web.app import app
+    bad = []
+    for n in os.listdir("web/templates"):
+        if n.endswith(".html"):
+            try:
+                app.jinja_env.get_template(n)
+            except Exception as e:
+                bad.append(f"{n}: {e}")
+    assert not bad, bad

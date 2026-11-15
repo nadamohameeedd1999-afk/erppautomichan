@@ -73,6 +73,7 @@
 (() => {
   const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
   const SEV = {'عالية': 0, 'متوسطة': 1, 'منخفضة': 2, 'للعلم': 3};
+  const RS = {pass: '✅', fail: '❌', waiting: '⏳'};
   const VT = {go: '✅ مقبول', care: '⚠️ بملاحظات', no: '⛔ مرفوض', na: '— ما اتفحصش'};
   let S = {site: new URLSearchParams(location.search).get('site') || '', f: 'conf', area: '', q: ''}, D = null, stagesDrawn = false;
 
@@ -112,7 +113,7 @@
         <div class="v">${VT[a.verdict]}${a.mid ? ' · ' + a.mid + ' ملاحظة' : ''}</div></div>`).join('')}</div>
     </div></div>
     ${runs.length ? `<div class="gl-card"><div class="hd"><b>المراحل</b><span class="gl-sub">بدأ ${E(d.plan.at || '')} ${d.plan.by ? '· ' + E(d.plan.by) : ''}</span></div><div class="bd"><div class="gl-runs">
-      ${runs.map(r => `<div class="gl-run"><span>${E(r.name)}</span><span>${{pass: '✅', fail: '❌', waiting: '⏳'}[r.status]}</span></div>`).join('')}</div></div></div>` : ''}
+      ${runs.map(r => `<div class="gl-run"><span>${E(r.name)}</span><span>${RS[r.status] || ''}</span></div>`).join('')}</div></div></div>` : ''}
     <div class="gl-card"><div class="hd"><b>المشاكل</b>
       <input class="form-control form-control-sm" style="max-width:240px" id="glQ" placeholder="بحث…" value="${E(S.q)}"></div><div class="bd">
       <div class="gl-chips">
