@@ -31,6 +31,14 @@ def _extra_checks():
             if c.get("type") in ("bizcases", "biz", "cycle") and not c.get("error")]
 
 
+def _all_screens():
+    try:
+        from engine.auto_test import all_screens
+        return [{"key": s["key"], "name": s["name"]} for s in all_screens()]
+    except Exception:
+        return []
+
+
 @bp.route("/api/golive")
 @auth.login_required
 def api_state():
@@ -53,7 +61,7 @@ def api_state():
         if p and data:
             p["last"] = data
             G.save_plan(cur["url"], p)
-    return jsonify({"success": True, "sites": sites, "site": cur, "data": data, "extras": _extra_checks(), "fire": G.key_screens(), "error": err,
+    return jsonify({"success": True, "sites": sites, "site": cur, "data": data, "extras": _extra_checks(), "fire": G.key_screens(), "screens": _all_screens(), "error": err,
                     "stages": [{"type": t, "key": k, "icon": i, "name": n} for t, k, i, n in G.STEPS]})
 
 
@@ -74,11 +82,11 @@ def api_run():
         if k in want:
             saved = C.save(cfgs[k])
             stages.append({"key": k, "kind": t, "name": f"{icon} {name}", "path": C.test_path_for(saved["key"])})
-    names = {s["key"]: s for s in G.key_screens()}
+    names = {s["key"]: s for s in _all_screens()}
     for k in (j.get("fire") or []):
         if k in names:
             saved = C.save(G.fire_config(k, names[k]["name"]))
-            stages.append({"key": saved["key"], "kind": "auto", "name": f"🔥 نار: {names[k]['name']}", "path": C.test_path_for(saved["key"])})
+            stages.append({"key": saved["key"], "kind": "auto", "name": f"🧪 شامل: {names[k]['name']}", "path": C.test_path_for(saved["key"])})
     for x in _extra_checks():
         if x["key"] in (j.get("extras") or []):
             stages.append({"key": x["key"], "kind": x["type"], "name": "📚 " + x["name"], "path": C.test_path_for(x["key"])})

@@ -35,9 +35,9 @@ STEPS = [
     ("api", "golive_api", "🔌", "طلبات البيانات (API)"),
     ("load", "golive_load", "🏋️", "اختبار الحمل"),
 ]
-AREAS = ["الشاشات", "الأسماء واللينكات", "التقارير", "السرعة", "الحمل", "الحسابات", "الأمان والمكتبات", "الكود", "الشاشات الرئيسية (نار)", "الدورات المستندية"]
+AREAS = ["الشاشات", "الأسماء واللينكات", "التقارير", "السرعة", "الحمل", "الحسابات", "الأمان والمكتبات", "الكود", "الشاشات الرئيسية — اختبار شامل", "الدورات المستندية"]
 
-# 🔥 the main document screens (found by name in the system's screens) → the automatic test with every «try to break it» way
+# 🧪 the main document screens (found by name in the system's screens) → the automatic test with EVERY scenario
 KEY_SCREENS = [
     ("فاتورة البيع", r"فاتور[ةه] (?:ال)?(?:بيع|مبيعات)|فواتير (?:ال)?(?:بيع|مبيعات)"),
     ("مرتجع المبيعات", r"مرتجع(?:ات)? (?:ال)?(?:بيع|مبيعات)"),
@@ -75,12 +75,12 @@ def key_screens():
 def fire_key(screen):
     import hashlib
     k = re.sub(r"[^a-z0-9_]", "_", str(screen).lower()).strip("_")[:50] or "s"
-    return f"golive_fire_{k}_{hashlib.sha1(str(screen).encode()).hexdigest()[:4]}"
+    return f"golive_main_{k}_{hashlib.sha1(str(screen).encode()).hexdigest()[:4]}"
 
 
 def fire_config(screen, name):
     from engine.checks import FIRE_WAYS
-    return {"key": fire_key(screen), "type": "auto", "name_ar": f"🔥 نار: {name}", "screen": screen, "ways": FIRE_WAYS,
+    return {"key": fire_key(screen), "type": "auto", "name_ar": f"🧪 شامل: {name}", "screen": screen, "ways": FIRE_WAYS,
             "scenarios": ["first"], "fields_mode": "all"}
 
 
@@ -350,7 +350,7 @@ def collect(url, name=""):
     areas["الكود"] = {"ran": bool(twin), "bad": code_n,
                       "text": (f"{len(present)} شاشة عند العميل اتقارنت بالكود · {code_n} فيها مشكلة" if twin else "التوأم الرقمي ما اتشغلش")}
 
-    # ---- 9. 🔥 the main screens under fire (automatic test, every way)
+    # ---- 9. 🧪 the main screens, every scenario (automatic test, every way)
     runs = _runs(plan)
     fire = [r for r in runs if r.get("kind") == "auto"]
     for r in fire:
@@ -364,18 +364,18 @@ def collect(url, name=""):
             pass
         rows_ = ((det or {}).get("detail") or {}).get("rows") or []
         bad_rows = [x for x in rows_ if x.get("ok") is False]
-        scr = r["name"].replace("📚 ", "").replace("🔥 نار: ", "")
+        scr = r["name"].replace("📚 ", "").replace("🧪 شامل: ", "")
         if not bad_rows:
-            findings.append(_f("الشاشات الرئيسية (نار)", "متوسطة", f"«{scr}» الاختبار فشل", "", r["msg"][:400], "شوف تقرير التشغيل", False, scr))
+            findings.append(_f("الشاشات الرئيسية — اختبار شامل", "متوسطة", f"«{scr}» الاختبار فشل", "", r["msg"][:400], "شوف تقرير التشغيل", False, scr))
         for x in bad_rows:
             c = (list(x.get("cells") or []) + ["", "", ""])[:3]
             txt = str(c[2] if len(c) > 2 else "")
             bad_line = next((l.strip() for l in txt.splitlines() if l.strip().startswith("❌")), (txt.splitlines() or [""])[0])
             conf = bool(SITE_BUG.search(txt))
-            findings.append(_f("الشاشات الرئيسية (نار)", "عالية" if conf else "متوسطة", f"«{scr}» — {c[1]}: {bad_line.lstrip('❌ ')[:170]}", "",
+            findings.append(_f("الشاشات الرئيسية — اختبار شامل", "عالية" if conf else "متوسطة", f"«{scr}» — {c[1]}: {bad_line.lstrip('❌ ')[:170]}", "",
                                txt[:500], "", conf, scr))
-    areas["الشاشات الرئيسية (نار)"] = {"ran": bool(fire), "bad": sum(1 for r in fire if r["status"] == "fail"),
-                                        "text": (f"{sum(1 for r in fire if r['status'] == 'pass')} من {len(fire)} شاشة صمدت" if fire else "ما اتختارتش")}
+    areas["الشاشات الرئيسية — اختبار شامل"] = {"ran": bool(fire), "bad": sum(1 for r in fire if r["status"] == "fail"),
+                                        "text": (f"{sum(1 for r in fire if r['status'] == 'pass')} من {len(fire)} شاشة نجحت في كل السيناريوهات" if fire else "ما اتختارتش")}
 
     # ---- 10. business cycles (the plan's extra runs)
     cyc = [r for r in runs if r.get("kind") in ("bizcases", "biz", "cycle")]

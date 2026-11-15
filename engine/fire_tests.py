@@ -1,10 +1,14 @@
 """
-🔥 اختبار النار — the extra ways of the automatic test that try to BREAK a screen, the way a careless or a malicious user would:
+🧪 الاختبار الشامل — the extra ways of the automatic test: more ways to fill a document, and the ways a careless or a
+malicious user would try to BREAK the screen:
+
+  variants  🎲  3 more documents: random choices · boundary values (long texts, big numbers) · required fields only —
+                each reopened and compared, then deleted
 
   reject    🚫  save with nothing filled, then with each required field left empty (up to 3): every one must be refused,
                 with a clear message (not a server crash / SQL text)
   negative  ➖  -5 in every amount / quantity box of the header: must be refused
-  fire      🔥  quotes, SQL characters, HTML + a harmless script probe, emoji and Arabic diacritics in every text box:
+  fire      🛡️  quotes, SQL characters, HTML + a harmless script probe, symbols and Arabic diacritics in every text box:
                 refused with a clear message = fine · a server error = SQL / code bug · the probe RUNS in the list = XSS hole ·
                 the text comes back different = noted · then the record is deleted
   burst     ⚡  5 documents saved back to back: all saved, numbers unique and in order, the time of each — then deleted
@@ -116,7 +120,43 @@ def way_negative(ctx):
     return f"{head}\n⚪ مقدرتش أجربه — {err.splitlines()[0][:160] if err else '—'}", SKIP, ""
 
 
-# ---------------------------------------------------------------- 🔥 hostile text
+# ---------------------------------------------------------------- 🎲 other ways to fill
+def way_variants(ctx):
+    from engine.auto_test import _variant, build_fields
+    from engine.screen_runner import RUN_VARS
+    d, cr, base = ctx["driver"], ctx["cred"], ctx["base"]
+    before = RUN_VARS.get("saved_no")
+    tries = [("🎲 اختيارات عشوائية + قيم مختلفة", ctx["mode"], "random"), ("📏 قيم حدّية: نصوص طويلة وأرقام كبيرة", ctx["mode"], "edge")]
+    if ctx["req"] and ctx["mode"] != "required":
+        tries.append(("✳️ الإجباري بس", "required", "first"))
+    lines, bad = [], []
+    for name, mode, scen in tries:
+        flds, _ = build_fields(ctx["read"], mode, scen, ctx["builder"])
+        prev = RUN_VARS.get("saved_no")
+        res, err = _run(d, cr, _variant(base, f"var_{scen}_{mode}", fields=flds, auto_complete=True,
+                                        verify={**base["verify"], "new_first_row": True, "open_saved": True}))
+        no = RUN_VARS.get("saved_no") if RUN_VARS.get("saved_no") != prev else None
+        if err and not no:
+            tech = TECH.search(err + " " + " ".join(str(a) for a in res.get("alerts") or []))
+            lines.append(f"{'❌' if tech else '⚠️'} {name}: ما اتحفظش — {err.splitlines()[0][:150]}")
+            if tech:
+                bad.append(f"{name}: خطأ سيرفر")
+            elif scen == "edge":
+                lines.append("   (القيم الحدّية ممكن تترفض صح — راجع الرسالة)")
+            else:
+                bad.append(f"{name}: ما اتحفظش")
+            continue
+        chk = res.get("saved_check") or {}
+        w = chk.get("warnings") or []
+        lines.append(f"✅ {name}: اتحفظ برقم {no or '—'}" + (f" — فتحته تاني و{len(chk.get('rows', [])) - len(w)} من {len(chk.get('rows', []))} قيمة زي ما اتكتبت" if chk.get("checked") else ""))
+        if w:
+            lines.append("   ⚠️ اتغيرت بعد الحفظ: " + " · ".join(str(x)[:60] for x in w[:5]))
+        lines.append("   " + _delete(d, cr, ctx["plan"], no, f"سيناريو ملء: {name}"))
+    RUN_VARS["saved_no"] = before
+    return "\n".join(lines), (BAD if bad else OK), "؛ ".join(bad)
+
+
+# ---------------------------------------------------------------- 🛡️ special characters
 def way_fire(ctx):
     from engine.auto_test import _variant, build_fields
     from engine.screen_runner import RUN_VARS
@@ -165,7 +205,7 @@ def way_fire(ctx):
         lines.append("⚠️ النص رجع مختلف بعد الحفظ (اتنضف أو اتقص): " + " · ".join(str(x)[:60] for x in changed[:4]))
     elif chk.get("checked"):
         lines.append("✅ فتحته تاني والنص زي ما اتكتب بالظبط")
-    lines.append(_delete(d, cr, ctx["plan"], no, "سجل اختبار النار"))
+    lines.append(_delete(d, cr, ctx["plan"], no, "سجل اختبار الحروف الخاصة"))
     RUN_VARS["saved_no"] = before_no
     return "\n".join(lines), ok, why
 
@@ -213,4 +253,4 @@ def way_burst(ctx, n=5):
     return "\n".join(lines), ok, why
 
 
-WAYS = {"reject": way_reject, "negative": way_negative, "fire": way_fire, "burst": way_burst}
+WAYS = {"variants": way_variants, "reject": way_reject, "negative": way_negative, "fire": way_fire, "burst": way_burst}

@@ -35,7 +35,7 @@ SCENARIOS = {
     "edge": ("📏", "قيم حدّية: نصوص طويلة وأرقام كبيرة"),
 }
 LONG_TEXT = "اختبار آلي لقيمة طويلة " * 6
-FIRE_WAYS = ("burst", "reject", "negative", "fire")
+FIRE_WAYS = ("variants", "burst", "reject", "negative", "fire")
 
 
 # ---------------------------------------------------------------- where the screen is
@@ -494,7 +494,7 @@ def run_auto(driver, credentials, cfg, result=None):
         if way in FIRE_WAYS:                                  # 🔥 the ways that try to break the screen
             from engine.fire_tests import WAYS as _FW
             t0 = time.time()
-            logger.info(f"🔥 {n}. {label}")
+            logger.info(f"🧪 {n}. {label}")
             ctx = {"driver": driver, "cred": credentials, "base": base, "fields": flds, "req": req, "read": read,
                    "mode": mode if req_labels else "all", "builder": info["builder"], "plan": plan}
             try:
