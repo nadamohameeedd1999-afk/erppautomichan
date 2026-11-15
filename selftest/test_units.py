@@ -492,3 +492,36 @@ def test_code_twin_scan(tmp_path, monkeypatch):
     assert any(f["id"].endswith("report_summary") for f in res["findings"])
     sc = res["screens"]["bank"]
     assert {"index", "addedit", "delete"} <= set(sc["actions"]) and any(not c["ok"] for c in sc["calls"]) and not any("/old" in c["url"].lower() for c in sc["calls"])
+
+
+def test_golive_collect_and_report(tmp_path, monkeypatch):
+    import json
+    from config import paths
+    from engine import golive as G
+    from engine.load_test import targets
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path)
+    url = "https://concrete.example.net"
+    (tmp_path / "health_abc.json").write_text(json.dumps({
+        "at": "2026-11-15T10:00:00", "base_url": url, "total": 3, "paths": ["/Bank/Index", "/Sales/Index", "/Item/Index"],
+        "names": {"/Bank/Index": "البنوك", "/Sales/Index": "المبيعات", "/Item/Index": "الأصناف"},
+        "broken": {"/Bank/Index": {"name": "البنوك", "why": "خطأ سيرفر 500", "s": 500, "ms": 900}},
+        "times": {"/Sales/Index": 4000, "/Item/Index": 900}, "speed": [{"name": "المبيعات", "path": "/Sales/Index", "load": 7.2, "xhr": []}],
+        "speed_stats": {"measured": 2, "load_median": 3.1, "load_over5": 1}}), encoding="utf-8")
+    (tmp_path / "books_abc.json").write_text(json.dumps({"at": "x", "ok": True, "rows": []}), encoding="utf-8")
+    (tmp_path / "load_abc.json").write_text(json.dumps({"at": "x", "users": 5, "rounds": 3, "n": 30, "bad": 2, "mode": "m",
+        "targets": [{"name": "المبيعات", "url": url + "/Sales/Index", "ok": False, "p95": 9000, "bad": 2, "n": 15, "solo": 800, "deg": 4.1, "why": ["HTTP 500"]}]}), encoding="utf-8")
+    from engine import report_compare as RC
+    RC._write(RC._cat_file(url), {"at": "x", "reports": [{"path": "/Report/A", "name": "تقرير أ"}, {"path": "/Report/B", "name": "تقرير ب"}]})
+    RC._write(RC._snap_file("/Report/A", url), {"status": "error", "fault": "Invalid column name 'DiscValue'."})
+    RC._write(RC._snap_file("/Report/B", url), {"status": "stuck"})
+    d = G.collect(url, "خرسانة")
+    a = {x["name"]: x for x in d["areas"]}
+    assert d["verdict"] == "no" and a["الشاشات"]["verdict"] == "no" and a["الحسابات"]["verdict"] == "go" and a["الكود"]["verdict"] == "na"
+    rep = next(f for f in d["findings"] if f["area"] == "التقارير" and f["confirmed"])
+    assert "DiscValue" in rep["title"] and any(f["area"] == "التقارير" and not f["confirmed"] for f in d["findings"])
+    assert any(f["area"] == "السرعة" for f in d["findings"]) and any(f["area"] == "الحمل" and f["confirmed"] for f in d["findings"])
+    assert "تقرير اختبار الاستلام" in G.report_html(d, "u")
+    tg = targets(url, json.loads((tmp_path / "health_abc.json").read_text(encoding="utf-8")), {"/a": {"url": "/Api/Get?x=1", "ms": 300}})
+    assert tg[0]["name"] == "الصفحة الرئيسية" and tg[1]["url"].endswith("/Sales/Index") and tg[-1]["kind"] == "طلب بيانات"
+    G.save_plan(url, {"last": d})
+    assert any(i["source"] == "🚀 اختبار الاستلام" for i in G.support_issues())

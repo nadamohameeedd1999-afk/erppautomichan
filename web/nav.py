@@ -29,6 +29,8 @@ SECTIONS = [
          "الشغال دلوقتي والطابور، إيقاف وترتيب", "What's running and waiting; stop and reorder"),
     ]),
     ("health", "صحة الأنظمة", "System health", [
+        ("golive", ["golive.page"], "/go-live", "bi-rocket-takeoff", "اختبار الاستلام", "Go-Live acceptance",
+         "زرار واحد قبل تسليم موقع العميل: الشاشات والأسماء واللينكات والتقارير والسرعة والحمل والحسابات والكود — حكم لكل جزء وتقرير للمطورين", "One button before handing a client site over: screens, names, links, reports, speed, load, books, code — a verdict per area and a developer report"),
         ("health", ["checks.health_page"], "/health", "bi-heart-pulse", "صحة النظام", "System health",
          "كل الشاشات بتفتح؟ السرعة الحقيقية؟ الحسابات متزنة؟ + تقرير للعميل", "Do all screens open? Real speed? Balanced books? + client report"),
         ("readiness", ["checks.readiness_page"], "/readiness", "bi-traffic-light", "جاهزية الإصدار", "Release readiness",

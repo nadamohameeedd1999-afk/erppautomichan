@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}اختبار الاستلام - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .gl-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
+  .gl-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .gl-card > .bd { padding: 14px 16px; }
+  .gl-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .gl-site { border: 1.5px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; min-width: 0; }
+  .gl-site.on { border-color: #0F7C7A; background: rgba(15,124,122,.07); }
+  .gl-site b { display: block; } .gl-site .u { font-size: 11px; color: var(--g-muted); overflow-wrap: anywhere; }
+  .gl-opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .gl-opts input[type=number] { width: 70px; }
+  .gl-stg { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .gl-stg label { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+  .gl-teal { background: #0F7C7A; color: #fff !important; border: 0; font-weight: 800; }
+  .gl-out { border: 1px solid #0F7C7A; color: #0F7C7A !important; background: transparent; }
+  .gl-verdict { border: 2px solid; border-radius: 14px; padding: 14px 18px; font-size: 20px; font-weight: 900; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .gl-verdict small { font-size: 13px; font-weight: 600; color: var(--g-muted); }
+  .v-go { color: #1B7F3B; border-color: #1B7F3B; background: rgba(27,127,59,.06); }
+  .v-care { color: #B26A00; border-color: #B26A00; background: rgba(178,106,0,.07); }
+  .v-no { color: #C62828; border-color: #C62828; background: rgba(198,40,40,.06); }
+  .v-na { color: var(--g-muted); border-color: var(--g-line); }
+  .gl-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; }
+  .gl-area { border: 1px solid var(--g-line); border-top: 4px solid var(--g-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; min-width: 0; }
+  .gl-area.go { border-top-color: #1B7F3B; } .gl-area.care { border-top-color: #B26A00; } .gl-area.no { border-top-color: #C62828; }
+  .gl-area b { display: block; font-size: 14px; } .gl-area .t { font-size: 12px; color: var(--g-muted); } .gl-area .v { font-size: 12px; font-weight: 800; margin-top: 4px; }
+  .gl-runs { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .gl-run { border: 1px solid var(--g-line); border-radius: 10px; padding: 8px 10px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+  .gl-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .gl-chip { font-size: 12px; border: 1px solid var(--g-line); border-radius: 999px; padding: 3px 10px; cursor: pointer; background: transparent; color: inherit; }
+  .gl-chip.on { background: #0F7C7A; color: #fff; border-color: #0F7C7A; }
+  .gl-t { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
+  .gl-t th { font-size: 12px; color: var(--g-muted); font-weight: 700; padding: 8px 6px; text-align: start; }
+  .gl-t td { padding: 8px 6px; border-top: 1px solid var(--g-line); vertical-align: top; overflow-wrap: anywhere; }
+  .gl-b { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+  .gl-b.s0 { background: rgba(229,72,77,.15); color: #e5484d; } .gl-b.s1 { background: rgba(245,166,35,.18); color: #c77d00; }
+  .gl-b.s2 { background: rgba(15,124,122,.12); color: #0F7C7A; } .gl-b.s3 { background: rgba(140,140,140,.15); color: var(--g-muted); }
+  .gl-code { font-family: ui-monospace, monospace; font-size: 11px; color: var(--g-muted); }
+  .gl-sub { font-size: 12px; color: var(--g-muted); }
+  .gl-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .gl-warn { border: 1px solid #B26A00; color: #B26A00; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-top: 10px; }
+  @media (max-width: 760px) { .gl-t .hide-sm { display: none; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">زرار واحد بيشغّل كل أنواع الاختبار على موقع العميل قبل التسليم — بالترتيب وأول الطابور: الشاشات (الفتح والاسم واللينك والسرعة) ← الحسابات ← أشعة النظام ← كل التقارير ← طلبات البيانات ← الحمل (كذا مستخدم في نفس اللحظة) ← الدورات المستندية لو اخترتها. وبعدين حكم واحد لكل جزء وتقرير واحد للمطورين: المشاكل المؤكدة في الموقع بدليلها ومكانها في الكود، ولوحدها اللي محتاجة تأكيد.</div>
+
+  <div class="gl-card">
+    <div class="hd"><b>1. الموقع والإعدادات</b><span class="gl-sub" id="glSiteKind"></span></div>
+    <div class="bd">
+      <div class="gl-sites" id="glSites"></div>
+      <div class="gl-stg" id="glStages"></div>
+      <div class="gl-opts">
+        <label>عدد المستخدمين في الحمل <input type="number" id="glUsers" min="1" max="20" value="5" class="form-control form-control-sm d-inline-block"></label>
+        <label>مرات لكل مستخدم <input type="number" id="glRounds" min="1" max="10" value="3" class="form-control form-control-sm d-inline-block"></label>
+        <label>شاشات تتقاس سرعتها بالتفصيل <input type="number" id="glDeep" min="0" max="200" value="40" class="form-control form-control-sm d-inline-block"></label>
+      </div>
+      <div id="glExtrasBox" class="mt-2" style="display:none"><div class="gl-sub mb-1">📚 الدورات المستندية (هتعمل مستندات تجريبية على الموقع):</div><div class="gl-stg" id="glExtras"></div></div>
+      <div class="d-flex gap-2 mt-3 flex-wrap">
+        <button class="btn gl-teal" id="glRun">🚀 ابدأ اختبار الاستلام</button>
+      </div>
+      <div id="glWarn"></div>
+    </div>
+  </div>
+
+  <div id="glBody"><div class="gl-empty">⏳ بحمّل…</div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const SEV = {'عالية': 0, 'متوسطة': 1, 'منخفضة': 2, 'للعلم': 3};
+  const VT = {go: '✅ مقبول', care: '⚠️ بملاحظات', no: '⛔ مرفوض', na: '— ما اتفحصش'};
+  let S = {site: new URLSearchParams(location.search).get('site') || '', f: 'conf', area: '', q: ''}, D = null, stagesDrawn = false;
+
+  async function load() {
+    const r = await fetch('/api/golive' + (S.site ? '?site=' + encodeURIComponent(S.site) : '')); const j = await r.json();
+    if (!j.success) { $('#glBody').innerHTML = `<div class="gl-empty">${E(j.error || 'خطأ')}</div>`; return; }
+    D = j; S.site = j.site ? j.site.id : '';
+    $('#glSites').innerHTML = j.sites.map(s => `<div class="gl-site ${s.id === S.site ? 'on' : ''}" data-id="${E(s.id)}"><b>${E(s.name)}</b><div class="u">${E(s.url)}</div>
+      <div class="gl-sub">${s.kind === 'client' ? '🔒 نظام عميل (قراءة بس)' : '🧪 موقع اختبار'}${s.last ? ' · ' + E(s.last.verdict_text) + ' · ' + E(s.last.at) : ''}</div></div>`).join('') || '<div class="gl-empty">ضيف الموقع الأول من الإعدادات ← مواقع الاختبار</div>';
+    document.querySelectorAll('.gl-site').forEach(el => el.onclick = () => { S.site = el.dataset.id; history.replaceState(null, '', '?site=' + encodeURIComponent(S.site)); load(); });
+    if (!stagesDrawn) {
+      $('#glStages').innerHTML = j.stages.map(s => `<label><input type="checkbox" class="gl-st" value="${E(s.key)}" checked> ${E(s.icon)} ${E(s.name)}</label>`).join('');
+      if (j.extras.length) { $('#glExtrasBox').style.display = ''; $('#glExtras').innerHTML = j.extras.map(x => `<label><input type="checkbox" class="gl-ex" value="${E(x.key)}"> ${E(x.name)}</label>`).join(''); }
+      stagesDrawn = true;
+    }
+    $('#glSiteKind').textContent = j.site ? (j.site.kind === 'client' ? '🔒 متسجل «نظام عميل»: الحمل والدورات هيتخطوا — غيّر النوع لـ «موقع اختبار» لو ده الموقع التجريبي' : '🧪 موقع اختبار: الحمل والمستندات التجريبية مسموحين') : '';
+    draw();
+  }
+
+  function draw() {
+    const d = D && D.data;
+    if (!d) { $('#glBody').innerHTML = '<div class="gl-empty">اختار موقع</div>'; return; }
+    const runs = d.runs || [];
+    const fl = d.findings.filter(f => (S.f === 'all' || (S.f === 'conf' ? f.confirmed : !f.confirmed)) && (!S.area || f.area === S.area)
+      && (!S.q || (f.title + ' ' + (f.where || '') + ' ' + (f.screen || '')).toLowerCase().includes(S.q.toLowerCase())));
+    const areasN = {}; d.findings.forEach(f => { if (S.f === 'all' || (S.f === 'conf' ? f.confirmed : !f.confirmed)) areasN[f.area] = (areasN[f.area] || 0) + 1; });
+    $('#glBody').innerHTML = `
+    <div class="gl-card"><div class="bd">
+      <div class="gl-verdict v-${d.verdict}"><div>${E(d.verdict_text)}<br><small>${E(d.name || d.url)} · ${d.counts.screens} شاشة · ${d.counts.reports} تقرير · آخر فحص للشاشات ${E((d.sources || {}).health || '—')}</small></div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-sm gl-teal" href="/api/golive/export?fmt=pdf&site=${encodeURIComponent(S.site)}">📄 التقرير PDF</a>
+          <a class="btn btn-sm gl-out" href="/api/golive/export?fmt=docx&site=${encodeURIComponent(S.site)}">Word</a>
+          <a class="btn btn-sm gl-out" href="/api/golive/export?fmt=json&site=${encodeURIComponent(S.site)}">JSON</a>
+          <a class="btn btn-sm gl-out" href="/support">🎫 دعم المطورين</a></div></div>
+      ${d.critical && d.critical.length ? `<div class="gl-warn">⛔ شاشات حرجة بايظة: ${E(d.critical.slice(0, 10).join('، '))}</div>` : ''}
+      <div class="gl-areas">${d.areas.map(a => `<div class="gl-area ${a.verdict}" data-a="${E(a.name)}"><b>${E(a.name)}</b><div class="t">${E(a.text || '—')}</div>
+        <div class="v">${VT[a.verdict]}${a.mid ? ' · ' + a.mid + ' ملاحظة' : ''}</div></div>`).join('')}</div>
+    </div></div>
+    ${runs.length ? `<div class="gl-card"><div class="hd"><b>المراحل</b><span class="gl-sub">بدأ ${E(d.plan.at || '')} ${d.plan.by ? '· ' + E(d.plan.by) : ''}</span></div><div class="bd"><div class="gl-runs">
+      ${runs.map(r => `<div class="gl-run"><span>${E(r.name)}</span><span>${{pass: '✅', fail: '❌', waiting: '⏳'}[r.status]}</span></div>`).join('')}</div></div></div>` : ''}
+    <div class="gl-card"><div class="hd"><b>المشاكل</b>
+      <input class="form-control form-control-sm" style="max-width:240px" id="glQ" placeholder="بحث…" value="${E(S.q)}"></div><div class="bd">
+      <div class="gl-chips">
+        <button class="gl-chip ${S.f === 'conf' ? 'on' : ''}" data-f="conf">مؤكدة في الموقع (${d.counts.confirmed})</button>
+        <button class="gl-chip ${S.f === 'check' ? 'on' : ''}" data-f="check">محتاجة تأكيد / للعلم (${d.counts.check})</button>
+        <button class="gl-chip ${S.f === 'all' ? 'on' : ''}" data-f="all">الكل (${d.counts.all})</button>
+        <span class="mx-1"></span>
+        <button class="gl-chip ${!S.area ? 'on' : ''}" data-ar="">كل الأجزاء</button>
+        ${Object.keys(areasN).map(a => `<button class="gl-chip ${S.area === a ? 'on' : ''}" data-ar="${E(a)}">${E(a)} (${areasN[a]})</button>`).join('')}
+      </div>
+      ${fl.length ? `<table class="gl-t"><thead><tr><th style="width:36px">#</th><th style="width:90px">الخطورة</th><th>المشكلة</th><th class="hide-sm" style="width:22%">الدليل والمكان</th><th class="hide-sm" style="width:20%">في الكود</th><th class="hide-sm" style="width:16%">المطلوب</th></tr></thead><tbody>
+        ${fl.slice(0, 400).map(f => `<tr><td>${f.no}</td><td><span class="gl-b s${SEV[f.sev] ?? 3}">${E(f.sev)}</span><div class="gl-sub">${E(f.area)}</div></td>
+          <td><b>${E(f.title)}</b>${f.confirmed ? '' : '<div class="gl-sub">محتاجة تأكيد بالإيد</div>'}</td>
+          <td class="hide-sm"><div class="gl-code">${E(f.where || '')}</div><div class="gl-sub">${E(f.evidence || '')}</div></td>
+          <td class="hide-sm"><div class="gl-code">${(f.code || []).map(E).join('<br>') || '—'}</div></td>
+          <td class="hide-sm gl-sub">${E(f.fix || '—')}</td></tr>`).join('')}</tbody></table>` : '<div class="gl-empty">مفيش هنا 👍</div>'}
+    </div></div>`;
+    document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.f = b.dataset.f; S.area = ''; draw(); });
+    document.querySelectorAll('[data-ar]').forEach(b => b.onclick = () => { S.area = b.dataset.ar; draw(); });
+    document.querySelectorAll('.gl-area').forEach(b => b.onclick = () => { S.f = 'all'; S.area = b.dataset.a; draw(); });
+    const q = $('#glQ'); q.oninput = () => { S.q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { const p = q.selectionStart; draw(); const n = $('#glQ'); n.focus(); n.setSelectionRange(p, p); }, 250); };
+  }
+
+  $('#glRun').onclick = async () => {
+    if (!S.site) return;
+    const body = {site: S.site, stages: [...document.querySelectorAll('.gl-st:checked')].map(x => x.value), extras: [...document.querySelectorAll('.gl-ex:checked')].map(x => x.value),
+      users: +$('#glUsers').value || 5, rounds: +$('#glRounds').value || 3, deep_speed: +$('#glDeep').value || 40};
+    const r = await fetch('/api/golive/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); const j = await r.json();
+    $('#glWarn').innerHTML = j.success ? (j.warn ? `<div class="gl-warn">${E(j.warn)}</div>` : '') : `<div class="gl-warn">${E(j.error)}</div>`;
+    load();
+  };
+  load();
+  setInterval(() => { if (!document.hidden && !document.activeElement?.matches('input')) load(); }, 20000);
+})();
+</script>
+{% endblock %}

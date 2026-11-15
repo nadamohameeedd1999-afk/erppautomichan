@@ -21,7 +21,7 @@ _NOISE = re.compile(r"^(=+|-+|Starting Chrome|🐳 Docker mode|✅ Chrome starte
 RECENT_MIN = 10
 
 # which dashboard page shows the result of a check, from the check key inside the test path
-PAGES = [(r"repcmp", "/report-compare", "مقارنة التقارير"), (r"xray", "/xray", "أشعة النظام"), (r"bizcases", "/business-scenarios", "سيناريوهات الأعمال"),
+PAGES = [(r"golive", "/go-live", "اختبار الاستلام"), (r"repcmp", "/report-compare", "مقارنة التقارير"), (r"xray", "/xray", "أشعة النظام"), (r"bizcases", "/business-scenarios", "سيناريوهات الأعمال"),
          (r"biz19|bizscen", "/business-scenarios", "سيناريوهات الأعمال"), (r"health", "/health", "صحة النظام"), (r"envcmp", "/env-compare", "مقارنة بيئتين"),
          (r"readiness", "/readiness", "جاهزية الإصدار"), (r"test_check_", "/checks", "الدورات والفحوصات")]
 

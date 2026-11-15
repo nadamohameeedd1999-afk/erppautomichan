@@ -133,7 +133,7 @@ def collect():
         handled = False
 
         # 🆚 report comparison runs: their differences are added below from the comparison itself
-        if key.startswith("repcmp") or key.startswith("xray"):
+        if key.startswith("repcmp") or key.startswith("xray") or key.startswith("golive"):
             handled = True
 
         # 📚 developer case files
@@ -262,7 +262,8 @@ def collect():
         from engine.xray import support_issues as xray_issues
         from engine.db_audit import support_issues as db_issues
         from engine.code_twin import support_issues as twin_issues
-        for it in xray_issues() + db_issues() + twin_issues():
+        from engine.golive import support_issues as golive_issues
+        for it in golive_issues() + xray_issues() + db_issues() + twin_issues():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass

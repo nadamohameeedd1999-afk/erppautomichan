@@ -365,6 +365,9 @@ def run_check(driver, credentials, cfg):
         elif cfg["type"] == "xray":
             from engine.xray import run_xray
             run_xray(driver, credentials, cfg, result=result)
+        elif cfg["type"] == "load":
+            from engine.load_test import run_load
+            run_load(driver, credentials, cfg, result=result)
         elif cfg["type"] == "health":
             from engine.health import run_health
             run_health(driver, credentials, cfg, result=result)

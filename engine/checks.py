@@ -37,6 +37,7 @@ TYPES = {
     "sod": ("🛡️", "الصلاحيات والفصل بين المهام", "يقرا صلاحيات كل مستخدم ومجموعته من الموقع (قراءة بس) ويطلع اللي يقدر يعمل الدورة كلها لوحده: مورد + دفع، بيع + تحصيل، جرد + صرف، وتعديل الصلاحيات"),
     "cleanup": ("🧹", "تنظيف بيانات الاختبار", "يحذف السجلات اللي الاختبارات عملتها ومقدرتش تحذفها"),
     "xray": ("🔬", "أشعة النظام", "يقرا الموقع من بره (قراءة بس): روابط المنيو المكسورة أو الرايحة لمكان غلط، المكتبات القديمة اللي فيها ثغرات، إعدادات الأمان، الإنجليزي والقيم البرمجية في الشاشات العربي، صور الشاشات مقابل آخر مرة، والسرعة على نت ضعيف"),
+    "load": ("🏋️", "اختبار الحمل", "كذا مستخدم في نفس اللحظة على أبطأ الشاشات وطلبات البيانات (قراءة بس): p50 / p95 / الأخطاء والتباطؤ عن مستخدم واحد — على مواقع الاختبار بس"),
     "health": ("🩺", "صحة النظام", "يفتح كل شاشات المنيو (والتقارير) في دقايق ويطلع البايظ: 500 / 404 / صفحة خطأ / رجوع للدخول — وينبه باللي باظ واللي اتصلح"),
 }
 
@@ -244,6 +245,10 @@ def normalize(cfg):
     elif typ == "xray":
         out.update({"pages": max(10, min(400, int(cfg.get("pages", 80) or 80))), "shots": bool(cfg.get("shots", True)),
                     "shots_n": max(0, min(40, int(cfg.get("shots_n", 12) or 12))), "slow": bool(cfg.get("slow", True))})
+    elif typ == "load":
+        out.update({"users": max(1, min(20, int(cfg.get("users", 5) or 5))), "rounds": max(1, min(10, int(cfg.get("rounds", 3) or 3))),
+                    "screens": max(0, min(20, int(cfg.get("screens", 6) or 6))), "apis": max(0, min(20, int(cfg.get("apis", 4) or 4))),
+                    "p95_ms": max(500.0, float(cfg.get("p95_ms", 8000) or 8000))})
     elif typ == "health":
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],
                     "reports": bool(cfg.get("reports", True)), "forms": bool(cfg.get("forms", True)), "fail_on": cfg.get("fail_on") if cfg.get("fail_on") in ("any", "new", "never") else "any",
