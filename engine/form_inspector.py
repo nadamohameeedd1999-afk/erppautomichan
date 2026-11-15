@@ -20,6 +20,15 @@ from engine import text_match
 from engine.smart_values import guess as smart_guess
 
 SCAN_JS = r"""
+// an item grid = a table with column headers; a table used only to lay the form out (no headers) is not one
+function inGrid(el) {
+  for (var t = el.closest('table'); t; t = t.parentElement && t.parentElement.closest('table')) {
+    var head = t.querySelectorAll(':scope > thead th, :scope > thead td').length;
+    var first = t.querySelector(':scope > tbody > tr, :scope > tr');
+    if (head >= 2 || (first && first.querySelectorAll(':scope > th').length >= 2)) return true;
+  }
+  return false;
+}
 var root = arguments[0] || document;
 function txt(e){ return (e && (e.innerText || e.textContent) || '').replace(/\s+/g,' ').trim(); }
 function visible(e){
@@ -101,7 +110,7 @@ for (var i = 0; i < els.length; i++) {
     required: !!req,
     visible: vis,
     disabled: !!(el.disabled || el.readOnly),
-    in_table: !!el.closest('table'),
+    in_table: inGrid(el),
     value: value,
     options: opts,
     option_count: tag === 'select' ? el.options.length : 0,
@@ -137,7 +146,7 @@ for (var i = 0; i < els.length; i++) {
   }
   out.push({ selector: sel, id: b.id, text: txt(b).slice(0, 60),
              visible: r.width > 0 && r.height > 0, type: (b.getAttribute('type') || '').toLowerCase(),
-             in_modal: !!b.closest('.modal, [role=dialog], .ui-dialog'), in_table: !!b.closest('table'),
+             in_modal: !!b.closest('.modal, [role=dialog], .ui-dialog'), in_table: (function (t) { return !!t && t.querySelectorAll('thead th').length >= 2; })(b.closest('table')),
              after_field: after, onclick: (b.getAttribute('onclick') || '').slice(0, 80) });
 }
 return out;

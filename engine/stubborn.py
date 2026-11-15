@@ -84,7 +84,7 @@ def read_saved_record(driver, base, ids):
     while time.time() < end and not driver.execute_script("return document.querySelectorAll('table tbody tr td').length > 1"):
         time.sleep(0.8)
     url0 = driver.current_url
-    hit = driver.execute_script(OPEN_ROW_JS, "") or {}
+    hit = driver.execute_script(OPEN_ROW_JS, "", re.sub(r"^https?://[^/]+", "", _abs(base["list_url"]))) or {}
     if hit.get("href"):
         driver.get(hit["href"])
     elif not hit.get("clicked"):

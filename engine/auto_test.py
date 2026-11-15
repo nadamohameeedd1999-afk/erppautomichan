@@ -304,13 +304,16 @@ def explain(way, res, ok, err=""):
             lines.append(f"💾 التعديل اتحفظ على السجل «{str(res.get('row') or '')[:80]}»")
         chk = res.get("saved_check") or {}
         if chk.get("checked") and chk.get("warnings"):
-            n = len(chk.get("rows", []))
+            n = len([x for x in chk.get("rows", []) if not x.get("unread")])
             lines.append(f"🔎 فتحته تاني وقارنت {n} قيمة — {n - len(chk['warnings'])} زي ما اتكتبت ✓")
             lines.append(("🔒 ماتغيرتش بعد التعديل (غالبًا مقفولة في التعديل في الـ ERP): " if way == "edit" else
                           "⚠️ حقول مش إجبارية اتملت بس الـ ERP ما حفظهاش (راجعيها — ممكن تكون مشكلة في الـ ERP): ")
                          + " · ".join(chk["warnings"][:6]))
         elif chk.get("checked"):
-            lines.append(f"🔎 فتحته تاني وقارنت {len(chk.get('rows', []))} قيمة — كلها زي ما اتكتبت ✓")
+            rd = [x for x in chk.get("rows", []) if not x.get("unread")]
+            un = len(chk.get("rows", [])) - len(rd)
+            lines.append(f"🔎 فتحته تاني وقارنت {len(rd)} قيمة — كلها زي ما اتكتبت ✓"
+                         + (f" ({un} حقل مقدرتش أقراه في صفحة السجل المحفوظ)" if un else ""))
         elif chk.get("reason"):
             lines.append(f"🔎 مقدرتش أفتحه تاني أقارن القيم: {chk['reason']}")
         if way == "print":

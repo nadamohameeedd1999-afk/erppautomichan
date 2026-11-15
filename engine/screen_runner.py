@@ -28,10 +28,23 @@ from engine.flows import fill_with_flows, run_after_save
 RUN_VARS = {}
 
 FIRST_CELL_JS = r"""
+// the new record's number: the column whose header says «رقم …» (رقم المستند / رقم الأمر / رقم السند / رقم الفاتورة …),
+// else the first cell that isn't empty or a yes/no flag (a sales order's list starts with a hidden «False» column)
 var row = document.querySelector('table tbody tr');
 if (!row) return null;
-var tds = row.querySelectorAll('td');
-for (var i = 0; i < tds.length; i++) { var t = (tds[i].innerText || '').replace(/\s+/g, ' ').trim(); if (t) return t; }
+var table = row.closest('table'), wrap = row.closest('.dataTables_wrapper');
+var tds = row.querySelectorAll('td'), ths = table ? table.querySelectorAll('thead th') : [];
+// DataTables with scrolling draws the header in its own table above the rows
+if ((!ths.length || ths.length < tds.length) && wrap) { var hs = wrap.querySelector('.dataTables_scrollHead thead'); if (hs) ths = hs.querySelectorAll('th'); }
+var T = function (e) { return (e && e.innerText || '').replace(/\s+/g, ' ').trim(); };
+var FLAG = /^(true|false|نعم|لا|0)$/i, NUM = /\d/;
+var heads = Array.prototype.map.call(ths, T);
+var pref = [/^رقم (ال)?(مستند|سند|أمر|امر|فاتورة|فاتوره|قيد|طلب|عرض|اذن|إذن)/, /^(رقم|الرقم|رقم الحركة|كود|الكود|No\.?|Number|Code)$/i];
+for (var p = 0; p < pref.length; p++)
+  for (var i = 0; i < heads.length && i < tds.length; i++)
+    if (pref[p].test(heads[i]) && T(tds[i]) && !FLAG.test(T(tds[i]))) return T(tds[i]);
+for (var i = 0; i < tds.length; i++) { var t = T(tds[i]); if (t && !FLAG.test(t) && NUM.test(t)) return t; }   // a number, not a button's words
+for (var i = 0; i < tds.length; i++) { var t = T(tds[i]); if (t && !FLAG.test(t)) return t; }
 return null;
 """
 from engine.form_filler import FormFiller, FieldFillError
@@ -329,15 +342,23 @@ return out;
 """
 
 OPEN_ROW_JS = r"""
-var sel = arguments[0];
+// the record's OWN edit page: a link to this screen's AddEdit / Edit first (a sales order's row starts with
+// «إنشاء أمر عمل» → /WorkOrderJob/AddEdit — another screen), then the edit icon, then any open link
+var sel = arguments[0], base = (arguments[1] || '').split('?')[0].toLowerCase().replace(/\/+$/, '');
 var row = document.querySelector('table tbody tr');
 if (!row) return null;
-var cands = sel ? row.querySelectorAll(sel) : row.querySelectorAll(
-  "a[href*='AddEdit'], a[href*='Edit'], a[href*='Details'], a[href*='View'], a[href*='Show'], a[title*='تعديل'], a[title*='عرض']");
-for (var i = 0; i < cands.length; i++) {
-  var h = cands[i].getAttribute('href') || '';
-  if (h && h !== '#' && h.indexOf('javascript') !== 0 && h.indexOf('Delete') === -1) return {href: cands[i].href};
+var ok = function (a) { var h = a.getAttribute('href') || ''; return h && h !== '#' && h.indexOf('javascript') !== 0 && !/delete/i.test(h); };
+var path = function (a) { try { return new URL(a.href).pathname.toLowerCase(); } catch (e) { return ''; } };
+var links = Array.prototype.filter.call(row.querySelectorAll(sel || 'a[href]'), ok);
+if (!sel) {
+  var mine = links.filter(function (a) { var p = path(a); return base && p.indexOf(base + '/') === 0 && /\/(addedit|edit)/.test(p); });
+  if (mine.length) return {href: mine[0].href};
+  var icon = links.filter(function (a) { return a.querySelector('.fa-edit, .fa-pencil, .fa-pen, .bi-pencil') || /تعديل/.test(a.title || ''); });
+  if (icon.length) return {href: icon[0].href};
+  links = links.filter(function (a) { return /AddEdit|Edit|Details|View|Show/i.test(a.getAttribute('href')) || /تعديل|عرض/.test(a.title || ''); })
+    .filter(function (a) { var p = path(a); return !base || p.indexOf(base) === 0; }).concat(links.filter(function (a) { return /AddEdit|Edit|Details|View|Show/i.test(a.getAttribute('href')); }));
 }
+if (links.length) return {href: links[0].href};
 var b = row.querySelector("[onclick*='Edit'], [onclick*='edit'], .btn-edit, .fa-edit, .fa-pencil, .bi-pencil");
 if (b) { (b.closest('a,button') || b).click(); return {clicked: true}; }
 return null;
@@ -348,6 +369,9 @@ def _same(a, b):
     from engine.text_match import normalize
     a, b = normalize(a), normalize(b)
     if a == b:
+        return True
+    sq = lambda t: re.sub(r"[\s\-–—_:|/]+", "", t)     # «1010301001-1 - -مخزون خام» = «1010301001-1 -مخزون خام» (only the dashes differ)
+    if sq(a) and sq(a) == sq(b):
         return True
     yes, no = {"on", "true", "1", "yes", "نعم", "checked"}, {"off", "false", "0", "no", "لا", ""}
     if (a in yes and b in yes) or (a in no and b in no):
@@ -364,7 +388,8 @@ def check_saved_values(r, cfg, steps):
     driver.get(_abs(cfg["list_url"]))
     r.wait_for_preloader()
     time.sleep(1.5)
-    hit = driver.execute_script(OPEN_ROW_JS, cfg["verify"].get("open_selector") or "")
+    hit = driver.execute_script(OPEN_ROW_JS, cfg["verify"].get("open_selector") or "",
+                                re.sub(r"^https?://[^/]+", "", _abs(cfg["list_url"])))
     if not hit:
         logger.warning("مالقيتش لينك فتح/تعديل في أول صف — مش هقدر أراجع القيم (حددي selector في الإعداد)")
         return {"checked": False, "reason": "مفيش لينك فتح في أول صف"}
@@ -383,8 +408,8 @@ def check_saved_values(r, cfg, steps):
     rows, mismatches = [], []
     for k, s in want.items():
         v = got.get(k)
-        ok = v is None or _same(s["result"], v)
-        rows.append({"id": k, "label": s["label"], "filled": s["result"], "saved": v, "ok": ok,
+        ok = v is None or _same(s["result"], v)          # None = the field isn't on the saved page (not a mismatch, but not checked)
+        rows.append({"id": k, "label": s["label"], "filled": s["result"], "saved": v, "ok": ok, "unread": v is None,
                      "msg": "" if ok else f"{s['label']}: اتملى '{s['result']}' بس اتسجل '{v}'"})
         if not ok:
             mismatches.append(rows[-1]["msg"])
@@ -567,7 +592,7 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
             result["saved_check"] = chk
             if chk.get("checked"):
                 for row in chk["rows"]:
-                    mark = "✅" if row["ok"] else "❌"
+                    mark = "➖" if row.get("unread") else ("✅" if row["ok"] else "❌")
                     logger.info(f"{mark} مراجعة {row['label']}: اتملى '{row['filled']}' — اتسجل '{row['saved']}'")
                 req = {f["id"] for f in cfg["fields"] if f.get("required") and not f.get("soft")}
                 hard = [x["msg"] for x in chk["rows"] if not x["ok"] and x["id"] in req]
