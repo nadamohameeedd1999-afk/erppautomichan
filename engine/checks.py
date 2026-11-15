@@ -77,11 +77,17 @@ CYCLE_TEMPLATES = {
 AUTO_WAYS = {
     "add": ("➕", "اختبار الإضافة", "يفتح الشاشة، يدوس إضافة، يملى البيانات، يحفظ — ويتأكد إن الحفظ تم صح: مفيش رسالة خطأ، السجل ظهر في القايمة، ولما يفتحه تاني القيم هي اللي اتكتبت"),
     "number": ("🔢", "اختبار الترقيم", "يضيف سجل تاني ورا الأول على طول ويتأكد إن رقم المستند اتولّد ومش مكرر وماشي بالترتيب — وبعدين يحذف السجل التاني"),
+    "burst": ("⚡", "الحفظ السريع", "يحفظ 5 مستندات ورا بعض: كلهم يتحفظوا، الأرقام مختلفة وبالترتيب، ووقت كل حفظ — وبعدين يحذفهم"),
+    "reject": ("🚫", "اختبار الرفض", "يحفظ فاضي، وبعدين كل حقل إجباري فاضي (لحد 3): لازم يترفض برسالة واضحة مش خطأ سيرفر"),
+    "negative": ("➖", "أرقام بالسالب", "يكتب -5 في كل خانة مبلغ / كمية في رأس المستند: لازم يترفض"),
+    "fire": ("🔥", "قيم عدائية", "علامات تنصيص و SQL و HTML وسكريبت تجريبي ورموز في كل خانة نص: مفيش خطأ سيرفر، مفيش XSS، والنص يرجع زي ما هو — وبعدين يحذفه"),
     "edit": ("✏️", "اختبار التعديل", "يفتح نفس السجل اللي اتضاف، يغيّر البيانات اللي اتكتبت، يحفظ — ويفتحه تاني يتأكد إن التعديل اتسجل"),
     "print": ("🖨️", "اختبار الطباعة", "يطبع نفس السجل ويتأكد إن صفحة الطباعة / الـ PDF فتحت ومش فاضية ومفيهاش خطأ"),
     "delete": ("🗑️", "اختبار الحذف", "يحذف نفس السجل ويتأكد إنه اختفى من القايمة"),
 }
 AUTO_SCENARIOS = ("first", "random", "edge")
+CLASSIC_WAYS = ["add", "number", "edit", "print", "delete"]
+FIRE_WAYS = ["add", "number", "burst", "reject", "negative", "fire", "edit", "print", "delete"]
 
 DENY_TEXTS = ["ليس لديك صلاحية", "ليس لديك الصلاحية", "لا تملك صلاحية", "لا يوجد لديك صلاحية", "غير مصرح", "غير مسموح",
               "access denied", "unauthorized", "forbidden", "not authorized", "you do not have permission", "403", "401"]
@@ -164,8 +170,8 @@ def normalize(cfg):
         screen = str(cfg.get("screen") or "").strip()
         if not screen:
             raise ConfigError("اختاري الشاشة اللي هتتختبر")
-        raw = [("add" if w in ("add_required", "add_full") else w) for w in (cfg.get("ways") or list(AUTO_WAYS))]
-        raw = [w for w in raw if w in AUTO_WAYS] or list(AUTO_WAYS)        # old saved tests (reject_…) -> the four tests
+        raw = [("add" if w in ("add_required", "add_full") else w) for w in (cfg.get("ways") or CLASSIC_WAYS)]
+        raw = [w for w in raw if w in AUTO_WAYS] or list(CLASSIC_WAYS)        # old saved tests (reject_…) -> the four tests
         ways = [w for w in AUTO_WAYS if w in raw]
         if not ways:
             raise ConfigError("اختاري طريقة واحدة على الأقل")

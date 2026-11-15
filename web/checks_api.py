@@ -216,7 +216,7 @@ def api_auto_screens():
 def _auto_cfg(screen, name, d, old=None):
     C = _C()
     return {"key": (old or {}).get("key") or auto_key(screen), "type": "auto", "name_ar": f"🤖 {name}", "screen": screen,
-            "ways": d.get("ways") or list(C.AUTO_WAYS), "scenarios": d.get("scenarios") or ["first"],
+            "ways": d.get("ways") or list(C.CLASSIC_WAYS), "scenarios": d.get("scenarios") or ["first"],
             "fields_mode": d.get("fields_mode") or "all", "expect_error": d.get("expect_error", ""),
             "edit_button": d.get("edit_button", ""), "print_button": d.get("print_button", ""), "delete_button": d.get("delete_button", "")}
 

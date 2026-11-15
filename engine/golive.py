@@ -35,7 +35,56 @@ STEPS = [
     ("api", "golive_api", "🔌", "طلبات البيانات (API)"),
     ("load", "golive_load", "🏋️", "اختبار الحمل"),
 ]
-AREAS = ["الشاشات", "الأسماء واللينكات", "التقارير", "السرعة", "الحمل", "الحسابات", "الأمان والمكتبات", "الكود", "الدورات المستندية"]
+AREAS = ["الشاشات", "الأسماء واللينكات", "التقارير", "السرعة", "الحمل", "الحسابات", "الأمان والمكتبات", "الكود", "الشاشات الرئيسية (نار)", "الدورات المستندية"]
+
+# 🔥 the main document screens (found by name in the system's screens) → the automatic test with every «try to break it» way
+KEY_SCREENS = [
+    ("فاتورة البيع", r"فاتور[ةه] (?:ال)?(?:بيع|مبيعات)|فواتير (?:ال)?(?:بيع|مبيعات)"),
+    ("مرتجع المبيعات", r"مرتجع(?:ات)? (?:ال)?(?:بيع|مبيعات)"),
+    ("فاتورة الشراء", r"فاتور[ةه] (?:ال)?(?:شراء|مشتريات)|فواتير (?:ال)?(?:شراء|مشتريات)"),
+    ("مرتجع المشتريات", r"مرتجع(?:ات)? (?:ال)?(?:شراء|مشتريات)"),
+    ("سند القبض", r"سند(?:ات)? (?:ال)?قبض"),
+    ("سند الدفع", r"سند(?:ات)? (?:ال)?(?:دفع|صرف)(?! مخزن)"),
+    ("القيد اليومي", r"قيود? (?:ال)?(?:يومي[ةه]|يدوي[ةه]?)|القيود اليومي[ةه]"),
+    ("عرض السعر", r"عروض (?:ال)?أسعار|عرض (?:ال)?سعر"),
+    ("أمر البيع", r"أوامر (?:ال)?بيع|أمر (?:ال)?بيع|اوامر (?:ال)?بيع|امر (?:ال)?بيع"),
+    ("أمر الشراء", r"أوامر (?:ال)?شراء|أمر (?:ال)?شراء|اوامر (?:ال)?شراء|امر (?:ال)?شراء"),
+    ("التحويل المخزني", r"تحويل(?:ات)? (?:مخزني|بين (?:ال)?مخازن)"),
+    ("صرف مخزن", r"(?:سند|إذن|اذن) صرف مخز"),
+    ("استلام مخزن", r"(?:سند|إذن|اذن) (?:استلام|إضافة|اضافة) مخز"),
+]
+SKIP_NAME = re.compile(r"تقرير|كشف|أرصد|ارصد|إعداد|اعداد|متعدد|استيراد|تحليل|طباعة|اعتماد|ترحيل", re.I)
+
+
+def key_screens():
+    try:
+        from engine.auto_test import all_screens
+        scr = all_screens()
+    except Exception:
+        return []
+    out, used = [], set()
+    for label, pat in KEY_SCREENS:
+        rx = re.compile(pat)
+        m = next((s for s in scr if s["key"] not in used and rx.search(s["name"] or "") and not SKIP_NAME.search(s["name"] or "")), None)
+        if m:
+            used.add(m["key"])
+            out.append({"key": m["key"], "name": m["name"], "label": label, "builder": m.get("builder")})
+    return out
+
+
+def fire_key(screen):
+    import hashlib
+    k = re.sub(r"[^a-z0-9_]", "_", str(screen).lower()).strip("_")[:50] or "s"
+    return f"golive_fire_{k}_{hashlib.sha1(str(screen).encode()).hexdigest()[:4]}"
+
+
+def fire_config(screen, name):
+    from engine.checks import FIRE_WAYS
+    return {"key": fire_key(screen), "type": "auto", "name_ar": f"🔥 نار: {name}", "screen": screen, "ways": FIRE_WAYS,
+            "scenarios": ["first"], "fields_mode": "all"}
+
+
+SITE_BUG = re.compile(r"XSS|السيرفر وقع|رسالة تقنية|اتحفظ!|اتحفظ بأرقام|مكرر|كسر الجافاسكريبت|رقم المستند اتكرر|الترقيم راجع")
 SEV = {"عالية": 0, "متوسطة": 1, "منخفضة": 2, "للعلم": 3}
 
 
@@ -115,11 +164,18 @@ def _f(area, sev, title, where="", evidence="", fix="", confirmed=True, screen="
             "screen": screen, "code": code or [], "n": n}
 
 
+def _ctrl(path):
+    """/Sales/Index?x=1 or https://host/Sales/Index → «sales» ('' when there is no controller part)"""
+    p = re.sub(r"^https?://[^/]+", "", str(path or "")).split("?")[0].split("#")[0]
+    seg = [x for x in p.strip("/").split("/") if x]
+    return seg[0].lower() if seg else ""
+
+
 def _twin_for(path, twin):
     """the code chain of a screen path (/Sales/Index → controller «sales»)"""
     if not twin:
         return None
-    seg = [x for x in str(path or "").split("?")[0].strip("/").split("/") if x]
+    seg = [x for x in re.sub(r"^https?://[^/]+", "", str(path or "")).split("?")[0].strip("/").split("/") if x]
     if not seg:
         return None
     sc = (twin.get("screens") or {}).get(seg[0].lower())
@@ -248,7 +304,7 @@ def collect(url, name=""):
 
     # ---- 6. books
     if books is not None and not books.get("ok"):
-        zero = any("فيه حركة" in str((r.get("cells") or ["", ""])[1]) for r in books.get("rows") or [])
+        zero = any("فيه حركة" in " ".join(str(c) for c in (r.get("cells") or [])) for r in books.get("rows") or [])
         if not zero:
             bad_rows = [" · ".join(str(c) for c in r.get("cells") or []) for r in books.get("rows") or [] if r.get("ok") is False][:6]
             findings.append(_f("الحسابات", "عالية", "ميزان المراجعة مش متزن", "ميزان المراجعة", " | ".join(bad_rows)[:500],
@@ -264,7 +320,7 @@ def collect(url, name=""):
     areas["الأمان والمكتبات"] = {"ran": bool(xr), "bad": sum(1 for x in sl if x.get("sev") == "عالية"), "text": f"{len(sl)} ملاحظة" if xr else "ما اتفحصتش"}
 
     # ---- 8. code (twin), only for the screens this client really has
-    present = {[x for x in p.split("?")[0].strip("/").split("/") if x][0].lower() for p in (h.get("paths") or []) if p.strip("/")}
+    present = {_ctrl(p) for p in (h.get("paths") or [])} - {""}
     code_n = 0
     if twin and present:
         tsc = twin.get("screens") or {}
@@ -277,7 +333,7 @@ def collect(url, name=""):
             bad_calls = [x["url"] for x in sc.get("calls") or [] if not x.get("ok")]
             if sc.get("broken_procs") or bad_calls:
                 code_n += 1
-                nm = next((names[p] for p in names if p.strip("/").split("/")[0].lower() == c), sc.get("ar") or sc["name"])
+                nm = next((names[p] for p in names if _ctrl(p) == c), sc.get("ar") or sc["name"])
                 findings.append(_f("الكود", "عالية" if sc.get("broken_procs") else "متوسطة",
                                    f"شاشة «{nm}»: " + " · ".join(x for x in [f"{len(sc.get('broken_procs') or [])} إجراء مكسور" if sc.get("broken_procs") else "",
                                                                              f"{len(bad_calls)} طلب على action مش موجود" if bad_calls else ""] if x),
@@ -294,9 +350,35 @@ def collect(url, name=""):
     areas["الكود"] = {"ran": bool(twin), "bad": code_n,
                       "text": (f"{len(present)} شاشة عند العميل اتقارنت بالكود · {code_n} فيها مشكلة" if twin else "التوأم الرقمي ما اتشغلش")}
 
-    # ---- 9. business cycles (the plan's extra runs)
+    # ---- 9. 🔥 the main screens under fire (automatic test, every way)
     runs = _runs(plan)
-    cyc = [r for r in runs if r.get("kind") in ("bizcases", "biz", "cycle", "auto")]
+    fire = [r for r in runs if r.get("kind") == "auto"]
+    for r in fire:
+        if r["status"] != "fail":
+            continue
+        det = None
+        try:
+            from engine.check_runner import load_detail
+            det = load_detail(r["task_id"])
+        except Exception:
+            pass
+        rows_ = ((det or {}).get("detail") or {}).get("rows") or []
+        bad_rows = [x for x in rows_ if x.get("ok") is False]
+        scr = r["name"].replace("📚 ", "").replace("🔥 نار: ", "")
+        if not bad_rows:
+            findings.append(_f("الشاشات الرئيسية (نار)", "متوسطة", f"«{scr}» الاختبار فشل", "", r["msg"][:400], "شوف تقرير التشغيل", False, scr))
+        for x in bad_rows:
+            c = (list(x.get("cells") or []) + ["", "", ""])[:3]
+            txt = str(c[2] if len(c) > 2 else "")
+            bad_line = next((l.strip() for l in txt.splitlines() if l.strip().startswith("❌")), (txt.splitlines() or [""])[0])
+            conf = bool(SITE_BUG.search(txt))
+            findings.append(_f("الشاشات الرئيسية (نار)", "عالية" if conf else "متوسطة", f"«{scr}» — {c[1]}: {bad_line.lstrip('❌ ')[:170]}", "",
+                               txt[:500], "", conf, scr))
+    areas["الشاشات الرئيسية (نار)"] = {"ran": bool(fire), "bad": sum(1 for r in fire if r["status"] == "fail"),
+                                        "text": (f"{sum(1 for r in fire if r['status'] == 'pass')} من {len(fire)} شاشة صمدت" if fire else "ما اتختارتش")}
+
+    # ---- 10. business cycles (the plan's extra runs)
+    cyc = [r for r in runs if r.get("kind") in ("bizcases", "biz", "cycle")]
     for r in cyc:
         if r["status"] == "fail":
             findings.append(_f("الدورات المستندية", "عالية", f"«{r['name']}» فشلت", "", r["msg"][:400], "شوف تقرير التشغيل", False, r["name"]))

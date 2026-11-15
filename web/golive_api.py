@@ -41,14 +41,19 @@ def api_state():
         s["last"] = {k: (p.get("last") or {}).get(k) for k in ("at", "verdict", "verdict_text")} if p.get("last") else None
     sid = request.args.get("site") or next((s["id"] for s in sites if s.get("last")), next((s["id"] for s in sites if s["kind"] == "client"), sites[0]["id"] if sites else ""))
     cur = next((s for s in sites if s["id"] == sid), None)
-    data = None
+    data, err = None, ""
     if cur:
-        data = G.collect(cur["url"], cur["name"])
+        try:
+            data = G.collect(cur["url"], cur["name"])
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            err = f"مقدرتش أجمع نتايج الموقع ده: {type(e).__name__}: {e}"
         p = G.load_plan(cur["url"])
-        if p:
+        if p and data:
             p["last"] = data
             G.save_plan(cur["url"], p)
-    return jsonify({"success": True, "sites": sites, "site": cur, "data": data, "extras": _extra_checks(),
+    return jsonify({"success": True, "sites": sites, "site": cur, "data": data, "extras": _extra_checks(), "fire": G.key_screens(), "error": err,
                     "stages": [{"type": t, "key": k, "icon": i, "name": n} for t, k, i, n in G.STEPS]})
 
 
@@ -69,6 +74,11 @@ def api_run():
         if k in want:
             saved = C.save(cfgs[k])
             stages.append({"key": k, "kind": t, "name": f"{icon} {name}", "path": C.test_path_for(saved["key"])})
+    names = {s["key"]: s for s in G.key_screens()}
+    for k in (j.get("fire") or []):
+        if k in names:
+            saved = C.save(G.fire_config(k, names[k]["name"]))
+            stages.append({"key": saved["key"], "kind": "auto", "name": f"🔥 نار: {names[k]['name']}", "path": C.test_path_for(saved["key"])})
     for x in _extra_checks():
         if x["key"] in (j.get("extras") or []):
             stages.append({"key": x["key"], "kind": x["type"], "name": "📚 " + x["name"], "path": C.test_path_for(x["key"])})

@@ -57,6 +57,7 @@
         <label>مرات لكل مستخدم <input type="number" id="glRounds" min="1" max="10" value="3" class="form-control form-control-sm d-inline-block"></label>
         <label>شاشات تتقاس سرعتها بالتفصيل <input type="number" id="glDeep" min="0" max="200" value="40" class="form-control form-control-sm d-inline-block"></label>
       </div>
+      <div id="glFireBox" class="mt-2" style="display:none"><div class="gl-sub mb-1">🔥 اختبار النار للشاشات الرئيسية — إضافة، ترقيم، 5 مستندات ورا بعض، الرفض، أرقام بالسالب، نصوص عدائية (SQL / HTML / XSS)، تعديل، طباعة، حذف (مستندات تجريبية بتتحذف في الآخر):</div><div class="gl-stg" id="glFire"></div></div>
       <div id="glExtrasBox" class="mt-2" style="display:none"><div class="gl-sub mb-1">📚 الدورات المستندية (هتعمل مستندات تجريبية على الموقع):</div><div class="gl-stg" id="glExtras"></div></div>
       <div class="d-flex gap-2 mt-3 flex-wrap">
         <button class="btn gl-teal" id="glRun">🚀 ابدأ اختبار الاستلام</button>
@@ -86,6 +87,7 @@
     document.querySelectorAll('.gl-site').forEach(el => el.onclick = () => { S.site = el.dataset.id; history.replaceState(null, '', '?site=' + encodeURIComponent(S.site)); load(); });
     if (!stagesDrawn) {
       $('#glStages').innerHTML = j.stages.map(s => `<label><input type="checkbox" class="gl-st" value="${E(s.key)}" checked> ${E(s.icon)} ${E(s.name)}</label>`).join('');
+      if (j.fire.length) { $('#glFireBox').style.display = ''; $('#glFire').innerHTML = j.fire.map(x => `<label title="${E(x.name)}"><input type="checkbox" class="gl-fi" value="${E(x.key)}" ${j.site && j.site.kind !== 'client' ? 'checked' : ''}> ${E(x.label)} <span class="gl-sub">(${E(x.name)})</span></label>`).join(''); }
       if (j.extras.length) { $('#glExtrasBox').style.display = ''; $('#glExtras').innerHTML = j.extras.map(x => `<label><input type="checkbox" class="gl-ex" value="${E(x.key)}"> ${E(x.name)}</label>`).join(''); }
       stagesDrawn = true;
     }
@@ -95,7 +97,7 @@
 
   function draw() {
     const d = D && D.data;
-    if (!d) { $('#glBody').innerHTML = '<div class="gl-empty">اختار موقع</div>'; return; }
+    if (!d) { $('#glBody').innerHTML = `<div class="gl-empty">${D && D.error ? E(D.error) + ' — تقدر تبدأ الاختبار عادي' : 'اختار موقع'}</div>`; return; }
     const runs = d.runs || [];
     const fl = d.findings.filter(f => (S.f === 'all' || (S.f === 'conf' ? f.confirmed : !f.confirmed)) && (!S.area || f.area === S.area)
       && (!S.q || (f.title + ' ' + (f.where || '') + ' ' + (f.screen || '')).toLowerCase().includes(S.q.toLowerCase())));
@@ -139,7 +141,7 @@
 
   $('#glRun').onclick = async () => {
     if (!S.site) return;
-    const body = {site: S.site, stages: [...document.querySelectorAll('.gl-st:checked')].map(x => x.value), extras: [...document.querySelectorAll('.gl-ex:checked')].map(x => x.value),
+    const body = {site: S.site, stages: [...document.querySelectorAll('.gl-st:checked')].map(x => x.value), extras: [...document.querySelectorAll('.gl-ex:checked')].map(x => x.value), fire: [...document.querySelectorAll('.gl-fi:checked')].map(x => x.value),
       users: +$('#glUsers').value || 5, rounds: +$('#glRounds').value || 3, deep_speed: +$('#glDeep').value || 40};
     const r = await fetch('/api/golive/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); const j = await r.json();
     $('#glWarn').innerHTML = j.success ? (j.warn ? `<div class="gl-warn">${E(j.warn)}</div>` : '') : `<div class="gl-warn">${E(j.error)}</div>`;

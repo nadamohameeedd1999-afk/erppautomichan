@@ -538,3 +538,32 @@ def test_all_templates_compile():
             except Exception as e:
                 bad.append(f"{n}: {e}")
     assert not bad, bad
+
+
+def test_fire_strategies_and_ways():
+    from engine import checks as C
+    from engine.auto_test import _strategy
+    from engine.fire_tests import FIRE_TEXT, TECH, WAYS
+    assert _strategy({"kind": "textarea", "label": "ملاحظات", "id": "Notes"}, "fire")[1].startswith(FIRE_TEXT)
+    assert _strategy({"kind": "text", "label": "الجوال", "id": "Mobile"}, "fire")[0] == "smart"
+    assert _strategy({"kind": "number", "label": "المبلغ", "id": "Amount"}, "neg") == ("fixed", "-5")
+    assert all(ord(ch) < 0x10000 for ch in FIRE_TEXT)          # chromedriver types BMP characters only
+    assert TECH.search("Incorrect syntax near 'x'") and not TECH.search("من فضلك أدخل اسم العميل")
+    assert set(WAYS) <= set(C.AUTO_WAYS) and C.normalize({"key": "a_b", "type": "auto", "screen": "x"})["ways"] == C.CLASSIC_WAYS
+    from engine import golive as G
+    k = G.fire_key("Sales-Invoice")
+    assert C.KEY_RE.match(k) and G.fire_config("Sales-Invoice", "فواتير البيع")["ways"] == C.FIRE_WAYS
+
+
+def test_golive_odd_states(tmp_path, monkeypatch):
+    import json
+    from config import paths
+    from engine import golive as G
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path)
+    url = "https://odd.example.net"
+    (tmp_path / "health_x.json").write_text(json.dumps({"base_url": url, "at": "a", "paths": ["/", "/?a=1", "https://odd.example.net/Sales/Index", "#"],
+        "names": {"/": "الرئيسية"}, "broken": {"/?a=1": {}}, "speed": [{"load": 9, "xhr": [{}]}], "speed_stats": {"measured": 1}}), encoding="utf-8")
+    (tmp_path / "books_x.json").write_text(json.dumps({"ok": False, "rows": [{"cells": ["x"], "ok": False}, {}]}), encoding="utf-8")
+    assert G._ctrl("https://h/Sales/Index?x") == "sales" and G._ctrl("/?a") == ""
+    d = G.collect(url)
+    assert d["verdict"] in ("no", "care") and G.report_html(d)

@@ -35,6 +35,7 @@ SCENARIOS = {
     "edge": ("📏", "قيم حدّية: نصوص طويلة وأرقام كبيرة"),
 }
 LONG_TEXT = "اختبار آلي لقيمة طويلة " * 6
+FIRE_WAYS = ("burst", "reject", "negative", "fire")
 
 
 # ---------------------------------------------------------------- where the screen is
@@ -124,6 +125,17 @@ def _strategy(f, scenario, editing=False):
     if pre and not editing:                                  # a number the system fills (voucher no., rate…)
         return ("keep", "")
     lab0 = f"{f.get('label', '')} {f['id']}"
+    numeric = kind == "number" or (NUMERIC_WORDS.search(lab0) and not re.search(r"رقم|كود|code|no\b|number", lab0, re.I))
+    if scenario == "neg":                                    # ➖ every amount / quantity -5, the rest normal
+        if numeric:
+            return ("fixed", "-5")
+        scenario = "first"
+    if scenario == "fire":                                   # 🔥 hostile text in every free-text box, numbers normal
+        strict = re.search(r"سجل|ضريب|vat|tax|trn|بريد|postal|zip|جوال|موبايل|mobile|phone|هاتف|تليفون|tel|mail|ايميل|مبن|building|فرعي|additional|هوي|اقام|إقام|iqama|identity|nationalid|iban|ايبان|آيبان", lab0, re.I)
+        if not numeric and not strict and not editing:
+            from engine.fire_tests import FIRE_TEXT
+            return ("fixed", FIRE_TEXT + " {ts}")
+        scenario = "first"
     if scenario != "edge" and re.search(r"خصم|discount|دفعات مقدم|دفعة مقدم|advance|paid|مدفوع|مسدد|ضمان", lab0, re.I):
         # discounts / advances / paid amounts: a random number here makes the invoice invalid (paid > total…) -> 0
         return ("fixed", "0")
@@ -479,6 +491,21 @@ def run_auto(driver, credentials, cfg, result=None):
     for way in [w for w in AUTO_WAYS if w in cfg["ways"]]:
         n += 1
         icon, label = AUTO_WAYS[way][0], AUTO_WAYS[way][1]
+        if way in FIRE_WAYS:                                  # 🔥 the ways that try to break the screen
+            from engine.fire_tests import WAYS as _FW
+            t0 = time.time()
+            logger.info(f"🔥 {n}. {label}")
+            ctx = {"driver": driver, "cred": credentials, "base": base, "fields": flds, "req": req, "read": read,
+                   "mode": mode if req_labels else "all", "builder": info["builder"], "plan": plan}
+            try:
+                what, ok, err = _FW[way](ctx)
+            except Exception as e:
+                what, ok, err = f"الأداة وقفت: {type(e).__name__}: {str(e).splitlines()[0][:200]}", SKIP, ""
+            rows.append({"cells": [n, f"{icon} {label}", what, round(time.time() - t0, 1)], "ok": ok})
+            (logger.success if ok else (logger.warning if ok is SKIP else logger.error))(f"{label}: {what.splitlines()[-1][:200]}")
+            if ok is BAD:
+                fails.append(f"{label}: {err[:200]}")
+            continue
         if way != "add" and not RUN_VARS.get("auto_no"):
             rows.append({"cells": [n, f"{icon} {label}", "ما اتشغلش — مفيش سجل اتحفظ في اختبار الإضافة يتعمل عليه " + label.replace("اختبار ", ""), ""],
                          "ok": SKIP})
