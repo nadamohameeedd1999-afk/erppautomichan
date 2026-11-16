@@ -214,6 +214,8 @@ def normalize(cfg: dict) -> dict:
         "fields": fields,
         "flows": flows,
         "before_save": before_save,
+        # scripted steps before the save (async JS, callback = last argument) — kept as given
+        "before_save_js": [a for a in (cfg.get("before_save_js") or []) if isinstance(a, dict) and a.get("js")],
         "verify": {
             "new_first_row": bool(verify.get("new_first_row", True)),
             "row_contains": [str(x) for x in (verify.get("row_contains") or []) if str(x).strip()],

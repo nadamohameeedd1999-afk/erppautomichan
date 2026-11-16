@@ -38,6 +38,12 @@ var tds = row.querySelectorAll('td'), ths = table ? table.querySelectorAll('thea
 if ((!ths.length || ths.length < tds.length) && wrap) { var hs = wrap.querySelector('.dataTables_scrollHead thead'); if (hs) ths = hs.querySelectorAll('th'); }
 var T = function (e) { return (e && e.innerText || '').replace(/\s+/g, ' ').trim(); };
 var FLAG = /^(true|false|نعم|لا|0)$/i, NUM = /\d/;
+// cells and headers line up only over the shown cells: a sales order's row starts with 2 hidden cells («False», "") that have no header
+if (ths.length && tds.length !== ths.length) {
+  var shown = Array.prototype.filter.call(tds, function (td) { return td.getBoundingClientRect().width > 0 && getComputedStyle(td).display !== 'none'; });
+  if (shown.length === ths.length) tds = shown;
+  else if (tds.length > ths.length) tds = Array.prototype.slice.call(tds, tds.length - ths.length);
+}
 var heads = Array.prototype.map.call(ths, T);
 var pref = [/^رقم (ال)?(مستند|سند|أمر|امر|فاتورة|فاتوره|قيد|طلب|عرض|اذن|إذن)/, /^(رقم|الرقم|رقم الحركة|كود|الكود|No\.?|Number|Code)$/i];
 for (var p = 0; p < pref.length; p++)
@@ -91,6 +97,7 @@ class ScreenRunner(BasePage):
         self.filler.vars = RUN_VARS
         self.alerts = []          # every alert / SweetAlert text we saw
         self.error_alerts = []    # the ones that look like errors
+        self.prep = []            # what the scripted steps before the save did
 
     # ---------- alerts ----------
     def accept_js_alert(self, timeout=2):
@@ -192,6 +199,18 @@ class ScreenRunner(BasePage):
             return self._add_path() in self.driver.current_url.lower()
 
     def run_before_save(self):
+        # scripted steps a person does before saving that aren't one field (a journal entry's debit / credit lines…):
+        # [{"label": …, "js": <async script, callback = last argument>, "args": [...]}] — the result goes in the run's notes
+        for a in self.cfg.get("before_save_js") or []:
+            logger.info(f"قبل الحفظ: {a.get('label', 'سكريبت')}")
+            try:
+                self.driver.set_script_timeout(a.get("timeout", 40))
+                out = self.driver.execute_async_script(a["js"], *(a.get("args") or []))
+            except Exception as e:
+                out = {"ok": False, "log": [f"{type(e).__name__}: {str(e).splitlines()[0][:160]}"]}
+            self.prep.append({"label": a.get("label"), **(out if isinstance(out, dict) else {"out": out})})
+            if isinstance(out, dict) and out.get("log"):
+                logger.info(" · ".join(map(str, out["log"])))
         for a in self.cfg.get("before_save", []):
             logger.info(f"قبل الحفظ: {a['label']}")
             try:
@@ -373,6 +392,9 @@ def _same(a, b):
     sq = lambda t: re.sub(r"[\s\-–—_:|/]+", "", t)     # «1010301001-1 - -مخزون خام» = «1010301001-1 -مخزون خام» (only the dashes differ)
     if sq(a) and sq(a) == sq(b):
         return True
+    toks = lambda t: sorted(x for x in re.split(r"[\s\-–—_:|/]+", t) if x)     # «-مخزون خام - 1010301001-1»: the same words, another order
+    if toks(a) and toks(a) == toks(b):
+        return True
     yes, no = {"on", "true", "1", "yes", "نعم", "checked"}, {"off", "false", "0", "no", "لا", ""}
     if (a in yes and b in yes) or (a in no and b in no):
         return True
@@ -438,7 +460,7 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
         require_write({"add": "إضافة", "edit": "تعديل", "delete": "حذف"}.get(cfg.get("operation", "add"), "حفظ") + " — " + str(cfg.get("name_ar") or cfg["key"]))
     driver.implicitly_wait(0)   # the engine uses explicit waits; implicit waits slow every "is it there?" check
     r = ScreenRunner(driver, cfg)
-    result = {"key": cfg["key"], "saved": False, "steps": [], "alerts": r.alerts,
+    result = {"key": cfg["key"], "saved": False, "steps": [], "alerts": r.alerts, "prep": r.prep,
               "first_row_before": None, "first_row_after": None, "screenshots": []}
     start = time.time()
 

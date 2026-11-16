@@ -8,6 +8,7 @@ Tests for a record that already exists in the list (beside «إضافة جديد
 The row: cfg["target_row"] = text in the row (a voucher number, a name, {var:saved_no} from a chain), empty = first row.
 The button: cfg["op_button"] = CSS selector or its text/title; empty = found automatically.
 """
+import re
 import time
 
 import allure
@@ -50,7 +51,13 @@ if (button) {
       var t = N(e.innerText || e.getAttribute('title') || e.getAttribute('data-original-title') || e.getAttribute('aria-label'));
       if (t && (t === bw || t.indexOf(bw) !== -1)) el = e; }); }
 } else {
-  el = row.querySelector(PAT[kind]);
+  if (kind === 'edit') {   // the record's OWN edit page: the edit icon, or this screen's AddEdit link — not «تخصيص البنود» / «أمر عمل» of another screen
+    var base = String(arguments[4] || '').toLowerCase().split('?')[0].replace(/\/+$/, '');
+    el = row.querySelector(".fa-edit, .fa-pencil, .fa-pen, .bi-pencil, .bi-pencil-square, [title*='تعديل'], [data-original-title*='تعديل']");
+    if (!el && base) Array.prototype.forEach.call(row.querySelectorAll('a[href]'), function (a) { if (el) return;
+      try { var p = new URL(a.href).pathname.toLowerCase(); if (p.indexOf(base + '/') === 0 && /\/(addedit|edit)/.test(p)) el = a; } catch (e) {} });
+  }
+  if (!el) el = row.querySelector(PAT[kind]);
   if (!el) row.querySelectorAll('a, button, [onclick]').forEach(function(e){ if (el) return;
       var t = N(e.innerText || e.getAttribute('title') || e.getAttribute('data-original-title') || '');
       if (WORD[kind].some(function(k){ return t.indexOf(k) !== -1; })) el = e; });
@@ -100,7 +107,8 @@ def _row_action(r, cfg, kind, match, click=True, tries=2):
     d = r.driver
     res = {}
     for i in range(tries):
-        res = d.execute_script(ROW_ACTION_JS, match, kind, cfg.get("op_button") or "", click) or {}
+        res = d.execute_script(ROW_ACTION_JS, match, kind, cfg.get("op_button") or "", click,
+                                  re.sub(r"^https?://[^/]+", "", str(cfg.get("list_url") or ""))) or {}
         if res.get("ok") or res.get("error") == "no_button":
             break
         if match and res.get("error") == "no_row" and d.execute_script(SEARCH_JS, match):   # not on page 1 -> list search
