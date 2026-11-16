@@ -211,6 +211,9 @@ class FormFiller:
                 "span.select2-container--open li.select2-results__option:not(.select2-results__message)")
             texts = [i.text.strip() for i in items]
             idx = text_match.find_exact(texts, wanted) if exact else text_match.find_contains(texts, wanted)
+            if idx >= 0 and not exact and text_match.is_scratch(texts[idx]):     # another match that isn't someone's scratch item
+                idx = next((i for i, t in enumerate(texts) if not text_match.is_scratch(t)
+                            and text_match.find_contains([t], wanted) == 0), idx)
             if idx == -1:
                 search.send_keys(Keys.ESCAPE)
                 return None, texts
@@ -255,6 +258,7 @@ class FormFiller:
         if strategy == "random":
             # كل تشغيل يختار حاجة مختلفة: من القيم المكتوبة (مفصولة بفاصلة) أو من كل الاختيارات
             real = [i for i, (t, v) in enumerate(pairs) if not text_match.is_placeholder(t)]
+            real = [i for i in real if not text_match.is_scratch(pairs[i][0])] or real
             pool = [w.strip() for w in str(wanted or "").replace("،", ",").split(",") if w.strip()]
             if pool:
                 real = [i for i in real if any(text_match.find_exact([pairs[i][0]], w) == 0 for w in pool)]
@@ -268,7 +272,8 @@ class FormFiller:
                 parent = field.get("depends_on")
                 why = f" بعد اختيار {parent}" if parent else ""
                 raise FieldFillError(field, f"مفيش ولا خيار في القايمة{why}", texts)
-            idx = next(i for i, (t, v) in enumerate(pairs) if not text_match.is_placeholder(t))
+            real = [i for i, (t, v) in enumerate(pairs) if not text_match.is_placeholder(t)]
+            idx = next((i for i in real if not text_match.is_scratch(pairs[i][0])), real[0])   # not «… - اختبار Claude» when there's another
         else:
             exact = strategy == "fixed"
             idx = text_match.find_exact(texts, wanted) if exact else text_match.find_contains(texts, wanted)

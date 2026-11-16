@@ -38,6 +38,15 @@ def is_placeholder(text) -> bool:
     return n in PLACEHOLDERS or stripped in PLACEHOLDERS or bool(_PH_RE.match(stripped))
 
 
+# leftovers of someone's experiment on the site (an item renamed «… - اختبار Claude»): a value a tester shouldn't put on a
+# document when another option exists — the document reads like the client's own work, not like the tool's scratch data
+SCRATCH = re.compile(r"\bclaude\b", re.I)
+
+
+def is_scratch(t):
+    return bool(SCRATCH.search(str(t or "")))
+
+
 def real_options(texts):
     """Drop empty / placeholder entries."""
     return [t for t in (texts or []) if not is_placeholder(t)]

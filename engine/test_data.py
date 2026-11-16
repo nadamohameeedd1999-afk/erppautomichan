@@ -101,7 +101,7 @@ def pick(field, options):
     kind = kind_of(field)
     if not kind:
         return -1
-    from engine.text_match import normalize as N, is_placeholder
+    from engine.text_match import normalize as N, is_placeholder, is_scratch
     d = load()
     now = time.time()
     d["held"] = {k: v for k, v in d["held"].items() if v.get("until", 0) > now}
@@ -116,7 +116,7 @@ def pick(field, options):
             i = norm.index(N(v))
         except ValueError:
             continue
-        if is_placeholder(options[i]):
+        if is_placeholder(options[i]) or is_scratch(options[i]):
             continue
         d["held"][f"{kind}|{v}"] = {"run": _run(), "until": now + HOLD}
         save(d)

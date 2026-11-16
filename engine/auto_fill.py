@@ -40,6 +40,7 @@ const done = arguments[arguments.length - 1];
 (async () => {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const PH = /^\s*(-+\s*)?(اختر|اختار|إختر|select|choose)/i;
+  const SCRATCH = /\bclaude\b/i;            // someone's experiment left on the site (an item «… - اختبار Claude»): never on a document when another fits
   const txt = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
   const fire = (e, v) => { if (window.jQuery) { jQuery(e).val(v).trigger('input').trigger('change').trigger('blur'); }
                            else { e.value = v; ['input', 'change', 'blur'].forEach(t => e.dispatchEvent(new Event(t, {bubbles: true}))); } };
@@ -55,7 +56,8 @@ const done = arguments[arguments.length - 1];
       if (!ins.length) continue;
       for (const e of ins) {
         if (e.type === 'checkbox' || (e.value && !(e.tagName === 'SELECT' && PH.test(txt(e.options[e.selectedIndex]))))) continue;
-        if (e.tagName === 'SELECT') { const o = Array.from(e.options).find(o => o.value && !PH.test(o.text)); if (o) fire(e, o.value); }
+        if (e.tagName === 'SELECT') { const ok = Array.from(e.options).filter(o => o.value && !PH.test(o.text));
+                                      const o = ok.find(o => !SCRATCH.test(o.text)) || ok[0]; if (o) fire(e, o.value); }
         else if (/date/.test(e.type)) fire(e, new Date().toISOString().slice(0, 10));
         else fire(e, /qty|quantity|كمي|عدد/.test(nm(e)) ? '1' : (/disc|خصم/.test(nm(e)) ? '0' : '100'));
         await sleep(300);
@@ -77,7 +79,11 @@ const done = arguments[arguments.length - 1];
       await sleep(700);
       if (typeof window.appendSearch === 'function') window.appendSearch(1); else document.getElementById('submitSearch').click();
       let b = null;
-      for (let i = 0; i < 40 && !b; i++) { await sleep(400); b = document.querySelector('#itemSearchModal tbody tr button, #items-prices-quantities tr button'); }
+      for (let i = 0; i < 40 && !b; i++) {
+        await sleep(400);
+        const bs = Array.from(document.querySelectorAll('#itemSearchModal tbody tr button, #items-prices-quantities tr button'));
+        b = bs.find(x => !SCRATCH.test(txt(x.closest('tr')))) || bs[0] || null;
+      }
       if (!b) { out.push('فتحت بحث الأصناف بس مفيش أصناف ظهرت (اتأكدي إن فيه أصناف ليها سعر في المخزن / الفرع ده)'); }
       else {
         const name = txt(b.closest('tr')).slice(0, 60);
