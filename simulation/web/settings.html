@@ -57,7 +57,7 @@
     <div id="sites" style="margin-top:10px"></div>
   </div></div>
 
-  <div class="card"><h3>3. الموظفين ومستخدمينهم على <span id="siteName" style="color:var(--teal)"></span> <span><button class="btn out" id="testAll">🔑 اختبر دخول الكل</button> <button class="btn out" id="add">➕ موظف</button></span></h3><div class="bd">
+  <div class="card"><h3>3. الموظفين ومستخدمينهم على <span id="siteName" style="color:var(--teal)"></span> <span><button class="btn out" id="exp">📤 صدّر للنسخة التانية</button> <label class="btn out" style="cursor:pointer">📥 استورد<input type="file" id="imp" accept=".json" hidden></label> <button class="btn out" id="testAll">🔑 اختبر دخول الكل</button> <button class="btn out" id="add">➕ موظف</button></span></h3><div class="bd">
     <div class="mute">صلاحيات كل موظف = الشاشات اللي في المنيو بتاعه على السيستم. <b>لو سبت مستخدم الموظف فاضي، بيشتغل بمستخدم المدير</b> (وصلاحياته). المكاتب: مدير 1 · مبيعات 3 · محاسبين 2 · مخازن 1 · مشتريات 1 · خزنة 1 · موارد بشرية 1.</div>
     <div id="noDesk"></div>
     <div class="wrap"><table><thead><tr><th>شغال</th><th>الاسم</th><th>الوظيفة</th><th>الدور</th><th>مستخدم NQ ERP</th><th>كلمة السر</th><th>الشكل</th><th>اللبس</th><th></th><th>الدخول والصلاحيات</th><th></th></tr></thead><tbody id="emps"></tbody></table></div>
@@ -157,6 +157,24 @@
   }
   $('#auto').onclick = () => { Object.assign(site().screens, D.guess); drawScr(); $('#msg').textContent = `✨ اتربط ${Object.keys(D.guess).length} من ${Object.keys(D.screens).length} — راجعهم واحفظ`; };
   $('#add').onclick = () => { EMPS.push({id: '', name: '', job: '', role: 'sales', look: {kind: 'man', skin: '#E0AC82', hair: '#2d2018', shirt: '#2B6CB0'}, active: true}); drawEmps(); };
+  // 📦 move the employees' users between copies (your PC <-> Railway): passwords travel under a code typed on both sides
+  const askCode = msg => { const c = (window.prompt(msg) || '').trim(); return c.length >= 6 ? c : null; };
+  $('#exp').onclick = async () => {
+    const code = askCode('اكتب كود (6 حروف أو أكتر) — هتكتبه تاني لما تستورد الملف في النسخة التانية'); if (!code) { $('#msg').innerHTML = '<span class="bad">الكود لازم 6 حروف أو أكتر</span>'; return; }
+    const r = await fetch('/api/settings/export', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+    if (!r.ok) { $('#msg').innerHTML = `<span class="bad">${E((await r.json()).error)}</span>`; return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'nq-simulation.json'; a.click();
+    $('#msg').innerHTML = '<span class="ok">✅ اتصدّر — افتح الإعدادات في النسخة التانية واضغط «📥 استورد» واكتب نفس الكود</span>';
+  };
+  $('#imp').onchange = async ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    const code = askCode('اكتب الكود اللي صدّرت بيه'); ev.target.value = ''; if (!code) return;
+    const fd = new FormData(); fd.append('file', f); fd.append('code', code);
+    const j = await fetch('/api/settings/import', {method: 'POST', body: fd}).then(r => r.json()).catch(x => ({ok: false, error: String(x)}));
+    $('#msg').innerHTML = j.ok ? `<span class="ok">✅ اتنقل ${j.users} مستخدم</span>` + (j.missing.length ? `<div class="bad">مواقع مش موجودة في اللوحة هنا: ${E(j.missing.join('، '))} — ضيفها من إعدادات اللوحة واستورد تاني</div>` : '')
+      : `<span class="bad">${E(j.error)}</span>`;
+    if (j.ok) load();
+  };
   $('#testAll').onclick = async () => { for (let i = 0; i < EMPS.length; i++) if (EMPS[i].active !== false && (site().users[EMPS[i].id] || {}).user) await test(i); };
   $('#save').onclick = async () => {
     if (val('mode') === 'real' && !(site() || {}).url) { $('#msg').innerHTML = '<span class="bad">اختار موقع (من مواقع لوحة الاختبارات)</span>'; return; }

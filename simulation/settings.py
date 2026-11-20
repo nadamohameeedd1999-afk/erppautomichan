@@ -217,3 +217,58 @@ def site_credentials(site_id, eid):
                 p = next((p for p in _profiles()[0] if p["id"] == site_id), {})
                 return p.get("username", ""), p.get("password", "")
     return "", ""
+
+
+# ---------------------------------------------------------------- 📦 move the company to another copy of the dashboard
+# (your PC -> Railway): each copy encrypts with its own key, so the file carries the passwords under a code YOU type on both sides
+
+def _code_box(code):
+    import base64
+    import hashlib
+    from cryptography.fernet import Fernet
+    key = hashlib.pbkdf2_hmac("sha256", code.encode("utf-8"), b"nq-simulation-move", 200_000)
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def export_bundle(code):
+    """the company + every site's employee users (sites by URL, passwords under the code) -> dict to save as a file"""
+    if len(code or "") < 6:
+        raise ValueError("اكتب كود 6 حروف أو أكتر — هتكتبه تاني في النسخة التانية")
+    s, box = load(), _code_box(code)
+    out = {k: v for k, v in s.items() if k not in ("sites", "site_data", "active_site")}
+    out["active_url"] = (active_site(s) or {}).get("url", "")
+    out["sites"] = [{"url": x["url"], "screens": x.get("screens") or {},
+                     "users": {eid: {"user": u["user"], "pw": box.encrypt(decrypt(u.get("pw", "")).encode()).decode() if u.get("pw") else ""}
+                               for eid, u in (x.get("users") or {}).items() if u.get("user")}} for x in s["sites"]]
+    return {"nq_simulation_move": 1, **out}
+
+
+def import_bundle(b, code):
+    """the file from export_bundle -> this copy (sites matched by URL to this dashboard's sites). -> (imported users, sites not found here)"""
+    if not isinstance(b, dict) or b.get("nq_simulation_move") != 1:
+        raise ValueError("الملف ده مش ملف نقل الشركة الافتراضية")
+    box, s = _code_box(code or ""), load()
+    by_url = {x["url"].rstrip("/").lower(): x["id"] for x in s["sites"]}
+    per, n, missing = dict(s.get("site_data") or {}), 0, []
+    for x in b.get("sites") or []:
+        sid = by_url.get(str(x.get("url", "")).rstrip("/").lower())
+        if not sid:
+            missing.append(x.get("url", ""))
+            continue
+        users = {}
+        for eid, u in (x.get("users") or {}).items():
+            try:
+                pw = box.decrypt(u["pw"].encode()).decode() if u.get("pw") else ""
+            except Exception:
+                raise ValueError("الكود غلط — اكتب نفس الكود اللي صدّرت بيه") from None
+            users[eid] = {"user": u["user"], "pw": encrypt(pw) if pw else ""}
+            n += 1
+        per[sid] = {"users": users, "screens": x.get("screens") or {}}
+    keep = {k: v for k, v in b.items() if k in ("company", "mode", "show_browsers", "orders_per_day", "approval_limit", "screen_round", "day_type", "lang", "employees")}
+    s.update(keep)
+    s["site_data"] = per
+    s["active_site"] = by_url.get(str(b.get("active_url", "")).rstrip("/").lower(), s.get("active_site", ""))
+    s.pop("sites", None)
+    FILE.parent.mkdir(parents=True, exist_ok=True)
+    FILE.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+    return n, missing

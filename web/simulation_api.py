@@ -202,6 +202,32 @@ def make(name, prefix, demo):
         menus_file.write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
         return jsonify({"ok": True, "n": len(menu)})
 
+    @bp.route("/api/settings/export", methods=["POST"])
+    def api_settings_export():
+        """📦 the company + its employees' NQ ERP users as a file, passwords under a code (to bring it to another copy, e.g. Railway)"""
+        from simulation import settings as S
+        try:
+            b = S.export_bundle(str((request.get_json(silent=True) or {}).get("code") or ""))
+        except ValueError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        return Response(json.dumps(b, ensure_ascii=False, indent=1), mimetype="application/json",
+                        headers={"Content-Disposition": f"attachment; filename=nq-simulation-{datetime.now():%Y%m%d}.json"})
+
+    @bp.route("/api/settings/import", methods=["POST"])
+    def api_settings_import():
+        from simulation import settings as S
+        if company.running:
+            return jsonify({"ok": False, "error": "وقّف اليوم الأول (الشركة شغالة دلوقتي)"}), 409
+        f = request.files.get("file")
+        try:
+            n, missing = S.import_bundle(json.loads(f.read().decode("utf-8")) if f else None, request.form.get("code", ""))
+        except (ValueError, json.JSONDecodeError) as e:
+            return jsonify({"ok": False, "error": str(e)[:200]}), 400
+        art_cache.clear()
+        company.cfg = company._load_cfg()
+        company.reset()
+        return jsonify({"ok": True, "users": n, "missing": missing})
+
     @bp.route("/api/settings/permissions/<key>")
     def api_permissions(key):
         return jsonify({"ok": True, **menus().get(key, {"menu": []})})
