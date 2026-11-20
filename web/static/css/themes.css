@@ -412,3 +412,9 @@ h1, h2, h3 { text-wrap: balance; }
     .g-content table:not(.no-scroll) { display: block; max-width: 100%; overflow-x: auto; }
     .g-content .nav-tabs, .g-content .nav-pills { flex-wrap: wrap; }
 }
+/* the folded «أدوات متقدمة» group in the side menu */
+.g-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+.g-fold > summary::-webkit-details-marker { display: none; }
+.g-fold > summary::after { content: "▾"; font-size: 10px; opacity: .7; }
+.g-fold:not([open]) > summary::after { content: "◂"; }
+[dir="ltr"] .g-fold:not([open]) > summary::after { content: "▸"; }

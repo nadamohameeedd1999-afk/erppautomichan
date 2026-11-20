@@ -37,13 +37,15 @@
         </a>
         <nav class="g-nav">
             {% for sk, sar, sen, its in nav_sections %}
-            <div class="sec">{{ sar if ar else sen }}</div>
+            {% if sk == 'advanced' %}<details class="g-fold"{% for it in its %}{% if ep in it[1] %} open{% endif %}{% endfor %}><summary class="sec">{{ sar if ar else sen }}</summary>{% else %}
+            <div class="sec">{{ sar if ar else sen }}</div>{% endif %}
             {% for it in its %}
             {% if not (it|length > 8 and it[8]) or (current_user and current_user.role == 'admin') %}
             {{ item(it[1], it[2], it[3], it[4] if ar else it[5],
                     '<span class="cnt d-none" id="navRunBadge"></span>' if it[0] == 'queue' else '') }}
             {% endif %}
             {% endfor %}
+            {% if sk == 'advanced' %}</details>{% endif %}
             {% endfor %}
         </nav>
         {% if current_user %}
@@ -143,7 +145,7 @@ function gSide(open) {
         {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},
     ].map(c => ({...c, kind: AR ? 'أمر' : 'action'}));
     // pages that live inside a bigger page (not in the side menu) — still found by search
-    {% for sk, sar, sen, its in nav_all_sections %}{% for it in its %}{% if it[0] in ['map', 'compare', 'autohealth', 'diag', 'envcmp'] %}
+    {% for sk, sar, sen, its in nav_all_sections %}{% for it in its %}{% if it[0] in ['map', 'autohealth', 'diag'] %}
     BASE.push({icon: 'bi {{ it[3] }}', name: {{ (it[4] if ar else it[5])|tojson }}, url: '{{ it[2] }}', kind: AR ? 'صفحة' : 'page'});{% endif %}{% endfor %}{% endfor %}
     let ITEMS = BASE.concat(CMDS), loaded = false, sel = 0, shown = [];
     async function loadScreens() {

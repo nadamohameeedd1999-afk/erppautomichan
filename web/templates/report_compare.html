@@ -148,6 +148,7 @@ async function rcLoad() {
   el('rcCatInfo').textContent = m.at_a || m.at_b ? `المنيو: الاختبار ${m.n_a || 0} تقرير (${m.at_a || '—'}) · العميل ${m.n_b || 0} تقرير (${m.at_b || '—'})` : 'اقرا قايمة التقارير من الموقعين الأول علشان تظهر كل التقارير';
   el('rcRunTxt').textContent = `قارن المحدد (${r.kpi.selected})`;
   const k = r.kpi;
+  el('rcKpi').hidden = !(k.total || k.compared);            // nine «0» tiles before any report list mean nothing
   el('rcKpi').innerHTML = [['all', k.total, 'تقرير'], ['sel', k.selected, 'محدد'], ['done', k.compared, 'اتقارن'], ['same', k.same, 'متطابق'], ['diff', k.diff, 'فيه اختلافات'],
     ['failb', k.fail_b, 'بيفشل عند العميل'], ['faila', k.fail_a, 'بيفشل في الاختبار'], ['onlya', k.only_a, 'في منيو الاختبار بس'], ['onlyb', k.only_b, 'في منيو العميل بس']]
     .map(([f, n, t]) => `<div onclick="setFilter('${f}')"><b>${n}</b><span>${t}</span></div>`).join('');
