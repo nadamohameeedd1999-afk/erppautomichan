@@ -406,3 +406,9 @@ h1, h2, h3 { text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* phones: a wide table scrolls inside itself, the page never scrolls sideways (the closed side menu included) */
+@media (max-width: 760px) {
+    html, body { overflow-x: clip; }
+    .g-content table:not(.no-scroll) { display: block; max-width: 100%; overflow-x: auto; }
+    .g-content .nav-tabs, .g-content .nav-pills { flex-wrap: wrap; }
+}

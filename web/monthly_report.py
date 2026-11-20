@@ -282,7 +282,11 @@ def monthly_view():
 def monthly_pdf():
     site, month = _args()
     u = auth.current_user() or {}
-    pdf = pdf_report(site, month, u.get("full_name") or u.get("username") or "")
+    try:
+        pdf = pdf_report(site, month, u.get("full_name") or u.get("username") or "")
+    except Exception as e:
+        from web.export_helper import pdf_unavailable
+        return pdf_unavailable("/reports/monthly/view?" + request.query_string.decode(), e)
     from urllib.parse import quote
     name = f"monthly_{_safe(_site(site)['name'])}_{month}.pdf"
     ascii_name = f"monthly_report_{month}.pdf"           # Arabic site names: the real name goes in filename*

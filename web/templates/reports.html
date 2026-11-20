@@ -54,7 +54,7 @@
                     <i class="bi bi-graph-up-arrow text-primary"></i>
                     {% if current_lang == 'ar' %}تطور النتائج{% else %}Results Trend{% endif %}
                 </div>
-                <div id="trendChart" style="height: 220px;"></div>
+                <div style="height: 220px; position: relative;"><canvas id="trendChart" role="img" aria-label="رسم بياني"></canvas></div>
             </div>
         </div>
 
@@ -64,7 +64,7 @@
                     <i class="bi bi-pie-chart text-primary"></i>
                     {% if current_lang == 'ar' %}نسبة النجاح{% else %}Success Rate{% endif %}
                 </div>
-                <div id="donutChart" style="height: 220px;"></div>
+                <div style="height: 220px; position: relative;"><canvas id="donutChart" role="img" aria-label="رسم بياني"></canvas></div>
             </div>
         </div>
     </div>
@@ -76,7 +76,7 @@
                     <i class="bi bi-stopwatch text-primary"></i>
                     {% if current_lang == 'ar' %}مدة التشغيل (ثانية){% else %}Duration (seconds){% endif %}
                 </div>
-                <div id="durationChart" style="height: 180px;"></div>
+                <div style="height: 180px; position: relative;"><canvas id="durationChart" role="img" aria-label="رسم بياني"></canvas></div>
             </div>
         </div>
     </div>
@@ -198,7 +198,7 @@
     document.getElementById('discovery').classList.remove('d-none');
 }).catch(() => {});{% endif %}
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
 <script>
 console.log('[Charts] Script loaded');
 
@@ -211,17 +211,16 @@ const chartData = {
     donutFailed: {{ chart_data.donut_failed if chart_data else 0 }},
 };
 
-console.log('[Charts] Data:', chartData);
 
-function getThemeColors() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+function getThemeColors() {                       // the look's own colours (DESIGN.md): teal accent, pass / fail by meaning
+    const css = getComputedStyle(document.documentElement), v = (k, d) => (css.getPropertyValue(k) || '').trim() || d;
     return {
-        textColor: isDark ? '#f1f5f9' : '#0f172a',
-        mutedColor: isDark ? '#94a3b8' : '#64748b',
-        gridColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-        primary: '#4f46e5',
-        success: '#10b981',
-        danger: '#ef4444',
+        textColor: v('--g-text', '#1C2B2A'),
+        mutedColor: v('--g-muted', '#6B7B7A'),
+        gridColor: v('--g-line', '#D5E2E1'),
+        primary: v('--g-acc', '#0F7C7A'),
+        success: v('--g-ok', '#0F7C7A'),
+        danger: v('--g-bad', '#C0392B'),
     };
 }
 

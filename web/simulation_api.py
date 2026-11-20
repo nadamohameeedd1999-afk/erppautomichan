@@ -92,6 +92,14 @@ def make(name, prefix, demo):
         html = html.replace("<header>", "<header>" + back, 1)
         return Response(html.replace("</body>", extra + "</body>", 1), mimetype="text/html")
 
+    def nothing_yet(msg):
+        """before the first day: a page in the office's look that says what to do (not a bare 404 line)"""
+        return Response(f"""<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>NQ Simulation</title>
+<body style="font:14px Tahoma,sans-serif;background:#F4F8F8;color:#1C2B2A;margin:0"><div style="max-width:560px;margin:90px auto;background:#fff;
+border:1px solid #D5E2E1;border-radius:12px;padding:30px;text-align:center"><div style="font-size:38px">🏢</div><h1 style="font-size:19px">{msg}</h1>
+<p><a href="/" style="background:#0F7C7A;color:#fff;border-radius:8px;padding:9px 18px;text-decoration:none;font-weight:bold">ارجع للشركة وابدأ يوم</a></p>
+</div></body></html>""", status=404, mimetype="text/html")
+
     def days(real_only=False):
         """the saved days, oldest first (a broken file is skipped, never a 500)"""
         out = []
@@ -276,7 +284,7 @@ def make(name, prefix, demo):
     def report():
         from simulation.report import report_html
         r = company.report or (days() or [None])[-1]
-        return report_html(r) if r else ("لسه مفيش يوم خلص — ابدأ اليوم الأول", 404)
+        return report_html(r) if r else nothing_yet("لسه مفيش يوم خلص — ابدأ اليوم الأول")
 
     @bp.route("/tickets")
     def tickets():
@@ -284,7 +292,7 @@ def make(name, prefix, demo):
         from simulation.report import tickets_html
         r = company.report or (days() or [None])[-1]
         if not r:
-            return "لسه مفيش يوم خلص — ابدأ اليوم الأول", 404
+            return nothing_yet("لسه مفيش يوم خلص — التذاكر بتظهر بعد أول يوم")
         ev = runs / "evidence"
 
         def uri(fname):
@@ -393,7 +401,7 @@ def make(name, prefix, demo):
         from simulation.report import compare_html
         ds = days(real_only=True)
         if not ds:
-            return "لسه مفيش يوم حقيقي خلص — شغّل يوم على الموقع الأول", 404
+            return nothing_yet("لسه مفيش يوم حقيقي خلص — شغّل يوم على الموقع الأول")
         return compare_html(ds[-1], ds[-2] if len(ds) > 1 else None)
 
     bp.company = company

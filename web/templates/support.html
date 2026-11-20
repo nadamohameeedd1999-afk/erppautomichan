@@ -68,7 +68,7 @@
         <input id="fq" class="form-control form-control-sm" placeholder="بحث في المشاكل…">
         <select id="fsite" class="form-select form-select-sm"><option value="">كل المواقع</option></select>
         <select id="fsev" class="form-select form-select-sm"><option value="">كل الخطورة</option><option>عالية</option><option>متوسطة</option><option>منخفضة</option></select>
-        <select id="fst" class="form-select form-select-sm"><option value="open">المفتوحة بس</option><option value="">كل الحالات</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
+        <select id="fst" class="form-select form-select-sm" aria-label="الحالة"><option value="open">المفتوحة بس</option><option value="">كل الحالات</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
       </div>
     </div>
     <div class="hd">

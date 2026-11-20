@@ -12,11 +12,11 @@
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
 
     {% if text_dir == "rtl" %}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.rtl.min.css') }}" rel="stylesheet">
     {% else %}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     {% endif %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style-dark.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
     {% if favicon %}<link rel="icon" href="{{ url_for('media', filename=favicon) }}">{% endif %}
@@ -93,7 +93,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/runner.js') }}"></script>
 <script>
 // old pages read this (charts colors)
@@ -192,6 +192,44 @@ function gSide(open) {
         const u = String(arguments[0] && arguments[0].url || arguments[0]);
         return f.apply(this, arguments).then(r => { if (r.status >= 500 && !u.includes('/api/diag/')) send({msg: `HTTP ${r.status} ${u}`}); return r; });
     };
+})();
+</script>
+<script>
+// ♿ every field and icon button gets a name a screen reader can say (DESIGN.md §6)
+// shortcut: names guessed from placeholder / title / the label beside it; give a field a real <label> when you touch its template
+(function () {
+    const txt = e => (e && (e.innerText || e.textContent) || '').replace(/\s+/g, ' ').trim();
+    function guess(i) {
+        if (i.placeholder) return i.placeholder.replace(/[.…]+$/, '');
+        if (i.tagName === 'SELECT' && i.options.length && !i.options[0].value) return txt(i.options[0]);   // «كل المواقع» = what it filters
+        const tr = i.closest('tr');
+        if (tr && /checkbox|radio/.test(i.type)) {                                                     // a row's tick box: «اختار <the row>»
+            if (i.closest('th')) return 'اختار الكل';
+            const cell = [...tr.cells].find(c => !c.contains(i) && txt(c)); if (cell) return 'اختار ' + txt(cell).slice(0, 50);
+        }
+        if (i.title) return i.title;
+        const prev = i.previousElementSibling;
+        if (prev && /^(LABEL|SPAN|B|SMALL|DIV)$/.test(prev.tagName) && txt(prev).length < 60) return txt(prev);
+        const box = i.closest('.form-group, .mb-2, .mb-3, .col, [class*="col-"]');
+        const lab = box && box.querySelector('label, .form-label, .lbl');
+        if (lab && txt(lab).length < 60) return txt(lab);
+        const td = i.closest('td'), table = i.closest('table');
+        if (td && table) { const th = table.querySelectorAll('thead th')[td.cellIndex]; if (th && txt(th)) return txt(th); }
+        return i.name || '';
+    }
+    function fix(root) {
+        root.querySelectorAll('input:not([type=hidden]):not([aria-label]), select:not([aria-label]), textarea:not([aria-label])').forEach(i => {
+            if (i.labels && i.labels.length) return;
+            const g = guess(i); if (g) i.setAttribute('aria-label', g);
+        });
+        root.querySelectorAll('button:not([aria-label]), a.btn:not([aria-label]), a.g-ib:not([aria-label])').forEach(b => {
+            if (!txt(b) && b.title) b.setAttribute('aria-label', b.title);
+            b.querySelectorAll('i.bi:not([aria-hidden])').forEach(ic => ic.setAttribute('aria-hidden', 'true'));
+        });
+    }
+    const run = () => fix(document);
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', run) : run();
+    let t; new MutationObserver(() => { clearTimeout(t); t = setTimeout(run, 300); }).observe(document.body, {childList: true, subtree: true});
 })();
 </script>
 {% block extra_js %}{% endblock %}

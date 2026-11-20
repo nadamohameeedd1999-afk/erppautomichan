@@ -48,9 +48,9 @@
 </style>
 </head>
 <body>
-<div class="bar"><a href="/health" style="background:#fff;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:7px 12px;text-decoration:none">↩ صحة النظام</a>
+{% if sites %}<div class="bar"><a href="/health" style="background:#fff;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:7px 12px;text-decoration:none">↩ صحة النظام</a>
   <a href="/env-compare" style="background:#fff;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:7px 12px;text-decoration:none">🔁 مقارنة بيئتين</a>
-  <button onclick="print()">🖨️ طباعة / PDF</button></div>
+  <button onclick="print()">🖨️ طباعة / PDF</button></div>{% endif %}
 {% for s in sites %}
 <div class="page site">
   <div class="hdr">
@@ -78,7 +78,13 @@
   <div class="sign"><div>نفّذه: أداة أتمتة اختبارات ERP</div><div>مدير التطوير: ....................</div><div>قرار النشر والتاريخ: ....................</div></div>
 </div>
 {% else %}
-<div class="page"><h2>مفيش فحص صحة نظام لسه — شغّلي «🔎 فحص شامل» من صفحة صحة النظام</h2></div>
+<div class="page" style="max-width:640px;margin-top:80px;text-align:center;padding:36px 28px">
+  <div style="font-size:40px">🚦</div>
+  <h1 style="font-size:20px;margin:8px 0">لسه مفيش قرار جاهزية</h1>
+  <p style="color:var(--grey);font-size:13px;line-height:1.9">جاهزية الإصدار بتتحسب من آخر «فحص شامل» لكل موقع: الشاشات والسرعة والحسابات. اعمل فحص لموقع واحد على الأقل، والقرار (ينفع ينزل / بحذر / متنشرش) هيظهر هنا.</p>
+  <p style="margin-top:18px"><a href="/health" style="background:var(--teal);color:#fff;border-radius:8px;padding:9px 18px;text-decoration:none;font-weight:bold">🔎 اعمل فحص شامل</a>
+     <a href="/" style="color:var(--teal);margin-inline-start:14px">الرئيسية</a></p>
+</div>
 {% endfor %}
 </body>
 </html>

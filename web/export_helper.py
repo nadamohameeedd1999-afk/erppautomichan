@@ -237,3 +237,17 @@ def export_to_pdf(summaries):
     doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def pdf_unavailable(html_url, err):
+    """the PDF needs Chrome on the server; when it can't start, say so and hand over the same report as a page"""
+    from flask import Response
+    import html as _h
+    return Response(f'''<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>PDF مش متاح دلوقتي</title>
+<body style="font:14px Tahoma,sans-serif;background:#F4F8F8;color:#1C2B2A;margin:0">
+<div style="max-width:620px;margin:80px auto;background:#fff;border:1px solid #D5E2E1;border-radius:12px;padding:30px;text-align:center">
+<div style="font-size:38px">📄</div><h1 style="font-size:19px">مقدرتش أعمل ملف PDF دلوقتي</h1>
+<p style="color:#5E6E6D;line-height:1.9">الـ PDF بيتعمل بمتصفح Chrome على السيرفر، وChrome ما اشتغلش. نفس التقرير موجود كصفحة: افتحه واطبعه أو احفظه PDF من المتصفح.</p>
+<p><a href="{_h.escape(html_url)}" style="background:#0F7C7A;color:#fff;border-radius:8px;padding:9px 18px;text-decoration:none;font-weight:bold">افتح التقرير</a></p>
+<details style="color:#5E6E6D;font-size:12px;margin-top:16px"><summary>التفاصيل للدعم</summary><code dir="ltr">{_h.escape(str(err)[:300])}</code></details>
+</div></body></html>''', status=503, mimetype="text/html")

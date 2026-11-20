@@ -320,6 +320,9 @@ def serve_allure_report(filename):
     """يقدم ملفات تقرير Allure"""
     from flask import send_from_directory
     allure_report = paths.ALLURE_REPORT_DIR
+    if not (allure_report / filename).exists() and filename.endswith("index.html"):
+        return ('<div dir="rtl" style="font:14px Tahoma,sans-serif;text-align:center;padding:60px;color:#5E6E6D">'
+                '📊 لسه مفيش تقرير Allure متولّد — اضغط «توليد» فوق</div>'), 200
     return send_from_directory(str(allure_report), filename)
 
 

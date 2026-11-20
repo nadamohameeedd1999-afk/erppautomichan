@@ -222,5 +222,5 @@ def test_problems_to_developer_support():
     tk = lambda txt, typ="بيانات غلط": {"screen": "سند القبض", "type": typ, "text": txt, "name": "منى", "job": "أمينة صندوق", "action": "add", "source": "erp"}
     (RUNS / "day_29990101_000001.json").write_text(_j.dumps({"date": str(date.today()), "mode": "حقيقي", "tickets": [tk("الإجمالي '247' اتسجل '1235'"), tk("الإجمالي '304' اتسجل '1520'")]}), encoding="utf-8")
     (RUNS / "day_29990101_000002.json").write_text(_j.dumps({"date": str(date.today()), "mode": "محاكاة", "tickets": [tk("simulated")]}), encoding="utf-8")
-    items = SP.support_issues()
+    items = [x for x in SP.support_issues() if "اتسجل" in x["title"] or "simulated" in x["title"]]     # other tests' days share this folder
     assert len(items) == 1 and items[0]["times"] == 2 and items[0]["severity"] == "عالية" and items[0]["source"].endswith("الشركة الافتراضية")

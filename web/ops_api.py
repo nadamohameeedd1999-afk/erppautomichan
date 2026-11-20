@@ -233,7 +233,11 @@ def daily_report_pdf():
     from flask import Response
     from web import daily_report
     frm, to = _report_range()
-    pdf = daily_report.pdf_report(frm, to, (auth.current_user() or {}).get("full_name", ""))
+    try:
+        pdf = daily_report.pdf_report(frm, to, (auth.current_user() or {}).get("full_name", ""))
+    except Exception as e:
+        from web.export_helper import pdf_unavailable
+        return pdf_unavailable("/reports/daily?" + request.query_string.decode(), e)
     return Response(pdf, mimetype="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="daily_report_{to:%Y%m%d}.pdf"'})
 

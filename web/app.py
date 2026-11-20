@@ -413,9 +413,9 @@ def serve_screenshot(filename):
 
 
 # ==================== Health Check ====================
-@app.route("/health")
+@app.route("/healthz")
 def health():
-    """Health check endpoint for Railway"""
+    """Health check endpoint for Railway (/health is the «صحة النظام» page, which needs a login)"""
     import os
     from datetime import datetime
 
