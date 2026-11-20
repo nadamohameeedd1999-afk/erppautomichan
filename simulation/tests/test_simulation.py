@@ -224,3 +224,31 @@ def test_problems_to_developer_support():
     (RUNS / "day_29990101_000002.json").write_text(_j.dumps({"date": str(date.today()), "mode": "محاكاة", "tickets": [tk("simulated")]}), encoding="utf-8")
     items = [x for x in SP.support_issues() if "اتسجل" in x["title"] or "simulated" in x["title"]]     # other tests' days share this folder
     assert len(items) == 1 and items[0]["times"] == 2 and items[0]["severity"] == "عالية" and items[0]["source"].endswith("الشركة الافتراضية")
+
+
+def test_books_check():
+    """📒 the accountant's daily books: an unbalanced entry and a saved document with no entry are problems; a clean day passes"""
+    from datetime import date
+    from simulation.real import probes
+    from simulation.real.writer import Ledger
+    today = date.today().isoformat()
+    Ledger.add("bk", "sales_invoice", "901", "e", "D")
+    Ledger.add("bk", "receipt_voucher", "902", "e", "D")
+    Ledger.add("bk", "quotation", "903", "e", "D")                     # a quotation makes no entry: not asked for
+
+    class Drv:
+        def __init__(self, data): self.data = data
+        def set_script_timeout(self, s): pass
+        def execute_async_script(self, js, *a):
+            assert "all: all.map(" in js                              # the journal reader was widened to return every entry
+            return self.data
+
+    class Ses:
+        def __init__(self, data): self.driver = Drv(data)
+        def open(self, p): return {}
+    ok = {"ok": True, "s": 200, "all": [{"doc": "901", "type": "فاتورة", "d": 115, "c": 115}, {"doc": "902", "type": "قبض", "d": 50, "c": 50}], "bad": []}
+    assert probes.books_check(Ses(ok), "bk", today)["kind"] == "ok"
+    bad = {"ok": True, "s": 200, "all": [{"doc": "901", "type": "فاتورة", "d": 115, "c": 100}], "bad": [{"doc": "901", "type": "فاتورة", "d": 115, "c": 100, "diff": 15}]}
+    r = probes.books_check(Ses(bad), "bk", today)
+    assert r["kind"] == "wrong" and "مش متزن" in r["msg"] and "مالوش قيد" in r["msg"] and "902" in r["evidence"] and "903" not in r["evidence"]
+    assert probes.books_check(Ses({"ok": False, "s": 500}), "bk", today)["kind"] == "skip"

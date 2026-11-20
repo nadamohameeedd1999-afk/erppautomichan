@@ -1121,7 +1121,8 @@ class Company:
                 (110, m, "sec_secrets", "sec_secrets", T("🔐 اختبار: أسرار مكتوبة في كود الصفحات", "🔐 Test: secrets written in the pages")),
                 (330, m, "ux_mobile", "ux_mobile", T("📱 اختبار: الشاشات على مقاس الموبايل", "📱 Test: screens at phone size")),
                 (350, m, "ux_lang", "ux_lang", T("🌐 اختبار: واجهة السيستم بالإنجليزي", "🌐 Test: the system in English")),
-                (self.end - self.start - 70, acc or m, "tb_numbers", "tb_numbers", T("⚖️ اختبار: أرقام ميزان المراجعة", "⚖️ Test: trial balance figures"))]
+                (self.end - self.start - 70, acc or m, "tb_numbers", "tb_numbers", T("⚖️ اختبار: أرقام ميزان المراجعة", "⚖️ Test: trial balance figures")),
+                (self.end - self.start - 55, acc or m, "acc_books", "acc_books", T("📒 مراجعة قيود اليوم: كل قيد متزن وكل مستند ليه قيد", "📒 Today's books: every entry balanced, every document has its entry"))]
         if hr and "payroll" in S:
             plan.append((200, hr, "payroll", "payroll", T("💰 مسير رواتب الشهر (إضافة ← حذف)", "💰 This month's payroll (add → delete)")))
         for at, who, key, probe, label in plan:
@@ -1296,6 +1297,7 @@ class Company:
         else:                                                      # read checks: 🔐 👁️ 🧮 ⚖️ ✅
             if k in ("ok", "slow"):
                 text = r.get("note") or ({"it_sweep": T("فتحت كل الـ 118 شاشة في المنيو — كلها شغالة وبتحمّل بياناتها ✅", "Opened all 118 menu screens — all working and loading their data ✅"),
+                                          "acc_books": T("📒 42 قيد النهارده كلهم متزنين، وكل مستند ليه قيده ✅", "📒 42 entries today, all balanced, every document has its entry ✅"),
                                           "it_speed": T("كل شاشات القوايم بتظهر بياناتها في أقل من 8 ث — المتوسط 2.4 ث ✅", "Every list screen shows its data in under 8 s — 2.4 s on average ✅")}.get(p)
                                          if sim else None) or T("تمام ✅", "OK ✅")
             else:

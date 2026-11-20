@@ -525,3 +525,35 @@ def it_sweep(session, menu, limit=2000):
                 "msg": f"من {len(res)} شاشة: {len(broken)} فيها مشكلة" + (f" ({n404}× 404" if n404 else " (") + (f"، {n500}× خطأ سيرفر" if n500 else "") + ")"
                        + (f" و{len(stuck)} مش بتحمّل بيانات" if stuck else "")}
     return {"kind": "ok", "ms": ms, "evidence": ev, "note": f"🖥️ فتحت كل الـ {len(res)} شاشة في المنيو — كلها شغالة، و{filled} شاشة قوايم حمّلت بياناتها ✅"}
+
+
+# ---------------------------------------------------------------- 📒 the accountant's daily books check (read only)
+POSTS = {"sales_invoice", "purchase_invoice", "receipt_voucher", "payment_voucher", "sales_return", "purchase_return", "journal_entry"}   # screens that make a journal entry
+
+
+def books_check(session, site, since):
+    """today's journal from «مراجعة قيود اليومية» (the same JSON that screen reads; a POST that only reads):
+    1) every entry: debit = credit   2) every document the company saved today on a posting screen has its entry"""
+    from engine.journal_check import READ_JS, URL
+    from simulation.real.writer import Ledger
+    d, t0 = session.driver, time.time()
+    session.open("/")
+    d.set_script_timeout(60)
+    js = READ_JS.replace("bad: all.filter(", "all: all.map(e => ({doc: String(e.doc || ''), type: e.type, d: e.d, c: e.c})), bad: all.filter(")
+    r = d.execute_async_script(js, URL, since, since) or {}
+    ms = int((time.time() - t0) * 1000)
+    if not r.get("ok"):
+        return {"kind": "skip", "notarget": True, "ms": ms, "msg": f"مقدرتش أقرا «مراجعة قيود اليومية» ({r.get('s')}): {str(r.get('err', ''))[:120]}"}
+    entries, bad = r.get("all") or [], r.get("bad") or []
+    nums = {e["doc"].strip() for e in entries if e.get("doc")}
+    ours = [x for x in Ledger._all() if x["site"] == site and x["screen"] in POSTS and not x.get("deleted") and str(x.get("at", ""))[:10] >= since]
+    missing = [x for x in ours if str(x["no"]).strip() not in nums]
+    lines = [f"📒 قيود النهارده: {len(entries)} قيد · {len(bad)} مش متزن · مستنداتنا اللي بتعمل قيد: {len(ours)} · من غير قيد: {len(missing)}"]
+    lines += [f"⚖️ {e.get('type')} رقم {e.get('doc')}: مدين {e['d']:,.2f} · دائن {e['c']:,.2f} · الفرق {e['diff']:+,.2f}" for e in bad[:10]]
+    lines += [f"❓ {x['screen']} رقم {x['no']} اتحفظ ومالوش قيد في قيود اليوم" for x in missing[:10]]
+    ev = "\n".join(lines)
+    if bad or missing:
+        msg = "، ".join(p for p in (f"{len(bad)} قيد مش متزن (مجموع الفرق {sum(e['diff'] for e in bad):+,.2f})" if bad else "",
+                                       f"{len(missing)} مستند اتحفظ ومالوش قيد" if missing else "") if p)
+        return {"kind": "wrong", "ms": ms, "msg": msg, "evidence": ev}
+    return {"kind": "ok", "ms": ms, "evidence": ev, "note": f"📒 {len(entries)} قيد النهارده كلهم متزنين، وكل مستند من {len(ours)} مستند ليه قيده ✅"}

@@ -60,7 +60,7 @@ PREFER = {"quotation": ["/SalesQuotation"], "sales_order": ["/SalesOrder"], "sto
 PROBE_WRITE = {"neg_required": ("quotation", "required", None), "neg_negative": ("quotation", "negative", -5), "neg_discount": ("quotation", "discount", 150),
                "neg_text": ("quotation", "text", None), "neg_dupref": ("purchase_invoice", "dupref", "VC-DUP"), "perf_lines": ("quotation", "lines", 30)}
 BUSY_LOCK = threading.Lock()
-PROBE_READ = {"it_sweep", "it_speed", "sec_nologin", "sec_secrets", "ux_mobile", "ux_lang", "int_je", "tb_numbers", "approve_doc"}
+PROBE_READ = {"it_sweep", "it_speed", "acc_books", "sec_nologin", "sec_secrets", "ux_mobile", "ux_lang", "int_je", "tb_numbers", "approve_doc"}
 
 
 def guess_map(menu):
@@ -237,6 +237,9 @@ class RealERP:
             t = task.get("doc_no") or ""
             if key == "it_sweep":                                # 🖥️ IT: every screen in his menu opens and loads data
                 r = probes.it_sweep(s, self.menus.get(emp["id"]) or [])
+            elif key == "acc_books":                             # 📒 the accountant: today's entries balanced, every saved document has one
+                from datetime import date as _date
+                r = probes.books_check(s, self.cfg.get("site_id", ""), _date.today().isoformat())
             elif key == "it_speed":                              # 🐢 IT: how long each list takes to show its data (after lunch: vs. this morning)
                 r, times = probes.it_speed(s, self.menus.get(emp["id"]) or [], getattr(self, "_speed_am", None))
                 self._speed_am = getattr(self, "_speed_am", None) or times or None

@@ -219,6 +219,20 @@
      }
     },
     {
+     "id": "a_books",
+     "ar": "المحاسب يراجع قيود اليوم كلها",
+     "en": "The accountant reviews all of today's entries",
+     "how": "آخر اليوم: كل قيود النهارده من «مراجعة قيود اليومية» + كل مستند الشركة حفظته في شاشة بتعمل قيد",
+     "exp": "كل قيد مدين = دائن، وكل فاتورة / سند ليه قيده",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "acc_books"
+      ]
+     }
+    },
+    {
      "id": "i_je",
      "ar": "كل فاتورة ليها قيد متزن على الحسابات الصح",
      "en": "Every invoice has a balanced entry on the right accounts",

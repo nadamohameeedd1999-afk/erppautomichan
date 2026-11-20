@@ -104,7 +104,7 @@
     'اختبار: رابط من غير تسجيل دخول': 'Test: link without login', 'اختبار: أسرار مكتوبة في الصفحات': 'Test: secrets in the pages', 'اختبار: الشاشات على الموبايل': 'Test: screens on mobile',
     'اختبار: الواجهة الإنجليزي': 'Test: English interface', 'اختبار: قيد الفاتورة متزن': "Test: invoice's entry balances", 'اختبار: أرقام ميزان المراجعة': 'Test: trial balance figures',
     'اختبار: اعتماد مستند': 'Test: approving a document', 'مسير الرواتب': 'Payroll', 'اختبار: الضريبة 15%': 'Test: VAT 15%',
-    'الدعم الفني (IT)': 'IT Support', 'الدعم الفني': 'IT Support', 'فحص كل شاشات السيستم (IT)': 'Full system screens check (IT)', 'فحص سرعة الشاشات (IT)': 'Screens speed check (IT)',
+    'الدعم الفني (IT)': 'IT Support', 'الدعم الفني': 'IT Support', 'فحص كل شاشات السيستم (IT)': 'Full system screens check (IT)', 'فحص سرعة الشاشات (IT)': 'Screens speed check (IT)', 'مراجعة قيود اليوم': 'Today\'s books review',
     'فهد (IT) يفتح كل شاشات السيستم من المنيو': 'Fahd (IT) opens every screen in the menu',
     // jobs
     'المدير العام': 'General Manager', 'المدير': 'Manager', 'مندوبة مبيعات': 'Sales Rep', 'مندوب مبيعات': 'Sales Rep', 'محاسب': 'Accountant', 'محاسبة': 'Accountant',
