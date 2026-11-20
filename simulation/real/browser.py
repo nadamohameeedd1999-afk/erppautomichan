@@ -68,6 +68,17 @@ class ErpSession:
 
     # ------------------------------------------------------------------ browser
     def _start(self):
+        try:                                             # the dashboard's own Chrome setup: the right chromedriver on the server
+            from tests.conftest import _build_options, _create_driver   # (CHROME_BIN / CHROMEDRIVER_PATH), memory-safe flags, crash recovery
+            o = _build_options()
+            if not self.visible:
+                o.add_argument("--headless=new")
+            o.add_argument("--window-size=1366,850")
+            self.driver = _create_driver(o)
+            self.driver.set_page_load_timeout(90)
+            return
+        except ImportError:
+            pass
         from selenium import webdriver
         o = webdriver.ChromeOptions()
         if not self.visible:
