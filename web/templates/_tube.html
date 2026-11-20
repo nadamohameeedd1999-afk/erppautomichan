@@ -36,7 +36,7 @@
 <div id="gTube" aria-live="polite">
   <div class="th" onclick="gTube.toggle()"><span id="gtIcon"></span><b id="gtTitle">التشغيلات</b><span class="cnt" id="gtCnt">0</span>
     <button class="ib" title="تصغير / تكبير" onclick="event.stopPropagation(); gTube.toggle()"><i class="bi bi-chevron-down" id="gtChev"></i></button>
-    <button class="ib" title="اقفل (هيرجع لما تشغيل جديد يبدأ)" onclick="event.stopPropagation(); gTube.close()"><i class="bi bi-x-lg"></i></button></div>
+    <button class="ib" title="اقفل (هيرجع لما تشغيل جديد يبدأ)" aria-label="اقفل" onclick="event.stopPropagation(); gTube.close()"><i class="bi bi-x-lg"></i></button></div>
   <div class="tabs" id="gtTabs"></div>
   <div class="bd" id="gtBody"></div>
 </div>

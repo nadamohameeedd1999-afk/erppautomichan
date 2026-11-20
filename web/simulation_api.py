@@ -87,9 +87,9 @@ def make(name, prefix, demo):
         html = (WEB / fname).read_text(encoding="utf-8")
         if demo:                                                 # the client's copy: no settings button
             extra += "<style>a[href$='/settings']{display:none!important}</style>"
-        else:                                                    # back to the dashboard
-            extra += ("<a href='/' style='position:fixed;bottom:10px;inset-inline-start:10px;z-index:9999;background:#0F7C7A;color:#fff;"
-                      "padding:6px 12px;border-radius:8px;font:13px Tahoma;text-decoration:none'>🏠 لوحة الاختبارات</a>")
+        back = ("" if demo else "<a href='/' class='co' aria-label='لوحة الاختبارات' style='color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.35);"
+                                  "border-radius:8px;padding:2px 10px;font-size:13px'>🏠 لوحة الاختبارات</a>")   # in the header: never over the office
+        html = html.replace("<header>", "<header>" + back, 1)
         return Response(html.replace("</body>", extra + "</body>", 1), mimetype="text/html")
 
     def days(real_only=False):

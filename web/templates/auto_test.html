@@ -302,7 +302,7 @@ function render() {
             <td>${last}</td>
             <td class="text-nowrap text-end">
                 <button class="btn btn-sm btn-warning" onclick="tryOne('${esc(s.key)}')" title="شغّليه دلوقتي واتفرجي على النتيجة هنا">🧪 جرّبي دلوقتي</button>
-                <button class="btn btn-sm btn-success" onclick="runKeys(['${esc(s.key)}'])"><i class="bi bi-play-fill"></i></button>
+                <button class="btn btn-sm btn-success" aria-label="شغّل" title="شغّل" onclick="runKeys(['${esc(s.key)}'])"><i class="bi bi-play-fill" aria-hidden="true"></i></button>
             </td></tr>`;
     });
     $('rows').innerHTML = html || '<tr><td colspan="4" class="text-center text-muted py-4">مفيش شاشات — اعملي «اكتشاف شاشات النظام» من منشئ الشاشات</td></tr>';

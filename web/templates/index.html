@@ -12,9 +12,8 @@
     .s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; }
     .s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s12 { grid-column: span 12; }
     .kpi .lbl { color: var(--g-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
-    .kpi .val { font-size: 32px; font-weight: 800; margin: 6px 0 2px; line-height: 1.1;
-                background: var(--g-val-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--g-num-font, inherit); }
-    .kpi .val.bad { background: linear-gradient(90deg, var(--g-bad), var(--g-bad)); -webkit-background-clip: text; background-clip: text; }
+    .kpi .val { font-size: 28px; font-weight: 700; margin: 6px 0 2px; line-height: 1.1; color: var(--g-head); font-family: var(--g-num-font, inherit); }
+    .kpi .val.bad { color: var(--g-bad); } .kpi .val.warn { color: var(--g-warn); } .kpi .val.ok { color: var(--g-ok); }   /* colour = meaning (DESIGN.md §2) */
     .kpi .hint { font-size: 12px; color: var(--g-muted); }
     .up { color: var(--g-ok); font-weight: 700; } .down { color: var(--g-bad); font-weight: 700; }
     .spark { display: block; width: 100%; height: 36px; margin-top: 8px; }
@@ -45,10 +44,13 @@
     .indet { height: 6px; border-radius: 9px; background: var(--g-hover); overflow: hidden; margin-top: 8px; position: relative; }
     .indet:after { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 9px; background: var(--g-grad); animation: slide 1.4s ease-in-out infinite; }
     @keyframes slide { 0% { inset-inline-start: -35%; } 100% { inset-inline-start: 100%; } }
-    .att { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 13px;
-           background: rgba(251,113,133,.08); border: 1px solid rgba(251,113,133,.28); }
-    .att.w { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.28); }
-    .att.i { background: rgba(34,211,238,.07); border-color: rgba(34,211,238,.25); }
+    .att { display: flex; gap: 10px; align-items: center; padding: 10px 12px; font-size: 13px;          /* a quiet list: the colour is the 3px edge only */
+           border-bottom: 1px solid var(--g-line); border-inline-start: 3px solid var(--g-bad); }
+    .att:last-of-type { border-bottom: 0; }
+    .att.w { border-inline-start-color: var(--g-warn); }
+    .att.i { border-inline-start-color: var(--g-acc); }
+    .att:hover { background: var(--g-hover); }
+    .att-more { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--g-link); text-decoration: none; }
     .att .tx { flex: 1; min-width: 0; }
     .att .tx div { color: var(--g-muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .att .btn { padding: 2px 10px; font-size: 12px; }
@@ -56,8 +58,11 @@
     .empty i { font-size: 30px; display: block; margin-bottom: 6px; opacity: .6; }
     .pattern { font-family: Consolas, monospace; letter-spacing: 2px; direction: ltr; display: inline-block; }
     .pattern .p { color: var(--g-ok); } .pattern .f { color: var(--g-bad); }
+    .h-card[hidden] { display: none; }
+    .wide { grid-column: span 12; }
     @media (max-width: 1200px) { .s3 { grid-column: span 6; } .s4, .s5, .s6, .s7, .s8 { grid-column: span 12; } }
-    @media (max-width: 560px) { .s3 { grid-column: span 12; } .mods .m { grid-template-columns: minmax(0,1fr) 60px 40px; } }
+    @media (max-width: 560px) { .h-grid { gap: 10px; } .h-card { padding: 12px; } .s3 { grid-column: span 6; } .kpi .val { font-size: 24px; } .kpi .spark, .kpi .h-bar { display: none; }
+                                .kpi .hint { font-size: 11px; } .mods .m { grid-template-columns: minmax(0,1fr) 60px 40px; } .runs .why { max-width: 200px; } }
 </style>
 {% endblock %}
 
@@ -84,35 +89,68 @@
 </div>
 
 <div class="h-grid">
-    <!-- ===== KPIs ===== -->
+    <!-- ===== KPIs: what needs you first, colour = meaning ===== -->
     <div class="h-card kpi s3">
-        <div class="lbl"><i class="bi bi-play-circle"></i> تشغيلات النهارده</div>
+        <div class="lbl"><i class="bi bi-x-octagon" aria-hidden="true"></i> فاشل دلوقتي</div>
+        <div class="val {{ 'bad' if k.failing else 'ok' }}">{{ k.failing }}</div>
+        <div class="hint">{{ 'محتاجين مراجعة' if k.failing else 'كله تمام 👌' }}</div>
+        <svg class="spark" id="spFail" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+    <div class="h-card kpi s3">
+        <div class="lbl"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> نسبة النجاح (7 أيام)</div>
+        {% set pr = k.pass_7d %}
+        <div class="val {{ '' if pr is none else ('bad' if pr < 50 else ('warn' if pr < 80 else 'ok')) }}">{{ pr if pr is not none else '—' }}{% if pr is not none %}%{% endif %}</div>
+        <div class="hint">{% if k.pass_delta is not none %}<span class="{{ 'up' if k.pass_delta >= 0 else 'down' }}">{{ '▲' if k.pass_delta >= 0 else '▼' }} {{ k.pass_delta|abs }}%</span> عن الأسبوع اللي قبله{% else %}من {{ k.runs_7d }} تشغيلة{% endif %}</div>
+        <svg class="spark" id="spRate" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+    <div class="h-card kpi s3">
+        <div class="lbl"><i class="bi bi-play-circle" aria-hidden="true"></i> تشغيلات النهارده</div>
         <div class="val">{{ k.runs_today }}</div>
         <div class="hint">{{ k.runs_7d }} في آخر 7 أيام · {{ k.total_runs }} إجمالي</div>
-        <svg class="spark" id="spRuns" preserveAspectRatio="none"></svg>
+        <svg class="spark" id="spRuns" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
     <div class="h-card kpi s3">
-        <div class="lbl"><i class="bi bi-graph-up-arrow"></i> نسبة النجاح (7 أيام)</div>
-        <div class="val">{{ k.pass_7d if k.pass_7d is not none else '—' }}{% if k.pass_7d is not none %}%{% endif %}</div>
-        <div class="hint">{% if k.pass_delta is not none %}<span class="{{ 'up' if k.pass_delta >= 0 else 'down' }}">{{ '▲' if k.pass_delta >= 0 else '▼' }} {{ k.pass_delta|abs }}%</span> عن الأسبوع اللي قبله{% else %}{{ k.runs_7d }} تشغيلة{% endif %}</div>
-        <svg class="spark" id="spRate" preserveAspectRatio="none"></svg>
-    </div>
-    <div class="h-card kpi s3">
-        <div class="lbl"><i class="bi bi-x-octagon"></i> فاشل دلوقتي</div>
-        <div class="val {{ 'bad' if k.failing }}">{{ k.failing }}</div>
-        <div class="hint">{{ 'محتاجين مراجعة' if k.failing else 'كله تمام 👌' }}</div>
-        <svg class="spark" id="spFail" preserveAspectRatio="none"></svg>
-    </div>
-    <div class="h-card kpi s3">
-        <div class="lbl"><i class="bi bi-shield-check"></i> تغطية الاختبار الكامل</div>
-        <div class="val">{{ k.coverage }}%</div>
-        <div class="hint">{{ k.full }} من {{ k.screens }} شاشة · {{ k.scenarios }} سيناريو{% if k.avg_duration is not none %} · متوسط {{ k.avg_duration }} ث{% endif %}</div>
+        <div class="lbl"><i class="bi bi-shield-check" aria-hidden="true"></i> تغطية الاختبار الكامل</div>
+        <div class="val {{ 'bad' if k.coverage < 50 else ('warn' if k.coverage < 80 else 'ok') }}">{{ k.coverage }}%</div>
+        <div class="hint">{{ k.full }} من {{ k.screens }} شاشة · {{ k.scenarios }} سيناريو</div>
         <div class="h-bar" style="margin-top:20px"><i style="width: {{ k.coverage }}%"></i></div>
+    </div>
+
+    <!-- ===== attention ===== -->
+    <div class="h-card s12">
+        <h3><i class="bi bi-bell"></i> محتاج انتباهك</h3>
+        {% set ns = namespace(n=0) %}
+        {% for f in home.failing[:3] %}{% set ns.n = ns.n + 1 %}
+        <div class="att"><span>⚠️</span><div class="tx"><b>{{ f.name }}</b> فشل <span class="ago" data-t="{{ f.when }}"></span>
+            {% if f.message %}<div title="{{ f.message }}">{{ f.message }}</div>{% endif %}</div>
+            {% if f.path %}<button class="btn btn-outline-danger" onclick='runOne({{ f.path|tojson }}, {{ f.name|tojson }})'>أعيدي</button>{% endif %}
+            <a class="btn btn-outline-primary" href="/reports/{{ f.run_id }}#whyCard" title="ليه فشل؟ + اسأل الذكاء الاصطناعي">✨ ليه؟</a></div>
+        {% endfor %}
+        {% for s in home.slower[:1] %}{% set ns.n = ns.n + 1 %}
+        <div class="att w"><span>🐢</span><div class="tx"><b>{{ s.name }}</b> بقى أبطأ من المعتاد
+            <div>آخر مرة {{ s.last }} ث — المعتاد {{ s.usual }} ث (+{{ s.pct }}%)</div></div></div>
+        {% endfor %}
+        {% for f in home.flaky[:1] %}{% set ns.n = ns.n + 1 %}
+        <div class="att w"><span>🎲</span><div class="tx"><b>{{ f.name }}</b> مش ثابت — {{ f.pct }}% نجاح
+            <div><span class="pattern">{% for ch in f.pattern %}<span class="{{ 'p' if ch == '✓' else 'f' }}">{{ ch }}</span>{% endfor %}</span></div></div></div>
+        {% endfor %}
+        {% if home.never_run %}{% set ns.n = ns.n + 1 %}
+        <div class="att i"><span>⚪</span><div class="tx"><b>{{ k.never_run }} اختبار كامل</b> عمره ما اشتغل
+            <div title="{{ home.never_run|join('، ') }}">{{ home.never_run|join('، ') }}</div></div>
+            <a class="btn btn-outline-info" href="/auto-test">شغّلهم</a></div>
+        {% endif %}
+        {% set left = (home.failing|length - 3 if home.failing|length > 3 else 0) + (home.slower|length - 1 if home.slower|length > 1 else 0) + (home.flaky|length - 1 if home.flaky|length > 1 else 0) %}
+        {% if left > 0 %}<a class="att-more" href="/automation-health">+ {{ left }} كمان في «صحة الأتمتة» ←</a>{% endif %}
+        {% if ns.n == 0 %}<div class="empty"><i class="bi bi-emoji-smile"></i>مفيش حاجة محتاجة انتباهك — كله تمام</div>{% endif %}
     </div>
 
     <!-- ===== status + trend ===== -->
     <div class="h-card s5">
-        <h3><i class="bi bi-heart-pulse"></i> صحة الأقسام</h3>
+        <h3><i class="bi bi-heart-pulse" aria-hidden="true"></i> صحة الأقسام</h3>
+        {% set st = home.status_now %}
+        {% if not (st.passed + st.failed) %}
+        <div class="empty"><i class="bi bi-clipboard-data" aria-hidden="true"></i>لسه مفيش نتايج للأقسام — <a href="/auto-test">شغّل الاختبار الآلي</a> وهتظهر هنا</div>
+        {% else %}
         <div class="donut-wrap">
             <div id="donut"></div>
             <div class="mods">
@@ -129,6 +167,7 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
     </div>
     <div class="h-card s7">
         <h3><i class="bi bi-bar-chart"></i> آخر 14 يوم
@@ -137,8 +176,8 @@
     </div>
 
     <!-- ===== recent + live ===== -->
-    <div class="h-card s8">
-        <h3><i class="bi bi-clock-history"></i> آخر التشغيلات <a class="more" href="/reports">كل التقارير ←</a></h3>
+    <div class="h-card s8 wide" id="recentCard">
+        <h3><i class="bi bi-clock-history" aria-hidden="true"></i> آخر التشغيلات <a class="more" href="/reports">كل التقارير ←</a></h3>
         {% if home.recent %}
         <div class="table-responsive"><table class="table table-sm align-middle mb-0 runs">
             <thead><tr><th>الاختبار</th><th>النتيجة</th><th>المدة</th><th>الوقت</th></tr></thead>
@@ -155,36 +194,11 @@
         </table></div>
         {% else %}<div class="empty"><i class="bi bi-inbox"></i>لسه مفيش تشغيلات</div>{% endif %}
     </div>
-    <div class="h-card s4">
+    <div class="h-card s4" id="liveCard" hidden aria-live="polite">
         <h3><span class="chip run" id="liveChip">شغال دلوقتي</span><a class="more" href="/queue"><i class="bi bi-list-task"></i> مركز التشغيل</a></h3>
         <div class="live" id="live"><div class="empty"><i class="bi bi-moon-stars"></i>مفيش اختبار شغال دلوقتي</div></div>
     </div>
 
-    <!-- ===== attention ===== -->
-    <div class="h-card s12">
-        <h3><i class="bi bi-bell"></i> محتاج انتباهك</h3>
-        {% set ns = namespace(n=0) %}
-        {% for f in home.failing[:4] %}{% set ns.n = ns.n + 1 %}
-        <div class="att"><span>⚠️</span><div class="tx"><b>{{ f.name }}</b> فشل <span class="ago" data-t="{{ f.when }}"></span>
-            {% if f.message %}<div title="{{ f.message }}">{{ f.message }}</div>{% endif %}</div>
-            {% if f.path %}<button class="btn btn-outline-danger" onclick='runOne({{ f.path|tojson }}, {{ f.name|tojson }})'>أعيدي</button>{% endif %}
-            <a class="btn btn-outline-primary" href="/reports/{{ f.run_id }}#whyCard" title="ليه فشل؟ + اسأل الذكاء الاصطناعي">✨ ليه؟</a></div>
-        {% endfor %}
-        {% for s in home.slower[:2] %}{% set ns.n = ns.n + 1 %}
-        <div class="att w"><span>🐢</span><div class="tx"><b>{{ s.name }}</b> بقى أبطأ من المعتاد
-            <div>آخر مرة {{ s.last }} ث — المعتاد {{ s.usual }} ث (+{{ s.pct }}%)</div></div></div>
-        {% endfor %}
-        {% for f in home.flaky[:2] %}{% set ns.n = ns.n + 1 %}
-        <div class="att w"><span>🎲</span><div class="tx"><b>{{ f.name }}</b> مش ثابت — {{ f.pct }}% نجاح
-            <div><span class="pattern">{% for ch in f.pattern %}<span class="{{ 'p' if ch == '✓' else 'f' }}">{{ ch }}</span>{% endfor %}</span></div></div></div>
-        {% endfor %}
-        {% if home.never_run %}{% set ns.n = ns.n + 1 %}
-        <div class="att i"><span>⚪</span><div class="tx"><b>{{ k.never_run }} اختبار كامل</b> عمره ما اشتغل
-            <div title="{{ home.never_run|join('، ') }}">{{ home.never_run|join('، ') }}</div></div>
-            <a class="btn btn-outline-info" href="/auto-test">شغّلهم</a></div>
-        {% endif %}
-        {% if ns.n == 0 %}<div class="empty"><i class="bi bi-emoji-smile"></i>مفيش حاجة محتاجة انتباهك — كله تمام</div>{% endif %}
-    </div>
 </div>
 
 <!-- running modal for re-runs from the home page (runner.js) -->
@@ -196,7 +210,7 @@
             <div class="text-center mb-3"><h4 class="fw-bold mb-1" id="runTestName">—</h4>
                 <div class="text-muted"><i class="bi bi-clock"></i> <span id="runTime" class="fw-bold">00:00</span></div></div>
             <div class="progress mb-3" style="height: 14px;"><div class="progress-bar" id="runProgress" style="width: 0%;"></div></div>
-            <div class="text-center mb-3"><span id="runStatus" class="badge bg-primary fs-6 px-3 py-2">جاري البدء...</span></div>
+            <div class="text-center mb-3"><span id="runStatus" class="badge bg-primary fs-6 px-3 py-2">جاري البدء…</span></div>
             <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;" id="runLog"></div>
             <div id="finishArea" class="d-none text-center mt-3">
                 <button class="btn btn-primary" id="viewReportBtn"><i class="bi bi-file-earmark-bar-graph"></i> عرض التفاصيل</button></div>
@@ -266,6 +280,7 @@ spark('spFail', T.failed, 'var(--g-bad)');
 })();
 
 (function donut() {
+    if (!document.getElementById('donut')) return;
     const st = HOME.status_now, all = st.passed + st.failed + st.never, r = 46, c = 2 * Math.PI * r;
     const pct = (st.passed + st.failed) ? Math.round(100 * st.passed / (st.passed + st.failed)) : null;
     const seg = (v, off, col) => v ? `<circle cx="60" cy="60" r="${r}" fill="none" style="stroke:${col}" stroke-width="12" stroke-dasharray="${c * v / all} ${c}" stroke-dashoffset="${-c * off / all}" transform="rotate(-90 60 60)"/>` : '';
@@ -284,7 +299,10 @@ async function pollQueue() {
         const run = q.running_all || (q.running ? [q.running] : []);
         const box = document.getElementById('live');
         document.getElementById('liveChip').style.opacity = run.length ? 1 : .5;
-        if (!run.length && !q.queue_length) { box.innerHTML = '<div class="empty"><i class="bi bi-moon-stars"></i>مفيش اختبار شغال دلوقتي</div>'; return; }
+        const idle = !run.length && !q.queue_length;
+        document.getElementById('liveCard').hidden = idle;
+        document.getElementById('recentCard').classList.toggle('wide', idle);
+        if (idle) return;
         const el = t => { const s = Math.max(0, Math.round((Date.now() - new Date(t.started_at || t.added_at)) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
         box.innerHTML = run.map(t => `<div class="it"><div class="fw-bold">${esc(t.test_name || t.test_path)}</div>
               <div class="small">شغال من <span class="mono">${el(t)}</span>${t.source && t.source !== 'manual' ? ' · ' + esc(t.source) : ''}</div><div class="indet"></div></div>`).join('')

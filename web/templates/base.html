@@ -8,6 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="{{ '#F4F8F8' if ui_light else '#0B1312' }}">
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
 
     {% if text_dir == "rtl" %}
@@ -22,6 +23,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+<a class="g-skip" href="#gMain">{{ 'تخطّي للمحتوى' if ar else 'Skip to content' }}</a>
 
 {% macro item(endpoints, url, icon, label, extra='') -%}
 <a href="{{ url }}" class="{{ 'on' if ep in endpoints }}"><i class="bi {{ icon }}"></i><span>{{ label }}</span>{{ extra|safe }}</a>
@@ -49,8 +51,8 @@
             <div class="g-av">{{ (current_user.full_name or current_user.username or '?')[:1] }}</div>
             <div class="who"><b>{{ current_user.full_name or current_user.username }}</b>
                 <small>{{ {'admin': 'مدير النظام', 'user': 'مستخدم', 'viewer': 'مشاهد'}.get(current_user.role, current_user.role) if ar else current_user.role }}</small></div>
-            <a href="{{ url_for('set_lang', lang='en' if ar else 'ar') }}" title="{{ 'English' if ar else 'العربية' }}"><i class="bi bi-translate"></i></a>
-            <a href="{{ url_for('logout') }}" title="{{ 'خروج' if ar else 'Logout' }}"><i class="bi bi-box-arrow-{{ 'left' if ar else 'right' }}"></i></a>
+            <a href="{{ url_for('set_lang', lang='en' if ar else 'ar') }}" title="{{ 'English' if ar else 'العربية' }}" aria-label="{{ 'English' if ar else 'العربية' }}"><i class="bi bi-translate" aria-hidden="true"></i></a>
+            <a href="{{ url_for('logout') }}" title="{{ 'خروج' if ar else 'Logout' }}" aria-label="{{ 'خروج' if ar else 'Logout' }}"><i aria-hidden="true" class="bi bi-box-arrow-{{ 'left' if ar else 'right' }}"></i></a>
         </div>
         {% endif %}
     </aside>
@@ -63,12 +65,12 @@
                 <div class="crumb">{{ site_name }}{% if nav_section_title %} · {{ nav_section_title }}{% endif %}</div>
                 <h1>{{ page_title }}</h1>
             </div>
-            <div class="g-search" onclick="gPal(true)"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
-            <a class="g-ib" href="{{ url_for('ops.run_center') }}" title="{{ 'مركز التشغيل' if ar else 'Run center' }}" id="gBell"><i class="bi bi-bell"></i><span class="dot d-none" id="gBellDot"></span></a>
+            <div class="g-search" role="button" tabindex="0" aria-label="{{ 'بحث' if ar else 'Search' }}" onclick="gPal(true)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); gPal(true); }"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
+            <a class="g-ib" href="{{ url_for('ops.run_center') }}" title="{{ 'مركز التشغيل' if ar else 'Run center' }}" id="gBell" aria-label="{{ 'مركز التشغيل' if ar else 'Run center' }}"><i class="bi bi-bell" aria-hidden="true"></i><span class="dot d-none" id="gBellDot"></span></a>
             <a class="btn btn-primary" href="/auto-test"><i class="bi bi-play-fill"></i> {{ 'تشغيل اختبارات' if ar else 'Run tests' }}</a>
         </header>
 
-        <main class="g-content">
+        <main class="g-content" id="gMain">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% for category, msg in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">

@@ -157,7 +157,7 @@ def inject_globals():
         "favicon": site_config.get("favicon_filename", ""),
         "current_user": auth.current_user(),
         # المظهر — Settings → المظهر; ?ui= / ?login= preview one look without saving
-        "ui_theme": _pick(request.args.get("ui"), site_config.get("ui_theme"), UI_THEMES, "glass"),
+        "ui_theme": _pick(request.args.get("ui"), site_config.get("ui_theme"), UI_THEMES, "teal"),
         "now_year": datetime.now().year,
         "login_style": _pick(request.args.get("login"), site_config.get("login_style"), LOGIN_STYLES, "terminal"),
         "nav_sections": _nav.menu_sections(), "nav_all_sections": _nav.SECTIONS,
@@ -166,7 +166,7 @@ def inject_globals():
     }
 
 
-UI_THEMES = ("terminal", "teal", "glass", "minimal", "rail")
+UI_THEMES = ("terminal", "teal", "nq-dark", "glass", "minimal", "rail")
 LOGIN_STYLES = ("network", "aurora", "terminal", "tilt", "teal")
 
 

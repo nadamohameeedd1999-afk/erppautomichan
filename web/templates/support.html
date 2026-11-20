@@ -75,7 +75,7 @@
       <span class="small text-muted" id="spSel">—</span>
       <div class="sp-actions">
         {% if kind == 'dev' %}<button class="btn btn-sm sp-out" onclick="spAddOpen()"><i class="bi bi-plus-lg"></i> مشكلة يدوي</button>
-        <button class="btn btn-sm sp-out" onclick="tkOpen()" title="إعدادات موقع التيكتات"><i class="bi bi-gear"></i></button>
+        <button class="btn btn-sm sp-out" onclick="tkOpen()" title="إعدادات موقع التيكتات" aria-label="إعدادات موقع التيكتات"><i class="bi bi-gear" aria-hidden="true"></i></button>
         <button class="btn btn-sm sp-teal" onclick="tkMake(selIds())"><i class="bi bi-ticket-perforated"></i> اعمل تذكرة دعم للمحدد</button>{% endif %}
         <select id="spBulk" class="form-select form-select-sm" style="width:auto" onchange="spBulk(this.value)"><option value="">غيّر حالة المحدد…</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
         <button class="btn btn-sm sp-out" onclick="spCopy()"><i class="bi bi-clipboard"></i> {{ 'انسخ نص' if kind == 'dev' else 'انسخ للإصلاح' }}</button>

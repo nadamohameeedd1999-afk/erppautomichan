@@ -91,6 +91,24 @@
     --brand-bg: #ffffff; --brand-fg: #0F7C7A; --av-bg: #ffffff;
 }
 
+/* ---------------------------------------------------------------- 2b) nq-dark (company teal on dark — DESIGN.md) */
+[data-ui="nq-dark"] {
+    --g-bg: #0B1312; --g-bg-img: none;
+    --g-panel: #121D1C; --g-panel-solid: #121D1C; --g-card-head: #0F1918; --g-blur: 0px;
+    --g-text: #D9E5E4; --g-head: #F2F7F7; --g-muted: #8FA3A2;
+    --g-line: #223634; --g-line-strong: #2F4A47; --g-hover: #17302E;
+    --g-input: #0F1918; --g-focus: #2BB3AF; --g-focus-ring: rgba(43, 179, 175, .22);
+    --g-thead-bg: #0F7C7A; --g-thead-color: #ffffff;
+    --g-acc: #2BB3AF; --g-acc-text: #7FD8D4; --g-acc-soft: #17302E; --g-acc2: #2BB3AF; --g-link: #5CCBC7;
+    --g-ok: #3CC9A0; --g-bad: #F0706A; --g-warn: #E8B04B;
+    --g-ok-text: #9BE6CF; --g-bad-text: #F8B4B0; --g-warn-text: #F3D194; --g-info-text: #A9E3E0;
+    --g-grad: #0F7C7A; --g-btn-shadow: none; --g-val-grad: linear-gradient(90deg, #F2F7F7, #F2F7F7);
+    --g-radius: 12px; --g-shadow: none; --g-code: #E8B04B;
+    --nav-bg: #0F1918; --nav-bg-mobile: #0F1918; --nav-border: #223634; --nav-text: #B9CCCB; --nav-muted: #6F8786;
+    --nav-hover: #17302E; --nav-on-bg: #0F7C7A; --nav-on-text: #fff; --nav-on-shadow: none;
+    --brand-bg: #0F7C7A; --brand-fg: #fff; --av-bg: #0F7C7A;
+}
+
 /* ---------------------------------------------------------------- 4) minimal (light, top navigation) */
 [data-ui="minimal"] {
     --g-bg: #fafafa; --g-bg-img: none;
@@ -164,7 +182,7 @@ body {
                background: var(--brand-bg); color: var(--brand-fg); font-size: 18px; overflow: hidden; border: 1px solid var(--nav-border); }
 .g-brand .lg img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .g-brand b { display: block; font-size: 14px; line-height: 1.3; color: var(--nav-text); }
-[data-ui="glass"] .g-brand b, [data-ui="rail"] .g-brand b, [data-ui="teal"] .g-brand b { color: #fff; }
+[data-ui="glass"] .g-brand b, [data-ui="rail"] .g-brand b, [data-ui="teal"] .g-brand b, [data-ui="nq-dark"] .g-brand b { color: #fff; }
 [data-ui="minimal"] .g-brand b { color: var(--g-head); }
 .g-brand small { display: block; font-size: 11px; color: var(--nav-muted); }
 .g-nav { padding: 4px 10px; overflow-y: auto; flex: 1; }
@@ -208,11 +226,11 @@ body {
 @keyframes g-pulse { 50% { opacity: .3; } }
 
 /* --- terminal + teal: sidebar attached to the edge --- */
-[data-ui="terminal"] .g-app, [data-ui="teal"] .g-app { padding: 0; gap: 0; }
-[data-ui="terminal"] .g-side, [data-ui="teal"] .g-side { top: 0; height: 100vh; border-radius: 0; border-width: 0; border-inline-end-width: 1px; backdrop-filter: none; }
-[data-ui="terminal"] .g-main, [data-ui="teal"] .g-main { padding: 0 20px; }
-[data-ui="terminal"] .g-top, [data-ui="teal"] .g-top { margin: 0 -20px 16px; padding: 12px 20px; background: var(--g-panel); border-bottom: 1px solid var(--g-line); position: sticky; top: 0; z-index: 30; }
-[data-ui="teal"] .g-top { border-bottom: 3px solid #0F7C7A; }
+[data-ui="terminal"] .g-app, [data-ui="teal"] .g-app, [data-ui="nq-dark"] .g-app { padding: 0; gap: 0; }
+[data-ui="terminal"] .g-side, [data-ui="teal"] .g-side, [data-ui="nq-dark"] .g-side { top: 0; height: 100vh; border-radius: 0; border-width: 0; border-inline-end-width: 1px; backdrop-filter: none; }
+[data-ui="terminal"] .g-main, [data-ui="teal"] .g-main, [data-ui="nq-dark"] .g-main { padding: 0 20px; }
+[data-ui="terminal"] .g-top, [data-ui="teal"] .g-top, [data-ui="nq-dark"] .g-top { margin: 0 -20px 16px; padding: 12px 20px; background: var(--g-panel); border-bottom: 1px solid var(--g-line); position: sticky; top: 0; z-index: 30; }
+[data-ui="teal"] .g-top, [data-ui="nq-dark"] .g-top { border-bottom: 3px solid #0F7C7A; }
 [data-ui="terminal"] .g-nav a { border-radius: 6px; }
 [data-ui="terminal"] .kpi .val, [data-ui="terminal"] .mono, [data-ui="terminal"] .sched .tm { font-family: var(--g-num-font); }
 
@@ -374,3 +392,17 @@ footer { display: none; }
     .g-search span, .g-search kbd { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+
+/* ---------------------------------------------------------------- shared by every look (DESIGN.md §3, §6) */
+[data-theme="dark"] { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+#gPal input:focus-visible { outline: none; border-bottom-color: var(--g-focus); }
+.kpi .val, .mono, table td, .g-num { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { text-wrap: balance; }
+.g-skip { position: absolute; inset-inline-start: 12px; top: -60px; z-index: 2000; background: var(--g-acc); color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+.g-skip:focus { top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

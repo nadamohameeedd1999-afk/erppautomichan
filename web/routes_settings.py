@@ -47,7 +47,7 @@ def settings():
         login_styles_list=LOGIN_STYLE_NAMES[get_current_lang()],
         ui_themes_list=UI_THEME_NAMES[get_current_lang()],
         login_style_saved=site_config.get("login_style") or "terminal",
-        ui_theme_saved=site_config.get("ui_theme") or "glass",
+        ui_theme_saved=site_config.get("ui_theme") or "teal",
     )
 
 
@@ -66,11 +66,13 @@ LOGIN_STYLE_NAMES = {
 UI_THEME_NAMES = {
     "ar": [("terminal", "تقني", "غامق بلون أخضر — زي شاشة الدخول التقنية"),
            ("teal", "ألوان الشركة Teal", "فاتح، قايمة تيل غامق، جداول زي التقارير المعتمدة"),
+           ("nq-dark", "ألوان الشركة — غامق", "غامق هادي بلون التيل بس، من غير بنفسجي ولا تدرجات"),
            ("glass", "زجاج وألوان", "غامق، قايمة زجاج عايمة وألوان متدرجة"),
            ("minimal", "بسيط + قايمة فوق", "فاتح وهادي، القايمة فوق والمساحة كلها للمحتوى"),
            ("rail", "أيقونات جانبية", "غامق، القايمة أيقونات بس والاسم بيظهر لما تقفي عليها")],
     "en": [("terminal", "Terminal", "Dark with green accents"),
            ("teal", "Company teal", "Light, dark-teal sidebar"),
+           ("nq-dark", "Company teal — dark", "Calm dark with the teal accent only"),
            ("glass", "Glass & colors", "Dark, floating glass sidebar"),
            ("minimal", "Minimal + top menu", "Light and calm, menu on top"),
            ("rail", "Icon rail", "Dark, icons-only sidebar")],

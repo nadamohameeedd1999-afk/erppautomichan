@@ -171,7 +171,7 @@ async function loadList() {
             <td class="text-nowrap text-end">
                 <button class="btn btn-sm btn-success" onclick="runQueued('${esc(c.key)}')" title="يدخل الطابور ويتشغل زي أي اختبار"><i class="bi bi-play-fill"></i> تشغيل</button>
                 <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${esc(c.key)}')"><i class="bi bi-pencil"></i> تعديل</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="del('${esc(c.key)}')"><i class="bi bi-trash"></i></button>
+                <button class="btn btn-sm btn-outline-danger" aria-label="امسح" title="امسح" onclick="del('${esc(c.key)}')"><i class="bi bi-trash" aria-hidden="true"></i></button>
             </td></tr>`;
     }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">لسه مفيش — اختاري نوع من فوق وابدئي</td></tr>';
 }
