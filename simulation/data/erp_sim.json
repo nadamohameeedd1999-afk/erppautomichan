@@ -1,0 +1,793 @@
+{
+ "_note": "وضع المحاكاة: سلوك تقريبي لشاشات NQ ERP. minutes = وقت الموظف على الشاشة (دقايق افتراضية) · ms = رد السيستم · steps = عدد الخطوات · issues = اللي ممكن يحصل واحتماله · roles = مين ليه صلاحية",
+ "screens": {
+  "quotation": {
+   "name": "عروض الأسعار",
+   "minutes": 6,
+   "ms": 1800,
+   "steps": 9,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.06,
+     "type": "slow",
+     "ms": 9000,
+     "msg": "قايمة الأصناف بطيئة في التحميل"
+    }
+   ]
+  },
+  "sales_order": {
+   "name": "أوامر البيع",
+   "minutes": 5,
+   "ms": 2000,
+   "steps": 8,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "error",
+     "msg": "Object reference not set to an instance of an object"
+    }
+   ]
+  },
+  "stock_check": {
+   "name": "كارت الصنف",
+   "minutes": 3,
+   "ms": 4500,
+   "steps": 4,
+   "roles": [
+    "warehouse",
+    "sales",
+    "manager",
+    "purchasing"
+   ],
+   "issues": [
+    {
+     "p": 0.15,
+     "type": "slow",
+     "ms": 15000,
+     "msg": "التقرير بياخد وقت طويل"
+    }
+   ]
+  },
+  "purchase_order": {
+   "name": "أوامر الشراء",
+   "minutes": 7,
+   "ms": 2200,
+   "steps": 10,
+   "roles": [
+    "purchasing",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "reject",
+     "msg": "لازم تختار مركز تكلفة"
+    }
+   ]
+  },
+  "stock_receipt": {
+   "name": "سند استلام مخزني",
+   "minutes": 6,
+   "ms": 2500,
+   "steps": 9,
+   "roles": [
+    "warehouse"
+   ],
+   "issues": [
+    {
+     "p": 0.04,
+     "type": "error",
+     "msg": "خطأ في الخادم 500"
+    }
+   ]
+  },
+  "purchase_invoice": {
+   "name": "فواتير الشراء",
+   "minutes": 8,
+   "ms": 2600,
+   "steps": 12,
+   "roles": [
+    "accountant",
+    "purchasing"
+   ],
+   "issues": [
+    {
+     "p": 0.07,
+     "type": "reject",
+     "msg": "الرقم الضريبي للمورد مش مكتمل"
+    }
+   ]
+  },
+  "stock_issue": {
+   "name": "سند صرف مخزني",
+   "minutes": 5,
+   "ms": 2300,
+   "steps": 8,
+   "roles": [
+    "warehouse"
+   ],
+   "issues": [
+    {
+     "p": 0.06,
+     "type": "reject",
+     "msg": "الكمية المطلوبة أكبر من الرصيد"
+    }
+   ]
+  },
+  "sales_invoice": {
+   "name": "فواتير البيع",
+   "minutes": 8,
+   "ms": 3500,
+   "steps": 14,
+   "roles": [
+    "sales",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.12,
+     "type": "slow",
+     "ms": 14000,
+     "msg": "الحفظ بياخد وقت"
+    },
+    {
+     "p": 0.05,
+     "type": "error",
+     "msg": "String or binary data would be truncated"
+    }
+   ]
+  },
+  "journal_review": {
+   "name": "القيود اليومية",
+   "minutes": 4,
+   "ms": 1500,
+   "steps": 5,
+   "roles": [
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "wrong",
+     "msg": "القيد طالع على حساب مبيعات غلط"
+    }
+   ]
+  },
+  "approval": {
+   "name": "اعتماد المستندات",
+   "minutes": 3,
+   "ms": 1200,
+   "steps": 3,
+   "roles": [
+    "manager"
+   ],
+   "issues": []
+  },
+  "receipt_voucher": {
+   "name": "سند القبض",
+   "minutes": 4,
+   "ms": 2000,
+   "steps": 7,
+   "roles": [
+    "cashier",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.18,
+     "type": "reject",
+     "msg": "تجاوز الحد الائتماني للعميل (القبض المفروض ما يتحسبش على الحد)"
+    }
+   ]
+  },
+  "attendance": {
+   "name": "الحضور والانصراف",
+   "minutes": 10,
+   "ms": 3000,
+   "steps": 6,
+   "roles": [
+    "hr"
+   ],
+   "issues": [
+    {
+     "p": 0.2,
+     "type": "slow",
+     "ms": 20000,
+     "msg": "رفع ملف البصمة بطيء"
+    }
+   ]
+  },
+  "cash_count": {
+   "name": "جرد الخزينة",
+   "minutes": 8,
+   "ms": 1800,
+   "steps": 5,
+   "roles": [
+    "cashier"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "wrong",
+     "msg": "رصيد الخزنة في السيستم مختلف عن الجرد"
+    }
+   ]
+  },
+  "trial_balance": {
+   "name": "ميزان المراجعة",
+   "minutes": 6,
+   "ms": 6000,
+   "steps": 4,
+   "roles": [
+    "accountant",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.1,
+     "type": "slow",
+     "ms": 25000,
+     "msg": "التقرير تقيل"
+    },
+    {
+     "p": 0.06,
+     "type": "wrong",
+     "msg": "ميزان المراجعة مش متزن: إجمالي المدين ≠ إجمالي الدائن"
+    }
+   ]
+  },
+  "sales_report": {
+   "name": "تقرير المبيعات اليومي",
+   "minutes": 5,
+   "ms": 4000,
+   "steps": 3,
+   "roles": [
+    "manager",
+    "sales",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "wrong",
+     "msg": "إجمالي التقرير مختلف عن الفواتير"
+    }
+   ]
+  },
+  "account_statement": {
+   "name": "كشف حساب مفصل",
+   "minutes": 5,
+   "ms": 5000,
+   "steps": 4,
+   "roles": [
+    "accountant",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.08,
+     "type": "slow",
+     "ms": 18000,
+     "msg": "كشف الحساب تقيل"
+    }
+   ]
+  },
+  "customer_statement": {
+   "name": "كشف حساب عميل",
+   "minutes": 4,
+   "ms": 4000,
+   "steps": 4,
+   "roles": [
+    "accountant",
+    "manager",
+    "sales"
+   ],
+   "issues": [
+    {
+     "p": 0.06,
+     "type": "wrong",
+     "msg": "رصيد العميل في الكشف مختلف عن شاشة العميل"
+    }
+   ]
+  },
+  "sales_return": {
+   "name": "مرتجع البيع",
+   "minutes": 5,
+   "ms": 2600,
+   "steps": 9,
+   "roles": [
+    "sales",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.12,
+     "type": "wrong",
+     "msg": "سند الاستلام اللي طلع من المرتجع بطرف واحد (مخزون مدين من غير دائن)"
+    }
+   ]
+  },
+  "purchase_request": {
+   "name": "طلب الشراء",
+   "minutes": 3,
+   "ms": 1800,
+   "steps": 6,
+   "roles": [
+    "purchasing",
+    "warehouse"
+   ],
+   "issues": []
+  },
+  "purchase_return": {
+   "name": "مرتجع الشراء",
+   "minutes": 5,
+   "ms": 2600,
+   "steps": 9,
+   "roles": [
+    "purchasing",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.08,
+     "type": "reject",
+     "msg": "الكمية المرتجعة أكبر من المشتراة"
+    }
+   ]
+  },
+  "payment_voucher": {
+   "name": "سند الدفع",
+   "minutes": 4,
+   "ms": 2000,
+   "steps": 7,
+   "roles": [
+    "cashier",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.08,
+     "type": "reject",
+     "msg": "رصيد الصندوق مش كفاية"
+    }
+   ]
+  },
+  "stock_transfer": {
+   "name": "سند تحويل مخزني",
+   "minutes": 4,
+   "ms": 2200,
+   "steps": 7,
+   "roles": [
+    "warehouse"
+   ],
+   "issues": []
+  },
+  "journal_entry": {
+   "name": "قيد يومية",
+   "minutes": 4,
+   "ms": 1800,
+   "steps": 6,
+   "roles": [
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "wrong",
+     "msg": "القيد اتحفظ ومدينه مش مساوي دائنه"
+    }
+   ]
+  },
+  "readiness": {
+   "name": "فحص جاهزية الموقع",
+   "minutes": 10,
+   "ms": 2500,
+   "steps": 14,
+   "roles": [
+    "manager"
+   ],
+   "issues": []
+  },
+  "fraud_perm": {
+   "name": "اختبار الصلاحيات (المختلس)",
+   "minutes": 3,
+   "ms": 1500,
+   "steps": 3,
+   "roles": [
+    "sales"
+   ],
+   "issues": []
+  },
+  "audit_docs": {
+   "name": "مراجعة مستندات اليوم",
+   "minutes": 15,
+   "ms": 3000,
+   "steps": 20,
+   "roles": [
+    "accountant"
+   ],
+   "issues": []
+  },
+  "smoke": {
+   "name": "شاشة جديدة في المنيو",
+   "minutes": 2,
+   "ms": 1500,
+   "steps": 2,
+   "roles": [
+    "manager"
+   ],
+   "issues": []
+  },
+  "neg_required": {
+   "name": "اختبار: حقل إجباري فاضي",
+   "minutes": 5,
+   "ms": 1800,
+   "steps": 10,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.95,
+     "type": "reject",
+     "msg": "من فضلك اختار العميل"
+    }
+   ],
+   "probe": true
+  },
+  "neg_negative": {
+   "name": "اختبار: كمية بالسالب",
+   "minutes": 5,
+   "ms": 1800,
+   "steps": 10,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.8,
+     "type": "reject",
+     "msg": "الكمية لازم تكون أكبر من صفر"
+    }
+   ],
+   "probe": true
+  },
+  "neg_discount": {
+   "name": "اختبار: خصم 150%",
+   "minutes": 5,
+   "ms": 1800,
+   "steps": 10,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.7,
+     "type": "reject",
+     "msg": "نسبة الخصم لا يمكن أن تتجاوز 100%"
+    }
+   ],
+   "probe": true
+  },
+  "neg_text": {
+   "name": "اختبار: نص طويل وحروف خاصة",
+   "minutes": 5,
+   "ms": 2000,
+   "steps": 10,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.12,
+     "type": "reject",
+     "msg": "String or binary data would be truncated"
+    }
+   ],
+   "probe": true
+  },
+  "neg_dupref": {
+   "name": "اختبار: رقم فاتورة مورد متكرر",
+   "minutes": 6,
+   "ms": 2200,
+   "steps": 10,
+   "roles": [
+    "purchasing",
+    "accountant",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.6,
+     "type": "reject",
+     "msg": "رقم فاتورة المورد مسجل من قبل"
+    }
+   ],
+   "probe": true
+  },
+  "perf_lines": {
+   "name": "اختبار: عرض سعر بـ 30 سطر",
+   "minutes": 12,
+   "ms": 9000,
+   "steps": 10,
+   "roles": [
+    "sales",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.3,
+     "type": "slow",
+     "ms": 21000,
+     "msg": "الحفظ أخد وقت طويل مع السطور الكتير"
+    }
+   ],
+   "probe": true
+  },
+  "sec_nologin": {
+   "name": "اختبار: رابط من غير تسجيل دخول",
+   "minutes": 4,
+   "ms": 1500,
+   "steps": 10,
+   "roles": [
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.05,
+     "type": "wrong",
+     "msg": "شاشة بتفتح من غير تسجيل دخول"
+    }
+   ],
+   "probe": true
+  },
+  "sec_secrets": {
+   "name": "اختبار: أسرار مكتوبة في الصفحات",
+   "minutes": 6,
+   "ms": 4000,
+   "steps": 10,
+   "roles": [
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.35,
+     "type": "wrong",
+     "msg": "كلمة سر فك قفل مكتوبة في كود صفحة المستخدمين"
+    }
+   ],
+   "probe": true
+  },
+  "ux_mobile": {
+   "name": "اختبار: الشاشات على الموبايل",
+   "minutes": 8,
+   "ms": 5000,
+   "steps": 10,
+   "roles": [
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.4,
+     "type": "wrong",
+     "msg": "جدول السطور أعرض من شاشة الموبايل وزرار الحفظ مش ظاهر"
+    }
+   ],
+   "probe": true
+  },
+  "ux_lang": {
+   "name": "اختبار: الواجهة الإنجليزي",
+   "minutes": 8,
+   "ms": 5000,
+   "steps": 10,
+   "roles": [
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.5,
+     "type": "wrong",
+     "msg": "نصوص عربي في الواجهة الإنجليزي (عناوين أعمدة ورسائل)"
+    }
+   ],
+   "probe": true
+  },
+  "int_je": {
+   "name": "اختبار: قيد الفاتورة متزن",
+   "minutes": 6,
+   "ms": 2500,
+   "steps": 10,
+   "roles": [
+    "accountant",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.08,
+     "type": "wrong",
+     "msg": "قيد الفاتورة مش متزن"
+    }
+   ],
+   "probe": true
+  },
+  "tb_numbers": {
+   "name": "اختبار: أرقام ميزان المراجعة",
+   "minutes": 8,
+   "ms": 6000,
+   "steps": 10,
+   "roles": [
+    "accountant",
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.3,
+     "type": "wrong",
+     "msg": "ميزان المراجعة مش متزن: فرق في الإجمالي"
+    }
+   ],
+   "probe": true
+  },
+  "approve_doc": {
+   "name": "اختبار: اعتماد مستند",
+   "minutes": 4,
+   "ms": 2000,
+   "steps": 10,
+   "roles": [
+    "manager"
+   ],
+   "issues": [
+    {
+     "p": 0.1,
+     "type": "wrong",
+     "msg": "ضغطت اعتماد والمستند لسه مستني"
+    }
+   ],
+   "probe": true
+  },
+  "payroll": {
+   "name": "مسير الرواتب",
+   "minutes": 10,
+   "ms": 3500,
+   "steps": 10,
+   "roles": [
+    "hr",
+    "manager",
+    "accountant"
+   ],
+   "issues": [
+    {
+     "p": 0.15,
+     "type": "reject",
+     "msg": "لا يوجد فترة رواتب مفتوحة"
+    }
+   ]
+  },
+  "int_vat": {
+   "name": "اختبار: الضريبة 15%",
+   "minutes": 3,
+   "ms": 500,
+   "steps": 3,
+   "roles": [
+    "accountant",
+    "manager"
+   ],
+   "issues": [],
+   "probe": true
+  },
+  "it_sweep": {
+   "name": "فحص كل شاشات السيستم (IT)",
+   "minutes": 25,
+   "ms": 45000,
+   "steps": 120,
+   "roles": [
+    "it",
+    "manager"
+   ],
+   "probe": true,
+   "issues": [
+    {
+     "p": 0.35,
+     "type": "wrong",
+     "msg": "من 118 شاشة: 3 فيها مشكلة (2× 404، 1× خطأ سيرفر)",
+     "evidence": "⛔ /Assets/Depreciation → HTTP 404\n⛔ /Reports/OldSales → HTTP 404\n⛔ /HR/LoanRequest → HTTP 500 · Server Error in '/' Application"
+    }
+   ]
+  },
+  "it_speed": {
+   "name": "فحص سرعة الشاشات (IT)",
+   "minutes": 12,
+   "ms": 30000,
+   "steps": 30,
+   "roles": [
+    "it",
+    "manager"
+   ],
+   "probe": true,
+   "issues": [
+    {
+     "p": 0.3,
+     "type": "wrong",
+     "msg": "2 شاشة بتاخد أكتر من 8 ث عشان تظهر بياناتها (الأبطأ /ItemCard/Index: 14.6 ث)",
+     "evidence": "⏱️ قست 30 شاشة قوايم لحد ما البيانات ظهرت — المتوسط 3.1 ث\n🐢 /ItemCard/Index → 14.6 ث\n🐢 /CustomerStatement/Index → 9.2 ث\n· /SalesInvoice/Index → 4.0 ث"
+    }
+   ]
+  }
+ },
+ "stock_short_p": 0.3,
+ "slow_ms": 8000,
+ "actions": {
+  "_note": "التعديل والطباعة والحذف والمراجعة على أي شاشة: وقتهم والمشاكل اللي ممكن تحصل",
+  "edit": {
+   "name": "تعديل",
+   "minutes": 4,
+   "issues": [
+    {
+     "p": 0.08,
+     "type": "reject",
+     "msg": "المستند مرحّل — مينفعش يتعدل"
+    },
+    {
+     "p": 0.04,
+     "type": "error",
+     "msg": "Concurrency violation: المستند اتعدل من مستخدم تاني"
+    }
+   ]
+  },
+  "print": {
+   "name": "طباعة",
+   "minutes": 2,
+   "issues": [
+    {
+     "p": 0.07,
+     "type": "error",
+     "msg": "Error when trying to populate the datasource"
+    },
+    {
+     "p": 0.06,
+     "type": "wrong",
+     "msg": "كود QR مش ظاهر في الفاتورة المطبوعة"
+    },
+    {
+     "p": 0.08,
+     "type": "slow",
+     "ms": 16000,
+     "msg": "الطباعة بطيئة"
+    }
+   ]
+  },
+  "delete": {
+   "name": "حذف",
+   "minutes": 2,
+   "issues": [
+    {
+     "p": 0.15,
+     "type": "reject",
+     "msg": "مينفعش يتحذف — عليه حركات مرتبطة"
+    },
+    {
+     "p": 0.04,
+     "type": "error",
+     "msg": "The DELETE statement conflicted with the REFERENCE constraint"
+    }
+   ]
+  },
+  "review": {
+   "name": "مراجعة",
+   "minutes": 6,
+   "issues": []
+  }
+ }
+}

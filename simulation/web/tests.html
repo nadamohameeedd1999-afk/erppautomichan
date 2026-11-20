@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NQ Simulation — كتالوج الاختبارات</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --line: #D5E2E1; --text: #1C2B2A; --muted: #5f706f; --green: #1B7F3B; --amber: #B26A00; --red: #C62828; --bg: #f4f8f8; --panel: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --light: #12302f; --line: #2a3d3c; --text: #e6efee; --muted: #9db1b0; --bg: #0c1312; --panel: #142020; } }
+  * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  header { background: var(--dark); color: #fff; padding: 16px 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 22px; } header a { color: #cfe; margin-inline-start: auto; }
+  main { padding: 18px 24px; max-width: 1400px; margin: auto; }
+  .sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .sum div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; border-top: 5px solid var(--teal); }
+  .sum b { display: block; font-size: 30px; color: var(--teal); } .sum span { color: var(--muted); font-size: 13px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; } .filters button { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-family: inherit; font-weight: 700; }
+  .filters button.on { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .grp { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .gh { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .gh h2 { margin: 0; font-size: 17px; } .bar { flex: 1; min-width: 120px; max-width: 260px; height: 8px; background: var(--light); border-radius: 9px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--teal); }
+  .tbl { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th { background: var(--teal); color: #fff; font-weight: 700; text-align: start; padding: 8px 10px; font-size: 13px; white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } td small { color: var(--muted); display: block; margin-top: 2px; }
+  .st { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 3px 10px; white-space: nowrap; display: inline-block; }
+  .manual { background: #ede7f6; color: #5b3fa0; } .done { background: #e3f3e8; color: var(--green); } .partial { background: #fbefd9; color: var(--amber); } .planned { background: #e9eef0; color: #5b6b74; }
+  .res { font-size: 13px; white-space: nowrap; } .gap { color: var(--amber); font-size: 12px; }
+</style>
+</head>
+<body>
+<header><h1>🧪 كتالوج الاختبارات — NQ ERP</h1><span style="opacity:.85">كل أنواع الاختبارات: اللي البرنامج بيعمله كل يوم، واللي جزء منه، واللي مخطط — ونتيجة النهارده</span><a href="/">🏢 رجوع للشركة</a></header>
+<main>
+  <div class="sum" id="sum"></div>
+  <div class="filters" id="flt"><button data-f="" class="on">الكل</button><button data-f="done">✅ شغال كل يوم</button><button data-f="partial">🟡 جزء منه</button><button data-f="planned">🔜 مخطط</button><button data-f="manual">🧑‍🔧 يدوي</button></div>
+  <div id="groups"></div>
+</main>
+<script src="/i18n.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const EN = window.NQ_LANG === 'en';
+  const STN = {done: '✅ شغال كل يوم', partial: '🟡 جزء منه', planned: '🔜 مخطط', manual: '🧑‍🔧 يدوي / محتاج إعداد'};
+  let C = null, S = null, R = null, F = '';
+  function result(it) {
+    if (it.st === 'planned' || it.st === 'manual' || !it.sig || !S) return '<span class="mute">—</span>';
+    const T = S.timeline || [], g = it.sig;
+    const box = (list) => { if (!list.length) return '⏳ لسه ما اتشغلش النهارده'; const bad = list.filter(t => t.state === 'fail' || t.state === 'denied').length;
+      const sk = list.filter(t => t.state === 'skip').length, wn = list.filter(t => t.state === 'slow').length; if (sk === list.length) return '<b style="color:#5b6b74">❔ مقدرش يتحقق — شوف التفاصيل في الشكاوى/الشات</b>';
+      if (!bad && wn) return `<b style="color:var(--amber)">🟡 ${wn} من ${list.length} محتاج مراجعة</b>`;
+      return bad ? `<b style="color:var(--red)">⚠️ ${bad} من ${list.length} وقفت</b>` : `<b style="color:var(--green)">✅ ${list.length} مرة — كلها نجحت</b>`; };
+    if (g.t === 'action') return box(T.filter(t => t.action === g.a));
+    if (g.t === 'screens') return box(T.filter(t => g.keys.includes(t.key)));
+    if (g.t === 'probe') return box(T.filter(t => t.probe === g.p));
+    if (g.t === 'deals') { const d = (S.deals || []).filter(x => !x.round); if (!d.length) return '⏳ لسه ما اتشغلش النهارده';
+      const ok = d.filter(x => x.state === 'اتقفلت').length, st = d.filter(x => x.state === 'متعطلة').length;
+      return st ? `<b style="color:var(--amber)">${ok} اتقفلت · ${st} متعطلة</b>` : `<b style="color:var(--green)">✅ ${ok} من ${d.length} اتقفلت</b>`; }
+    if (g.t === 'complaint') { const rx = new RegExp(g.m, 'i'), n = (S.complaints || []).filter(c => rx.test(c.text + ' ' + (c.evidence || ''))).length;
+      return n ? `<b style="color:var(--amber)">📝 ${n} ملاحظة النهارده</b>` : (T.length ? '✅ مفيش ملاحظات' : '⏳ لسه ما اتشغلش النهارده'); }
+    if (g.t === 'slow') { const h = S.health || []; if (!h.length) return '⏳ لسه ما اتشغلش النهارده'; const n = h.filter(x => x.last === 'slow').length;
+      return n ? `<b style="color:var(--amber)">🐢 ${n} شاشة بطيئة من ${h.length}</b>` : `<b style="color:var(--green)">✅ ${h.length} شاشة في الوقت</b>`; }
+    if (g.t === 'state' && g.s === 'denied') { if (!T.length) return '⏳ لسه ما اتشغلش النهارده'; const n = T.filter(t => t.state === 'denied').length;
+      return n ? `<b style="color:var(--red)">⚠️ ${n} رفض صلاحيات</b>` : '<b style="color:var(--green)">✅ مفيش رفض</b>'; }
+    if (g.t === 'state') return T.length ? `<b style="color:var(--green)">✅ ${new Set(T.map(t => t.emp)).size} موظف اشتغلوا</b>` : '⏳ لسه ما اتشغلش النهارده';
+    if (g.t === 'report') { const b = S.report && S.report[g.k]; return b ? '<b style="color:var(--green)">✅ اتعمل النهارده</b>' : '⏳ بيتعمل خلال اليوم'; }
+    if (g.t === 'regress') { if (!R) return '…'; return `🆕 ${R.new.length} · ⏳ ${R.open.length} · ✅ ${R.fixed.length}`; }
+    return '—';
+  }
+  function draw() {
+    if (!C) return;
+    const all = C.groups.flatMap(g => g.items), n = k => all.filter(i => i.st === k).length;
+    const cov = Math.round((n('done') + n('partial') * .5) / Math.max(1, all.length - n('manual')) * 100);
+    $('#sum').innerHTML = [[all.length, 'سيناريو اختبار'], [n('done'), 'شغال كل يوم'], [n('partial'), 'جزء منه'], [n('planned') + n('manual'), 'مخطط / يدوي'], [cov + '%', 'التغطية الآلية'], [C.groups.length, 'نوع اختبار']]
+      .map(([a, t]) => `<div><b>${a}</b><span>${t}</span></div>`).join('');
+    $('#groups').innerHTML = C.groups.map(g => {
+      const items = g.items.filter(i => !F || i.st === F); if (!items.length) return '';
+      const auto = g.items.filter(i => i.st !== 'manual'); const gc = auto.length ? Math.round(auto.reduce((a, i) => a + (i.st === 'done' ? 1 : i.st === 'partial' ? .5 : 0), 0) / auto.length * 100) : 0;
+      return `<div class="grp"><div class="gh"><h2>${g.icon} ${E(EN ? g.en : g.ar)}</h2><div class="bar"><i style="width:${gc}%"></i></div><span class="mute">${gc}% · ${g.items.length} سيناريو</span></div>
+        <div class="tbl"><table><thead><tr><th>السيناريو</th>${EN ? '' : '<th>بيتعمل إزاي</th><th>المتوقع</th>'}<th>الحالة</th><th>نتيجة النهارده</th></tr></thead><tbody>${items.map(i => `<tr>
+          <td><b>${E(EN ? i.en : i.ar)}</b>${i.gap && !EN ? `<small class="gap">⚠️ ${E(i.gap)}</small>` : ''}</td>${EN ? '' : `<td>${E(i.how)}</td><td>${E(i.exp)}</td>`}
+          <td><span class="st ${i.st}">${STN[i.st]}</span></td><td class="res">${result(i)}</td></tr>`).join('')}</tbody></table></div></div>`; }).join('');
+  }
+  document.querySelectorAll('#flt button').forEach(b => b.onclick = () => { F = b.dataset.f; document.querySelectorAll('#flt button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+  async function load() {
+    try { [C, S] = await Promise.all([fetch('/api/tests').then(r => r.json()), fetch('/api/state').then(r => r.json())]); } catch (_) {}
+    draw();
+    try { R = await fetch('/api/regressions').then(r => r.json()); draw(); } catch (_) {}
+  }
+  load(); setInterval(async () => { try { S = await fetch('/api/state').then(r => r.json()); draw(); } catch (_) {} }, 10000);
+})();
+</script>
+</body>
+</html>

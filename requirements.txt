@@ -19,3 +19,5 @@ cryptography==43.0.3
 python-docx>=1.1
 pypdf>=4.0
 pymssql>=2.2
+# ---- NQ Simulation (the virtual company's voices) ----
+edge-tts>=6.1

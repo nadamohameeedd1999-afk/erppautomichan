@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NQ Simulation — الإعدادات</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --line: #D5E2E1; --text: #1C2B2A; --muted: #6b7c7b; --bg: #f3f6f6; --panel: #fff; --red: #C62828; --amber: #B26A00; --green: #1B7F3B; }
+  @media (prefers-color-scheme: dark) { :root { --light: #12302f; --line: #2a3d3c; --text: #e6efee; --muted: #9db1b0; --bg: #0c1312; --panel: #142020; } }
+  * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--dark); color: #fff; flex-wrap: wrap; }
+  header b { font-size: 18px; } header a { color: #fff; margin-inline-start: auto; text-decoration: none; background: rgba(255,255,255,.15); padding: 6px 14px; border-radius: 9px; font-weight: 700; }
+  main { max-width: 1250px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 16px; }
+  .card > h3 { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card > .bd { padding: 14px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  label.f { display: block; font-size: 12.5px; color: var(--muted); } label.f input, label.f select { margin-top: 4px; }
+  input, select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font: inherit; background: var(--panel); color: inherit; }
+  input[type=color] { padding: 2px; height: 36px; } input[type=checkbox], input[type=radio] { width: auto; }
+  .opt { display: flex; gap: 10px; flex-wrap: wrap; } .opt label { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; flex: 1; min-width: 220px; }
+  .opt label.on { border-color: var(--teal); background: var(--light); } .opt small { display: block; color: var(--muted); margin-top: 3px; }
+  .btn { border: 0; border-radius: 9px; padding: 8px 16px; font-weight: 800; cursor: pointer; font: inherit; font-weight: 800; }
+  .go { background: var(--teal); color: #fff; } .out { background: transparent; border: 1px solid var(--teal); color: var(--teal); } .del { background: transparent; color: var(--red); border: 1px solid #f2c9c9; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; } .wrap { overflow-x: auto; }
+  th { text-align: start; color: var(--muted); font-size: 12px; padding: 6px; white-space: nowrap; } td { padding: 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  td input, td select { padding: 6px 8px; min-width: 90px; }
+  .res { font-size: 12px; } .ok { color: var(--green); font-weight: 700; } .bad { color: var(--red); font-weight: 700; } .mute { color: var(--muted); font-size: 12px; }
+  .warn { border: 1px solid var(--amber); color: var(--amber); border-radius: 10px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+  .bar { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 10px; align-items: center; border-radius: 0 0 14px 14px; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 5; }
+  .modal.on { display: flex; } .modal .box { background: var(--panel); border-radius: 14px; width: min(700px, 100%); max-height: 85vh; overflow-y: auto; padding: 16px; }
+</style>
+</head>
+<body>
+<header><b>⚙️ NQ Simulation — الإعدادات</b><span class="mute" style="color:#cfe">محفوظة مع إعدادات لوحة الاختبارات — وكلمات السر متشفرة</span><a href="/">🏢 رجوع للشركة</a></header>
+<main>
+  <div class="card"><h3>1. الشركة</h3><div class="bd">
+    <div class="grid">
+      <label class="f">اسم الشركة<input id="company"></label>
+      <label class="f">طلبات العملاء في اليوم<input id="orders" type="number" min="1" max="40"></label>
+      <label class="f">حد اعتماد المدير (فوقه الفاتورة تروح للمدير)<input id="limit" type="number" min="0"></label>
+    </div>
+    <div class="mute" style="margin:14px 0 6px">الشركة بتشتغل على</div>
+    <div class="opt" id="modeOpt">
+      <label data-v="sim"><input type="radio" name="mode" value="sim"> 🧪 محاكاة<small>سلوك تقريبي للسيستم — للتجربة والعرض</small></label>
+      <label data-v="real"><input type="radio" name="mode" value="real"> 🟢 NQ ERP الحقيقي<small>الموظفين بيدخلوا الموقع المختار بمستخدميهم وصلاحياتهم، والشكاوى من السيستم فعلًا</small></label>
+    </div>
+    <label style="display:block;margin-top:12px">🌐 لغة العرض والصوت / Language: <select id="lang"><option value="ar">العربية — صوت خليجي</option><option value="en">English — English voices</option></select>
+      <small class="mute" style="display:block">بتتطبق من أول يوم جديد: الشاشات والشات وأصوات الموظفين بالإنجليزي</small></label>
+    <label style="display:block;margin-top:12px">📅 نوع اليوم: <select id="daytype"><option value="normal">يوم عادي</option><option value="month_end">آخر الشهر — إقفال (جرد صناديق · أرصدة · قيود · كشوف · ميزان · اعتمادات)</option></select></label>
+    <label style="display:block;margin-top:12px"><input type="checkbox" id="round"> 🧪 جولة الشاشات الرئيسية كل يوم: 14 شاشة × إضافة · تعديل · طباعة · حذف (على موقع الاختبار مستندات حقيقية — بتطوّل اليوم)</label>
+    <label style="display:block;margin-top:12px"><input type="checkbox" id="show"> أظهر متصفحات الموظفين وهما شغالين (أبطأ، بس تشوفهم بعينك)</label>
+  </div></div>
+
+  <div class="card"><h3>2. مواقع NQ ERP <a class="btn out" href="../settings" target="_top">⚙️ المواقع في لوحة الاختبارات</a></h3><div class="bd">
+    <div class="mute">المواقع هي مواقع لوحة الاختبارات (اللينك ونوعه ومستخدمه) — اختار اللي الشركة هتشتغل عليه دلوقتي. <b>مستخدم الموقع في اللوحة = مستخدم المدير</b> لو سبته فاضي هنا.</div>
+    <div id="sites" style="margin-top:10px"></div>
+  </div></div>
+
+  <div class="card"><h3>3. الموظفين ومستخدمينهم على <span id="siteName" style="color:var(--teal)"></span> <span><button class="btn out" id="testAll">🔑 اختبر دخول الكل</button> <button class="btn out" id="add">➕ موظف</button></span></h3><div class="bd">
+    <div class="mute">صلاحيات كل موظف = الشاشات اللي في المنيو بتاعه على السيستم. <b>لو سبت مستخدم الموظف فاضي، بيشتغل بمستخدم المدير</b> (وصلاحياته). المكاتب: مدير 1 · مبيعات 3 · محاسبين 2 · مخازن 1 · مشتريات 1 · خزنة 1 · موارد بشرية 1.</div>
+    <div id="noDesk"></div>
+    <div class="wrap"><table><thead><tr><th>شغال</th><th>الاسم</th><th>الوظيفة</th><th>الدور</th><th>مستخدم NQ ERP</th><th>كلمة السر</th><th>الشكل</th><th>اللبس</th><th></th><th>الدخول والصلاحيات</th><th></th></tr></thead><tbody id="emps"></tbody></table></div>
+  </div></div>
+
+  <div class="card"><h3>4. شاشات الشركة ↔ شاشات NQ ERP <button class="btn out" id="auto">✨ اربط تلقائي من المنيو</button></h3><div class="bd">
+    <div class="mute">كل مهمة في الشركة بتفتح الشاشة دي في NQ ERP على الموقع المختار. القايمة جاية من منيو المستخدمين اللي اتختبر دخولهم.</div>
+    <div class="wrap"><table><thead><tr><th>المهمة في الشركة</th><th>الشاشة في NQ ERP</th></tr></thead><tbody id="scr"></tbody></table></div>
+  </div>
+    <div class="bar"><button class="btn go" id="save">💾 احفظ الإعدادات</button><span id="msg"></span></div>
+  </div>
+</main>
+<div class="modal" id="perm"><div class="box" id="permBox"></div></div>
+<script src="/i18n.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  let D = null, EMPS = [], SITES = [], ACTIVE = '';
+  const KIND = {man: 'رجالي', hijab: 'حجاب', saudi: 'شماغ'};
+  const site = () => SITES.find(x => x.id === ACTIVE) || SITES[0];
+  async function load() {
+    D = await fetch('/api/settings').then(r => r.json());
+    const s = D.settings;
+    $('#company').value = s.company; $('#orders').value = s.orders_per_day; $('#limit').value = s.approval_limit; $('#show').checked = !!s.show_browsers; $('#round').checked = s.screen_round !== false; $('#daytype').value = s.day_type || 'normal'; $('#lang').value = s.lang || 'ar';
+    radio('mode', s.mode);
+    EMPS = s.employees.map(e => ({...e})); SITES = s.sites.map(x => ({...x, users: JSON.parse(JSON.stringify(x.users || {})), screens: {...(x.screens || {})}}));
+    ACTIVE = s.active_site || (SITES[0] || {}).id || '';
+    drawSites(); drawEmps(); drawScr();
+    $('#noDesk').innerHTML = D.no_desk.length ? `<div class="warn">مفيش مكتب فاضي لـ: ${E(D.no_desk.join('، '))} — مش هيظهروا في الشركة</div>` : '';
+  }
+  function radio(name, v) {
+    document.querySelectorAll(`[name=${name}]`).forEach(r => { r.checked = r.value === v; r.closest('label').classList.toggle('on', r.checked); r.onchange = () => radio(name, r.value); });
+  }
+  const val = name => (document.querySelector(`[name=${name}]:checked`) || {}).value;
+
+  function drawSites() {
+    $('#sites').innerHTML = SITES.length ? SITES.map(x => `<div class="opt" style="margin-bottom:8px"><label class="${x.id === ACTIVE ? 'on' : ''}" style="flex:1">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="radio" name="site" value="${E(x.id)}" ${x.id === ACTIVE ? 'checked' : ''}>
+        <b>${E(x.name)}</b> <span dir="ltr" class="mute">${E(x.url)}</span> <span>${x.kind === 'test' ? '🧪 موقع اختبار' : '🔒 نظام عميل — قراءة بس'}</span>
+        <span class="mute">· مستخدم الموقع: ${E(x.site_user || '—')}</span></div></label></div>`).join('')
+      : '<div class="warn">مفيش مواقع لسه — ضيف موقع من إعدادات لوحة الاختبارات الأول</div>';
+    document.querySelectorAll('[name=site]').forEach(r => r.onchange = () => { ACTIVE = r.value; drawSites(); drawEmps(); drawScr(); });
+    $('#siteName').textContent = (site() || {}).name || 'الموقع';
+  }
+
+  function drawEmps() {
+    const st = site() || {users: {}};
+    $('#emps').innerHTML = EMPS.map((e, i) => {
+      const u = st.users[e.id] || {}, lg = D.logins[`${st.id}:${e.id}`];
+      return `<tr data-i="${i}">
+      <td><input type="checkbox" data-k="active" ${e.active !== false ? 'checked' : ''}></td>
+      <td><input data-k="name" value="${E(e.name)}" style="min-width:90px"></td>
+      <td><input data-k="job" value="${E(e.job)}" style="min-width:120px"></td>
+      <td><select data-k="role">${Object.entries(D.roles).map(([k, n]) => `<option value="${k}" ${e.role === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+      <td><input data-u="user" value="${E(u.user || '')}" dir="ltr" autocomplete="off" placeholder="${e.role === 'manager' ? 'فاضي = مستخدم الموقع' : 'فاضي = مستخدم المدير'}"></td>
+      <td><input data-u="pw" type="password" autocomplete="new-password" placeholder="${u.has_pw ? '•••• محفوظة' : 'كلمة السر'}"></td>
+      <td><select data-k="kind">${Object.entries(KIND).map(([k, n]) => `<option value="${k}" ${e.look.kind === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+      <td><input type="color" data-k="shirt" value="${E(e.look.shirt)}" title="لون اللبس"></td>
+      <td><button class="btn out" data-test="${i}" style="padding:5px 10px">🔑 اختبر</button></td>
+      <td class="res" id="res_${i}">${lg ? `<a href="#" data-perm="${E(st.id + ':' + e.id)}" class="ok">✅ ${lg.n} شاشة مسموحة</a><div class="mute">${E(lg.at)}</div>` : (u.user ? '<span class="mute">لسه</span>' : '<span class="mute">بمستخدم المدير</span>')}</td>
+      <td><button class="btn del" data-del="${i}" style="padding:5px 10px">✕</button></td></tr>`;
+    }).join('');
+    document.querySelectorAll('#emps [data-k]').forEach(inp => inp.oninput = inp.onchange = () => {
+      const e = EMPS[+inp.closest('tr').dataset.i], k = inp.dataset.k;
+      if (k === 'kind' || k === 'shirt') e.look = {...e.look, [k]: inp.value};
+      else e[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
+    });
+    document.querySelectorAll('#emps [data-u]').forEach(inp => inp.oninput = () => {
+      const e = EMPS[+inp.closest('tr').dataset.i], st2 = site(); st2.users[e.id] = {...(st2.users[e.id] || {}), [inp.dataset.u]: inp.value};
+    });
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('أشيل الموظف ده؟')) { EMPS.splice(+b.dataset.del, 1); drawEmps(); } });
+    document.querySelectorAll('[data-test]').forEach(b => b.onclick = () => test(+b.dataset.test));
+    document.querySelectorAll('[data-perm]').forEach(a => a.onclick = ev => { ev.preventDefault(); perms(a.dataset.perm); });
+  }
+  async function test(i) {
+    const e = EMPS[i], st = site(), u = st.users[e.id] || {}, cell = document.getElementById('res_' + i);
+    if (!st || !st.url) { cell.innerHTML = '<span class="bad">اختار موقع الأول</span>'; return; }
+    cell.innerHTML = '<span class="mute">⏳ بيدخل NQ ERP…</span>';
+    const j = await fetch('/api/settings/test', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({site: st.id, id: e.id, user: u.user || '', pw: u.pw || ''})}).then(r => r.json()).catch(x => ({ok: false, error: String(x)}));
+    cell.innerHTML = j.ok ? `<span class="ok">✅ دخل — ${j.n} شاشة مسموحة</span>` : `<span class="bad">❌ ${E(j.error)}</span>`;
+    if (j.ok) { const d2 = await fetch('/api/settings').then(r => r.json()); D.menu = d2.menu; D.guess = d2.guess; D.logins = d2.logins; drawScr(); }
+  }
+  async function perms(key) {
+    const j = await fetch('/api/settings/permissions/' + encodeURIComponent(key)).then(r => r.json());
+    const by = {}; (j.menu || []).forEach(m => (by[m.module || 'أخرى'] = by[m.module || 'أخرى'] || []).push(m));
+    $('#permBox').innerHTML = `<div style="display:flex;justify-content:space-between"><b>صلاحيات ${E(j.user || '')} على NQ ERP (${(j.menu || []).length} شاشة)</b><button class="btn out" id="pc">✕</button></div>
+      ${Object.entries(by).map(([m, l]) => `<h4 style="margin:12px 0 4px">${E(m)} (${l.length})</h4><div class="mute">${l.map(x => E(x.name)).join(' · ')}</div>`).join('')}`;
+    $('#perm').classList.add('on'); $('#pc').onclick = () => $('#perm').classList.remove('on');
+  }
+  function drawScr() {
+    const st = site() || {screens: {}}, SCR = st.screens;
+    const opts = D.menu.map(m => `<option value="${E(m.path)}">${E((m.module ? m.module + ' › ' : '') + m.name)}</option>`).join('');
+    $('#scr').innerHTML = Object.entries(D.screens).map(([k, n]) => `<tr><td>${E(n)}</td><td><select data-sc="${k}"><option value="">— ${D.menu.length ? 'اختار (أو سيبها للربط التلقائي)' : 'اختبر دخول موظف الأول — أو سيبها للربط التلقائي'} —</option>${opts}
+      ${SCR[k] && !D.menu.some(m => m.path === SCR[k]) ? `<option value="${E(SCR[k])}">${E(SCR[k])}</option>` : ''}</select></td></tr>`).join('');
+    document.querySelectorAll('[data-sc]').forEach(sel => { sel.value = SCR[sel.dataset.sc] || ''; sel.onchange = () => { if (sel.value) SCR[sel.dataset.sc] = sel.value; else delete SCR[sel.dataset.sc]; }; });
+  }
+  $('#auto').onclick = () => { Object.assign(site().screens, D.guess); drawScr(); $('#msg').textContent = `✨ اتربط ${Object.keys(D.guess).length} من ${Object.keys(D.screens).length} — راجعهم واحفظ`; };
+  $('#add').onclick = () => { EMPS.push({id: '', name: '', job: '', role: 'sales', look: {kind: 'man', skin: '#E0AC82', hair: '#2d2018', shirt: '#2B6CB0'}, active: true}); drawEmps(); };
+  $('#testAll').onclick = async () => { for (let i = 0; i < EMPS.length; i++) if (EMPS[i].active !== false && (site().users[EMPS[i].id] || {}).user) await test(i); };
+  $('#save').onclick = async () => {
+    if (val('mode') === 'real' && !(site() || {}).url) { $('#msg').innerHTML = '<span class="bad">اختار موقع (من مواقع لوحة الاختبارات)</span>'; return; }
+    const sites = SITES.map(x => ({id: x.id, screens: x.screens,
+      users: Object.fromEntries(Object.entries(x.users).map(([k, u]) => [k, {user: u.user || '', pw: u.pw || ''}]))}));
+    const act = site(), body = {company: $('#company').value, orders_per_day: +$('#orders').value, approval_limit: +$('#limit').value, show_browsers: $('#show').checked, screen_round: $('#round').checked, day_type: $('#daytype').value, lang: $('#lang').value,
+      mode: val('mode'), sites, active_site: act ? act.id : '', employees: EMPS};
+    const j = await fetch('/api/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    $('#msg').innerHTML = j.ok ? '<span class="ok">✅ اتحفظ — ارجع للشركة وابدأ يوم جديد</span>' : `<span class="bad">${E(j.error)}</span>`;
+    if (j.ok) load();
+  };
+  load();
+})();
+</script>
+</body>
+</html>

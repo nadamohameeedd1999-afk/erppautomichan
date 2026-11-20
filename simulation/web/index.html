@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NQ Simulation</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --line: #D5E2E1; --text: #1C2B2A; --muted: #6b7c7b; --bg: #f3f6f6; --panel: #fff; --floor: #fbfcfc; --red: #C62828; --amber: #B26A00; --green: #1B7F3B; }
+  @media (prefers-color-scheme: dark) { :root { --light: #12302f; --line: #2a3d3c; --text: #e6efee; --muted: #9db1b0; --bg: #0c1312; --panel: #142020; --floor: #101a19; } }
+  * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--dark); color: #fff; flex-wrap: wrap; }
+  header .co { font-weight: 800; font-size: 17px; } header .clock { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+  .badge { background: rgba(255,255,255,.16); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+  .ctrl { margin-inline-start: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .btn { border: 0; border-radius: 9px; padding: 7px 14px; font-weight: 800; cursor: pointer; font-size: 13px; font-family: inherit; }
+  .btn.go { background: #fff; color: var(--dark); } .btn.gh { background: rgba(255,255,255,.14); color: #fff; } select.btn { background: rgba(255,255,255,.14); color: #fff; }
+  .day { height: 4px; background: rgba(255,255,255,.15); } .day i { display: block; height: 100%; background: #6EE7B7; width: 0; transition: width .4s; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; padding: 12px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+  #office { width: 100%; height: auto; display: block; border-radius: 14px; background: #2f363c; }
+  .room-l { font-size: 13px; font-weight: 800; fill: var(--muted); }
+  .desk { fill: #c9b79c; } .mon { fill: #33414a; } .mon-t { font-size: 9px; fill: #9fe3df; }
+  .emp { cursor: pointer; transition-property: transform; transition-timing-function: linear; }
+  .emp .ring { fill: none; stroke-width: 4; } .emp .nm { font-size: 11px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--floor); stroke-width: 3px; }
+  .emp .ini { font-size: 13px; font-weight: 900; fill: #fff; }
+  .bub rect { fill: var(--panel); stroke: var(--line); } .bub text { font-size: 11px; fill: var(--text); }
+  .q { font-size: 10px; font-weight: 900; fill: #fff; }
+  .alert { fill: var(--red); }
+  .side { display: flex; flex-direction: column; max-height: calc(100vh - 110px); }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); } .tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 10px 4px; font-weight: 800; cursor: pointer; font-family: inherit; font-size: 13px; border-bottom: 3px solid transparent; }
+  .tabs button.on { color: var(--teal); border-bottom-color: var(--teal); }
+  .pane { overflow-y: auto; padding: 10px 12px; flex: 1; min-height: 300px; }
+  .msg { padding: 7px 0; border-bottom: 1px solid var(--line); } .msg b { color: var(--teal); } .msg .t { color: var(--muted); font-size: 11px; }
+  .cmp { border: 1px solid var(--line); border-inline-start: 4px solid var(--red); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+  .cmp .ty { font-size: 11px; font-weight: 800; color: var(--red); }
+  .srcs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .srcs span { border: 1px solid; border-radius: 999px; padding: 3px 9px; font-size: 12px; } .cmp .ev { font-size: 12px; color: var(--muted); }
+  .deal { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; } .deal .st { font-size: 11px; font-weight: 800; }
+  .st-شغالة { color: var(--teal); } .st-اتقفلت { color: var(--green); } .st-متعطلة { color: var(--red); }
+  .deal ol { margin: 6px 0 0; padding-inline-start: 18px; font-size: 12px; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding: 10px 12px 0; }
+  .kpis div { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; } .kpis b { font-size: 20px; display: block; } .kpis span { font-size: 11px; color: var(--muted); }
+  .mute { color: var(--muted); font-size: 12px; } .empty { color: var(--muted); text-align: center; padding: 30px 10px; }
+  .drawer { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 9; padding: 16px; }
+  .drawer.on { display: flex; } .drawer .box { background: var(--panel); border-radius: 16px; width: min(620px, 100%); max-height: 86vh; overflow-y: auto; padding: 16px 18px; }
+  .bar { height: 7px; background: var(--light); border-radius: 9px; overflow: hidden; margin: 3px 0 8px; } .bar i { display: block; height: 100%; background: var(--teal); }
+  .camw { position: relative; border-radius: 12px; overflow: hidden; margin: 10px 0; background: #e9ece8; }
+  .camw .live { position: absolute; top: 8px; right: 8px; background: rgba(198,40,40,.9); color: #fff; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; }
+  .camw .chip { position: absolute; top: 8px; left: 8px; color: #fff; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
+  .emp .body { transition-property: transform; }
+  .lg { font-size: 13px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 12px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 4px; vertical-align: middle; }
+  .hcard { padding: 10px 12px; margin-bottom: 12px; } .hhead { display: flex; align-items: center; gap: 10px; font-weight: 800; margin-bottom: 8px; flex-wrap: wrap; }
+  .hhead .sum span { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-inline-start: 4px; }
+  .hchips { display: flex; flex-wrap: wrap; gap: 6px; } .hchip { border: 1px solid var(--line); border-radius: 9px; padding: 5px 9px; font-size: 12px; cursor: pointer; background: var(--panel); color: var(--text); font-family: inherit; display: flex; gap: 6px; align-items: center; }
+  .hchip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; } .hchip small { color: var(--muted); }
+  .tl { padding: 4px 12px 12px; } .tlrow { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .tlrow b { font-size: 12px; } .tlbar { position: relative; height: 22px; background: var(--light); border-radius: 6px; }
+  .tlbar span { position: absolute; top: 3px; height: 16px; min-width: 8px; border-radius: 4px; cursor: pointer; }
+  .tlaxis { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 8px; font-size: 10px; color: var(--muted); } .tlaxis div { position: relative; height: 14px; } .tlaxis em { position: absolute; font-style: normal; transform: translateX(50%); }
+  .cmp { cursor: pointer; } .shot { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+  pre.code { background: var(--light); border-radius: 8px; padding: 8px 10px; font-size: 12px; white-space: pre-wrap; direction: ltr; text-align: left; }
+  .rg h4 { margin: 12px 0 6px; } .rg .it { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; margin-bottom: 6px; font-size: 13px; } .rg .it small { color: var(--muted); display: block; }
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #C62828; color: #fff; padding: 10px 18px; border-radius: 12px; font-weight: 800; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.25); cursor: pointer; max-width: min(640px, 92vw); }
+  .body.wk > g { animation: stepb .32s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+  @keyframes stepb { from { transform: scale(1.03, .97) rotate(-3deg); } to { transform: scale(.98, 1.02) rotate(3deg); } }
+  .body.ty > g { animation: typing 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; } @keyframes typing { 50% { transform: translateY(-1.2px); } }
+  .hchips[hidden] { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <span class="co" style="font-size:15px;letter-spacing:.5px;opacity:.95">NQ Simulation</span><span class="co" id="coName">🏢 الشركة الافتراضية</span>
+  <span class="clock" id="clock">08:00</span><span id="wait" style="font-size:12px;color:#B7791F;margin-inline-start:8px"></span>
+  <span class="badge" id="mode"></span>
+  <div class="ctrl">
+    <button class="btn go" id="bStart">▶ ابدأ يوم جديد</button>
+    <button class="btn gh" id="bPause">⏸ إيقاف مؤقت</button>
+    <select class="btn" id="speed" title="السرعة"><option value="2">بطيء</option><option value="4" selected>عادي</option><option value="8">سريع</option><option value="16">سريع جدًا</option><option value="30">أقصى سرعة</option></select>
+    <a class="btn gh" href="/report" target="_blank" style="text-decoration:none">📄 تقرير اليوم</a>
+    <a class="btn gh" href="/tickets" target="_blank" style="text-decoration:none" title="مشاكل السيستم نفسه بصورها وأدلتها — تتبعت للمطورين">🎫 تذاكر المطورين</a>
+    <a class="btn gh" href="/tests" target="_blank" style="text-decoration:none" title="كل أنواع اختبارات NQ ERP: اللي شغال كل يوم واللي مخطط، ونتيجة النهارده">🧪 كتالوج الاختبارات</a>
+    <a class="btn gh" href="/present" target="_blank" style="text-decoration:none" title="شاشة نضيفة بالأرقام المهمة تعرضها قدام العميل">🖥️ عرض للعميل</a>
+    <a class="btn gh" href="/compare" target="_blank" style="text-decoration:none" title="اليوم ده قدام اللي قبله: اتصلح · جديد · لسه موجود">📊 مقارنة الأيام</a>
+    <button class="btn gh" id="bAlert" title="تنبيه فوري بصوت وإشعار أول ما شاشة تقف على السيستم">🔕 التنبيه</button>
+    <button class="btn gh" id="bVoice" title="الموظفين يتكلموا كلام الشات بصوت عربي سعودي (يحتاج إنترنت)">🔇 الصوت</button>
+    <a class="btn gh" href="/settings" style="text-decoration:none">⚙️ الإعدادات</a>
+  </div>
+</header>
+<div class="day"><i id="dayBar"></i></div>
+<main>
+  <div>
+    <div class="card hcard" style="padding:8px 12px"><div class="hhead" id="hHead" style="cursor:pointer;margin:0;user-select:none">🩺 صحة الشاشات النهارده <span class="sum" id="hSum"></span><span class="mute" id="hArrow" style="font-weight:400;margin-inline-start:auto">▾ دوس تشوف الشاشات</span></div><div class="hchips" id="health" hidden style="margin-top:8px;max-height:230px;overflow-y:auto"></div></div>
+    <div class="card"><svg id="office" viewBox="0 0 1200 650"></svg>
+      <div class="legend"><span><i style="background:#94a3a2"></i>فاضي</span><span><i style="background:#1B9E77"></i>شغال على السيستم</span><span><i style="background:#C62828"></i>متعطل</span><span><i style="background:#D97706"></i>ماشي</span><span>دوس على أي موظف تشوف كاميرا مكتبه</span></div>
+    </div>
+    <div class="card" style="margin-top:12px"><div class="kpis" id="kpis"></div><div class="mute" style="padding:8px 12px 4px">دوس على أي موظف تشوف يومه: عمل إيه، اتعطل فين، واشتكى من إيه.</div>
+      <div class="hhead" style="padding:6px 12px 0;margin:0">🕒 الخط الزمني لليوم <span class="mute" style="font-weight:400">— كل مربع مهمة: 🟩 تمام · 🟨 بطيئة · 🟥 وقفت · دوس عليه للتفاصيل</span></div><div class="tl" id="tline"></div></div>
+  </div>
+  <div class="card side">
+    <div class="tabs"><button data-t="chat" class="on">💬 الشات</button><button data-t="deals">📦 الصفقات</button><button data-t="cmp">⚠️ الشكاوى <span id="cmpN"></span></button><button data-t="rg">🧬 جديد/اتصلح</button><button data-t="day">📊 اليوم</button></div>
+    <div class="pane" id="pane"></div>
+  </div>
+</main>
+<div class="drawer" id="drawer"><div class="box" id="dbox"></div></div>
+<script src="/i18n.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const NS = 'http://www.w3.org/2000/svg';
+  const RING = {idle: '#94a3a2', working: '#0F7C7A', blocked: '#C62828', walking: '#B26A00', away: '#cbd5d4'};
+  let S = null, tab = 'chat', open = '', es = null;
+  const el = (tag, at, parent) => { const n = document.createElementNS(NS, tag); for (const k in at) n.setAttribute(k, at[k]); if (parent) parent.appendChild(n); return n; };
+
+  const GLOW = {working: '#1B9E77', blocked: '#C62828', walking: '#D97706', idle: '#94a3a2', away: 'transparent'};
+  const MON = {working: '#0F7C7A', blocked: '#C62828', idle: '#3b4a52', walking: '#3b4a52', away: '#2a3034'};
+  let ART = null;
+  const P = {};              // per employee: {x, y, rot, pose, timer}
+
+  function place(id, x, y, rot, ms) {
+    const g = document.getElementById('emp_' + id), b = document.getElementById('body_' + id); if (!g) return;
+    g.style.transitionDuration = (ms || 0) + 'ms'; g.style.transform = `translate(${x}px, ${y}px)`;
+    if (b && rot != null) { b.style.transitionDuration = Math.min(300, ms || 0) + 'ms'; b.style.transform = `rotate(${rot}deg)`; }
+    Object.assign(P[id], {x, y, rot: rot ?? P[id].rot});
+  }
+  function pose(id, name) {
+    if (!ART || P[id].pose === name) return;
+    P[id].pose = name; const b = document.getElementById('body_' + id); if (b) { b.innerHTML = ART.people[id][name]; b.classList.toggle('wk', name === 'walk'); b.classList.toggle('ty', name === 'sit'); b.style.animationDelay = (Math.random() * -1.6) + 's'; }
+  }
+  function walkPath(id, pts, ms, face, home) {
+    clearTimeout(P[id].timer);
+    const len = []; let tot = 0;
+    for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); len.push(l); tot += l; }
+    pose(id, 'walk');
+    let i = 0;
+    const step = () => {
+      if (i >= len.length) { const e = S.employees.find(x => x.id === id); pose(id, home ? (e && e.status === 'working' ? 'sit' : 'sit_idle') : 'stand'); place(id, pts[pts.length - 1][0], pts[pts.length - 1][1], home ? 0 : face, 0); return; }
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], d = Math.max(1, ms * len[i] / Math.max(1, tot));
+      place(id, x2, y2, Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI + 90, d);
+      i++; P[id].timer = setTimeout(step, d);
+    };
+    step();
+  }
+
+  function drawOffice() {
+    const svg = $('#office');
+    svg.setAttribute('viewBox', `0 0 ${ART.w} ${ART.h}`);
+    let html = ART.floor + '<g id="mons"></g><g id="glows"></g><g id="people"></g>';
+    svg.innerHTML = html;
+    const mons = document.getElementById('mons'), ppl = document.getElementById('people');
+    for (const [id, [x, y]] of Object.entries(ART.monitors)) el('rect', {x: x - 21, y: y - 3, width: 42, height: 3, rx: 1, id: 'mon_' + id, fill: '#3b4a52'}, mons);
+    for (const e of S.employees) {
+      P[e.id] = {x: e.hx, y: e.hy, rot: 0, pose: ''};
+      const g = el('g', {class: 'emp', id: 'emp_' + e.id}, ppl);
+      el('circle', {r: 36, id: 'glow_' + e.id, fill: 'transparent', opacity: .22, filter: 'url(#blur)'}, g);
+      el('g', {class: 'body', id: 'body_' + e.id}, g);
+      const tagW = e.name.length * 8 + 22, tg = el('g', {transform: 'translate(0,42)'}, g);
+      el('rect', {x: -tagW / 2, y: -10, width: tagW, height: 20, rx: 10, fill: '#fff', filter: 'url(#shs)'}, tg);
+      el('circle', {cx: tagW / 2 - 9, cy: 0, r: 4, id: 'dot_' + e.id, fill: '#94a3a2'}, tg);
+      const t = el('text', {x: -3, y: 4.5, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: '#1C2B2A'}, tg); t.textContent = e.name;
+      const qb = el('g', {id: 'q_' + e.id, style: 'display:none', transform: 'translate(22,-22)'}, g); el('circle', {r: 10, fill: '#D97706'}, qb);
+      const qt = el('text', {y: 4, 'text-anchor': 'middle', class: 'q'}, qb); qt.textContent = '0';
+      const al = el('g', {id: 'al_' + e.id, style: 'display:none', transform: 'translate(-22,-22)'}, g); el('circle', {r: 11, fill: '#C62828'}, al);
+      const at = el('text', {y: 5, 'text-anchor': 'middle', class: 'q', 'font-size': 14}, al); at.textContent = '!';
+      el('g', {class: 'bub', id: 'bub_' + e.id, style: 'display:none'}, g);
+      g.onclick = () => drawer(e.id);
+      place(e.id, e.hx, e.hy, 0, 0);
+      pose(e.id, 'sit_idle');
+      setStatus({emp: e.id, status: e.status, screen: e.screen, task: e.task, queue: e.queue});
+    }  drawExtras();
+  }
+
+  function setStatus(d) {
+    const e = S.employees.find(x => x.id === d.emp); if (!e) return;
+    Object.assign(e, {status: d.status, screen: d.screen, task: d.task, queue: d.queue ?? e.queue});
+    for (const k of ['done', 'failed', 'complaints', 'err']) if (d[k] != null) e[k] = d[k];
+    const g = document.getElementById('emp_' + d.emp); if (!g) return;
+    g.style.display = d.status === 'away' ? 'none' : '';
+    document.getElementById('glow_' + d.emp).setAttribute('fill', GLOW[d.status] || 'transparent');
+    document.getElementById('dot_' + d.emp).setAttribute('fill', GLOW[d.status] || '#94a3a2');
+    const m = document.getElementById('mon_' + d.emp); if (m) m.setAttribute('fill', MON[d.status] || '#3b4a52');
+    if (d.status === 'working' || d.status === 'blocked') { pose(d.emp, 'sit'); place(d.emp, e.hx, e.hy, 0, 0); }
+    else if (d.status === 'idle' && Math.hypot(P[d.emp].x - e.hx, P[d.emp].y - e.hy) < 4) pose(d.emp, 'sit_idle');
+    const q = document.getElementById('q_' + d.emp);
+    if (q) { q.style.display = e.queue > 0 ? '' : 'none'; q.querySelector('text').textContent = e.queue; }
+    if (open === d.emp) drawer(d.emp);
+  }
+
+  function bubble(id, text, ms = 3600) {
+    const b = document.getElementById('bub_' + id); if (!b) return;
+    const t = text.length > 40 ? text.slice(0, 39) + '…' : text, w = Math.max(80, t.length * 8.6 + 30);
+    b.innerHTML = '';
+    el('rect', {x: -w / 2, y: -88, width: w, height: 36, rx: 18, fill: '#fff', stroke: /رافض|مش راضي|بيطلعلي|غلط|مالكش|صلاحية/.test(text) ? '#C62828' : '#d6dedd', filter: 'url(#sh)'}, b);
+    el('path', {d: 'M -8 -53 L 0 -42 L 8 -53 Z', fill: '#fff'}, b);
+    const tx = el('text', {x: 0, y: -64, 'text-anchor': 'middle', 'font-size': 15.5, 'font-weight': 600, fill: '#1C2B2A'}, b); tx.textContent = t;
+    b.style.display = '';
+    clearTimeout(b._t); b._t = setTimeout(() => b.style.display = 'none', ms);
+  }
+
+  // where a problem comes from — only 🏢 goes to the developers
+  const SRC = {erp: {i: '🏢', n: 'السيستم', c: '#C53030'}, data: {i: '👤', n: 'بيانات / إعداد', c: '#B7791F'}, net: {i: '🌐', n: 'النت', c: '#2B6CB0'},
+               tool: {i: '🛠️', n: 'الأداة', c: '#6B46C1'}, work: {i: '📋', n: 'ضغط شغل', c: '#4A5568'}};
+  let SRCF = '';
+  window.srcFilter = k => { SRCF = SRCF === k ? '' : k; pane(); };
+  function srcBar() {
+    const n = k => S.complaints.filter(c => (c.source || 'erp') === k).length;
+    return `<div class="srcs">${Object.entries(SRC).map(([k, v]) => `<span onclick="srcFilter('${k}')" style="cursor:pointer;border-color:${v.c};color:${v.c};${SRCF === k ? 'background:' + v.c + ';color:#fff' : ''}">${v.i} ${v.n}: <b>${n(k)}</b></span>`).join('')}</div>`;
+  }
+
+  // the desk camera keeps following the real screen (new pictures come during a save too)
+  // 🔊 the employees speak (the browser's Arabic voice; each employee a slightly different pitch / rate)
+  let VOICE = false; try { VOICE = localStorage.getItem('vc_voice') === '1'; } catch (_) {}
+  const vbtn = document.getElementById('bVoice');
+  const vlabel = () => { if (vbtn) vbtn.textContent = VOICE ? '🔊 الصوت' : '🔇 الصوت'; };
+  vlabel();
+  if (vbtn) vbtn.onclick = () => { if (!VOICE) { try { new Audio('/api/tts?text=' + encodeURIComponent('الصوت شغال')).play(); } catch (_) {} } VOICE = !VOICE; try { localStorage.setItem('vc_voice', VOICE ? '1' : '0'); } catch (_) {} if (!VOICE && window.speechSynthesis) speechSynthesis.cancel(); vlabel(); };
+  // the server's neural Saudi voice first (edge-tts), the browser's voice if that isn't there; one line at a time
+  const SPQ = []; let SPBUSY = false;
+  function speak(d) {
+    if (!VOICE || !d || !d.text) return;
+    SPQ.push(d); if (SPQ.length > 4) SPQ.splice(0, SPQ.length - 4);
+    if (!SPBUSY) nextSpeak();
+  }
+  function nextSpeak() {
+    const d = SPQ.shift(); if (!d) { SPBUSY = false; return; }
+    SPBUSY = true;
+    const a = new Audio(`/api/tts?emp=${encodeURIComponent(d.from || '')}&text=${encodeURIComponent(d.text)}`);
+    a.onended = nextSpeak;
+    a.onerror = () => { browserSpeak(d); setTimeout(nextSpeak, 300); };
+    a.play().catch(() => { browserSpeak(d); setTimeout(nextSpeak, 300); });
+  }
+  function browserSpeak(d) {
+    if (!window.speechSynthesis || !d || !d.text) return;
+    const u = new SpeechSynthesisUtterance(String(d.text).replace(/[«»—•✅❌⚠️🕵️🧾⚡🆕📅🎓]/g, ' '));
+    const ar = /[\u0600-\u06FF]/.test(d.text); u.lang = ar ? 'ar-SA' : 'en-US';
+    const v = speechSynthesis.getVoices().find(x => (ar ? /^ar/i : /^en/i).test(x.lang)); if (v) u.voice = v;
+    let h = 0; for (const c of String(d.from || '')) h = (h * 31 + c.charCodeAt(0)) % 997;
+    u.pitch = 0.8 + (h % 5) * 0.1; u.rate = 0.95 + (h % 3) * 0.05;
+    if (speechSynthesis.pending) speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
+  // 💬 ask an employee what he did — answered from his own day (his log, his documents, his complaints)
+  async function ask(id) {
+    const q = (document.getElementById('askQ') || {}).value || '';
+    const a = document.getElementById('askA'); if (a) a.textContent = '…';
+    try { const r = await fetch(`/api/ask?emp=${encodeURIComponent(id)}&q=${encodeURIComponent(q)}`).then(r => r.json()); if (a) a.textContent = r.answer || '—'; speak({from: id, text: r.answer}); }
+    catch (_) { if (a) a.textContent = 'مقدرتش أوصل للبرنامج'; }
+  }
+  window.ask = ask;
+  setInterval(() => { const im = document.getElementById('liveShot'); if (im && S && S.mode !== 'محاكاة') im.src = `/shot/${im.dataset.emp}.png?t=${Date.now()}`; }, 4000);
+
+  function kpis() {
+    const d = S.deals, c = S.complaints;
+    $('#kpis').innerHTML = [[d.length, 'صفقة النهارده'], [d.filter(x => x.state === 'اتقفلت').length, 'اتقفلت'], [d.filter(x => x.state === 'متعطلة').length, 'متعطلة'],
+      [c.filter(x => (x.source || 'erp') === 'erp').length, '🏢 مشكلة سيستم'], [S.employees.filter(e => e.status === 'working').length, 'شغالين دلوقتي'], [S.employees.reduce((a, e) => a + (e.queue || 0), 0), 'مهمة مستنية']]
+      .map(([n, t]) => `<div><b>${n}</b><span>${t}</span></div>`).join('');
+    $('#cmpN').textContent = c.length ? `(${c.length})` : '';
+  }
+
+  function pane() {
+    const p = $('#pane');
+    if (tab === 'chat') p.innerHTML = S.chat.slice().reverse().map(m => `<div class="msg"><span class="t">${E(m.clock)}</span> <b>${E(m.name)}</b>${m.to_name ? ` ← ${E(m.to_name)}` : ''}: ${E(m.text)}</div>`).join('') || '<div class="empty">الشركة لسه ما فتحتش — دوس «ابدأ يوم جديد»</div>';
+    if (tab === 'deals') p.innerHTML = S.deals.slice().reverse().map(d => `<div class="deal"><div class="d-flex"><b>${E(d.id)}</b> · ${E(d.customer)} <span class="st st-${E(d.state)}">· ${E(d.state)}</span></div>
+      <div class="mute">${E(d.qty)} ${E(d.item)} · ${Number(d.amount).toLocaleString('en-US')} · فتحت ${E(d.opened)}${d.closed ? ' · قفلت ' + E(d.closed) : ''}</div>
+      <ol>${d.steps.map(s => `<li style="color:${s.status === 'fail' ? 'var(--red)' : ''}">${E(s.clock)} ${E(s.text)}</li>`).join('')}</ol></div>`).join('') || '<div class="empty">مفيش صفقات لسه</div>';
+    if (tab === 'cmp') p.innerHTML = srcBar() + S.complaints.filter(c => !SRCF || (c.source || 'erp') === SRCF).slice().reverse().map(c => `<div class="cmp" data-c="${c.id}" style="border-inline-start-color:${SRC[c.source || 'erp'].c}"><div class="ty" style="color:${SRC[c.source || 'erp'].c}">${SRC[c.source || 'erp'].i} ${SRC[c.source || 'erp'].n} · ${E(c.type)}${c.screen ? ' · ' + E(c.screen) : ''} · ${E(c.clock)}</div>
+      <div><b>${E(c.name)}</b> <span class="mute">(${E(c.job)})</span>: ${E(c.text)}</div><div class="ev">📎 الدليل: ${E(c.evidence)}${c.deal ? ' · ' + E(c.deal) : ''}</div></div>`).join('') || '<div class="empty">مفيش شكاوى لحد دلوقتي 👍</div>';
+    if (tab === 'cmp') p.querySelectorAll('[data-c]').forEach(x => x.onclick = () => ticket(+x.dataset.c));
+    if (tab === 'rg') regress(p);
+    if (tab === 'day') {
+      const r = S.report;
+      p.innerHTML = r ? `<div class="kpis" style="padding:0">${[[r.closed + ' / ' + r.deals, 'صفقات اتقفلت'], [r.stuck, 'متعطلة'], [Number(r.sales).toLocaleString('en-US'), 'مبيعات'], [r.avg_cycle ?? '—', 'متوسط الدورة (د)'], [r.complaints, 'شكوى'], [r.most_blocked, 'أكتر واحد اتعطل']].map(([n, t]) => `<div><b>${E(n)}</b><span>${t}</span></div>`).join('')}</div>
+        <h4>المشاكل حسب مصدرها</h4><div class="srcs">${(r.by_source || []).map(x => `<span style="border-color:${x.color};color:${x.color}">${x.icon} ${E(x.name)}: <b>${x.n}</b></span>`).join('')}</div>
+        <h4>المشاكل</h4>${r.top.map(g => `<div class="cmp" style="border-inline-start-color:${SRC[g.source || 'erp'].c}"><div class="ty" style="color:${SRC[g.source || 'erp'].c}">${SRC[g.source || 'erp'].i} ${E(g.type)} · ${E(g.screen)} · ${g.n} مرة</div><div>${E(g.sample)}</div><div class="ev">${E(g.who.join('، '))} · ${E(g.evidence)}</div></div>`).join('') || '<div class="mute">مفيش</div>'}
+        <h4>أبطأ الشاشات</h4>${r.speed.map(s => `<div class="lg">${E(s.screen)} — متوسط ${(s.avg / 1000).toFixed(1)} ث · أقصى ${(s.max / 1000).toFixed(1)} ث</div>`).join('')}
+        <p><a href="/report" target="_blank">📄 التقرير الكامل للطباعة / PDF</a> · <a href="/tickets" target="_blank">🎫 تذاكر المطورين</a> · <a href="/compare" target="_blank">📊 مقارنة بالأيام اللي فاتت</a></p>` : '<div class="empty">التقرير بيطلع آخر اليوم (الساعة 4)</div>';
+    }
+  }
+
+  // 🩺 every screen tested today, its colour = its last result
+  const HC = {ok: '#1B7F3B', slow: '#B26A00', fail: '#C62828', denied: '#6d28d9'};
+  const HN = {ok: 'تمام', slow: 'بطيئة', fail: 'وقفت', denied: 'صلاحيات'};
+  let HALL = false;
+  { const hh = document.getElementById('hHead'); if (hh) hh.onclick = () => { const b = $('#health'); b.hidden = !b.hidden; $('#hArrow').textContent = b.hidden ? '▾ دوس تشوف الشاشات' : '▴ اقفل'; }; }
+  function health() {
+    const hs = (S.health || []).slice().sort((a, b) => (b.fail - a.fail) || a.screen.localeCompare(b.screen));
+    const n = k => hs.filter(h => h.last === k).length;
+    $('#hSum').innerHTML = hs.length ? `<span style="background:#e3f3e8;color:#1B7F3B">${n('ok')} تمام</span><span style="background:#fbefd9;color:#B26A00">${n('slow')} بطيئة</span><span style="background:#fbe3e3;color:#C62828">${n('fail') + n('denied')} وقفت</span>` : '';
+    const RANK = {fail: 0, denied: 0, slow: 1, ok: 2}; hs.sort((a, b) => (RANK[a.last] - RANK[b.last]) || a.screen.localeCompare(b.screen));
+    const lim = hs.length;
+    $('#health').innerHTML = hs.slice(0, lim).map((h, i) => { const avg = h.ms.length ? h.ms.reduce((a, b) => a + b, 0) / h.ms.length / 1000 : 0;
+      return `<button class="hchip" data-h="${i}" title="${E(h.msg || HN[h.last])}"><i style="background:${HC[h.last] || '#94a3a2'}"></i>${E(h.screen)} <small>${avg ? avg.toFixed(1) + 'ث' : ''} · ${h.ok + h.slow}✓${h.fail ? ' ' + h.fail + '✗' : ''}</small></button>`; }).join('') + (hs.length > lim ? `<button class="hchip" id="hAll">+ ${hs.length - lim} شاشة تمام — اعرض الكل</button>` : HALL && hs.length > 14 ? '<button class="hchip" id="hAll">اختصر</button>' : '') || '<span class="mute">لسه ما اتجربتش ولا شاشة — هتتلون أول ما الموظفين يشتغلوا</span>';
+    const ha = document.getElementById('hAll'); if (ha) ha.onclick = () => { HALL = !HALL; health(); };
+    $('#health').querySelectorAll('[data-h]').forEach(b => b.onclick = () => { const h = hs[+b.dataset.h];
+      const c = S.complaints.slice().reverse().find(x => x.screen === h.screen);
+      box(`<b style="font-size:17px">🩺 ${E(h.screen)}</b><p><span style="color:${HC[h.last]};font-weight:800">● ${HN[h.last]}</span> · آخر مرة ${E(h.clock)} مع ${E(h.who)}</p>
+        <div class="kpis" style="padding:0">${[[h.ok, 'نجحت'], [h.slow, 'بطيئة'], [h.fail, 'وقفت'], [h.ms.length ? (Math.max(...h.ms) / 1000).toFixed(1) + 'ث' : '—', 'أبطأ مرة']].map(([a, t]) => `<div><b>${a}</b><span>${t}</span></div>`).join('')}</div>
+        ${h.msg ? `<p>💬 آخر رد من السيستم: ${E(h.msg)}</p>` : ''}${h.shot ? `<img class="shot" src="/evidence/${encodeURIComponent(h.shot)}" alt="">` : ''}
+        ${c ? `<p><a href="#" id="toT">🎫 افتح آخر شكوى على الشاشة دي</a></p>` : ''}`);
+      const t = document.getElementById('toT'); if (t) t.onclick = ev => { ev.preventDefault(); ticket(c.id); }; });
+  }
+  // 🕒 the day as one line per employee: each task a block at its time
+  function tline() {
+    const T = S.timeline || [], m = s => { const [h, mi] = String(s).split(':').map(Number); return h * 60 + mi; };
+    const a = S.start || 480, b = S.end || 960, x = c => Math.max(0, Math.min(100, (m(c) - a) / (b - a) * 100));
+    if (!T.length) { $('#tline').innerHTML = '<div class="mute">هيتملى أول ما الموظفين يبدأوا شغل</div>'; return; }
+    const hours = []; for (let h = Math.ceil(a / 60); h * 60 <= b; h++) hours.push(h);
+    $('#tline').innerHTML = `<div class="tlaxis"><span></span><div>${hours.map(h => `<em style="right:${(h * 60 - a) / (b - a) * 100}%">${h}:00</em>`).join('')}</div></div>` +
+      S.employees.map(e => `<div class="tlrow"><b>${E(e.name)}</b><div class="tlbar">${T.map((t, i) => t.emp !== e.id ? '' : `<span data-t="${i}" title="${E(t.clock + ' · ' + t.screen + ' · ' + (HN[t.state] || t.state))}" style="right:${x(t.clock)}%;width:${Math.max(.8, (t.ms || 0) / 60000 / (b - a) * 100 * 8)}%;background:${HC[t.state] || '#94a3a2'}"></span>`).join('')}</div></div>`).join('');
+    $('#tline').querySelectorAll('[data-t]').forEach(sp => sp.onclick = () => { const t = T[+sp.dataset.t];
+      const c = S.complaints.slice().reverse().find(x => x.emp === t.emp && x.screen === t.screen && m(x.clock) >= m(t.clock) - 1);
+      box(`<b style="font-size:17px">🕒 ${E(t.clock)} — ${E(t.name)}</b><p>«${E(t.screen)}» · ${E(t.label || t.action)}</p>
+        <p><span style="color:${HC[t.state]};font-weight:800">● ${HN[t.state] || t.state}</span> · ${(t.ms / 1000).toFixed(1)} ث${t.no ? ' · مستند رقم ' + E(t.no) : ''}${t.deal ? ' · ' + E(t.deal) : ''}</p>${t.msg ? `<p>💬 ${E(t.msg)}</p>` : ''}
+        ${c ? `<p><a href="#" id="toT">🎫 الشكوى بالدليل</a></p>` : ''}`);
+      const l = document.getElementById('toT'); if (l) l.onclick = ev => { ev.preventDefault(); ticket(c.id); }; });
+  }
+  function box(html) { $('#dbox').innerHTML = `<div style="text-align:left"><button class="btn" style="background:var(--light);color:var(--text)" id="dClose">✕</button></div>` + html; $('#drawer').classList.add('on'); open = ''; $('#dClose').onclick = () => $('#drawer').classList.remove('on'); }
+  // 🎫 one complaint as a ticket: the page's picture, the steps to repeat it, SQL to check the database
+  const ACT = {add: 'إضافة', edit: 'تعديل', delete: 'حذف', print: 'طباعة', open: 'فتح', review: 'مراجعة'};
+  function ticket(id) {
+    const c = S.complaints.find(x => x.id === id); if (!c) return;
+    let path = ''; try { path = c.url ? new URL(c.url).pathname : ''; } catch (_) {}
+    const ctl = (path.split('/').filter(Boolean)[0] || ''), day = new Date().toISOString().slice(0, 10);
+    const steps = [`1. ادخل بمستخدم ${c.name} (${c.job})`, `2. افتح ${path || '«' + c.screen + '»'}`, `3. اعمل «${ACT[c.action] || c.action || 'إضافة'}» بنفس البيانات اللي في الدليل`, `4. المتوقع: الحفظ يتم أو رسالة واضحة — اللي حصل: ${c.text}`];
+    const sql = /^[A-Za-z_]\w*$/.test(ctl) ? `-- حركات الشاشة النهارده (سجل السيستم)\nSELECT TOP 20 Id, LogDate, UserName, ArAction, SelectedItem, CodeOrDocNo\nFROM MyLog WHERE ControllerName = '${ctl}' AND CAST(LogDate AS date) = '${day}' ORDER BY Id DESC;\n-- آخر سجلات الجدول (اتأكد من اسمه)\nSELECT TOP 10 * FROM [${ctl}] ORDER BY Id DESC;` : '';
+    const txt = `🎫 ${c.type} — ${c.screen}\nالوقت: ${c.clock} · ${c.name} (${c.job})\nالمشكلة: ${c.text}\nالدليل: ${c.evidence}\n${c.url ? 'الصفحة: ' + c.url + '\n' : ''}\nخطوات التكرار:\n${steps.join('\n')}${sql ? '\n\n' + sql : ''}`;
+    box(`<b style="font-size:17px">🎫 ${E(c.type)} · ${E(c.screen)}</b><p class="mute">${E(c.clock)} · ${E(c.name)} (${E(c.job)})${c.deal ? ' · ' + E(c.deal) : ''}</p>
+      <p><b>المشكلة:</b> ${E(c.text)}</p><p><b>📎 الدليل:</b> ${E(c.evidence)}</p>${c.url ? `<p class="mute" dir="ltr" style="text-align:left">${E(c.url)}</p>` : ''}
+      ${c.shot ? `<img class="shot" src="/evidence/${encodeURIComponent(c.shot)}" alt="صورة الصفحة وقت المشكلة">` : '<p class="mute">مفيش صورة للمشكلة دي (بتتصور في وضع الموقع الحقيقي بس)</p>'}
+      <h4>🔁 خطوات التكرار</h4><pre class="code" style="direction:rtl;text-align:right">${E(steps.join('\n'))}</pre>${sql ? `<h4>🗄️ SQL للتأكد</h4><pre class="code">${E(sql)}</pre>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn go" style="background:var(--teal);color:#fff" id="cpT">📋 انسخ التذكرة</button>
+      <a class="btn" style="background:#25D366;color:#fff;text-decoration:none" target="_blank" href="https://wa.me/?text=${encodeURIComponent(txt.slice(0, 3500))}">🟢 ابعتها واتساب</a>
+      <a class="btn" style="background:var(--light);color:var(--text);text-decoration:none" href="mailto:?subject=${encodeURIComponent('🎫 NQ ERP — ' + c.screen + ': ' + c.type)}&body=${encodeURIComponent(txt.slice(0, 1800))}">✉️ ابعتها إيميل</a>
+      <span class="mute" id="cpOk"></span></div>${c.shot ? '<p class="mute">الصورة مش بتتبعت مع الواتساب/الإيميل تلقائي — اضغط عليها كليك يمين ← نسخ الصورة والصقها في الرسالة</p>' : ''}`);
+    $('#cpT').onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => $('#cpOk').textContent = 'اتنسخت ✓', () => $('#cpOk').textContent = 'انسخ يدوي من فوق'); };
+  }
+  // 🧬 the system's problems across days
+  async function regress(p) {
+    p.innerHTML = '<div class="empty">بحمّل…</div>';
+    let r; try { r = await fetch('/api/regressions').then(x => x.json()); } catch (_) { p.innerHTML = '<div class="empty">مقدرتش أجيب المقارنة</div>'; return; }
+    if (tab !== 'rg') return;
+    const it = (m, extra) => `<div class="it"><b>${E(m.screen)}</b>: ${E(m.text)}<small>${extra}</small></div>`;
+    p.innerHTML = `<div class="rg"><h4 style="color:var(--red)">🆕 جديد النهارده (${r.new.length})</h4>${r.new.map(m => it(m, 'أول مرة تظهر النهارده')).join('') || '<div class="mute">مفيش مشاكل جديدة 👍</div>'}
+      <h4 style="color:var(--amber)">⏳ لسه موجودة (${r.open.length})</h4>${r.open.map(m => it(m, `ظهرت ${m.days.length} يوم · من ${m.first} · آخر مرة ${m.last}`)).join('') || '<div class="mute">مفيش</div>'}
+      <h4 style="color:var(--green)">✅ اتصلحت (${r.fixed.length})</h4>${r.fixed.map(m => it(m, `اتصلحت ${m.fixed} · كانت ظاهرة ${m.days.length} يوم`)).join('') || '<div class="mute">لسه مفيش</div>'}
+      <p><a href="/compare" target="_blank">📊 المقارنة الكاملة</a></p></div>`;
+  }
+
+
+  // 🔔 instant alert: a screen stopped on the system -> a beep, a desktop notification and a red strip you can click to open the ticket
+  let ALERT = false; try { ALERT = localStorage.getItem('vc_alert') === '1'; } catch (_) {}
+  const abtn = $('#bAlert'), alabel = () => { if (abtn) abtn.textContent = ALERT ? '🔔 التنبيه' : '🔕 التنبيه'; }; alabel();
+  if (abtn) abtn.onclick = () => { ALERT = !ALERT; try { localStorage.setItem('vc_alert', ALERT ? '1' : '0'); } catch (_) {}
+    if (ALERT && window.Notification && Notification.permission === 'default') Notification.requestPermission(); if (ALERT) beep(); alabel(); };
+  let AC = null;
+  function beep() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const t = AC.currentTime;
+    [0, .18].forEach(d => { const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.value = d ? 660 : 880; g.gain.setValueAtTime(.0001, t + d); g.gain.exponentialRampToValueAtTime(.25, t + d + .02); g.gain.exponentialRampToValueAtTime(.0001, t + d + .16); o.connect(g).connect(AC.destination); o.start(t + d); o.stop(t + d + .17); }); } catch (_) {} }
+  function alertOn(c) {
+    if (!ALERT || (c.source || 'erp') !== 'erp') return;
+    beep();
+    try { if (window.Notification && Notification.permission === 'granted') new Notification('⛔ ' + c.screen + ' وقفت', {body: c.name + ': ' + c.text, tag: 'vc' + c.id}); } catch (_) {}
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = `⛔ ${c.clock} · «${c.screen}» وقفت مع ${c.name}: ${c.text.slice(0, 110)} — دوس للتذكرة`;
+    t.onclick = () => { t.remove(); ticket(c.id); }; document.body.appendChild(t); setTimeout(() => t.remove(), 9000);
+  }
+
+  // 🧑‍🍳 the office boy (pantry) brings tea to someone now and then; 🆕 the new sales colleague sits at his desk (not active on the system yet)
+  const DOOR_T = [[20, 370, 155], [370, 760, 455], [760, 930, 825], [930, 1330, 1015], [1330, 1580, 1415]], DOOR_B = [[20, 470, 235], [470, 800, 575], [800, 1030, 885], [1030, 1260, 1115], [1260, 1580, 1340]];
+  function route2(a, b) {
+    const door = p => { if (p[1] >= 330 && p[1] <= 400) return null; const rows = p[1] < 330 ? DOOR_T : DOOR_B, wy = p[1] < 330 ? 330 : 400; const r = rows.find(r => p[0] >= r[0] && p[0] < r[1]); return r ? [r[2], wy, rows.indexOf(r)] : null; };
+    const da = door(a), db = door(b);
+    if (da && db && da[1] === db[1] && da[2] === db[2]) return [a, b];
+    const pts = [a]; const iy = d => d[1] === 330 ? 300 : 430;
+    if (da) pts.push([da[0], iy(da)], [da[0], 365]); else pts.push([a[0], 365]);
+    if (db) pts.push([db[0], 365], [db[0], iy(db)], b); else pts.push([b[0], 365], b);
+    return pts;
+  }
+  let BOY = null;
+  function extraFig(id, ex, name, color) {
+    const ppl = document.getElementById('people'), g = el('g', {class: 'emp', id: 'emp_' + id, style: `transform: translate(${ex.x}px, ${ex.y}px)`}, ppl);
+    const b = el('g', {class: 'body', id: 'body_' + id}, g); b.innerHTML = ex.poses.sit || ex.poses.stand;
+    const tagW = name.length * 7.2 + 22, tg = el('g', {transform: 'translate(0,42)'}, g);
+    el('rect', {x: -tagW / 2, y: -10, width: tagW, height: 20, rx: 10, fill: '#fff', filter: 'url(#shs)', opacity: .92}, tg);
+    el('circle', {cx: tagW / 2 - 9, cy: 0, r: 4, fill: color}, tg);
+    const t = el('text', {x: -3, y: 4.5, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#5a4a3a'}, tg); t.textContent = name;
+    return g;
+  }
+  function drawExtras() {
+    const X = ART.extras; if (!X) return;
+    if (X.new) { const n = extraFig('xnew', X.new, 'فهد · موظف مبيعات جديد', '#cbd5d4'); n.style.opacity = .85; n.querySelector('.body').style.transform = 'rotate(0deg)';
+    n.onclick = () => box('<b style="font-size:17px">🆕 فهد — موظف مبيعات جديد</b><p>مكتبه جاهز في المبيعات، بس لسه ما اتفعّلش على السيستم — فعّله من الإعدادات (علامة «شغال» واديله مستخدم) وهيبدأ يشتغل زي زمايله.</p>'); }
+    const g = extraFig('xboy', X.boy, 'عم صابر · أوفيس بوي', '#B26A00');
+    BOY = {g, x: X.boy.x, y: X.boy.y, home: [X.boy.x, X.boy.y], busy: false, t: null};
+    g.onclick = () => box('<b style="font-size:17px">☕ عم صابر — أوفيس بوي</b><p>بيعمل الشاي والقهوة في البوفيه ويوديها للموظفين على مكاتبهم. مش بيشتغل على السيستم.</p>');
+    clearTimeout(BOY.t); BOY.t = setTimeout(errand, 8000 + Math.random() * 12000);
+  }
+  function boyWalk(pts, done) {
+    const b = document.getElementById('body_xboy'); if (!b || !BOY) return;
+    b.innerHTML = ART.extras.boy.poses.walk; b.classList.add('wk');
+    let i = 0; const sp = 0.09;                 // px per ms
+    const step = () => {
+      if (i >= pts.length - 1) { b.innerHTML = ART.extras.boy.poses.stand; b.classList.remove('wk'); done && done(); return; }
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], d = Math.max(1, Math.hypot(x2 - x1, y2 - y1) / sp);
+      BOY.g.style.transitionDuration = d + 'ms'; BOY.g.style.transform = `translate(${x2}px, ${y2}px)`;
+      b.style.transitionDuration = '250ms'; b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI + 90}deg)`;
+      BOY.x = x2; BOY.y = y2; i++; BOY.t = setTimeout(step, d);
+    };
+    step();
+  }
+  function errand() {
+    if (!BOY || !S) return;
+    const here = (S.employees || []).filter(e => e.status !== 'away' && e.status !== 'walking');
+    if (!here.length || !S.running || S.paused) { BOY.t = setTimeout(errand, 15000); return; }
+    const e = here[Math.floor(Math.random() * here.length)], to = [e.hx + (e.hx < 1500 ? 40 : -40), e.hy + 4];
+    const go = route2([BOY.x, BOY.y], to);
+    boyWalk(go, () => { bubble(e.id, '☕ شكرًا يا عم صابر'); BOY.t = setTimeout(() => boyWalk(route2(to, BOY.home), () => { BOY.t = setTimeout(errand, 25000 + Math.random() * 35000); }), 2500); });
+  }
+
+  function drawer(id) {
+    const e = S.employees.find(x => x.id === id); if (!e) return;
+    open = id;
+    const mine = S.complaints.filter(c => c.emp === id);
+    $('#dbox').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:18px">📹 ${E(e.name)}</b> <span class="mute">${E(e.job)}</span></div><button class="btn" style="background:var(--light);color:var(--text)" id="dClose">✕</button></div>
+      <div class="camw">${e.status === 'away' ? '<div class="empty">مش في المكتب</div>' : ART.cameras[id]}<span class="live">● مباشر</span><span class="chip" style="background:${GLOW[e.status] === 'transparent' ? '#6b7280' : GLOW[e.status]}">${{working: '🖥️ شغال', blocked: '⛔ متعطل', idle: '☕ فاضي', walking: '🚶 ماشي', away: 'مش موجود'}[e.status]}</span></div>
+      <div class="mute" style="margin:6px 0">${e.status === 'working' ? '🖥️ شغال على «' + E(e.screen) + '» — ' + E(e.task) : e.status === 'blocked' ? '⛔ متعطل في «' + E(e.screen) + '»' : e.status === 'walking' ? '🚶 ' + E(e.task) : e.status === 'away' ? 'مش في المكتب' : 'فاضي'} · مستني ${e.queue || 0} مهمة</div>
+      <div class="kpis" style="padding:0;margin-bottom:8px"><div><b>${e.done}</b><span>مهام خلصت</span></div><div><b>${e.failed}</b><span>اتعطل</span></div><div><b>${mine.length}</b><span>شكاوى</span></div></div>
+      ${S.mode !== 'محاكاة' && e.status !== 'away' ? `<div class="mute" style="margin-top:6px">🖥️ شاشته الحقيقية على NQ ERP دلوقتي</div><img id="liveShot" data-emp="${E(id)}" src="/shot/${E(id)}.png?t=${Date.now()}" onerror="this.style.display='none'" style="width:100%;border-radius:10px;border:1px solid var(--line);margin:6px 0">` : ''}
+      <div style="display:flex;gap:6px;margin:8px 0"><input id="askQ" placeholder="اسأل ${E(e.name)}: عملت إيه في فاتورة الجادة؟" style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit">
+        <button class="btn gh" onclick="ask('${E(id)}')">اسأل</button></div><div id="askA" class="mute" style="white-space:pre-wrap;margin-bottom:6px"></div>
+      <a href="/training/${E(id)}" target="_blank" class="mute">🎓 وضع التدريب: شغل ${E(e.name)} خطوة بخطوة</a>
+      ${[['السرعة', e.speed / 1.3], ['الدقة', e.accuracy], ['الخبرة بالسيستم', e.experience], ['الصبر', e.patience]].map(([n, v]) => `<div class="mute">${n}</div><div class="bar"><i style="width:${Math.round(Math.min(1, v) * 100)}%"></i></div>`).join('')}
+      ${mine.length ? '<h4>اشتكى من</h4>' + mine.map(c => `<div class="cmp" style="border-inline-start-color:${SRC[c.source || 'erp'].c}"><div class="ty" style="color:${SRC[c.source || 'erp'].c}">${SRC[c.source || 'erp'].i} ${E(c.type)} · ${E(c.screen)} · ${E(c.clock)}</div><div>${E(c.text)}</div><div class="ev">📎 ${E(c.evidence)}</div></div>`).join('') : ''}
+      <h4>يومه</h4>${(e.log || []).slice().reverse().map(l => `<div class="lg">${E(l.clock)} ${E(l.text)}</div>`).join('') || '<div class="mute">لسه</div>'}`;
+    const cw = $('#dbox .camw');
+    if (cw && e.status !== 'away') {
+      const t = cw.querySelector('.cam-title'); if (t) t.textContent = e.screen || 'NQ ERP';
+      const er = cw.querySelector('.cam-err'), bar = cw.querySelector('.cam-bar');
+      if (er) { er.style.display = e.status === 'blocked' ? '' : 'none'; const m = cw.querySelector('.cam-msg'); if (m) m.textContent = (e.err || '').slice(0, 38); }
+      if (bar) bar.setAttribute('fill', e.status === 'blocked' ? '#C62828' : '#0F7C7A');
+      if (e.status === 'walking') { const sv = cw.querySelector('svg'); if (sv) sv.style.opacity = .35; }
+    }
+    $('#drawer').classList.add('on');
+    $('#dClose').onclick = () => { open = ''; $('#drawer').classList.remove('on'); };
+  }
+  $('#drawer').onclick = ev => { if (ev.target.id === 'drawer') { open = ''; $('#drawer').classList.remove('on'); } };
+
+  function header() {
+    $('#coName').textContent = '🏢 ' + S.company; $('#clock').textContent = S.clock;
+    $('#mode').textContent = S.mode === 'محاكاة' ? '🧪 وضع المحاكاة' : '🟢 على الموقع الحقيقي';
+    $('#dayBar').style.width = Math.max(0, Math.min(100, (S.now - S.start) / (S.end - S.start) * 100)) + '%';
+    $('#bPause').textContent = S.paused ? '▶ كمّل' : '⏸ إيقاف مؤقت';
+    $('#speed').value = String(S.speed);
+  }
+
+  async function load() {
+    S = await fetch('/api/state').then(r => r.json());
+    if (!ART) ART = await fetch('/api/art').then(r => r.json());
+    header(); drawOffice(); kpis(); pane(); health(); tline();
+    if (es) es.close();
+    LAST = S.eid; POLL++;
+    if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname)) {          // on this computer: the live stream
+      es = new EventSource('/api/stream?since=' + S.eid);
+      es.onmessage = m => { const ev = JSON.parse(m.data); LAST = Math.max(LAST, ev.id || 0); on(ev); };
+    } else pollLoop(POLL);                                                           // through a link: short requests (a tunnel holds streams back)
+  }
+  let LAST = 0, POLL = 0;
+  async function pollLoop(me) {
+    while (me === POLL) {
+      try {
+        const r = await fetch('/api/poll?since=' + LAST, {cache: 'no-store'}).then(x => x.json());
+        if (me !== POLL) return;
+        if (r.eid < LAST) { load(); return; }                                       // the program restarted: start over
+        for (const ev of r.events || []) { if (ev.id > LAST) { LAST = ev.id; try { on(ev); } catch (_) {} } }
+        await new Promise(ok => setTimeout(ok, 500));                              // gather half a second of news per request
+      } catch (_) { await new Promise(ok => setTimeout(ok, 2000)); }
+    }
+  }
+
+  function on(ev) {
+    const d = ev.data;
+    switch (ev.type) {
+      case 'clock': S.clock = d.clock; S.now = d.now; header();
+        $('#wait').textContent = d.wait ? `⏳ الساعة مستنية NQ ERP (${d.wait} مهمة في المتصفح)` : ''; break;
+      case 'status': setStatus(d); kpis(); break;
+      case 'path': walkPath(d.emp, d.points, d.ms, d.face, d.home); break;
+      case 'say': S.chat.push(d); bubble(d.from, d.text); speak(d); if (tab === 'chat') pane(); break;
+      case 'shot': { const im = document.getElementById('liveShot'); if (im && im.dataset.emp === d.emp) { im.style.display = ''; im.src = `/shot/${d.emp}.png?t=${Date.now()}`; } break; }
+      case 'complaint': S.complaints.push(d); alertOn(d); { const a = document.getElementById('al_' + d.emp); if (a) { a.style.display = ''; setTimeout(() => a.style.display = 'none', 6000); } } kpis(); if (tab === 'cmp') pane(); break;
+      case 'deal': { const i = S.deals.findIndex(x => x.id === d.id); if (i >= 0) S.deals[i] = d; else S.deals.push(d); kpis(); if (tab === 'deals') pane(); break; }
+      case 'log': { const e = S.employees.find(x => x.id === d.emp); if (e) { (e.log = e.log || []).push(d); if (open === d.emp) drawer(d.emp); } break; }
+      case 'day_end': S.report = d; S.running = false; tab = 'day'; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === 'day')); pane(); break;
+      case 'started': case 'reset': load(); break;
+      case 'track': (S.timeline = S.timeline || []).push(d.t); { S.health = S.health || []; const i = S.health.findIndex(h => h.screen === d.h.screen); if (i >= 0) S.health[i] = d.h; else S.health.push(d.h); } health(); tline(); break;
+      case 'control': S.paused = d.paused; S.speed = d.speed; header(); break;
+    }
+  }
+
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b)); pane(); });
+  const ctl = (action, value) => fetch('/api/control', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action, value})});
+  $('#bStart').onclick = () => ctl('start');
+  $('#bPause').onclick = () => ctl(S.paused ? 'resume' : 'pause');
+  $('#speed').onchange = e => ctl('speed', +e.target.value);
+  load();
+})();
+</script>
+</body>
+</html>

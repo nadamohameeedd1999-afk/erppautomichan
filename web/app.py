@@ -79,6 +79,9 @@ from web.reset_api import bp as _reset_bp
 app.register_blueprint(_reset_bp)
 from web.docs_api import bp as _docs_bp
 app.register_blueprint(_docs_bp)
+from web import simulation_api as _sim  # noqa: E402
+app.register_blueprint(_sim.make("simulation", "/simulation", demo=False))   # 🏢 NQ Simulation: the virtual company (behind the login)
+app.register_blueprint(_sim.make("demo", "/demo", demo=True))                # 🌍 the client's demo page: the sample company, simulation only
 from utils.secret_box import migrate_once as _encrypt_secrets
 _encrypt_secrets()                                  # 🔐 old plain passwords / tokens -> encrypted (once)
 from web import background as _background

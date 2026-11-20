@@ -1,0 +1,808 @@
+{
+ "_note": "كتالوج اختبارات NQ ERP — كل سيناريو: نوعه، بيتعمل إزاي، المتوقع، وحالته في البرنامج (done = شغال كل يوم · partial = جزء منه · planned = مخطط). sig = منين البرنامج يجيب نتيجته النهارده · manual = يدوي أو محتاج إعداد (مش محسوب في التغطية الآلية)",
+ "groups": [
+  {
+   "id": "functional",
+   "icon": "🧩",
+   "ar": "الاختبار الوظيفي للشاشات",
+   "en": "Functional (screens)",
+   "items": [
+    {
+     "id": "f_add",
+     "ar": "إضافة مستند في كل شاشة رئيسية",
+     "en": "Add a document in every main screen",
+     "how": "14 شاشة: يملا الحقول ببيانات حقيقية ويحفظ",
+     "exp": "يتحفظ ويطلع رقم",
+     "st": "done",
+     "sig": {
+      "t": "action",
+      "a": "add"
+     }
+    },
+    {
+     "id": "f_edit",
+     "ar": "تعديل نفس المستند",
+     "en": "Edit the same document",
+     "how": "يفتح المستند اللي اتحفظ ويغيّر الكمية/البيان ويحفظ",
+     "exp": "التعديل يتحفظ على نفس الرقم",
+     "st": "done",
+     "sig": {
+      "t": "action",
+      "a": "edit"
+     }
+    },
+    {
+     "id": "f_print",
+     "ar": "طباعة المستند",
+     "en": "Print the document",
+     "how": "يضغط طباعة ويتأكد إن الـ PDF طلع",
+     "exp": "ملف طباعة سليم",
+     "st": "done",
+     "sig": {
+      "t": "action",
+      "a": "print"
+     }
+    },
+    {
+     "id": "f_delete",
+     "ar": "حذف المستند",
+     "en": "Delete the document",
+     "how": "يحذف المستند اللي عمله بس (من سجل البرنامج)",
+     "exp": "يتحذف ومايظهرش في القائمة",
+     "st": "done",
+     "sig": {
+      "t": "action",
+      "a": "delete"
+     }
+    },
+    {
+     "id": "f_open",
+     "ar": "فتح شاشات المراجعة والتقارير",
+     "en": "Open review & report screens",
+     "how": "كارت الصنف، كشوف الحساب، الميزان، تقرير المبيعات",
+     "exp": "تفتح من غير خطأ وفي وقت معقول",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "stock_check",
+       "journal_review",
+       "trial_balance",
+       "sales_report",
+       "account_statement",
+       "customer_statement",
+       "cash_count"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "cycles",
+   "icon": "🔄",
+   "ar": "دورات العمل الكاملة",
+   "en": "End-to-end business cycles",
+   "items": [
+    {
+     "id": "c_sales",
+     "ar": "دورة البيع: عرض سعر ← أمر بيع ← صرف ← فاتورة ← تحصيل",
+     "en": "Sales cycle: quote → order → issue → invoice → collection",
+     "how": "مندوب المبيعات والمخزن والمحاسب والخزنة كل واحد خطوته",
+     "exp": "الصفقة تقفل من غير ما حد يقف",
+     "st": "done",
+     "sig": {
+      "t": "deals"
+     }
+    },
+    {
+     "id": "c_purchase",
+     "ar": "دورة الشراء: طلب ← أمر شراء ← استلام ← فاتورة ← دفع",
+     "en": "Purchase cycle: request → PO → receipt → invoice → payment",
+     "how": "لما الرصيد يخلص المشتريات تطلب والمخزن يستلم",
+     "exp": "البضاعة تدخل والمورد يتسجل عليه",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "purchase_request",
+       "purchase_order",
+       "stock_receipt",
+       "purchase_invoice",
+       "payment_voucher"
+      ]
+     }
+    },
+    {
+     "id": "c_returns",
+     "ar": "المرتجعات: مرتجع بيع ومرتجع شراء من الفاتورة الأصلية",
+     "en": "Returns from the original invoice",
+     "how": "يعمل المرتجع بناءً على فاتورة اتعملت النهارده",
+     "exp": "الكمية ترجع والقيد يتعكس",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "sales_return",
+       "purchase_return"
+      ]
+     }
+    },
+    {
+     "id": "c_transfer",
+     "ar": "التحويل بين المخازن",
+     "en": "Transfer between warehouses",
+     "how": "سند تحويل مخزني",
+     "exp": "الرصيد ينقص من مخزن ويزيد في التاني",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "stock_transfer"
+      ]
+     }
+    },
+    {
+     "id": "c_approval",
+     "ar": "دورة الاعتماد للمستندات فوق الحد",
+     "en": "Approval of documents above the limit",
+     "how": "المدير يفتح شاشة الاعتماد ويضغط اعتماد على فاتورة الشركة نفسها",
+     "exp": "متتعتمدش غير من المدير",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "approve_doc"
+      ]
+     }
+    },
+    {
+     "id": "c_hr",
+     "ar": "الحضور والانصراف من ملف البصمة",
+     "en": "Attendance from the fingerprint file",
+     "how": "هبة بترفع ملف Excel حقيقي بنفس شكل جهاز البصمة",
+     "exp": "كل الموظفين يتقروا والغياب صح",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "attendance"
+      ]
+     }
+    },
+    {
+     "id": "c_payroll",
+     "ar": "دورة الرواتب: حضور ← جزاءات ← مسير رواتب ← قيد",
+     "en": "Payroll: attendance → penalties → payroll → entry",
+     "how": "بعد البصمة يتحسب التأخير والجزاءات ويتعمل المسير",
+     "exp": "الخصومات صح والقيد متزن",
+     "st": "partial",
+     "sig": {
+      "t": "probe",
+      "p": "payroll"
+     },
+     "gap": "بيعمل مسير الرواتب ويحذفه — ربطه بالجزاءات والقيد لسه"
+    }
+   ]
+  },
+  {
+   "id": "integrity",
+   "icon": "🧮",
+   "ar": "صحة البيانات والمحاسبة",
+   "en": "Data integrity & accounting",
+   "items": [
+    {
+     "id": "i_audit",
+     "ar": "كل مستند اتحفظ النهارده موجود في شاشته",
+     "en": "Every document saved today is in its list",
+     "how": "المحاسب آخر اليوم بيدوّر على كل رقم في شاشته",
+     "exp": "مفيش مستند ضايع ولا متكرر",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "audit_docs"
+      ]
+     }
+    },
+    {
+     "id": "i_tb",
+     "ar": "ميزان المراجعة متزن",
+     "en": "The trial balance balances",
+     "how": "يطلع الميزان ويقارن المدين بالدائن",
+     "exp": "مدين = دائن",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "tb_numbers"
+      ]
+     }
+    },
+    {
+     "id": "i_je",
+     "ar": "كل فاتورة ليها قيد متزن على الحسابات الصح",
+     "en": "Every invoice has a balanced entry on the right accounts",
+     "how": "بعد الفاتورة يفتح القيد المرتبط ويراجع الحسابات والمبالغ",
+     "exp": "القيد موجود ومتزن",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "int_je"
+      ]
+     }
+    },
+    {
+     "id": "i_stock",
+     "ar": "الرصيد المخزني بعد كل حركة",
+     "en": "Stock balance after every movement",
+     "how": "كارت الصنف قبل وبعد الصرف/الاستلام",
+     "exp": "الفرق = كمية الحركة بالظبط",
+     "st": "partial",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "stock_check"
+      ]
+     },
+     "gap": "بيفتح كارت الصنف — مقارنة قبل/بعد لسه"
+    },
+    {
+     "id": "i_customer",
+     "ar": "كشف حساب العميل يطابق فواتيره وسنداته",
+     "en": "Customer statement matches invoices & receipts",
+     "how": "يجمع اللي اتعمل للعميل ويقارنه بالكشف",
+     "exp": "الرصيد مطابق",
+     "st": "partial",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "customer_statement"
+      ]
+     }
+    },
+    {
+     "id": "i_vat",
+     "ar": "حساب ضريبة القيمة المضافة 15%",
+     "en": "VAT 15% calculation",
+     "how": "الكمية × السعر − الخصم + 15%",
+     "exp": "إجمالي الفاتورة صح للهللة",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "int_vat"
+      ]
+     }
+    },
+    {
+     "id": "i_sales_report",
+     "ar": "تقرير المبيعات اليومي يطابق الفواتير",
+     "en": "Daily sales report matches the invoices",
+     "how": "مدير يقارن التقرير باللي الشركة عملته فعلًا",
+     "exp": "نفس العدد ونفس المبلغ",
+     "st": "partial",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "sales_report"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "negative",
+   "icon": "🚫",
+   "ar": "التحقق والرفض (السيناريوهات السلبية)",
+   "en": "Validation & negative scenarios",
+   "items": [
+    {
+     "id": "n_backdate",
+     "ar": "مستند بتاريخ قديم (2020)",
+     "en": "A document dated 2020",
+     "how": "المختلس يحاول يسجل أمر بيع بتاريخ قديم",
+     "exp": "السيستم يرفض (الفترة مقفولة)",
+     "st": "done",
+     "sig": {
+      "t": "complaint",
+      "m": "2020"
+     }
+    },
+    {
+     "id": "n_overissue",
+     "ar": "صرف كمية أكبر من الرصيد",
+     "en": "Issue more than the stock balance",
+     "how": "سند صرف بكمية فوق الرصيد",
+     "exp": "رسالة واضحة والسند مايتحفظش",
+     "st": "done",
+     "sig": {
+      "t": "complaint",
+      "m": "الرصيد|أكبر من"
+     }
+    },
+    {
+     "id": "n_credit",
+     "ar": "تجاوز حد الائتمان للعميل",
+     "en": "Customer credit limit exceeded",
+     "how": "سند قبض/فاتورة لعميل فوق حده",
+     "exp": "تحذير أو منع حسب الإعداد",
+     "st": "done",
+     "sig": {
+      "t": "complaint",
+      "m": "الحد الائتماني|الائتمان"
+     }
+    },
+    {
+     "id": "n_required",
+     "ar": "حفظ بحقل إجباري فاضي",
+     "en": "Save with a required field empty",
+     "how": "يسيب العميل أو الصنف فاضي ويحفظ",
+     "exp": "يتمنع برسالة واضحة على الحقل",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_required"
+      ]
+     }
+    },
+    {
+     "id": "n_negative",
+     "ar": "كمية أو سعر بالسالب أو صفر",
+     "en": "Negative or zero quantity / price",
+     "how": "يكتب -5 أو 0",
+     "exp": "الحفظ يتمنع",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_negative"
+      ]
+     }
+    },
+    {
+     "id": "n_discount",
+     "ar": "خصم أكبر من 100% أو من الإجمالي",
+     "en": "Discount above 100% / above the total",
+     "how": "خصم 150%",
+     "exp": "يتمنع",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_discount"
+      ]
+     }
+    },
+    {
+     "id": "n_duplicate",
+     "ar": "تكرار رقم فاتورة المورد",
+     "en": "Duplicate supplier invoice number",
+     "how": "فاتورة شراء بنفس رقم مورد اتسجل قبل كده",
+     "exp": "تحذير التكرار",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_dupref"
+      ]
+     }
+    },
+    {
+     "id": "n_text",
+     "ar": "نصوص طويلة وحروف خاصة",
+     "en": "Long text & special characters",
+     "how": "بيان 1000 حرف، علامات ' \" < >",
+     "exp": "يتحفظ صح أو رسالة واضحة — مش خطأ سيرفر",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_text"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "security",
+   "icon": "🔐",
+   "ar": "الصلاحيات والأمان",
+   "en": "Permissions & security",
+   "items": [
+    {
+     "id": "s_perm",
+     "ar": "موظف يفتح شاشة مش من شغله",
+     "en": "An employee opens a screen outside his job",
+     "how": "المختلس يفتح شاشة قسم تاني برابطها",
+     "exp": "السيستم يمنعه",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "fraud_perm"
+      ]
+     }
+    },
+    {
+     "id": "s_denied",
+     "ar": "كل موظف بيشوف شاشاته بس",
+     "en": "Each employee sees only his own screens",
+     "how": "صلاحيات المستخدمين على شاشات قسمهم",
+     "exp": "مفيش رفض صلاحيات في شغله العادي",
+     "st": "done",
+     "sig": {
+      "t": "state",
+      "s": "denied"
+     }
+    },
+    {
+     "id": "s_session",
+     "ar": "رابط مباشر من غير تسجيل دخول",
+     "en": "Direct link without logging in",
+     "how": "يفتح رابط شاشة في متصفح جديد",
+     "exp": "يرجعه لصفحة الدخول",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "sec_nologin"
+      ]
+     }
+    },
+    {
+     "id": "s_secrets",
+     "ar": "مفيش كلمات سر أو مفاتيح مكتوبة في الصفحات",
+     "en": "No passwords or keys written in the pages",
+     "how": "يفحص كود الصفحة لكل شاشة",
+     "exp": "مفيش أسرار ظاهرة",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "sec_secrets"
+      ]
+     }
+    },
+    {
+     "id": "s_delete_others",
+     "ar": "حذف مستند عمله موظف تاني",
+     "en": "Delete another employee's document",
+     "how": "مستخدم مبيعات يحاول يحذف مستند غيره",
+     "exp": "حسب الصلاحية: يتمنع أو يتسجل في السجل",
+     "st": "done",
+     "sig": {
+      "t": "probe",
+      "p": "del_other"
+     }
+    }
+   ]
+  },
+  {
+   "id": "performance",
+   "icon": "⚡",
+   "ar": "الأداء والضغط",
+   "en": "Performance & load",
+   "items": [
+    {
+     "id": "p_speed",
+     "ar": "سرعة فتح وحفظ كل شاشة",
+     "en": "Open/save speed of every screen",
+     "how": "كل عملية بتتقاس بالمللي ثانية",
+     "exp": "أقل من 8 ثواني",
+     "st": "done",
+     "sig": {
+      "t": "slow"
+     }
+    },
+    {
+     "id": "p_burst",
+     "ar": "اختبار الضغط: كل الموظفين في نفس اللحظة",
+     "en": "Load: everyone at the same moment",
+     "how": "كل الموظفين يفتحوا شاشات في نفس الثانية",
+     "exp": "السيستم مايبطأش أكتر من الضعف",
+     "st": "done",
+     "sig": {
+      "t": "report",
+      "k": "burst"
+     }
+    },
+    {
+     "id": "p_big",
+     "ar": "فاتورة فيها 100 صنف",
+     "en": "An invoice with 100 lines",
+     "how": "يضيف 100 سطر ويحفظ",
+     "exp": "تتحفظ في وقت معقول",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "perf_lines"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "concurrency",
+   "icon": "👥",
+   "ar": "التزامن",
+   "en": "Concurrency",
+   "items": [
+    {
+     "id": "x_same_doc",
+     "ar": "موظفين يعدّلوا نفس المستند في نفس الوقت",
+     "en": "Two employees edit the same document at once",
+     "how": "سارة ويوسف يفتحوا نفس عرض السعر ويحفظوا",
+     "exp": "تحذير إن المستند اتغير أو آخر حفظ واضح",
+     "st": "done",
+     "sig": {
+      "t": "probe",
+      "p": "conc_edit"
+     }
+    },
+    {
+     "id": "x_numbering",
+     "ar": "ترقيم المستندات مع الحفظ المتزامن",
+     "en": "Document numbering under simultaneous saves",
+     "how": "اتنين يحفظوا فاتورة في نفس الثانية",
+     "exp": "أرقام مختلفة ومتسلسلة",
+     "st": "done",
+     "sig": {
+      "t": "probe",
+      "p": "conc_num"
+     }
+    }
+   ]
+  },
+  {
+   "id": "period",
+   "icon": "📅",
+   "ar": "نهاية الفترة",
+   "en": "Period end",
+   "items": [
+    {
+     "id": "e_month",
+     "ar": "يوم إقفال الشهر",
+     "en": "Month-end closing day",
+     "how": "جرد الصناديق، الأرصدة، القيود، الكشوف، الميزان، الاعتمادات",
+     "exp": "كل الإقفال يمشي",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "cash_count",
+       "trial_balance",
+       "account_statement"
+      ]
+     }
+    },
+    {
+     "id": "e_closed",
+     "ar": "التسجيل في فترة مقفولة",
+     "en": "Posting into a closed period",
+     "how": "بعد إقفال الشهر يسجل مستند بتاريخه",
+     "exp": "يتمنع",
+     "st": "done",
+     "sig": {
+      "t": "complaint",
+      "m": "2020"
+     }
+    },
+    {
+     "id": "e_year",
+     "ar": "إقفال السنة وترحيل الأرصدة",
+     "en": "Year-end closing & balances carried forward",
+     "how": "إقفال سنة على نسخة اختبار",
+     "exp": "الأرصدة الافتتاحية صح",
+     "st": "manual",
+     "gap": "بيتعمل يدوي على نسخة من قاعدة البيانات — الإقفال بيأثر على كل اللي شغالين على موقع الاختبار"
+    }
+   ]
+  },
+  {
+   "id": "setup",
+   "icon": "🧰",
+   "ar": "الإعداد والجاهزية",
+   "en": "Setup & readiness",
+   "items": [
+    {
+     "id": "r_sweep",
+     "ar": "فهد (IT) يفتح كل شاشات السيستم من المنيو",
+     "en": "Fahd (IT) opens every screen in the menu",
+     "how": "الصبح وبعد الضهر: كل رابط في المنيو، وشاشات القوايم بتتفتح زي الموظف",
+     "exp": "كلها بتفتح وتحمّل بيانات — مفيش Error ولا 404 ولا تحميل مالوش آخر",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "it_sweep"
+      ]
+     }
+    },
+    {
+     "id": "r_speed",
+     "ar": "فهد (IT) يقيس سرعة كل شاشات القوايم",
+     "en": "Fahd (IT) times every list screen",
+     "how": "الصبح وبعد الضهر: كل شاشة قوايم بتتفتح زي الموظف ويتحسب الوقت لحد ما بياناتها تظهر",
+     "exp": "كلها أقل من 8 ث — ومفيش شاشة بقت أبطأ من الصبح للضعف",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "it_speed"
+      ]
+     }
+    },
+    {
+     "id": "r_ready",
+     "ar": "فحص جاهزية الموقع قبل الشغل",
+     "en": "Site readiness before work",
+     "how": "كل شاشة: القوايم الإجبارية فيها اختيارات؟",
+     "exp": "مفيش قايمة فاضية",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "readiness"
+      ]
+     }
+    },
+    {
+     "id": "r_new",
+     "ar": "شاشات جديدة ظهرت في المنيو",
+     "en": "New screens in the menu",
+     "how": "يقارن المنيو بآخر مرة ويجرب الجديد",
+     "exp": "الجديد يفتح",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "smoke"
+      ]
+     }
+    },
+    {
+     "id": "r_users",
+     "ar": "المستخدمين والصلاحيات مظبوطة",
+     "en": "Users and permissions are set",
+     "how": "كل موظف يدخل بمستخدمه",
+     "exp": "الدخول ينجح",
+     "st": "done",
+     "sig": {
+      "t": "state",
+      "s": "login"
+     }
+    }
+   ]
+  },
+  {
+   "id": "regression",
+   "icon": "🧬",
+   "ar": "الانحدار (Regression)",
+   "en": "Regression",
+   "items": [
+    {
+     "id": "g_back",
+     "ar": "المشاكل اللي اتصلحت مارجعتش",
+     "en": "Fixed problems didn't come back",
+     "how": "كل مشكلة بتتفتكر وتتجرب كل يوم",
+     "exp": "اللي اتصلح يفضل مصلّح",
+     "st": "done",
+     "sig": {
+      "t": "regress"
+     }
+    },
+    {
+     "id": "g_compare",
+     "ar": "مقارنة بعد كل تحديث للسيستم",
+     "en": "Compare after every system update",
+     "how": "يوم قبل التحديث ويوم بعده",
+     "exp": "مفيش حاجة باظت جديد",
+     "st": "done",
+     "sig": {
+      "t": "regress"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ux",
+   "icon": "👁️",
+   "ar": "تجربة المستخدم والرسائل",
+   "en": "User experience & messages",
+   "items": [
+    {
+     "id": "u_msgs",
+     "ar": "رسائل الخطأ مفهومة",
+     "en": "Error messages are understandable",
+     "how": "كل رفض بيتسجل نصه ويتصنف",
+     "exp": "رسالة بالعربي توضح السبب — مش خطأ تقني",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "neg_required",
+       "neg_negative",
+       "neg_discount",
+       "neg_text"
+      ]
+     }
+    },
+    {
+     "id": "u_print_qr",
+     "ar": "الفاتورة الضريبية فيها QR وبيانات الهيئة",
+     "en": "Tax invoice has the QR and ZATCA data",
+     "how": "يطبع الفاتورة ويفحص الـ PDF",
+     "exp": "QR ورقم ضريبي وتاريخ",
+     "st": "partial",
+     "sig": {
+      "t": "complaint",
+      "m": "QR"
+     }
+    },
+    {
+     "id": "u_mobile",
+     "ar": "الشاشات على الموبايل والتابلت",
+     "en": "Screens on mobile & tablet",
+     "how": "نفس الجولة بشاشة صغيرة",
+     "exp": "كل الأزرار ظاهرة وتشتغل",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "ux_mobile"
+      ]
+     }
+    },
+    {
+     "id": "u_lang",
+     "ar": "الشاشات بالإنجليزي",
+     "en": "Screens in English",
+     "how": "نفس الجولة بواجهة إنجليزي",
+     "exp": "مفيش نصوص ناقصة أو مقلوبة",
+     "st": "done",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "ux_lang"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "integration",
+   "icon": "🔌",
+   "ar": "التكامل",
+   "en": "Integrations",
+   "items": [
+    {
+     "id": "z_zatca",
+     "ar": "الربط مع الفاتورة الإلكترونية (فاتورة)",
+     "en": "E-invoicing (FATOORA) integration",
+     "how": "إرسال فاتورة لبيئة الاختبار في الهيئة",
+     "exp": "تتقبل",
+     "st": "manual",
+     "gap": "محتاج بيانات بيئة الاختبار في الهيئة (فاتورة) — أول ما توصل تتربط"
+    },
+    {
+     "id": "z_excel",
+     "ar": "الاستيراد والتصدير Excel",
+     "en": "Excel import & export",
+     "how": "يصدّر قايمة ويستورد ملف",
+     "exp": "البيانات كاملة",
+     "st": "partial",
+     "sig": {
+      "t": "screens",
+      "keys": [
+       "attendance"
+      ]
+     },
+     "gap": "الاستيراد مجرّب في البصمة بس"
+    }
+   ]
+  }
+ ]
+}

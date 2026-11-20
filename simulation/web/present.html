@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NQ Simulation — اختبار اليوم</title>
+<style>
+  :root { --teal: #0F7C7A; --dark: #0A5654; --light: #E7F3F2; --line: #D5E2E1; --text: #1C2B2A; --muted: #5f706f; --green: #1B7F3B; --amber: #B26A00; --red: #C62828; }
+  * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: #f4f8f8; color: var(--text); }
+  header { background: var(--dark); color: #fff; padding: 22px 40px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 30px; } header .sub { opacity: .8; font-size: 16px; } header .clock { margin-inline-start: auto; font-size: 40px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .live { display: inline-block; background: #ef4444; width: 12px; height: 12px; border-radius: 50%; margin-inline-end: 8px; animation: b 1.4s infinite; } @keyframes b { 50% { opacity: .25; } }
+  main { padding: 28px 40px; max-width: 1500px; margin: auto; }
+  .big { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
+  .big div { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; border-top: 6px solid var(--teal); }
+  .big b { display: block; font-size: 54px; font-weight: 900; color: var(--dark); font-variant-numeric: tabular-nums; } .big span { font-size: 17px; color: var(--muted); }
+  h2 { font-size: 22px; margin: 34px 0 14px; color: var(--dark); }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; } .chips span { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; font-size: 17px; }
+  .chips i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-inline-end: 8px; }
+  .fixed { display: grid; gap: 10px; } .fixed div { background: #fff; border: 1px solid var(--line); border-inline-start: 6px solid var(--green); border-radius: 12px; padding: 12px 16px; font-size: 17px; }
+  footer { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header><div><h1 id="co">NQ ERP</h1><div class="sub"><span class="live"></span>اختبار مباشر على النظام بموظفين افتراضيين بيشتغلوا زي الموظف الحقيقي</div></div><div class="clock" id="clock">--:--</div></header>
+<main>
+  <div class="big" id="big"></div>
+  <h2>الشاشات اللي اتجربت النهارده</h2><div class="chips" id="chips"></div>
+  <h2>مشاكل اتصلحت واتأكدنا منها</h2><div class="fixed" id="fixed"></div>
+</main>
+<footer>كل رقم هنا من شغل فعلي على النظام: مستندات اتسجلت واتعدلت واتطبعت، ومراجعة إنها موجودة في شاشاتها</footer>
+<script src="/i18n.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const C = {ok: '#1B7F3B', slow: '#B26A00', fail: '#C62828', denied: '#C62828'};
+  async function tick() {
+    let S; try { S = await fetch('/api/state').then(r => r.json()); } catch (_) { return; }
+    $('#co').textContent = 'NQ Simulation · ' + (S.company || ''); $('#clock').textContent = S.clock || '';
+    const T = S.timeline || [], H = S.health || [];
+    const ok = T.filter(t => t.state === 'ok' || t.state === 'slow').length;
+    const docs = T.filter(t => (t.state === 'ok' || t.state === 'slow') && ['add', 'edit', 'print', 'delete'].includes(t.action)).length;
+    const ms = T.filter(t => t.ms).map(t => t.ms), avg = ms.length ? ms.reduce((a, b) => a + b, 0) / ms.length / 1000 : 0;
+    const deals = S.deals || [];
+    $('#big').innerHTML = [[docs, 'مستند اتعمل على النظام'], [H.length, 'شاشة اتجربت'], [T.length ? Math.round(ok / T.length * 100) + '%' : '—', 'نسبة نجاح العمليات'],
+      [avg ? avg.toFixed(1) + ' ث' : '—', 'متوسط سرعة الشاشة'], [deals.filter(d => d.state === 'اتقفلت').length + ' / ' + deals.length, 'دورة بيع كاملة اتقفلت'], [(S.employees || []).length, 'موظف شغال']]
+      .map(([n, t]) => `<div><b>${E(n)}</b><span>${t}</span></div>`).join('');
+    $('#chips').innerHTML = H.slice().sort((a, b) => a.screen.localeCompare(b.screen)).map(h => `<span><i style="background:${C[h.last] || '#94a3a2'}"></i>${E(h.screen)}</span>`).join('') || '<span>اليوم لسه بادئ</span>';
+  }
+  async function fixed() {
+    let r; try { r = await fetch('/api/regressions').then(x => x.json()); } catch (_) { return; }
+    $('#fixed').innerHTML = (r.fixed || []).slice(0, 8).map(m => `<div>✅ <b>${E(m.screen)}</b> — ${E(m.text)}</div>`).join('') || '<div style="border-inline-start-color:var(--line)">لسه مفيش</div>';
+  }
+  tick(); fixed(); setInterval(tick, 5000); setInterval(fixed, 60000);
+})();
+</script>
+</body>
+</html>

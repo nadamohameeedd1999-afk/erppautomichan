@@ -1,0 +1,316 @@
+{
+ "name": "شركة النخبة للتجارة",
+ "orders_per_day": 10,
+ "approval_limit": 50000,
+ "day_start": "08:00",
+ "day_end": "16:00",
+ "rooms": [
+  {
+   "id": "mgmt",
+   "name": "الإدارة",
+   "x": 20,
+   "y": 20,
+   "w": 300,
+   "h": 200,
+   "color": "#E7F3F2"
+  },
+  {
+   "id": "sales",
+   "name": "المبيعات",
+   "x": 340,
+   "y": 20,
+   "w": 420,
+   "h": 200,
+   "color": "#EEF4FB"
+  },
+  {
+   "id": "acc",
+   "name": "الحسابات",
+   "x": 780,
+   "y": 20,
+   "w": 400,
+   "h": 200,
+   "color": "#F4F1FA"
+  },
+  {
+   "id": "wh",
+   "name": "المخازن",
+   "x": 20,
+   "y": 240,
+   "w": 380,
+   "h": 220,
+   "color": "#FBF5EC"
+  },
+  {
+   "id": "pur",
+   "name": "المشتريات",
+   "x": 420,
+   "y": 240,
+   "w": 340,
+   "h": 220,
+   "color": "#EEF8F0"
+  },
+  {
+   "id": "cash",
+   "name": "الخزنة",
+   "x": 780,
+   "y": 240,
+   "w": 190,
+   "h": 220,
+   "color": "#FFF6E5"
+  },
+  {
+   "id": "hr",
+   "name": "الموارد البشرية",
+   "x": 990,
+   "y": 240,
+   "w": 190,
+   "h": 220,
+   "color": "#FCEFF3"
+  },
+  {
+   "id": "meet",
+   "name": "غرفة الاجتماعات",
+   "x": 20,
+   "y": 480,
+   "w": 560,
+   "h": 150,
+   "color": "#F3F5F5"
+  },
+  {
+   "id": "kitchen",
+   "name": "البوفيه",
+   "x": 600,
+   "y": 480,
+   "w": 580,
+   "h": 150,
+   "color": "#F7F7F2"
+  }
+ ],
+ "employees": [
+  {
+   "id": "manager",
+   "name": "أ. خالد",
+   "job": "المدير العام",
+   "role": "manager",
+   "room": "mgmt",
+   "x": 170,
+   "y": 120,
+   "color": "#0A5654",
+   "speed": 1.0,
+   "accuracy": 0.97,
+   "experience": 0.9,
+   "patience": 0.5,
+   "look": {
+    "kind": "saudi",
+    "skin": "#E0AC82",
+    "hair": "#2d2018",
+    "shirt": "#f7f7f5"
+   }
+  },
+  {
+   "id": "sales1",
+   "name": "سارة",
+   "job": "مندوبة مبيعات",
+   "role": "sales",
+   "room": "sales",
+   "x": 450,
+   "y": 120,
+   "color": "#2B6CB0",
+   "speed": 1.2,
+   "accuracy": 0.9,
+   "experience": 0.7,
+   "patience": 0.4,
+   "look": {
+    "kind": "hijab",
+    "skin": "#F1C9A5",
+    "hair": "#7b3f61",
+    "shirt": "#2B6CB0"
+   }
+  },
+  {
+   "id": "sales2",
+   "name": "يوسف",
+   "job": "مندوب مبيعات (جديد)",
+   "role": "sales",
+   "room": "sales",
+   "x": 650,
+   "y": 120,
+   "color": "#3182CE",
+   "speed": 0.8,
+   "accuracy": 0.8,
+   "experience": 0.3,
+   "patience": 0.6,
+   "look": {
+    "kind": "man",
+    "skin": "#E0AC82",
+    "hair": "#1d1410",
+    "shirt": "#4a78b0"
+   }
+  },
+  {
+   "id": "acc1",
+   "name": "أحمد",
+   "job": "محاسب",
+   "role": "accountant",
+   "room": "acc",
+   "x": 880,
+   "y": 120,
+   "color": "#6B46C1",
+   "speed": 1.0,
+   "accuracy": 0.98,
+   "experience": 0.85,
+   "patience": 0.35,
+   "look": {
+    "kind": "man",
+    "skin": "#C68B5E",
+    "hair": "#1d1410",
+    "shirt": "#5b4a8a",
+    "beard": true
+   }
+  },
+  {
+   "id": "acc2",
+   "name": "نورا",
+   "job": "محاسبة مدينين",
+   "role": "accountant",
+   "room": "acc",
+   "x": 1080,
+   "y": 120,
+   "color": "#805AD5",
+   "speed": 1.1,
+   "accuracy": 0.95,
+   "experience": 0.7,
+   "patience": 0.5,
+   "look": {
+    "kind": "hijab",
+    "skin": "#F5D3B5",
+    "hair": "#2c3e50",
+    "shirt": "#805AD5"
+   }
+  },
+  {
+   "id": "wh1",
+   "name": "محمود",
+   "job": "أمين مخزن",
+   "role": "warehouse",
+   "room": "wh",
+   "x": 210,
+   "y": 350,
+   "color": "#C05621",
+   "speed": 0.9,
+   "accuracy": 0.92,
+   "experience": 0.8,
+   "patience": 0.45,
+   "look": {
+    "kind": "man",
+    "skin": "#D9A27A",
+    "hair": "#2d2018",
+    "shirt": "#C05621"
+   }
+  },
+  {
+   "id": "pur1",
+   "name": "عمر",
+   "job": "مسؤول مشتريات",
+   "role": "purchasing",
+   "room": "pur",
+   "x": 590,
+   "y": 350,
+   "color": "#2F855A",
+   "speed": 1.0,
+   "accuracy": 0.93,
+   "experience": 0.75,
+   "patience": 0.5,
+   "look": {
+    "kind": "man",
+    "skin": "#E0AC82",
+    "hair": "#3b2a1a",
+    "shirt": "#2F855A",
+    "beard": true
+   }
+  },
+  {
+   "id": "cash1",
+   "name": "منى",
+   "job": "أمينة صندوق",
+   "role": "cashier",
+   "room": "cash",
+   "x": 875,
+   "y": 350,
+   "color": "#B7791F",
+   "speed": 1.0,
+   "accuracy": 0.96,
+   "experience": 0.8,
+   "patience": 0.4,
+   "look": {
+    "kind": "hijab",
+    "skin": "#E0AC82",
+    "hair": "#5a3e2b",
+    "shirt": "#9a6b2a"
+   }
+  },
+  {
+   "id": "hr1",
+   "name": "هبة",
+   "job": "أخصائية موارد بشرية",
+   "role": "hr",
+   "room": "hr",
+   "x": 1085,
+   "y": 350,
+   "color": "#B83280",
+   "speed": 1.0,
+   "accuracy": 0.95,
+   "experience": 0.75,
+   "patience": 0.55,
+   "look": {
+    "kind": "hijab",
+    "skin": "#F1C9A5",
+    "hair": "#6b3a7a",
+    "shirt": "#B83280"
+   }
+  },
+  {
+   "id": "it1",
+   "name": "فهد",
+   "job": "الدعم الفني (IT)",
+   "role": "it",
+   "room": "it",
+   "x": 845,
+   "y": 167,
+   "color": "#2563EB",
+   "speed": 1.1,
+   "accuracy": 0.95,
+   "experience": 0.95,
+   "patience": 0.85,
+   "active": true,
+   "look": {
+    "kind": "saudi",
+    "skin": "#D9A074",
+    "hair": "#1b1410",
+    "shirt": "#F5F5F2"
+   }
+  }
+ ],
+ "customers": [
+  "مؤسسة الريادة",
+  "شركة البناء الحديث",
+  "مصنع الأمل",
+  "مجموعة الفيصل",
+  "شركة الأفق",
+  "مؤسسة النور للمقاولات"
+ ],
+ "items": [
+  "خرسانة جاهزة 350",
+  "أسمنت مقاوم",
+  "حديد تسليح 16 مم",
+  "بلوك أسمنتي",
+  "رمل مغسول"
+ ],
+ "suppliers": [
+  "مصنع الجزيرة",
+  "شركة اليمامة للحديد",
+  "مؤسسة الخليج للتوريد"
+ ],
+ "_note_look": "look: kind = man | hijab | saudi · skin / hair / shirt ألوان · beard = دقن"
+}

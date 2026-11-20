@@ -1,0 +1,122 @@
+{
+ "title": "The Ramadan Exhibition Day",
+ "intro": [
+  {"role": "manager", "text": "Good morning, team — big day today: Al-Jadda wants goods for the Ramadan exhibition, and the supplier is delivering a new batch. Everyone handle your part on the system, and if anything stops you, say so right away"},
+  {"role": "sales", "text": "Sure, I'll start with Al-Jadda's quotation as soon as they call"},
+  {"role": "warehouse", "text": "The warehouse is ready, I'll receive the supplier's batch and prepare Al-Jadda's order"}
+ ],
+ "chapters": {
+  "quotation": {
+   "start": "Al-Jadda called — they want a quotation for the Ramadan exhibition, entering it now",
+   "note": "Ramadan exhibition quotation — Al-Jadda",
+   "edit": "The customer wants a different quantity after seeing the offer — editing the same quotation",
+   "print": "Printing the quotation and sending it to the customer on WhatsApp",
+   "delete": "The customer approved another version by phone — deleting this one so it isn't duplicated",
+   "react": {"role": "manager", "text": "Good, have them send the approval in writing"}
+  },
+  "sales_order": {
+   "start": "Al-Jadda agreed — turning the quotation into a sales order",
+   "note": "Ramadan exhibition sales order — per the customer's approval",
+   "edit": "The customer wants delivery on Thursday — editing the order",
+   "print": "Printing the sales order for the warehouse",
+   "delete": "Duplicate order — it was entered twice, deleting the extra copy",
+   "react": {"role": "warehouse", "text": "Got the sales order, preparing the goods"}
+  },
+  "sales_invoice": {
+   "start": "The goods are ready — making Al-Jadda's sales invoice",
+   "note": "Ramadan exhibition invoice — on credit as agreed",
+   "edit": "The accountant flagged the description — editing the invoice",
+   "print": "Printing the tax invoice to go with the goods",
+   "delete": "This invoice went to the wrong customer — deleting it",
+   "react": {"role": "accountant", "text": "Send me the number once it's saved, I'll review the entry"}
+  },
+  "sales_return": {
+   "start": "Al-Jadda returned part of the goods — a carton got damaged in transit, making a return",
+   "note": "Transit damage return — Ramadan exhibition",
+   "edit": "The customer says the returned quantity is smaller — editing the return",
+   "print": "Printing the return note for the customer",
+   "delete": "The carton turned out fine — cancelling the return",
+   "react": {"role": "warehouse", "text": "I'll receive the return and check its condition"}
+  },
+  "receipt_voucher": {
+   "start": "Al-Jadda's rep came to pay part of the account — making a receipt voucher",
+   "note": "Payment on account, Ramadan exhibition — Al-Jadda",
+   "edit": "The cash count came out different — editing the voucher",
+   "print": "Printing a receipt for the rep",
+   "delete": "The voucher went to the wrong cash box — cancelling it",
+   "react": {"role": "accountant", "text": "Fine, I'll match it with the customer's statement"}
+  },
+  "purchase_request": {
+   "start": "The warehouse says the dates item is running low before the exhibition — raising a purchase request",
+   "note": "Purchase request — restocking for the Ramadan exhibition",
+   "edit": "The manager increased the quantity — editing the request",
+   "print": "Printing the request for approval",
+   "delete": "Another department raised the same request — deleting this one",
+   "react": {"role": "manager", "text": "Approved, call the supplier right away"}
+  },
+  "purchase_order": {
+   "start": "The supplier accepted the price — making a purchase order from the request",
+   "note": "Purchase order — Ramadan exhibition supply",
+   "edit": "The supplier changed the delivery date — editing the order",
+   "print": "Printing the purchase order and sending it to the supplier",
+   "delete": "We went with another supplier — cancelling this order",
+   "react": {"role": "warehouse", "text": "I'll wait for the goods and make the receipt"}
+  },
+  "stock_receipt": {
+   "start": "The supplier's truck arrived — receiving the goods in the warehouse",
+   "note": "Receipt of the Ramadan exhibition supply",
+   "edit": "I counted again and the quantity is different — editing the voucher",
+   "print": "Printing the receipt voucher and signing it",
+   "delete": "The voucher went to the wrong warehouse — cancelling it",
+   "react": {"role": "accountant", "text": "Fine, waiting for the supplier's invoice"}
+  },
+  "purchase_invoice": {
+   "start": "The supplier's invoice arrived — recording the purchase invoice",
+   "note": "Ramadan exhibition supply invoice — on credit",
+   "edit": "The supplier's invoice number was wrong — editing",
+   "print": "Printing the invoice for the file",
+   "delete": "The invoice was recorded twice — deleting the duplicate",
+   "react": {"role": "cashier", "text": "Tell me when it's saved, for the payment voucher"}
+  },
+  "purchase_return": {
+   "start": "Part of the delivery doesn't match — making a purchase return to the supplier",
+   "note": "Purchase return — not to specification",
+   "edit": "The supplier agreed to take back only part — editing the return",
+   "print": "Printing the return note for the supplier",
+   "delete": "The supplier replaced the goods instead — cancelling the return",
+   "react": {"role": "warehouse", "text": "I'll get the returned goods ready on the dock"}
+  },
+  "payment_voucher": {
+   "start": "Paying the supplier part of the invoice — making a payment voucher",
+   "note": "Payment to the supplier — Ramadan exhibition supply",
+   "edit": "The manager said to pay less today — editing the voucher",
+   "print": "Printing the voucher for the supplier to sign",
+   "delete": "The payment was postponed to tomorrow — cancelling the voucher",
+   "react": {"role": "manager", "text": "Fine, what matters is we keep to the date"}
+  },
+  "stock_issue": {
+   "start": "Issuing Al-Jadda's goods from the warehouse to the truck",
+   "note": "Issue of goods, Ramadan exhibition — Al-Jadda",
+   "edit": "The truck can't take everything — editing the issued quantity",
+   "print": "Printing the issue note for the driver",
+   "delete": "It was issued against the wrong order — cancelling the note",
+   "react": {"role": "sales", "text": "Fine, I'll tell the customer the goods are on their way"}
+  },
+  "stock_transfer": {
+   "start": "Transferring part of the goods to the warehouse next to the exhibition",
+   "note": "Transfer to the exhibition warehouse",
+   "edit": "The exhibition needs more — editing the transfer",
+   "print": "Printing the transfer note",
+   "delete": "The exhibition was postponed two days — cancelling the transfer",
+   "react": {"role": "manager", "text": "Excellent, the exhibition is ready"}
+  },
+  "journal_entry": {
+   "start": "Recording an adjusting entry for the exhibition setup expenses",
+   "note": "Adjusting entry — Ramadan exhibition setup expenses",
+   "edit": "The amount was revised — editing the entry",
+   "print": "Printing the entry for review",
+   "delete": "The expense will be recorded from another screen — cancelling the entry",
+   "react": {"role": "manager", "text": "Check the trial balance at the end of the day"}
+  }
+ }
+}

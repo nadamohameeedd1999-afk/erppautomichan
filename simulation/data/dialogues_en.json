@@ -1,0 +1,130 @@
+{
+ "_note": "The chat's words in English. Variables: {customer} {item} {qty} {amount} {deal} {supplier} {screen} {msg} {to} {from} {secs}",
+ "order_in": [
+  "{customer} wants {qty} of {item} — I'll prepare a quotation",
+  "New order from {customer}: {qty} {item}",
+  "{customer} called, they need {item}, quantity {qty}"
+ ],
+ "to_warehouse": [
+  "{to}, sales order {deal} for {customer}: {qty} {item} — do we have it in stock?",
+  "{to}, can you check the balance of {item} for order {deal}?"
+ ],
+ "stock_ok": [
+  "We have it, {to} — preparing the issue for order {deal}",
+  "The balance is enough, issuing {qty} {item} now"
+ ],
+ "stock_short": [
+  "Not enough {item}, {to} — we need to buy",
+  "We're short, I'll tell purchasing about order {deal}"
+ ],
+ "to_purchasing": [
+  "{to}, we need {qty} {item} for order {deal} — please raise a purchase order",
+  "{to}, {item} ran out, we need to order from the supplier"
+ ],
+ "po_done": [
+  "Purchase order placed with {supplier} — arriving today",
+  "I ordered {item} from {supplier}, {to}"
+ ],
+ "goods_in": [
+  "The goods from {supplier} arrived and I received them",
+  "Received {item} from {supplier} in the warehouse"
+ ],
+ "to_sales_invoice": [
+  "{to}, {qty} {item} issued for order {deal} — please invoice it",
+  "{to}, the goods are out, the invoice is yours"
+ ],
+ "to_accountant": [
+  "{to}, invoice {deal} for {customer} at {amount} — please review the entry",
+  "{to}, I invoiced {customer}, have a look at the entry"
+ ],
+ "to_manager": [
+  "Mr. {to}, invoice {deal} at {amount} needs your approval",
+  "{to}, there's an invoice above the approval limit ({amount})"
+ ],
+ "approved": [
+  "Approved, {to}, go ahead",
+  "Fine, the invoice is approved"
+ ],
+ "to_cashier": [
+  "{to}, {customer} will pay {amount} for invoice {deal} — please make the receipt voucher",
+  "{to}, there's a collection from {customer} of {amount}"
+ ],
+ "done_deal": [
+  "Deal {deal} for {customer} is fully closed 👍",
+  "We finished {deal} from order to collection"
+ ],
+ "fail_ask": [
+  "{to}, the system won't take it in {screen}: “{msg}” — what should I do?",
+  "{to}, I've been stuck in {screen} for a while, it keeps saying “{msg}”"
+ ],
+ "fail_reply": [
+  "Try again, and if it keeps doing that we'll tell support",
+  "Leave it for now, we'll talk to the developers",
+  "That's a known issue, report it to technical support"
+ ],
+ "slow": [
+  "{screen} takes {secs} seconds to open 😤",
+  "The system is really slow in {screen}",
+  "I've been waiting for {screen} for {secs} seconds"
+ ],
+ "busy": [
+  "I've got a pile of work, give me a moment",
+  "I can't keep up, there are {n} tasks ahead of me"
+ ],
+ "no_permission": [
+  "I don't have permission for {screen} — who can do it?",
+  "The system says I have no permission in {screen}"
+ ],
+ "wrong_data": [
+  "Something's wrong in {screen}: {msg}",
+  "The numbers don't add up in {screen} — {msg}"
+ ],
+ "morning": [
+  "Good morning, everyone ☀️",
+  "Morning! Let's get going",
+  "Good morning"
+ ],
+ "evening": [
+  "Time to go, have a nice evening",
+  "Done for today, bye",
+  "Good night, everyone"
+ ],
+ "attendance": [
+  "I uploaded today's fingerprint file",
+  "Attendance is recorded"
+ ],
+ "closing": [
+  "I ran today's trial balance",
+  "I closed the accounts for the day"
+ ],
+ "manager_report": [
+  "Today's sales report: {n} invoices worth {amount}",
+  "Today we sold {amount} — thank you, team"
+ ],
+ "to_accountant_pi": [
+  "{to}, we received {item} from {supplier} — please record the purchase invoice",
+  "{to}, the invoice from {supplier} came with the goods"
+ ],
+ "coffee": [
+  "Anyone want coffee? ☕",
+  "I'm making tea, anyone?",
+  "Five-minute break ☕"
+ ],
+ "dup_delete": [
+  "I made the quotation twice for {customer} — deleting the duplicate",
+  "There's a duplicate quotation, deleting it"
+ ],
+ "customer_change": [
+  "{customer} called and wants to change the quantity on invoice {deal}",
+  "Customer {customer} is asking for a change to the invoice"
+ ],
+ "to_review_edit": [
+  "{to}, I edited invoice {deal} — please review the entry again",
+  "{to}, invoice {deal} was changed, check the entry"
+ ],
+ "order_in_real": [
+  "A new customer request came in — entering the quotation on the system",
+  "A customer called asking for a quotation, I'm making it on NQ ERP now",
+  "New quotation request — entering it"
+ ]
+}

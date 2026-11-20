@@ -1,5 +1,6 @@
 # ===== everything the program writes (reports, settings, users, backups) =====
 data/
+!simulation/data/
 
 # ===== secrets =====
 .env

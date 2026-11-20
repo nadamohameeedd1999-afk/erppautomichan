@@ -27,6 +27,9 @@ SECTIONS = [
     ("run", "التشغيل", "Run", [
         ("queue", ["ops.run_center"], "/queue", "bi-list-task", "مركز التشغيل", "Run center",
          "الشغال دلوقتي والطابور، إيقاف وترتيب", "What's running and waiting; stop and reorder"),
+        ("simulation", ["simulation.index"], "/simulation/", "bi-building", "الشركة الافتراضية", "Virtual company",
+         "NQ Simulation: موظفين افتراضيين بيشتغلوا على NQ ERP طول اليوم ويبلّغوا باللي وقع — وصفحة ديمو للعميل على /demo/",
+         "NQ Simulation: virtual staff working on NQ ERP all day, reporting what broke — and a client demo page at /demo/"),
     ]),
     ("health", "صحة الأنظمة", "System health", [
         ("golive", ["golive.page"], "/go-live", "bi-rocket-takeoff", "اختبار الاستلام", "Go-Live acceptance",

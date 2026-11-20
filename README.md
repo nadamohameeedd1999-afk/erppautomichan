@@ -18,6 +18,19 @@ python web/app.py           # http://localhost:5000
 - اكتبي `ADMIN_PASSWORD=...` في `.env` وشغّلي البرنامج تاني، أو
 - `python tools\reset_password.py`
 
+## 🏢 الشركة الافتراضية (NQ Simulation)
+
+موظفين افتراضيين (مدير، مبيعات، محاسبين، مخازن، مشتريات، خزنة، HR، IT) بيشتغلوا على NQ ERP طول اليوم: بيعملوا مستندات حقيقية على موقع الاختبار، يختبروا الرقابة والصلاحيات والسرعة، ويطلّعوا تقرير يوم وتذاكر للمطورين.
+
+| اللينك | لمين |
+|---|---|
+| `/simulation/` | إنت — جوه اللوحة بنفس الدخول. المواقع ومستخدم المدير من **الإعدادات ← المواقع**، ومستخدمين الموظفين من إعدادات الشركة الافتراضية |
+| `/demo/` | العميل — محاكاة بس بالشركة النموذجية، من غير إعدادات ولا مواقعك. `DEMO_PASS=...` في `.env` = كود دخول (اختياري) |
+
+- الكود في `simulation/` · البيانات في `data/simulation/` (والديمو في `data/simulation_demo/`) · الإعدادات `data/settings/simulation.json`
+- اختباراتها: `python -m pytest -o addopts="" simulation/tests`
+- نقل النسخة القديمة المنفصلة (مرة واحدة): `python tools\import_simulation.py "D:\private\work\nq-virtual-company"`
+
 ## Docker
 
 ```bash
