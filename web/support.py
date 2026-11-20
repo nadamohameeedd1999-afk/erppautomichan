@@ -268,6 +268,13 @@ def collect():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass
+    try:                                                          # 🏢 the virtual company's real days: NQ ERP's own problems
+        from simulation.support import support_issues as sim_issues
+        for it in sim_issues():
+            dev.setdefault(it["id"], {**it, "count": it.get("times", 1), "first": it["found"], "last": (it.get("days") or [it["found"]])[-1],
+                                      "run_id": "", "runs": []})
+    except Exception:
+        pass
     for m in _load("support_manual.json", []):
         dev.setdefault(m["id"], {**m, "source": "اتضافت يدويًا", "count": 1, "first": m.get("found", ""), "last": m.get("found", ""), "run_id": "", "runs": []})
     return _finish(dev, "dev"), _finish(tool, "tool")

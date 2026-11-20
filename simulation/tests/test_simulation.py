@@ -210,3 +210,17 @@ def test_dashboard_pages():
     assert c.get("/demo/settings").status_code == 403 and c.get("/demo/api/settings").status_code == 403
     demo = app.blueprints["demo"].company
     assert not demo.use_settings and demo.runs.name == "simulation_demo"
+
+
+def test_problems_to_developer_support():
+    """real days' NQ ERP problems → «دعم المطورين»: one item per problem across days, never from a simulated day"""
+    import json as _j
+    from datetime import date
+    from simulation import support as SP
+    from simulation.settings import RUNS
+    RUNS.mkdir(parents=True, exist_ok=True)
+    tk = lambda txt, typ="بيانات غلط": {"screen": "سند القبض", "type": typ, "text": txt, "name": "منى", "job": "أمينة صندوق", "action": "add", "source": "erp"}
+    (RUNS / "day_29990101_000001.json").write_text(_j.dumps({"date": str(date.today()), "mode": "حقيقي", "tickets": [tk("الإجمالي '247' اتسجل '1235'"), tk("الإجمالي '304' اتسجل '1520'")]}), encoding="utf-8")
+    (RUNS / "day_29990101_000002.json").write_text(_j.dumps({"date": str(date.today()), "mode": "محاكاة", "tickets": [tk("simulated")]}), encoding="utf-8")
+    items = SP.support_issues()
+    assert len(items) == 1 and items[0]["times"] == 2 and items[0]["severity"] == "عالية" and items[0]["source"].endswith("الشركة الافتراضية")
