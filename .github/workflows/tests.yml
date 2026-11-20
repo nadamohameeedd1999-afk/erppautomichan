@@ -21,9 +21,11 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
       - name: Compile everything
-        run: python -m compileall -q engine web config utils tests selftest
+        run: python -m compileall -q engine web config utils tests selftest simulation tools
       - name: Unit tests
         run: python -m pytest -q selftest/test_units.py
+      - name: NQ Simulation (the virtual company, the dashboard's /simulation and /demo)
+        run: python -m pytest -q -o addopts="" simulation/tests
       - name: Chrome + driver
         uses: browser-actions/setup-chrome@v1
         id: chrome
