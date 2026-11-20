@@ -26,7 +26,7 @@ STRATEGIES = {
     "fixed": "قيمة ثابتة (لازم تتطابق بالظبط)",
     "search": "بحث بنص (أول خيار فيه النص ده)",
     "first": "أول خيار حقيقي",
-    "random": "اختيار عشوائي كل مرة (من القيم اللي تكتبيها أو من الكل)",
+    "random": "اختيار عشوائي كل مرة (من القيم اللي تكتبها أو من الكل)",
     "today": "تاريخ النهارده",
     "unique": "قيمة فريدة (رقم/نص متسلسل)",
     "smart": "قيمة ذكية حسب اسم الحقل (سجل تجاري، رقم ضريبي، جوال…)",
@@ -100,7 +100,7 @@ def normalize_field(f: dict, i: int, seen: set) -> dict:
     if not fid:
         raise ConfigError(f"الحقل رقم {i}: مفيش id")
     if not fid.startswith("css:") and not _SAFE_ID.match(fid):
-        raise ConfigError(f"الحقل رقم {i}: الـ id '{raw_id[:60]}' مش صالح — اكتبي الـ id بس (زي CustomerId)")
+        raise ConfigError(f"الحقل رقم {i}: الـ id '{raw_id[:60]}' مش صالح — اكتب الـ id بس (زي CustomerId)")
     if fid in seen:
         raise ConfigError(f"الحقل {fid} متكرر")
     seen.add(fid)
@@ -170,7 +170,7 @@ def normalize(cfg: dict) -> dict:
     if not isinstance(fields_in, list) or (not fields_in and operation in ("add", "edit")):
         raise ConfigError("لازم يكون فيه حقل واحد على الأقل")
     if operation == "edit" and not any((f.get("strategy") or "") != "keep" for f in fields_in if isinstance(f, dict)):
-        raise ConfigError("في التعديل: غيّري طريقة حقل واحد على الأقل (مش «سيبه زي ما هو») عشان يبقى فيه تعديل فعلاً")
+        raise ConfigError("في التعديل: غيّر طريقة حقل واحد على الأقل (مش «سيبه زي ما هو») عشان يبقى فيه تعديل فعلاً")
 
     fields, seen = [], set()
     for i, f in enumerate(fields_in, 1):

@@ -34,13 +34,13 @@
 <div class="animate-in">
     <div class="mb-3">
         <h1 class="fw-bold mb-1"><i class="bi bi-arrow-left-right text-primary"></i> المقارنة</h1>
-        <div class="text-muted">بتجاوب على سؤال واحد: <b>إيه اللي اتغيّر؟</b> — اختاري السؤال اللي عايزة إجابته:</div>
+        <div class="text-muted">بتجاوب على سؤال واحد: <b>إيه اللي اتغيّر؟</b> — اختار السؤال اللي عايزة إجابته:</div>
     </div>
 
     <div class="row g-2 mb-3 modes">
         <div class="col-md-4"><a class="mode {{ 'on' if tab == 'runs' }}" href="/compare?tab=runs">
             <div class="ic">⚖️</div><div><b>ليه الاختبار ده فشل المرة دي؟</b>
-            <div class="small">بتحطي تشغيلتين لنفس الاختبار جنب بعض (مثلاً آخر مرة نجح والمرة اللي فشل): كل حقل اتملى بإيه، وفين وقف، واللقطات.</div></div></a></div>
+            <div class="small">بتحط تشغيلتين لنفس الاختبار جنب بعض (مثلاً آخر مرة نجح والمرة اللي فشل): كل حقل اتملى بإيه، وفين وقف، واللقطات.</div></div></a></div>
         <div class="col-md-4"><a class="mode {{ 'on' if tab == 'test' }}" href="/compare?tab=test">
             <div class="ic">📈</div><div><b>الاختبار ده ثابت ولا لأ؟</b>
             <div class="small">كل تشغيلات اختبار واحد على رسم: نجح/فشل، وبقى أبطأ ولا أسرع، وآخر مرات فشل.</div></div></a></div>
@@ -70,12 +70,12 @@
                 <select class="form-select" name="b">
                     {% for r in test_runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == b }}>{{ '✓ نجح' if r.passed else '✗ فشل' }} — {{ r.label }} ({{ r.duration }} ث)</option>{% endfor %}
                 </select></div>
-            <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-arrow-left-right"></i> قارني</button></div>
+            <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-arrow-left-right"></i> قارن</button></div>
             <div class="col-12 d-flex gap-2 flex-wrap small align-items-center">
                 <span class="text-muted">اختصارات:</span>
                 {% if has_pass and has_fail %}<a class="btn btn-sm btn-outline-danger" href="/compare?tab=runs&test={{ test|urlencode }}&preset=pass_fail">آخر نجاح ↔ آخر فشل</a>{% endif %}
                 {% if test_runs|length >= 2 %}<a class="btn btn-sm btn-outline-secondary" href="/compare?tab=runs&test={{ test|urlencode }}&preset=last2">آخر تشغيلتين</a>{% endif %}
-                {% if test_runs|length < 2 %}<span class="text-warning">الاختبار ده اشتغل مرة واحدة بس — شغّليه تاني عشان يبقى فيه حاجة تتقارن.</span>{% endif %}
+                {% if test_runs|length < 2 %}<span class="text-warning">الاختبار ده اشتغل مرة واحدة بس — شغّله تاني عشان يبقى فيه حاجة تتقارن.</span>{% endif %}
             </div>
         </div>
     </form>
@@ -144,7 +144,7 @@
         <div class="col-6 col-md"><div class="card cmp-card"><div class="card-body stat"><div class="v {{ 'up' if hist.streak_passed else 'down' }}">{{ hist.streak }}</div><div class="l">مرات {{ 'نجاح' if hist.streak_passed else 'فشل' }} ورا بعض (دلوقتي)</div></div></div></div>
     </div>
     <div class="card cmp-card mb-3">
-        <div class="card-header">المدة والنتيجة في كل مرة <span class="muted fw-normal">النقطة الحمرا = فشل · اضغطي على نقطة تفتح تقريرها</span></div>
+        <div class="card-header">المدة والنتيجة في كل مرة <span class="muted fw-normal">النقطة الحمرا = فشل · اضغط على نقطة تفتح تقريرها</span></div>
         <div class="card-body"><div style="height: 280px"><canvas id="histChart"></canvas></div></div>
     </div>
     <div class="card cmp-card">

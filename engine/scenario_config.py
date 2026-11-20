@@ -45,11 +45,11 @@ def normalize(cfg: dict) -> dict:
     scenario_key = str(cfg.get("scenario_key") or "").strip().lower()
     scenario_name = str(cfg.get("scenario_name") or "").strip()
     if not PART_RE.match(screen_key) or SEP in screen_key:
-        raise ScenarioError("اختاري الشاشة الأول (مفتاح الشاشة بالإنجليزي، زي cash_receipt)")
+        raise ScenarioError("اختار الشاشة الأول (مفتاح الشاشة بالإنجليزي، زي cash_receipt)")
     if not PART_RE.match(scenario_key) or SEP in scenario_key:
         raise ScenarioError("مفتاح السيناريو لازم يبدأ بحرف إنجليزي صغير وفيه حروف/أرقام/_ بس، مثال: customer_to_customer")
     if not scenario_name:
-        raise ScenarioError("اكتبي اسم السيناريو، مثال: سند قبض من عميل إلى عميل")
+        raise ScenarioError("اكتب اسم السيناريو، مثال: سند قبض من عميل إلى عميل")
     base = dict(cfg)
     base["key"] = full_key(screen_key, scenario_key)
     out = sc.normalize(base)

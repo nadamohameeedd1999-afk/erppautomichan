@@ -84,7 +84,7 @@ const done = arguments[arguments.length - 1];
         const bs = Array.from(document.querySelectorAll('#itemSearchModal tbody tr button, #items-prices-quantities tr button'));
         b = bs.find(x => !SCRATCH.test(txt(x.closest('tr')))) || bs[0] || null;
       }
-      if (!b) { out.push('فتحت بحث الأصناف بس مفيش أصناف ظهرت (اتأكدي إن فيه أصناف ليها سعر في المخزن / الفرع ده)'); }
+      if (!b) { out.push('فتحت بحث الأصناف بس مفيش أصناف ظهرت (اتأكد إن فيه أصناف ليها سعر في المخزن / الفرع ده)'); }
       else {
         const name = txt(b.closest('tr')).slice(0, 60);
         b.click(); await sleep(2200);

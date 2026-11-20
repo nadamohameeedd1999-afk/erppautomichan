@@ -341,11 +341,11 @@ class FormInspector(BasePage):
             fields.append(f)
 
         if not fields:
-            warnings.append("مالقيتش ولا حقل في الصفحة — اتأكدي إن رابط الإضافة بيفتح الفورم (شوفي اللقطة)")
+            warnings.append("مالقيتش ولا حقل في الصفحة — اتأكد إن رابط الإضافة بيفتح الفورم (شوف اللقطة)")
         elif not any(f["required"] for f in fields):
-            warnings.append("مالقيتش حقول إجبارية متعلّم عليها — علّمي على الحقول المهمة بنفسك")
+            warnings.append("مالقيتش حقول إجبارية متعلّم عليها — علّم على الحقول المهمة بنفسك")
         if any(f["in_table"] and f["visible"] for f in fields):
-            warnings.append("الشاشة فيها جدول أصناف/سطور — استخدمي «➕ قالب: إضافة صنف» أو «⏺ سجّلي خطواتك» للسطور")
+            warnings.append("الشاشة فيها جدول أصناف/سطور — استخدمي «➕ قالب: إضافة صنف» أو «⏺ سجّل خطواتك» للسطور")
 
         buttons = self.scan_buttons()
         main = [b for b in buttons if b.get("visible") and not b.get("in_modal") and not b.get("in_table")]
@@ -540,13 +540,13 @@ def inspect_popup(driver, cfg, open_target, after="", choose=None):
         f, opt = auto_pick
         warnings.append(f"اخترت «{f['label'] or f['id']}» = «{opt}» "
                         + ("لأنه أول اختيار ظهر فيه مستندات" if rows else "عشان زرار المصفي يظهر")
-                        + " — لو عايزة نوع تاني غيّري القيمة في الخطوات، أو اعملي سيناريو لكل نوع")
+                        + " — لو عايز نوع تاني غيّر القيمة في الخطوات، أو اعمل سيناريو لكل نوع")
     if filt:
         info = driver.execute_script(POPUP_BUTTONS_JS, popup) or info   # buttons that appear with the table
         if not rows:
             warnings.append(f"بعد «{filt}»: {last_err or 'مظهرش صفوف'} — غالبًا مفيش مستندات بالفلاتر دي")
     else:
-        warnings.append("مالقيتش زرار بحث/مصفي في النافذة حتى بعد ما جربت الاختيارات — ضيفيه بنفسك لو موجود")
+        warnings.append("مالقيتش زرار بحث/مصفي في النافذة حتى بعد ما جربت الاختيارات — ضيفه بنفسك لو موجود")
     buttons = info.get("buttons", [])
 
     add = next((b["text"] for b in buttons if _classify(b["text"]) == "add"), "")
@@ -582,7 +582,7 @@ def inspect_popup(driver, cfg, open_target, after="", choose=None):
     if add:
         steps.append({"do": "click", "target": add})
     else:
-        warnings.append("مالقيتش زرار «إضافة» في النافذة — ضيفي خطوة الضغط عليه بنفسك")
+        warnings.append("مالقيتش زرار «إضافة» في النافذة — ضيف خطوة الضغط عليه بنفسك")
     steps.append({"do": "close_popup", "optional": True})
 
     try:

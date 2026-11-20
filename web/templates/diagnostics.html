@@ -14,7 +14,7 @@
     <div class="mb-3">
         <h3 class="mb-1">📋 تقرير التشخيص</h3>
         <div class="muted">كل اللي بيحصل في المشروع في نص واحد: شاشة السيرفر والأخطاء، التشغيلات الفاشلة ولوجاتها، لوج المحرك، أخطاء الصفحات، الطابور والإعداد —
-            انسخيه كله وابعتيه لـ Claude علشان يعرف المشكلة فين على طول. الباسوردات والتوكنات بتتخفى أوتوماتيك (••••).</div>
+            انسخه كله وابعته لـ Claude علشان يعرف المشكلة فين على طول. الباسوردات والتوكنات بتتخفى أوتوماتيك (••••).</div>
     </div>
     <div class="hc mb-3">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -26,13 +26,13 @@
             <select id="failed" class="form-select form-select-sm" style="width:auto"><option>5</option><option selected>15</option><option>40</option></select>
             <label class="fw-bold ms-2">سطور اللوج لكل فاشل</label>
             <select id="lines" class="form-select form-select-sm" style="width:auto"><option>60</option><option selected>120</option><option>300</option></select>
-            <button class="btn btn-primary btn-sm ms-auto" onclick="build()"><i class="bi bi-arrow-repeat"></i> اعملي التقرير</button>
+            <button class="btn btn-primary btn-sm ms-auto" onclick="build()"><i class="bi bi-arrow-repeat"></i> اعمل التقرير</button>
         </div>
         <div>{% for k, v in sections.items() %}<label class="part"><input type="checkbox" class="pt" value="{{ k }}" checked> {{ v }}</label>{% endfor %}</div>
     </div>
     <div class="d-flex gap-2 align-items-center mb-2">
-        <button class="btn btn-success" onclick="copyAll()"><i class="bi bi-clipboard"></i> انسخي الكل</button>
-        <button class="btn btn-outline-secondary" onclick="dl()"><i class="bi bi-download"></i> نزّليه .txt</button>
+        <button class="btn btn-success" onclick="copyAll()"><i class="bi bi-clipboard"></i> انسخ الكل</button>
+        <button class="btn btn-outline-secondary" onclick="dl()"><i class="bi bi-download"></i> نزّله .txt</button>
         <span class="muted" id="info"></span>
     </div>
     <pre id="out">⏳ بجهز التقرير…</pre>
@@ -53,7 +53,7 @@ async function build() {
 }
 function copyAll() {
     const t = $('out').textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('info').textContent = '✅ اتنسخ — الصقيه في الشات'; })
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $('info').textContent = '✅ اتنسخ — الصقه في الشات'; })
         .catch(() => { const r = document.createRange(); r.selectNodeContents($('out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); $('info').textContent = '✅ اتنسخ'; });
 }
 function dl() { location.href = '/api/diagnostics?download=1&' + q(); }

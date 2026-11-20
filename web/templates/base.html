@@ -67,7 +67,7 @@
                 <div class="crumb">{{ site_name }}{% if nav_section_title %} · {{ nav_section_title }}{% endif %}</div>
                 <h1>{{ page_title }}</h1>
             </div>
-            <div class="g-search" role="button" tabindex="0" aria-label="{{ 'بحث' if ar else 'Search' }}" onclick="gPal(true)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); gPal(true); }"><i class="bi bi-search"></i><span>{{ 'دوّري على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
+            <div class="g-search" role="button" tabindex="0" aria-label="{{ 'بحث' if ar else 'Search' }}" onclick="gPal(true)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); gPal(true); }"><i class="bi bi-search"></i><span>{{ 'دوّر على شاشة، اختبار، صفحة…' if ar else 'Search screens, tests, pages…' }}</span><kbd>Ctrl K</kbd></div>
             <a class="g-ib" href="{{ url_for('ops.run_center') }}" title="{{ 'مركز التشغيل' if ar else 'Run center' }}" id="gBell" aria-label="{{ 'مركز التشغيل' if ar else 'Run center' }}"><i class="bi bi-bell" aria-hidden="true"></i><span class="dot d-none" id="gBellDot"></span></a>
             <a class="btn btn-primary" href="/auto-test"><i class="bi bi-play-fill"></i> {{ 'تشغيل اختبارات' if ar else 'Run tests' }}</a>
         </header>
@@ -89,7 +89,7 @@
 <!-- Ctrl+K -->
 <div id="gPal" onclick="if (event.target === this) gPal(false)">
     <div class="box">
-        <input id="gPalQ" placeholder="{{ 'اكتبي اسم شاشة أو صفحة أو أمر…' if ar else 'Type a screen, page or command…' }}" autocomplete="off">
+        <input id="gPalQ" placeholder="{{ 'اكتب اسم شاشة أو صفحة أو أمر…' if ar else 'Type a screen, page or command…' }}" autocomplete="off">
         <div class="res" id="gPalR"></div>
         <div class="hint">↑ ↓ {{ 'للتنقل' if ar else 'navigate' }} · Enter {{ 'للفتح' if ar else 'open' }} · Esc {{ 'للخروج' if ar else 'close' }}</div>
     </div>
@@ -139,7 +139,7 @@ function gSide(open) {
         {icon: 'bi bi-arrow-repeat', name: AR ? 'دورة مبيعات كاملة جديدة' : 'New sales cycle', url: '/checks?new=cycle&tpl=sales'},
         {icon: 'bi bi-table', name: AR ? 'فحص تقرير جديد (ميزان المراجعة…)' : 'New report check', url: '/checks?new=report'},
         {icon: 'bi bi-robot', name: AR ? 'الاختبار الآلي الكامل لشاشة' : 'Automatic full test', url: '/auto-test'},
-        {icon: 'bi bi-clipboard-pulse', name: AR ? 'تقرير التشخيص — انسخي كل اللي حصل' : 'Diagnostics — copy everything', url: '/diagnostics'},
+        {icon: 'bi bi-clipboard-pulse', name: AR ? 'تقرير التشخيص — انسخ كل اللي حصل' : 'Diagnostics — copy everything', url: '/diagnostics'},
         {icon: 'bi bi-heart-pulse', name: AR ? 'صحة النظام — افحص كل الشاشات' : 'System health — every screen', url: '/health'},
         {icon: 'bi bi-speedometer2', name: AR ? 'سرعة الشاشات' : 'Screen speed', url: '/checks?new=perf'},
         {icon: 'bi bi-file-earmark-richtext', name: AR ? 'التقرير الشهري للعميل' : 'Monthly client report', url: '/reports/monthly'},

@@ -463,7 +463,7 @@ def normalize_flows(raw, main_field_ids, normalize_field):
             if do in NEEDS_TARGET:
                 t = str(st.get("target") or "").strip()
                 if not t:
-                    raise ValueError(f"الإجراء «{name}» خطوة {i} ({STEP_TYPES[do]}): اكتبي اسم الزرار/النص")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i} ({STEP_TYPES[do]}): اكتب اسم الزرار/النص")
                 s["target"] = t
             if do == "fill":
                 f = st.get("field") or {}
@@ -482,15 +482,15 @@ def normalize_flows(raw, main_field_ids, normalize_field):
                 s["target"] = str(st.get("target") or "").strip()
                 s["match"] = str(st.get("match") or "").strip()
                 if not s["target"] and not s["match"]:
-                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي الزرار اللي جوه الصف (زي اختيار) أو نص من الصف")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتب الزرار اللي جوه الصف (زي اختيار) أو نص من الصف")
             if do == "fill_cell":
                 s["cell"] = str(st.get("cell") or "").strip()
                 if not s["cell"]:
-                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي اسم العمود (زي السعر) أو CSS (زي input.price)")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتب اسم العمود (زي السعر) أو CSS (زي input.price)")
                 s["row"] = str(st.get("row") or "last").strip() or "last"
                 s["value"] = "" if st.get("value") is None else str(st.get("value"))
                 if not s["value"].strip():
-                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي القيمة")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتب القيمة")
             if do == "upload":
                 s["target"] = str(st.get("target") or "").strip()
                 s["file"] = str(st.get("file") or "pdf").strip() or "pdf"
@@ -498,11 +498,11 @@ def normalize_flows(raw, main_field_ids, normalize_field):
                 s["source"] = str(st.get("source") or "").strip()
                 s["var"] = re.sub(r"[^\w.]", "_", str(st.get("var") or "").strip())
                 if not s["source"] or not s["var"]:
-                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي مكان القيمة واسم المتغير")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتب مكان القيمة واسم المتغير")
             if do == "assert":
                 s["expr"] = str(st.get("expr") or "").strip()
                 if not s["expr"]:
-                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتبي الحسبة، مثلاً {{الضريبة}} = {{الصافي}} * 0.15")
+                    raise ValueError(f"الإجراء «{name}» خطوة {i}: اكتب الحسبة، مثلاً {{الضريبة}} = {{الصافي}} * 0.15")
                 s["tol"] = float(st.get("tol", 0.01) or 0.01)
             if do == "check_print":
                 s["target"] = str(st.get("target") or "").strip() or "طباعة"
@@ -621,7 +621,7 @@ class FlowRunner:
                 return f"اتفتحت «{p.get('title') or 'نافذة'}»"
             self._alert(0.3)
             time.sleep(0.4)
-        raise FlowError("النافذة مفتحتش — اتأكدي إن الزرار اللي قبلها صح، أو إن فيه حقل لازم يتملى الأول")
+        raise FlowError("النافذة مفتحتش — اتأكد إن الزرار اللي قبلها صح، أو إن فيه حقل لازم يتملى الأول")
 
     def _fill(self, st):
         f = st["field"]
@@ -652,7 +652,7 @@ class FlowRunner:
             msg += f" — الجدول بيقول: «{info['empty_text'][:80]}»"
         if not info.get("tables"):
             msg += " — ومفيش جدول ظاهر أصلاً"
-        raise FlowError(msg + "\n   غالبًا مفيش مستندات بالفلاتر دي: غيّري التاريخ أو نوع المستند")
+        raise FlowError(msg + "\n   غالبًا مفيش مستندات بالفلاتر دي: غيّر التاريخ أو نوع المستند")
 
     def _check(self, st):
         st = {**st, "target": resolve_value(st["target"], self.vars)}
@@ -756,7 +756,7 @@ class FlowRunner:
             return str(self.vars[name])
         v = self._js(READ_REF_JS, ref)
         if v is None:
-            raise FlowError(f"مالقيتش «{ref}» في الصفحة (اكتبي الـ id أو الاسم اللي جنبه زي ما هو، أو sum:اسم العمود)")
+            raise FlowError(f"مالقيتش «{ref}» في الصفحة (اكتب الـ id أو الاسم اللي جنبه زي ما هو، أو sum:اسم العمود)")
         return str(v)
 
     def _remember(self, st):
@@ -856,7 +856,7 @@ class FlowRunner:
             self._shot("journal")
             if not info.get("found"):
                 raise FlowError("مالقيتش جدول قيد فيه عمود «مدين» وعمود «دائن» في الصفحة"
-                                + (" (اتفتحت صفحة جديدة)" if new else "") + " — اتأكدي من زرار فتح القيد")
+                                + (" (اتفتحت صفحة جديدة)" if new else "") + " — اتأكد من زرار فتح القيد")
             dr, cr, tol = info["debit"], info["credit"], st.get("tol", 0.01)
             self.vars["journal_debit"], self.vars["journal_credit"] = dr, cr
             lines = "؛ ".join(f"{x['text'][:60]}" for x in info.get("lines", [])[:6])

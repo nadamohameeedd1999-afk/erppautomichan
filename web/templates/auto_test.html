@@ -30,7 +30,7 @@
     <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
         <div>
             <h1 class="fw-bold mb-1"><i class="bi bi-robot text-primary"></i> الاختبار الآلي</h1>
-            <div class="text-muted">اختاري أي شاشة من شاشات النظام — <b>من غير ما تجهّزيها</b>. بيعمل سجل حقيقي: <b>إضافة</b> ويتأكد من الحفظ،
+            <div class="text-muted">اختار أي شاشة من شاشات النظام — <b>من غير ما تجهّزيها</b>. بيعمل سجل حقيقي: <b>إضافة</b> ويتأكد من الحفظ،
                 وبعدين على <b>نفس السجل</b>: <b>تعديل</b> ويتأكد، <b>طباعة</b>، و<b>حذف</b> ويتأكد إنه اتشال. الحقول الإجبارية بتتقري من موقع العميل نفسه وقت الاختبار.</div>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
@@ -43,18 +43,18 @@
         <div class="card-body d-flex align-items-center gap-3 py-2">
             <span style="font-size:22px">📋</span>
             <div><b>سيناريوهات الأعمال</b><div class="muted small">فاتورة بيع آجلة بخصم وضريبة (19 بند — نموذج المطور) اتنقلت لصفحتها</div></div>
-            <span class="ms-auto small">افتحي ←</span>
+            <span class="ms-auto small">افتح ←</span>
         </div>
     </a>
 
     <div class="card at-card mb-3" id="libCard">
         <div class="card-header"><span>📚 المكتبة الجاهزة — أهم 20 شاشة في NQ ERP (فلوس، مخزون، بيانات أساسية)</span>
             <span class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" onclick="libApply(false)" title="بيضيف الشاشة لو مش موجودة ويحفظ اختبارها الآلي — من غير تشغيل"><i class="bi bi-save"></i> ضيفي المحدد</button>
-                <button class="btn btn-sm btn-success" onclick="libApply(true)"><i class="bi bi-play-fill"></i> ضيفي وشغّلي المحدد</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="libApply(false)" title="بيضيف الشاشة لو مش موجودة ويحفظ اختبارها الآلي — من غير تشغيل"><i class="bi bi-save"></i> ضيف المحدد</button>
+                <button class="btn btn-sm btn-success" onclick="libApply(true)"><i class="bi bi-play-fill"></i> ضيف وشغّل المحدد</button>
             </span></div>
         <div class="card-body pt-2">
-            <div class="muted mb-2">كل شاشة: إضافة ← تعديل ← طباعة ← حذف على نفس السجل، والمختبر العنيد شغال. على نظام العميل الحماية بتوقف أي حفظ — شغّليها على موقع الاختبار.</div>
+            <div class="muted mb-2">كل شاشة: إضافة ← تعديل ← طباعة ← حذف على نفس السجل، والمختبر العنيد شغال. على نظام العميل الحماية بتوقف أي حفظ — شغّلها على موقع الاختبار.</div>
             <div class="table-responsive"><table class="table table-sm align-middle mb-0">
                 <thead><tr><th><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.libck').forEach(c => c.checked = this.checked)"></th>
                     <th>الشاشة</th><th>الدورة</th><th>الأهمية</th><th>الاختبار</th><th>آخر نتيجة</th><th>ملاحظة</th></tr></thead>
@@ -63,7 +63,7 @@
     </div>
 
     <div class="card at-card mb-3">
-        <div class="card-header"><span>1️⃣ يختبر إيه — الإعدادات دي بتتطبق على الشاشات اللي هتختاريها</span></div>
+        <div class="card-header"><span>1️⃣ يختبر إيه — الإعدادات دي بتتطبق على الشاشات اللي هتختارها</span></div>
         <div class="card-body">
             <div class="sec-t">الحقول اللي تتملى</div>
             <div class="row g-2 mb-3" id="modeBox">
@@ -75,7 +75,7 @@
             <div class="alert alert-info py-2 small mb-3">🧠 <b>المختبر العنيد شغال دايمًا:</b> لو الحفظ اترفض، بيجرب طرق تانية زي أي مختبر —
                 الوصفة اللي نجحت قبل كده ← الطريقة العادية ← <b>نسخ قيم سجل محفوظ</b> في نفس الشاشة ← اختيارات تانية في القوايم ← كل الحقول / الإجباري —
                 ويقف عند أول طريقة تحفظ وبيفتكرها للمرة الجاية. لو ظهر خطأ تقني (SQL / سيرفر) بيقف ويقول إنها <b>مشكلة في الـ ERP</b>.
-                <a href="#" onclick="resetRecipes();return false">امسحي الوصفات المحفوظة</a></div>
+                <a href="#" onclick="resetRecipes();return false">امسح الوصفات المحفوظة</a></div>
             <div class="sec-t">الاختبارات — بتتعمل بالترتيب على نفس السجل</div>
             <div class="row g-2 mb-2" id="wayBox">
                 {% for k, w in ways.items() %}
@@ -95,9 +95,9 @@
     </div>
 
     <div class="card at-card mb-3">
-        <div class="card-header"><span>2️⃣ اختاري الشاشات <span class="chip none" id="selCount">0 متحدد</span></span>
+        <div class="card-header"><span>2️⃣ اختار الشاشات <span class="chip none" id="selCount">0 متحدد</span></span>
             <span class="d-flex gap-2 flex-wrap">
-                <input class="form-control form-control-sm" id="q" placeholder="🔍 دوّري باسم الشاشة أو الرابط" style="width:220px" oninput="render()">
+                <input class="form-control form-control-sm" id="q" placeholder="🔍 دوّر باسم الشاشة أو الرابط" style="width:220px" oninput="render()">
                 <select class="form-select form-select-sm" id="fMod" style="width:auto" onchange="render()"></select>
                 <button class="btn btn-sm btn-outline-secondary" onclick="selVisible(true)">تحديد الظاهر</button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="selVisible(false)">إلغاء</button>
@@ -115,11 +115,11 @@
             <span>📦 بيانات الاختبار للموقع <b id="tdSite"></b> <span class="muted">— العملاء / الأصناف / الخزن اللي بتنجح، والاختبار بيختار منها بدل أول اختيار في القايمة</span></span>
             <i class="bi bi-chevron-down" id="tdIcon"></i></div>
         <div class="card-body" id="tdBody" style="display:none">
-            <div class="muted mb-2">بتتعلم لوحدها: كل حفظ نجح بيضيف القيم اللي اتستخدمت (+1) وكل رفض من الـ ERP (-1). ضيفي بإيدك قيم مضمونة (بتتجرب الأول)، أو امنعي قيمة (عميل موقوف، خزنة مقفولة). القيمة المحجوزة لاختبار شغال مش بتتاخد لاختبار تاني.</div>
+            <div class="muted mb-2">بتتعلم لوحدها: كل حفظ نجح بيضيف القيم اللي اتستخدمت (+1) وكل رفض من الـ ERP (-1). ضيف بإيدك قيم مضمونة (بتتجرب الأول)، أو امنعي قيمة (عميل موقوف، خزنة مقفولة). القيمة المحجوزة لاختبار شغال مش بتتاخد لاختبار تاني.</div>
             <div class="d-flex gap-2 flex-wrap mb-2">
                 <select class="form-select form-select-sm" id="tdKind" style="max-width:180px"></select>
                 <input class="form-control form-control-sm" id="tdVal" style="max-width:280px" placeholder="القيمة زي ما هي في القايمة (مثال: 11 - الريادة)">
-                <button class="btn btn-sm btn-primary" onclick="tdSet(document.getElementById('tdKind').value, document.getElementById('tdVal').value, 'add')">+ ضيفي</button>
+                <button class="btn btn-sm btn-primary" onclick="tdSet(document.getElementById('tdKind').value, document.getElementById('tdVal').value, 'add')">+ ضيف</button>
             </div>
             <div id="tdList"></div>
         </div>
@@ -141,8 +141,8 @@
 
     <div class="card at-card sticky-run">
         <div class="card-body d-flex gap-2 flex-wrap align-items-center">
-            <button class="btn btn-success" onclick="runSelected()"><i class="bi bi-play-fill"></i> شغّلي الاختبار الآلي للمحدد</button>
-            <button class="btn btn-outline-success" onclick="saveSelected()"><i class="bi bi-save"></i> احفظيه بس (للجدولة)</button>
+            <button class="btn btn-success" onclick="runSelected()"><i class="bi bi-play-fill"></i> شغّل الاختبار الآلي للمحدد</button>
+            <button class="btn btn-outline-success" onclick="saveSelected()"><i class="bi bi-save"></i> احفظه بس (للجدولة)</button>
             <span class="muted ms-auto">بيتشغل في الطابور — تابعيه من مركز التشغيل، والنتيجة في «تقارير الاختبار الآلي»</span>
         </div>
     </div>
@@ -181,7 +181,7 @@ async function libLoad() {
 }
 async function libApply(run) {
     const keys = [...document.querySelectorAll('.libck:checked')].map(c => c.value);
-    if (!keys.length) { alert('اختاري شاشة واحدة على الأقل'); return; }
+    if (!keys.length) { alert('اختار شاشة واحدة على الأقل'); return; }
     if (run && !confirm(`هيتشغل الاختبار الآلي لـ ${keys.length} شاشة (بيضيف ويعدل ويحذف سجل اختبار) — على موقع الاختبار بس. نكمل؟`)) return;
     const sites = (document.getElementById('runSites') || {}).value || '';
     const r = await fetch('/api/test-library/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({keys, run, sites})}).then(r => r.json());
@@ -207,7 +207,7 @@ function slPaint() {
           ${s.status === 'changed' ? `<button class="btn btn-sm btn-primary" onclick="slApply('${tdEsc(s.key)}')" title="القديم بيتحفظ في السجل">حدّثي التعريف (${s.changes.length})</button>`
             : (s.status === 'ok' ? '<span class="text-success small">✅ مطابق للموقع</span>' : `<span class="muted small">${tdEsc(s.note)}</span>`)}</div>
         ${s.status === 'changed' ? `<ul class="mb-0 mt-1 small">${s.changes.map(c => `<li>${tdEsc(c.text)}</li>`).join('')}</ul>` : ''}
-        ${(s.duplicate_of || []).length ? `<div class="small text-warning">🧹 مكررة مع: ${s.duplicate_of.map(tdEsc).join('، ')} — نفس رابط الإضافة؛ امسحي واحدة من منشئ الاختبارات</div>` : ''}
+        ${(s.duplicate_of || []).length ? `<div class="small text-warning">🧹 مكررة مع: ${s.duplicate_of.map(tdEsc).join('، ')} — نفس رابط الإضافة؛ امسح واحدة من منشئ الاختبارات</div>` : ''}
         ${s.at ? `<div class="muted small">حسب فحص ${tdEsc((s.at || '').replace('T', ' ').slice(0, 16))} على ${tdEsc(s.site || '')}</div>` : ''}</div>`).join('')
       : 'مفيش شاشات متعرفة في منشئ الاختبارات لسه.';
 }
@@ -224,7 +224,7 @@ function hlPaint() {
     document.getElementById('hlList').innerHTML = HL.length ? `<table class="table table-sm align-middle mb-0"><thead><tr><th>الحقل</th><th>كان</th><th>بقى</th><th>اتلقى بـ</th><th>مرات</th><th>أول مرة</th><th></th></tr></thead><tbody>
       ${HL.map(h => `<tr class="${h.undone ? 'text-muted text-decoration-line-through' : ''}"><td>${tdEsc(h.label)}</td><td dir="ltr">${tdEsc(h.old)}</td><td dir="ltr"><b>${tdEsc(h.new)}</b></td>
         <td class="small">${tdEsc(h.how)}</td><td>${h.count || 1}</td><td class="small">${tdEsc(h.at)}</td>
-        <td>${h.undone ? '' : `<button class="btn btn-sm btn-outline-danger" data-o="${tdEsc(h.old)}" data-n="${tdEsc(h.new)}" onclick="hlUndo(this.dataset.o, this.dataset.n)" title="لو الإصلاح غلط: الاختبار هيرجع يدور على الـ id القديم">تراجعي</button>`}</td></tr>`).join('')}
+        <td>${h.undone ? '' : `<button class="btn btn-sm btn-outline-danger" data-o="${tdEsc(h.old)}" data-n="${tdEsc(h.new)}" onclick="hlUndo(this.dataset.o, this.dataset.n)" title="لو الإصلاح غلط: الاختبار هيرجع يدور على الـ id القديم">تراجع</button>`}</td></tr>`).join('')}
       </tbody></table>` : 'مفيش إصلاحات لحد دلوقتي — كل الحقول لاقيها بالـ id بتاعها.';
 }
 document.addEventListener('DOMContentLoaded', () => fetch('/api/heals').then(r => r.json()).then(r => { HL = r.heals || []; document.getElementById('hlCount').textContent = HL.filter(h => !h.undone).length; }));
@@ -247,8 +247,8 @@ function tdPaint() {
             title="اتحفظ ${v.ok} · اترفض ${v.fail}${v.last ? ' · آخر مرة ' + tdEsc(v.last) : ''}${v.held ? ' · محجوز لاختبار شغال' : ''}">
             ${v.manual ? '✋ ' : ''}${v.held ? '🔒 ' : ''}${tdEsc(v.value)} <span style="opacity:.8">✓${v.ok} ✗${v.fail}</span>
             <a href="#" class="text-white ms-1" title="${v.blocked ? 'إلغاء المنع' : 'امنعيها'}" data-k="${k.kind}" data-v="${tdEsc(v.value)}" data-a="${v.blocked ? 'unblock' : 'block'}" onclick="event.preventDefault();tdSet(this.dataset.k, this.dataset.v, this.dataset.a)">${v.blocked ? '↺' : '⛔'}</a>
-            <a href="#" class="text-white" title="امسحيها" data-k="${k.kind}" data-v="${tdEsc(v.value)}" onclick="event.preventDefault();tdSet(this.dataset.k, this.dataset.v, 'remove')">✕</a></span>`).join('')}
-        </div></div>`).join('') : '<div class="muted">لسه مفيش — هتتملى لوحدها مع أول اختبارات بتحفظ، أو ضيفي قيم بإيدك.</div>';
+            <a href="#" class="text-white" title="امسحها" data-k="${k.kind}" data-v="${tdEsc(v.value)}" onclick="event.preventDefault();tdSet(this.dataset.k, this.dataset.v, 'remove')">✕</a></span>`).join('')}
+        </div></div>`).join('') : '<div class="muted">لسه مفيش — هتتملى لوحدها مع أول اختبارات بتحفظ، أو ضيف قيم بإيدك.</div>';
 }
 
 const WAY_KEYS = {{ ways.keys() | list | tojson }};
@@ -301,29 +301,29 @@ function render() {
                 <div class="muted ltr">${esc(s.url)}</div>${a ? `<div class="muted">${a.fields_mode === 'required' ? 'الإجباري بس' : 'كل الحقول'} · ${a.ways.length} اختبار</div>` : ''}</td>
             <td>${last}</td>
             <td class="text-nowrap text-end">
-                <button class="btn btn-sm btn-warning" onclick="tryOne('${esc(s.key)}')" title="شغّليه دلوقتي واتفرجي على النتيجة هنا">🧪 جرّبي دلوقتي</button>
+                <button class="btn btn-sm btn-warning" onclick="tryOne('${esc(s.key)}')" title="شغّله دلوقتي واتفرجي على النتيجة هنا">🧪 جرّب دلوقتي</button>
                 <button class="btn btn-sm btn-success" aria-label="شغّل" title="شغّل" onclick="runKeys(['${esc(s.key)}'])"><i class="bi bi-play-fill" aria-hidden="true"></i></button>
             </td></tr>`;
     });
-    $('rows').innerHTML = html || '<tr><td colspan="4" class="text-center text-muted py-4">مفيش شاشات — اعملي «اكتشاف شاشات النظام» من منشئ الشاشات</td></tr>';
+    $('rows').innerHTML = html || '<tr><td colspan="4" class="text-center text-muted py-4">مفيش شاشات — اعمل «اكتشاف شاشات النظام» من منشئ الشاشات</td></tr>';
     $('selCount').textContent = SEL.size + ' متحدد';
 }
 function sel(k, on) { on ? SEL.add(k) : SEL.delete(k); $('selCount').textContent = SEL.size + ' متحدد'; }
 function selVisible(on) { visible().forEach(s => on ? SEL.add(s.key) : SEL.delete(s.key)); render(); }
 
 async function post(run, keys) {
-    if (!keys.length) return alert('اختاري شاشة واحدة على الأقل');
+    if (!keys.length) return alert('اختار شاشة واحدة على الأقل');
     const r = await fetch('/api/auto-test/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({...opts(), screens: keys, run})}).then(r => r.json());
     if (!r.success) return alert('❌ ' + (r.error || 'حصل خطأ'));
     await load();
     if (run && confirm(`✅ اتضاف ${r.queued} تشغيلة للطابور. تروحي مركز التشغيل تتابعي؟`)) location.href = '/queue';
-    if (!run) alert(`✅ اتحفظ ${r.saved.length} اختبار آلي — تقدري تحطيهم في جدولة`);
+    if (!run) alert(`✅ اتحفظ ${r.saved.length} اختبار آلي — تقدر تحطهم في جدولة`);
 }
 function runKeys(keys) { post(true, keys); }
 function runSelected() {
     const keys = [...SEL];
-    if (keys.length > 5 && !confirm(`هيتشغل الاختبار الآلي لـ ${keys.length} شاشة (كل واحدة بتاخد كام دقيقة). متأكدة؟`)) return;
+    if (keys.length > 5 && !confirm(`هيتشغل الاختبار الآلي لـ ${keys.length} شاشة (كل واحدة بتاخد كام دقيقة). متأكد؟`)) return;
     post(true, keys);
 }
 function saveSelected() { post(false, [...SEL]); }

@@ -213,13 +213,13 @@ def login():
             left = auth.is_locked(username)
             ar = get_current_lang() == "ar"
             if left:
-                error = (f"اتقفل الدخول مؤقتًا بعد {auth.MAX_ATTEMPTS} محاولات غلط — جربي تاني بعد {(left + 59) // 60} دقيقة "
-                         f"(أو اقفلي البرنامج وشغليه تاني)") if ar else f"Too many attempts, try again in {(left + 59) // 60} min"
+                error = (f"اتقفل الدخول مؤقتًا بعد {auth.MAX_ATTEMPTS} محاولات غلط — جرب تاني بعد {(left + 59) // 60} دقيقة "
+                         f"(أو اقفل البرنامج وشغله تاني)") if ar else f"Too many attempts, try again in {(left + 59) // 60} min"
             elif not _sh.get_user(username):
                 error = (f"مفيش مستخدم اسمه '{username}' في لوحة التحكم. ده دخول لوحة التحكم مش الـ ERP — "
                          f"المستخدم الأساسي اسمه admin") if ar else f"No dashboard user '{username}'"
             else:
-                error = ("كلمة المرور غلط. لو نسيتيها: اكتبي ADMIN_PASSWORD=... في ملف .env وشغّلي البرنامج تاني"
+                error = ("كلمة المرور غلط. لو نسيتيها: اكتب ADMIN_PASSWORD=... في ملف .env وشغّل البرنامج تاني"
                          ) if ar else "Wrong password (set ADMIN_PASSWORD in .env and restart to reset)"
 
     return render_template("login.html", error=error)

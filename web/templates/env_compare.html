@@ -10,10 +10,10 @@
       {% for s in states %}<option value="{{ s.file }}" {{ 'selected' if s.file == cur }}>{{ s.site }}{% if s.activity or s.branch %} · {{ s.activity }} {{ s.branch }}{% endif %} — {{ (s.at or '')[:16].replace('T', ' ') }}</option>{% endfor %}
     </select>{% if nm == 'a' %}<span>مقابل</span>{% endif %}
     {% endfor %}
-    <button class="btn btn-sm btn-primary">قارني</button>
+    <button class="btn btn-sm btn-primary">قارن</button>
   </form>
   {% if err %}<div class="alert alert-danger">{{ err }}</div>{% endif %}
-  {% if states|length < 2 %}<div class="alert alert-info">محتاجة فحص صحة نظام على موقعين على الأقل — شغّلي «فحص الشاشات» على موقع الاختبار وعلى موقع العميل.</div>{% endif %}
+  {% if states|length < 2 %}<div class="alert alert-info">محتاجة فحص صحة نظام على موقعين على الأقل — شغّل «فحص الشاشات» على موقع الاختبار وعلى موقع العميل.</div>{% endif %}
   {% if r %}
   <div class="row g-2 mb-3">
     <div class="col-md-6"><div class="border rounded p-2"><b>أ:</b> <span dir="ltr">{{ r.a.site }}</span><div class="small text-muted">{{ r.a.total }} شاشة · {{ r.a.broken }} بايظة · {{ (r.a.at or '')[:16].replace('T', ' ') }}</div></div></div>

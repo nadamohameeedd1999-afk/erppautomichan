@@ -21,7 +21,7 @@ OK, BAD, NA = "ok", "fail", "na"
 
 # the 19 items of the developer's form (number, group, step, expected) — shown on the scenarios page
 STEPS = [
-    ("01", 1, "افتحي فاتورة جديدة", "فاضية: من غير سطور ولا عميل ولا بيانات متبقية"),
+    ("01", 1, "افتح فاتورة جديدة", "فاضية: من غير سطور ولا عميل ولا بيانات متبقية"),
     ("02", 1, "الفرع والمخزن والعميل ونوع الفاتورة والعملة", "الاختيارات صحيحة والإجباري مكتمل"),
     ("03", 1, "الدفع الآجل + الصنفين بالكميات والأسعار", "الوحدة صحيحة وإجمالي كل صنف مظبوط"),
     ("04", 1, "خصم الفاتورة بالنسبة", "قيمة الخصم والصافي مظبوطين ومن غير تكرار"),
@@ -215,7 +215,7 @@ def run_sales_invoice(driver, credentials, cfg, result=None):
     run = Run(cfg)
     items = [{"code": str(i.get("code")), "qty": float(i.get("qty")), "price": float(i.get("price"))} for i in (cfg.get("items") or [])][:2]
     if len(items) < 2:
-        raise AssertionError("حددي صنفين (الكود + الكمية + السعر) في إعدادات السيناريو")
+        raise AssertionError("حدد صنفين (الكود + الكمية + السعر) في إعدادات السيناريو")
     disc_pct = float(cfg.get("discount_pct", 10))
     qty_edit = float(cfg.get("qty_edit", items[0]["qty"] + 2))
     day = datetime.now().strftime("%Y-%m-%d")
@@ -383,7 +383,7 @@ def _step_print(driver, run, inv, exp):
               "الضريبة": f"{exp['tax']:.2f}" in flat, "المستحق": f"{exp['after']:.2f}" in flat}
     if not text.strip():
         run.put("09", OK, f"الفعلي: الطباعة فتحت ملف PDF ({p['size'] // 1024} KB، صفحة على الأقل).",
-                "ملاحظة: الملف صورة مش نص — مقدرتش أقارن القيم آليًا؛ راجعيه من الرابط", f"الدليل: /Report/E_Invoice/{inv['id']}")
+                "ملاحظة: الملف صورة مش نص — مقدرتش أقارن القيم آليًا؛ راجعه من الرابط", f"الدليل: /Report/E_Invoice/{inv['id']}")
         return
     miss = [k for k, v in checks.items() if not v]
     run.put("09", OK if not miss else BAD, f"الفعلي: ملف PDF ({p['size'] // 1024} KB) فيه: " + "، ".join(f"{k} {'✓' if v else '✗'}" for k, v in checks.items()) + ".",

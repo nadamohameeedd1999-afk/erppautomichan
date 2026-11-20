@@ -31,7 +31,7 @@ body{background:#062e2d;color:#1C2B2A;display:grid;grid-template-columns:1fr 1.1
   <form method="POST" action="" class="login" autocomplete="on">
     <div class="logo">{{ logo_html }}</div>
     <h1>{{ 'أهلاً بيكي 👋' if ar else 'Welcome 👋' }}</h1>
-    <p class="sub">{{ 'ادخلي على لوحة' if ar else 'Sign in to' }} {{ site_name if ar else site_name_en }}</p>
+    <p class="sub">{{ 'ادخل على لوحة' if ar else 'Sign in to' }} {{ site_name if ar else site_name_en }}</p>
     {{ fields }}
     <p class="sec">🔒 {{ 'بيقفل الدخول مؤقتًا بعد كذا محاولة غلط' if ar else 'Sign-in locks for a while after several wrong tries' }}</p>
   </form>

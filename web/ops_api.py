@@ -183,7 +183,7 @@ def api_backup_restore():
     else:
         target = backup.path_of((request.form.get("name") or (request.get_json(silent=True) or {}).get("name") or ""))
     if not target:
-        return jsonify({"success": False, "error": "اختاري نسخة"}), 400
+        return jsonify({"success": False, "error": "اختار نسخة"}), 400
     try:
         r = backup.restore(target)
     except Exception as e:

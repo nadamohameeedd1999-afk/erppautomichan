@@ -129,7 +129,7 @@ def _row_action(r, cfg, kind, match, click=True, tries=2):
     if err == "no_row":
         raise AssertionError(f"مالقيتش صف فيه «{match}» في القايمة")
     raise AssertionError(f"مالقيتش زرار {OP_NAMES[kind]} في الصف" + (f" (المحدد: «{cfg['op_button']}»)" if cfg.get("op_button") else
-                         " — حددي الزرار في «زرار العملية» (selector أو اسمه)") + f"\n   الصف: {res.get('row', '')}")
+                         " — حدد الزرار في «زرار العملية» (selector أو اسمه)") + f"\n   الصف: {res.get('row', '')}")
 
 
 def _open_list(r, cfg):

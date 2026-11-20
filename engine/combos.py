@@ -101,9 +101,9 @@ def build(table, method="linear"):
     table = {str(k).strip(): [str(v).strip() for v in vs if str(v).strip()] for k, vs in (table or {}).items() if str(k).strip()}
     table = {k: list(dict.fromkeys(v)) for k, v in table.items() if v}
     if not table:
-        raise ValueError("اكتبي حقل واحد على الأقل وقيمه")
+        raise ValueError("اكتب حقل واحد على الأقل وقيمه")
     if method == "boundary" and not any(".." in v[0] for v in table.values()):
-        raise ValueError("القيم الحدودية: اكتبي المدى في حقل واحد على الأقل بالشكل 1..100")
+        raise ValueError("القيم الحدودية: اكتب المدى في حقل واحد على الأقل بالشكل 1..100")
     rows = METHODS.get(method, linear)(table)
     total = 1
     for v in table.values():

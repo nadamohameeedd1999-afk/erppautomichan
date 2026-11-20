@@ -81,7 +81,7 @@
     <div class="card border-0 shadow-sm mb-4" id="whyCard">
         <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="fw-bold mb-0">🧠 ليه فشل؟</h5>
-            <a class="btn btn-sm btn-outline-secondary ms-auto" href="/compare?tab=runs&preset=pass_fail&b={{ report.run_id|urlencode }}" title="يحط المرة دي جنب آخر مرة نفس الاختبار نجح فيها">⚖️ قارني بآخر نجاح</a>
+            <a class="btn btn-sm btn-outline-secondary ms-auto" href="/compare?tab=runs&preset=pass_fail&b={{ report.run_id|urlencode }}" title="يحط المرة دي جنب آخر مرة نفس الاختبار نجح فيها">⚖️ قارن بآخر نجاح</a>
             <button class="btn btn-sm btn-primary" id="btnAi" onclick="askAi()">✨ {% if ai %}اسأل الذكاء الاصطناعي تاني{% else %}اسأل الذكاء الاصطناعي{% endif %}</button>
         </div>
         <div class="card-body pt-2" id="whyBody">
@@ -97,7 +97,7 @@
             </div>
             {% endfor %}
             {% if not why and not ai %}<div class="text-muted small">مالقيتش سبب معروف — دوسي «اسأل الذكاء الاصطناعي».</div>{% endif %}
-            {% if not ai_on %}<div class="small text-muted mt-2" id="aiHint">✨ الذكاء الاصطناعي محتاج مفتاح Claude API — <a href="/settings">ضيفيه من الإعدادات ← الموقع والشركة</a> ودوسي «اختبري المفتاح».</div>{% endif %}
+            {% if not ai_on %}<div class="small text-muted mt-2" id="aiHint">✨ الذكاء الاصطناعي محتاج مفتاح Claude API — <a href="/settings">ضيفه من الإعدادات ← الموقع والشركة</a> ودوسي «اختبر المفتاح».</div>{% endif %}
         </div>
     </div>
     {% endif %}
@@ -159,7 +159,7 @@
             <h5 class="fw-bold mb-0">
                 <i class="bi bi-camera text-primary"></i> اللقطات
                 <span class="badge bg-primary ms-2">{{ shots|length }}</span>
-                <small class="text-muted fw-normal ms-2">بالترتيب — اضغطي على أي لقطة لتكبيرها</small>
+                <small class="text-muted fw-normal ms-2">بالترتيب — اضغط على أي لقطة لتكبيرها</small>
             </h5>
         </div>
         <div class="card-body">

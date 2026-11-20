@@ -147,7 +147,7 @@ def api_run():
     if d.get("all_full"):
         tests = all_full_tests()
     if not tests:
-        return jsonify({"success": False, "error": "اختاري اختبار واحد على الأقل"}), 400
+        return jsonify({"success": False, "error": "اختار اختبار واحد على الأقل"}), 400
     qm, ids = get_manager(), []
     for t in tests:
         ids += queue_on_sites(qm, t["path"], t.get("name") or t["path"], d.get("sites") or "all")["task_ids"]

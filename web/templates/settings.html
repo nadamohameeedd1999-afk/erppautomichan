@@ -192,12 +192,12 @@
                                     </select>
                                 </div>
                                 <div class="col-md-7 d-flex gap-2 align-items-center flex-wrap">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAi()">🧪 اختبري المفتاح</button>
-                                    <a class="small" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">اعملي مفتاح من Anthropic Console ↗</a>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAi()">🧪 اختبر المفتاح</button>
+                                    <a class="small" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">اعمل مفتاح من Anthropic Console ↗</a>
                                     <span class="small" id="aiTestResult">{% if site_config.anthropic_api_key %}<span class="text-success">● فيه مفتاح محفوظ</span>{% endif %}</span>
                                 </div>
                             </div>
-                            <div class="form-text">من غير مفتاح الشرح التلقائي شغال عادي. بعد ما تحفظي المفتاح، زرار «✨ اسأل الذكاء الاصطناعي» بيظهر في تقرير أي اختبار فاشل. اكتبي <code>__clear__</code> عشان تمسحيه. بيتبعت لـ Claude رسالة الفشل وآخر اللوج وصورة الشاشة بس — والاستهلاك بيتحسب على حساب Anthropic Console بتاعك.</div>
+                            <div class="form-text">من غير مفتاح الشرح التلقائي شغال عادي. بعد ما تحفظ المفتاح، زرار «✨ اسأل الذكاء الاصطناعي» بيظهر في تقرير أي اختبار فاشل. اكتب <code>__clear__</code> عشان تمسحه. بيتبعت لـ Claude رسالة الفشل وآخر اللوج وصورة الشاشة بس — والاستهلاك بيتحسب على حساب Anthropic Console بتاعك.</div>
                         </div>
 
                         <div class="mb-3">
@@ -400,7 +400,7 @@
                         <div class="alert alert-info small mb-3">
                             <b>📮 على Railway:</b> الخطة المجانية والـ Hobby بيقفلوا SMTP (رسالة «Network is unreachable»). الحل: خدمة إيميل بتبعت عن طريق HTTPS —
                             <a href="https://app.brevo.com" target="_blank" rel="noopener">Brevo</a> مجاني (300 إيميل في اليوم) وبيبعت من نفس الجيميل بعد ما تأكديه بضغطة.
-                            حطي المفتاح تحت (بيبدأ بـ <code>xkeysib-</code>) وسيبي SMTP زي ما هو.
+                            حط المفتاح تحت (بيبدأ بـ <code>xkeysib-</code>) وسيب SMTP زي ما هو.
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">مفتاح خدمة الإيميل (Brevo / Resend) <span class="badge {% if email_config and email_config.api_key %}bg-success{% else %}bg-secondary{% endif %}">{% if email_config and email_config.api_key %}متحفظ{% else %}مش متحط{% endif %}</span></label>
@@ -546,7 +546,7 @@
             <div class="card mb-4"><div class="card-body">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="fw-bold mb-0"><i class="bi {{ 'bi-box-arrow-in-right' if group[0] == 'login_style' else 'bi-window-sidebar' }}"></i> {{ group[1] }}</h5>
-                    <span class="small text-muted">{{ 'اختاري شكل — المعاينة الصغيرة حيّة، و«معاينة كاملة» بتفتحه في صفحة لوحده' if ar else 'Pick one — previews are live' }}</span>
+                    <span class="small text-muted">{{ 'اختار شكل — المعاينة الصغيرة حيّة، و«معاينة كاملة» بتفتحه في صفحة لوحده' if ar else 'Pick one — previews are live' }}</span>
                 </div>
                 <div class="look-grid">
                     {% for key, name, hint in group[3] %}
@@ -564,7 +564,7 @@
             </div></div>
             {% endfor %}
             <div class="d-flex gap-2 align-items-center">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> {{ 'احفظي المظهر' if ar else 'Save appearance' }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> {{ 'احفظ المظهر' if ar else 'Save appearance' }}</button>
                 <span class="small text-muted">{{ 'بيتطبّق على كل المستخدمين' if ar else 'Applies to all users' }}</span>
             </div>
             </form>
@@ -653,14 +653,14 @@
     <div id="stRows"></div>
 
     <div class="d-flex flex-wrap gap-3 align-items-center mt-3">
-      <label class="d-flex align-items-center gap-2">امسحي اللي أقدم من
+      <label class="d-flex align-items-center gap-2">امسح اللي أقدم من
         <select id="stDays" class="form-select form-select-sm" style="width:auto" onchange="stPreview()">
           <option value="0">أي حاجة (ماعدا آخر ساعة)</option><option value="1">يوم</option><option value="3">3 أيام</option>
           <option value="7">أسبوع</option><option value="14">أسبوعين</option><option value="30">شهر</option></select></label>
-      <label class="d-flex align-items-center gap-2">وسيبي آخر
+      <label class="d-flex align-items-center gap-2">وسيب آخر
         <input id="stKeep" type="number" min="1" max="100" class="form-control form-control-sm" style="width:70px" onchange="stPreview()"> نسخة احتياطية تلقائية</label>
       <label class="form-check ms-auto mb-0"><input class="form-check-input" type="checkbox" id="stBackup" checked>
-        <span class="form-check-label">📦 خدي نسخة احتياطية شاملة قبل المسح (كل الداتا من غير الصور)</span></label>
+        <span class="form-check-label">📦 خد نسخة احتياطية شاملة قبل المسح (كل الداتا من غير الصور)</span></label>
       <button class="btn btn-danger" onclick="stClean()"><i class="bi bi-trash"></i> نظّفي دلوقتي <span id="stTotal"></span></button>
     </div>
     <div id="stMsg" class="mt-2"></div>
@@ -673,7 +673,7 @@
       <label class="form-check-label" for="stAuto">نظّفي لوحدك كل 6 ساعات بنفس الاختيارات اللي فوق (الأنواع المتعلّم عليها + المدة + عدد النسخ)</label>
     </div>
     <div class="text-muted small mb-2">وكمان قبل أي اختبار، لو المساحة الفاضية قلت عن 300 MB، أقدم الصور واللوجات بتتمسح لوحدها علشان الاختبارات ماتقفش.</div>
-    <button class="btn btn-primary btn-sm" onclick="stSavePolicy()"><i class="bi bi-check-circle"></i> احفظي سياسة التنظيف</button>
+    <button class="btn btn-primary btn-sm" onclick="stSavePolicy()"><i class="bi bi-check-circle"></i> احفظ سياسة التنظيف</button>
   </div></div>
 
   {% if current_user and current_user.role == 'admin' %}
@@ -746,11 +746,11 @@ async function stPreview() {
 async function stClean() {
     const body = {cats: stCats(), days: +document.getElementById('stDays').value, keep_backups: +document.getElementById('stKeep').value || 10,
                   backup: document.getElementById('stBackup').checked};
-    if (!body.cats.length) { document.getElementById('stMsg').innerHTML = '<div class="alert alert-warning py-2">علّمي على نوع واحد على الأقل</div>'; return; }
+    if (!body.cats.length) { document.getElementById('stMsg').innerHTML = '<div class="alert alert-warning py-2">علّم على نوع واحد على الأقل</div>'; return; }
     if (!confirm('أمسح الملفات دي؟ نتايج الاختبارات والإعدادات مش هتتلمس.')) return;
     const j = await fetch('/api/storage/clean', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
     document.getElementById('stMsg').innerHTML = j.success ? `<div class="alert alert-success py-2">🧹 اتمسح ${j.files.toLocaleString()} ملف — فضي ${mb(j.mb)}${j.skipped_chrome ? ' · (كاش المتصفح اتساب لأن فيه متصفح مفتوح دلوقتي)' : ''}
-        ${j.backup ? `<br>📦 النسخة الاحتياطية: <a href="${stEsc(j.backup.url)}"><b>${stEsc(j.backup.name)}</b></a> — نزّليها على جهازك (لو فضلت على السيرفر بتاخد مساحة)` : ''}</div>`
+        ${j.backup ? `<br>📦 النسخة الاحتياطية: <a href="${stEsc(j.backup.url)}"><b>${stEsc(j.backup.name)}</b></a> — نزّلها على جهازك (لو فضلت على السيرفر بتاخد مساحة)` : ''}</div>`
                                                         : `<div class="alert alert-danger py-2">${stEsc(j.error)}</div>`;
     stLoad();
 }
@@ -780,10 +780,10 @@ async function stSavePolicy() {
             <div class="row g-2">
                 <div class="col-md-6"><label class="form-label small">توكن البوت</label><input class="form-control ltr" id="alTgToken" placeholder="123456:ABC-DEF…" autocomplete="off"></div>
                 <div class="col-md-4"><label class="form-label small">رقم الشات (أو أكتر، بفاصلة)</label><input class="form-control ltr" id="alTgChats" placeholder="-1001234567890"></div>
-                <div class="col-md-2 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="alTgPhoto" checked><label class="form-check-label small" for="alTgPhoto">ابعتي صورة الفشل</label></div></div>
+                <div class="col-md-2 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="alTgPhoto" checked><label class="form-check-label small" for="alTgPhoto">ابعت صورة الفشل</label></div></div>
             </div>
-            <div class="form-text">اعملي بوت من <b>@BotFather</b> وخدي التوكن · ابعتي أي رسالة للبوت (أو ضيفيه للجروب) · رقم الشات من <b>@userinfobot</b> (للجروب بيبدأ بـ -100).</div>
-            <button class="btn btn-sm btn-outline-primary mt-2" onclick="alTest('telegram', this)">📨 ابعتي رسالة تجربة</button>
+            <div class="form-text">اعمل بوت من <b>@BotFather</b> وخد التوكن · ابعت أي رسالة للبوت (أو ضيفه للجروب) · رقم الشات من <b>@userinfobot</b> (للجروب بيبدأ بـ -100).</div>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="alTest('telegram', this)">📨 ابعت رسالة تجربة</button>
         </div>
 
         <div class="border rounded-3 p-3 mb-3">
@@ -794,14 +794,14 @@ async function stSavePolicy() {
             <div id="alWaCmb">
                 <label class="form-label small">كل سطر: الرقم|الـ apikey</label>
                 <textarea class="form-control ltr" id="alCmb" rows="2" placeholder="201001234567|123456"></textarea>
-                <div class="form-text">من موبايل كل واحد: ضيفي الرقم <b class="ltr">+34 694 29 84 96</b> في الأسماء وابعتيله على واتساب <b>I allow callmebot to send me messages</b> — هيرد بالـ apikey.</div>
+                <div class="form-text">من موبايل كل واحد: ضيف الرقم <b class="ltr">+34 694 29 84 96</b> في الأسماء وابعتله على واتساب <b>I allow callmebot to send me messages</b> — هيرد بالـ apikey.</div>
             </div>
             <div id="alWaCloud" class="d-none"><div class="row g-2">
                 <div class="col-md-5"><label class="form-label small">Access token</label><input class="form-control ltr" id="alWaToken" autocomplete="off"></div>
                 <div class="col-md-3"><label class="form-label small">Phone number ID</label><input class="form-control ltr" id="alWaPid"></div>
                 <div class="col-md-4"><label class="form-label small">الأرقام اللي تستلم (بفاصلة)</label><input class="form-control ltr" id="alWaTo" placeholder="201001234567, 9665…"></div></div>
                 <div class="form-text">من developers.facebook.com ← WhatsApp. ملحوظة: Meta بتسمح برسالة عادية بس لو الرقم كلّمكم في آخر 24 ساعة؛ غير كده محتاجة template معتمد.</div></div>
-            <button class="btn btn-sm btn-outline-success mt-2" onclick="alTest('whatsapp', this)">📨 ابعتي رسالة تجربة</button>
+            <button class="btn btn-sm btn-outline-success mt-2" onclick="alTest('whatsapp', this)">📨 ابعت رسالة تجربة</button>
         </div>
 
         <div class="border rounded-3 p-3 mb-3">
@@ -844,7 +844,7 @@ async function alTest(ch, btn) {
     btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = '⏳ بيبعت…';
     const r = await fetch('/api/settings/alerts/test', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel: ch, config: alCollect()})}).then(r => r.json()).catch(e => ({error: String(e)}));
     btn.disabled = false; btn.innerHTML = old;
-    alert(r.success ? `✅ اتبعتت (${r.sent}) — شوفي الموبايل` : '❌ ' + r.error);
+    alert(r.success ? `✅ اتبعتت (${r.sent}) — شوف الموبايل` : '❌ ' + r.error);
 }
 fetch('/api/settings/alerts').then(r => r.json()).then(j => j.success && alFill(j.config)).catch(() => {});
 </script>
@@ -978,7 +978,7 @@ async function sendTestEmail() {
                             <input type="text" name="activity" id="activity_field" class="form-control" placeholder="فاضي = أول نشاط (مثال: شركة النخبة)"></div>
                         <div class="col"><label class="form-label fw-bold">📍 الفرع</label>
                             <input type="text" name="branch" id="branch_field" class="form-control" placeholder="فاضي = أول فرع (مثال: الفرع ٢)"></div>
-                        <div class="form-text">علشان تختبري كل نشاط / فرع: اعملي موقع لكل واحد بنفس الرابط واختاري «كل المواقع» وقت التشغيل.</div>
+                        <div class="form-text">علشان تختبري كل نشاط / فرع: اعمل موقع لكل واحد بنفس الرابط واختار «كل المواقع» وقت التشغيل.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">🔒 نوع الموقع</label>

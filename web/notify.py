@@ -118,7 +118,7 @@ def _ids(v):
 def send_telegram(cfg, text, photo=None):
     token, chats = (cfg.get("telegram_token") or "").strip(), _ids(cfg.get("telegram_chats"))
     if not token or not chats:
-        raise RuntimeError("اكتبي توكن البوت ورقم الشات")
+        raise RuntimeError("اكتب توكن البوت ورقم الشات")
     base = f"https://api.telegram.org/bot{token}"
     for chat in chats:
         try:
@@ -137,9 +137,9 @@ def send_telegram(cfg, text, photo=None):
             except Exception:
                 d = str(e)
             if e.code == 401:
-                raise RuntimeError("توكن البوت غلط — خديه تاني من @BotFather") from None
+                raise RuntimeError("توكن البوت غلط — خده تاني من @BotFather") from None
             if "chat not found" in d.lower():
-                raise RuntimeError(f"الشات {chat} مش لاقيه — ابعتي أي رسالة للبوت الأول (أو ضيفيه للجروب) وبعدين جربي") from None
+                raise RuntimeError(f"الشات {chat} مش لاقيه — ابعت أي رسالة للبوت الأول (أو ضيفه للجروب) وبعدين جرب") from None
             raise RuntimeError(f"تليجرام رفض: {d}") from None
     return len(chats)
 
@@ -149,7 +149,7 @@ def send_whatsapp(cfg, text):
     if mode == "cloud":
         token, pid, to = (cfg.get("wa_token") or "").strip(), (cfg.get("wa_phone_id") or "").strip(), _ids(cfg.get("wa_to"))
         if not (token and pid and to):
-            raise RuntimeError("اكتبي التوكن ورقم الـ Phone number ID والأرقام اللي هتستلم")
+            raise RuntimeError("اكتب التوكن ورقم الـ Phone number ID والأرقام اللي هتستلم")
         for num in to:
             try:
                 _post_json(f"https://graph.facebook.com/v19.0/{pid}/messages",
@@ -164,7 +164,7 @@ def send_whatsapp(cfg, text):
         return len(to)
     lines = [l.strip() for l in str(cfg.get("callmebot") or "").splitlines() if "|" in l]
     if not lines:
-        raise RuntimeError("اكتبي الرقم والـ apikey بالشكل ده: 201001234567|123456")
+        raise RuntimeError("اكتب الرقم والـ apikey بالشكل ده: 201001234567|123456")
     for l in lines:
         phone, key = [x.strip() for x in l.split("|", 1)]
         url = "https://api.callmebot.com/whatsapp.php?" + urllib.parse.urlencode({"phone": phone, "text": text[:1500], "apikey": key})
@@ -280,7 +280,7 @@ def _send_test(channel, cfg, text):
         return send_whatsapp(cfg, text)
     if channel == "webhook":
         if not cfg.get("webhook_url"):
-            raise RuntimeError("اكتبي رابط الـ webhook")
+            raise RuntimeError("اكتب رابط الـ webhook")
         _post_json(cfg["webhook_url"], {"text": text}, timeout=10)
         return 1
     raise RuntimeError("قناة مش معروفة")

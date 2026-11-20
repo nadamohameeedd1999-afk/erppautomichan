@@ -307,7 +307,7 @@ def explain(way, res, ok, err=""):
             n = len([x for x in chk.get("rows", []) if not x.get("unread")])
             lines.append(f"🔎 فتحته تاني وقارنت {n} قيمة — {n - len(chk['warnings'])} زي ما اتكتبت ✓")
             lines.append(("🔒 ماتغيرتش بعد التعديل (غالبًا مقفولة في التعديل في الـ ERP): " if way == "edit" else
-                          "⚠️ حقول مش إجبارية اتملت بس الـ ERP ما حفظهاش (راجعيها — ممكن تكون مشكلة في الـ ERP): ")
+                          "⚠️ حقول مش إجبارية اتملت بس الـ ERP ما حفظهاش (راجعها — ممكن تكون مشكلة في الـ ERP): ")
                          + " · ".join(chk["warnings"][:6]))
         elif chk.get("checked"):
             rd = [x for x in chk.get("rows", []) if not x.get("unread")]
@@ -327,7 +327,7 @@ def explain(way, res, ok, err=""):
         m = MISSING_DATA_RE.search(str(err))
         if m:
             lines.append(f"📦 بيانات أساسية ناقصة في الموقع: «{m.group(1).strip()}» مفيهاش ولا اختيار — عرّفي واحد على الأقل في الـ ERP"
-                         " وشغّلي الاختبار تاني (ده مش عيب في الشاشة نفسها)")
+                         " وشغّل الاختبار تاني (ده مش عيب في الشاشة نفسها)")
     return "\n".join(lines)
 
 

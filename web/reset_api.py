@@ -131,9 +131,9 @@ def api_factory_reset():
     d = request.get_json(silent=True) or {}
     groups = [g for g in d.get("groups") or [] if g in GROUPS]
     if not groups:
-        return jsonify({"success": False, "error": "اختاري حاجة تتمسح / pick what to wipe"}), 400
+        return jsonify({"success": False, "error": "اختار حاجة تتمسح / pick what to wipe"}), 400
     if str(d.get("confirm", "")).strip() not in ("امسح", "RESET"):
-        return jsonify({"success": False, "error": "اكتبي «امسح» للتأكيد / type RESET to confirm"}), 400
+        return jsonify({"success": False, "error": "اكتب «امسح» للتأكيد / type RESET to confirm"}), 400
     from web import backup
     try:
         b = backup.create("before-reset", full=True, shots=True)

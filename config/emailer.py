@@ -56,8 +56,8 @@ def _deliver(config, recipients, subject, html, files=()):
             r = requests.post("https://api.brevo.com/v3/smtp/email", json=body, headers={"api-key": key, "accept": "application/json"}, timeout=30)
         if r.status_code == 401:
             raise RuntimeError("Brevo رفض المفتاح (401 Key not found): المفتاح غلط أو اتمسح أو اتنسخ ناقص — "
-                               "اعملي مفتاح API جديد (بيبدأ بـ xkeysib-) والصقيه كامل من غير مسافات" if not key.startswith("re_")
-                               else "Resend رفض المفتاح (401) — اتأكدي إنه كامل وشغال")
+                               "اعمل مفتاح API جديد (بيبدأ بـ xkeysib-) والصقه كامل من غير مسافات" if not key.startswith("re_")
+                               else "Resend رفض المفتاح (401) — اتأكد إنه كامل وشغال")
         if r.status_code == 400 and "sender" in r.text.lower():
             raise RuntimeError(f"Brevo رفض المرسل «{sender}» — لازم يتضاف ويتأكد في Brevo ← Senders & IP ← Senders")
         if r.status_code >= 300:
@@ -79,7 +79,7 @@ def _deliver(config, recipients, subject, html, files=()):
     except OSError as e:
         if getattr(e, "errno", None) in (101, 110, 111, 113) or "unreachable" in str(e).lower() or "timed out" in str(e).lower():
             raise RuntimeError("السيرفر مش قادر يوصل لـ SMTP (Railway بيقفل SMTP في الخطة المجانية والـ Hobby) — "
-                               "حطي مفتاح Brevo في «مفتاح خدمة الإيميل» وهيبعت من غير SMTP") from e
+                               "حط مفتاح Brevo في «مفتاح خدمة الإيميل» وهيبعت من غير SMTP") from e
         raise
 
 
@@ -169,7 +169,7 @@ def send_test_email(to_email):
                  + ('عن طريق خدمة الإيميل (HTTPS)' if _api_key(config) else 'عن طريق SMTP') + '</p></div>')
         return True, 'اتبعت لـ ' + to_email
     except smtplib.SMTPAuthenticationError:
-        return False, 'جيميل رفض الدخول — حطي «كلمة مرور التطبيق» (16 حرف) مش الباسورد العادي'
+        return False, 'جيميل رفض الدخول — حط «كلمة مرور التطبيق» (16 حرف) مش الباسورد العادي'
     except Exception as e:
         return False, str(e)[:250]
 

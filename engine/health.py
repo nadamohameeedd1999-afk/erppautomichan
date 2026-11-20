@@ -337,7 +337,7 @@ def run_health(driver, credentials, cfg, result=None):
     todo = risk.order(todo)                          # ⚖️ the most important screens first (Tosca-style risk-based order)
     logger.info(f"🩺 لقيت {len(links)} لينك في المنيو — هفتح {len(todo)} شاشة")
     if not todo:
-        e = AssertionError("صحة النظام: مالقيتش ولا لينك في المنيو بعد الدخول (اتأكدي إن الدخول تم وإن المنيو بيظهر في الصفحة الرئيسية)")
+        e = AssertionError("صحة النظام: مالقيتش ولا لينك في المنيو بعد الدخول (اتأكد إن الدخول تم وإن المنيو بيظهر في الصفحة الرئيسية)")
         e.partial_result = result
         raise e
     driver.set_script_timeout(60 * 30)

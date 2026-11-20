@@ -74,7 +74,7 @@
     </div>
 
     <div class="card ck-card mb-3">
-        <div class="card-header"><span>الاختبارات المتقدمة المحفوظة</span><span class="muted">بتظهر كمان في صفحة الاختبارات تحت «🧪 اختبارات متقدمة»، وتقدري تحطيها في جدولة</span></div>
+        <div class="card-header"><span>الاختبارات المتقدمة المحفوظة</span><span class="muted">بتظهر كمان في صفحة الاختبارات تحت «🧪 اختبارات متقدمة»، وتقدر تحطها في جدولة</span></div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-sm align-middle mb-0">
@@ -123,7 +123,7 @@
       </div>
       <div class="modal-footer">
         <span class="small text-muted me-auto" id="edMsg"></span>
-        <button class="btn btn-warning" id="btnTry" onclick="tryNow()">🧪 جرّبي دلوقتي</button>
+        <button class="btn btn-warning" id="btnTry" onclick="tryNow()">🧪 جرّب دلوقتي</button>
         <button class="btn btn-success" onclick="save()">💾 حفظ</button>
         <button class="btn btn-primary" onclick="save(true)">💾 حفظ وتشغيل</button>
       </div>
@@ -173,7 +173,7 @@ async function loadList() {
                 <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${esc(c.key)}')"><i class="bi bi-pencil"></i> تعديل</button>
                 <button class="btn btn-sm btn-outline-danger" aria-label="امسح" title="امسح" onclick="del('${esc(c.key)}')"><i class="bi bi-trash" aria-hidden="true"></i></button>
             </td></tr>`;
-    }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">لسه مفيش — اختاري نوع من فوق وابدئي</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">لسه مفيش — اختار نوع من فوق وابدئي</td></tr>';
 }
 
 async function runQueued(key) {
@@ -183,7 +183,7 @@ async function runQueued(key) {
     if (confirm(`اتضاف للطابور${r.count > 1 ? ` على ${r.count} موقع` : ''} ✅ — تروحي مركز التشغيل تتابعيه؟`)) location.href = '/queue';
 }
 async function del(key) {
-    if (!confirm('تمسحي الاختبار ده؟ (بيتنقل لسلة المحذوفات وتقدري ترجعيه من النسخ الاحتياطي)')) return;
+    if (!confirm('تمسح الاختبار ده؟ (بيتنقل لسلة المحذوفات وتقدر ترجعيه من النسخ الاحتياطي)')) return;
     await fetch('/api/checks/' + encodeURIComponent(key), {method: 'DELETE'});
     loadList();
 }
@@ -258,7 +258,7 @@ function rCycle() {
             <td class="text-center"><input type="checkbox" class="form-check-input" ${s.optional ? 'checked' : ''} title="لو فشلت الدورة تكمل" onchange="set('steps.${i}.optional', this.checked)"></td>
             <td class="text-nowrap"><button class="btn btn-sm btn-light" onclick="move('steps', ${i}, -1)">↑</button><button class="btn btn-sm btn-light" onclick="move('steps', ${i}, 1)">↓</button>
                 <button class="btn btn-sm btn-outline-danger" onclick="drop('steps', ${i})">✖</button></td></tr>`).join('') ||
-            '<tr><td colspan="5" class="text-center text-muted">ضيفي خطوة أو اختاري قالب من فوق</td></tr>'}</tbody></table>
+            '<tr><td colspan="5" class="text-center text-muted">ضيف خطوة أو اختار قالب من فوق</td></tr>'}</tbody></table>
         <button class="btn btn-sm btn-outline-primary" onclick="ED.steps.push({name: 'خطوة ' + (ED.steps.length + 1), key: '', optional: false}); render()">➕ خطوة</button>
         ${missing ? `<div class="alert alert-warning py-2 small mt-2 mb-0">⚠️ ${missing} خطوة لسه ملهاش اختبار. اختار لها اختبار من القايمة (أو «📊 فحص تقرير» للأرصدة) — أو امسح الخطوة.</div>` : ''}
     </div>`;
@@ -323,7 +323,7 @@ function rPerf() {
     return `<div class="ed-sec"><div class="t">⚡ الشاشات</div>
         <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="pAll" ${ED.all_pages ? 'checked' : ''} onchange="set('all_pages', this.checked, true)">
             <label class="form-check-label" for="pAll"><b>كل شاشات النظام</b> <span class="muted">(${pages.length} شاشة — بياخد وقت أطول)</span></label></div>
-        ${ED.all_pages ? '' : `<div class="d-flex gap-2 mb-2"><input class="form-control form-control-sm" placeholder="🔍 دوّري" value="${esc(PERF_Q)}" oninput="PERF_Q = this.value; render(); const x = document.querySelector('#edBody input[placeholder=\\'🔍 دوّري\\']'); x.focus(); x.setSelectionRange(x.value.length, x.value.length)">
+        ${ED.all_pages ? '' : `<div class="d-flex gap-2 mb-2"><input class="form-control form-control-sm" placeholder="🔍 دوّر" value="${esc(PERF_Q)}" oninput="PERF_Q = this.value; render(); const x = document.querySelector('#edBody input[placeholder=\\'🔍 دوّر\\']'); x.focus(); x.setSelectionRange(x.value.length, x.value.length)">
             <span class="chip none text-nowrap">${sel.size} متحدد</span></div>
         <div class="pick-list">${Object.entries(groups).map(([g, items]) => `<div class="grp">${esc(g)}</div>` + items.map(p =>
             `<div class="form-check"><input class="form-check-input" type="checkbox" id="pp_${esc(p.key)}" ${sel.has(p.url) ? 'checked' : ''} onchange="togglePage('${esc(p.url)}', '${esc(p.name).replace(/'/g, '')}', this.checked)">
@@ -362,7 +362,7 @@ function collect() {
 }
 async function save(andRun) {
     const c = collect();
-    if (!c.name_ar) return alert('اكتبي اسم');
+    if (!c.name_ar) return alert('اكتب اسم');
     const r = await fetch('/api/checks', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({config: c})}).then(r => r.json());
     if (!r.success) { $('edMsg').innerHTML = `<span class="text-danger">❌ ${esc(r.error)}</span>`; return; }
     ED = r.config; $('fKey').value = ED.key; $('fKey').disabled = true;

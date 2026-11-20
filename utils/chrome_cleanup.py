@@ -69,7 +69,7 @@ def chrome_count():
 
 
 def kill_all_chrome():
-    """only when nothing is running (the live page's «اقفلي المتصفحات المعلقة»)"""
+    """only when nothing is running (the live page's «اقفل المتصفحات المعلقة»)"""
     n = 0
     for pid, (name, _) in _procs().items():
         if name.startswith(NAMES):

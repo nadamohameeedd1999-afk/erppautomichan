@@ -87,7 +87,7 @@ def compare(tb, fetched, cfg=None):
             continue
         acc = control_account(tb, src, codes.get(src["key"]))
         if not acc:
-            out.append((rule, None, f"مالقيتش حساب مراقبة لـ{src['name']} في الميزان — حطي كوده في الإعدادات (control_codes)"))
+            out.append((rule, None, f"مالقيتش حساب مراقبة لـ{src['name']} في الميزان — حط كوده في الإعدادات (control_codes)"))
             continue
         sub, f = sub_total(rows, src["fields"])
         gl = balance(acc, src["side"])

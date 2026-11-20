@@ -87,7 +87,7 @@ addEventListener('pointerleave', function () { LG.M.x = LG.M.y = -9999; });
 </div>
 <div class="row"><a id="forgot">{{ 'نسيت كلمة المرور؟' if ar else 'Forgot password?' }}</a></div>
 <div class="hint" id="hint">
-  {% if ar %}اكتبي <code>ADMIN_PASSWORD=كلمة_جديدة</code> في ملف <code>.env</code> (أو في Variables على Railway) وشغّلي البرنامج تاني — المستخدم <code>admin</code> هياخدها.
+  {% if ar %}اكتب <code>ADMIN_PASSWORD=كلمة_جديدة</code> في ملف <code>.env</code> (أو في Variables على Railway) وشغّل البرنامج تاني — المستخدم <code>admin</code> هياخدها.
   {% else %}Set <code>ADMIN_PASSWORD=new_password</code> in <code>.env</code> (or Railway Variables) and restart — user <code>admin</code> gets it.{% endif %}
 </div>
 <button type="submit" class="btn" id="btn">{{ 'تسجيل الدخول' if ar else 'Sign in' }} {{ '←' if ar else '→' }}</button>

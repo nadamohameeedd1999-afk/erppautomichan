@@ -11,7 +11,7 @@ ALL = ["add", "edit", "print", "delete"]
 
 # key, name, link on NQ ERP, cycle, risk (1 = highest), ways, note
 LIBRARY = [
-    ("sales_invoice", "فواتير البيع", "/SalesInvoice", "🛒 المبيعات", 1, ALL, "فيها جدول أصناف — لو الحفظ اترفض لعدم وجود صنف سجّلي خطوة «إضافة صنف» مرة من منشئ الاختبارات"),
+    ("sales_invoice", "فواتير البيع", "/SalesInvoice", "🛒 المبيعات", 1, ALL, "فيها جدول أصناف — لو الحفظ اترفض لعدم وجود صنف سجّل خطوة «إضافة صنف» مرة من منشئ الاختبارات"),
     ("sales_return", "مرتجع البيع", "/SalesReturn", "🛒 المبيعات", 2, ALL, "بيحتاج فاتورة بيع قبله"),
     ("sales_order", "أوامر البيع", "/SalesOrder", "🛒 المبيعات", 2, ALL, "فيها جدول أصناف"),
     ("sales_quotation", "عرض سعر بيع", "/SalesQuotation", "🛒 المبيعات", 3, ALL, ""),
@@ -19,13 +19,13 @@ LIBRARY = [
     ("multi_customer_receipt", "سند قبض متعدد العملاء", "/MultiCustomerReceiptVoucher", "💰 الخزينة", 2, ALL, ""),
     ("cash_issue", "سند الدفع", "/CashIssueVoucher", "💰 الخزينة", 1, ALL, ""),
     ("cash_transfers", "التحويلات المالية", "/CashTransfers", "💰 الخزينة", 2, ALL, "على موقع الاختبار فيه تحويل اتسجل بطرف واحد (قيد مش متزن) — الاختبار ده بيكشفه لو اتكرر"),
-    ("journal_manual", "قيود التسوية اليدوية", "/JournalEntries?type=1", "📒 الحسابات", 1, ALL, "بعد الحفظ شغّلي «⚖️ الحسابات» عشان تتأكدي إن القيد متزن"),
+    ("journal_manual", "قيود التسوية اليدوية", "/JournalEntries?type=1", "📒 الحسابات", 1, ALL, "بعد الحفظ شغّل «⚖️ الحسابات» عشان تتأكد إن القيد متزن"),
     ("utility_bill", "فاتورة خدمية", "/UtilityBill", "📒 الحسابات", 3, ALL, ""),
     ("purchase_request", "طلب شراء", "/PurchaseRequest", "📥 المشتريات", 3, ALL, ""),
     ("purchase_order", "أوامر الشراء", "/PurchaseOrder", "📥 المشتريات", 2, ALL, "فيها جدول أصناف"),
     ("purchase_invoice", "فواتير الشراء", "/PurchaseInvoice", "📥 المشتريات", 1, ALL, "فيها جدول أصناف"),
     ("purchase_return", "مرتجع الشراء", "/PurchaseReturn", "📥 المشتريات", 2, ALL, "بيحتاج فاتورة شراء قبله"),
-    ("stock_receipt", "سندات استلام المخازن", "/StockReceiptVoucher", "📦 المخازن", 1, ALL, "على موقع الاختبار فيه سندات استلام اتسجل قيدها بطرف واحد — بعد الحفظ شغّلي «⚖️ الحسابات»"),
+    ("stock_receipt", "سندات استلام المخازن", "/StockReceiptVoucher", "📦 المخازن", 1, ALL, "على موقع الاختبار فيه سندات استلام اتسجل قيدها بطرف واحد — بعد الحفظ شغّل «⚖️ الحسابات»"),
     ("stock_issue", "سندات صرف المخازن", "/StockIssueVoucher?type=1", "📦 المخازن", 1, ALL, "نفس ملاحظة الاستلام: قيد بطرف واحد اتكرر على موقع الاختبار"),
     ("stock_transfer", "سندات تحويل المخازن", "/StockTransferVoucher", "📦 المخازن", 2, ALL, ""),
     ("customers", "العملاء", "/Customers", "🗂️ البيانات الأساسية", 2, ALL, ""),

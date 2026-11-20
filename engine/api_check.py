@@ -148,7 +148,7 @@ def run_api(driver, credentials, cfg, result=None):
     driver.set_script_timeout(600)
     eps = endpoints(cfg, load_state())
     if not eps:
-        raise AssertionError("مفيش endpoints أختبرها — شغّلي «🩺 صحة النظام» مرة (بيلقط طلبات البيانات بتاعة كل شاشة) أو ضيفي روابط في الإعدادات")
+        raise AssertionError("مفيش endpoints أختبرها — شغّل «🩺 صحة النظام» مرة (بيلقط طلبات البيانات بتاعة كل شاشة) أو ضيف روابط في الإعدادات")
     sf = STATE / f"api_{_site_key()}.json"
     try:
         base_all = json.loads(sf.read_text(encoding="utf-8")) if sf.exists() else {}

@@ -371,7 +371,7 @@ class FormFiller:
             actual = self.driver.execute_script(SET_VALUE_JS, el, value) or ""
             if actual.startswith("__NOT_INPUT__"):
                 raise FieldFillError(field, f"الـ id ده مش خانة كتابة (ده عنصر {actual.split(':')[1]}) — "
-                                            "اتأكدي إنه id الحقل نفسه")
+                                            "اتأكد إنه id الحقل نفسه")
         if actual.strip() != value.strip():
             # a zero that the page shows as empty (computed discount / amount boxes) is the same value
             try:
@@ -418,7 +418,7 @@ class FormFiller:
         el = self._find(field)
         if el.tag_name.lower() == "select" and not field["id"].startswith("css:"):
             if field["strategy"] in ("unique", "today"):
-                raise FieldFillError(field, "الحقل ده قايمة مش خانة كتابة — غيّري النوع لـ قايمة")
+                raise FieldFillError(field, "الحقل ده قايمة مش خانة كتابة — غيّر النوع لـ قايمة")
             return self.fill_select({**field, "kind": "select2"})
         return self.fill_input(field)
 

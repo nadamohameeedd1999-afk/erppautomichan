@@ -73,7 +73,7 @@ def report():
         lv = live.get(cfg["add_url"].split("?")[0].lower().rstrip("/"))
         if not lv:
             rows.append({"key": cfg["key"], "name": cfg.get("name_ar"), "status": "unknown",
-                         "note": "الفورم ده ما اتقراش في فحص صحة النظام لسه — شغّلي فحص على الموقع"})
+                         "note": "الفورم ده ما اتقراش في فحص صحة النظام لسه — شغّل فحص على الموقع"})
             continue
         ch = diff(cfg, lv)
         rows.append({"key": cfg["key"], "name": cfg.get("name_ar"), "status": "changed" if ch else "ok", "changes": ch,

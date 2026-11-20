@@ -240,14 +240,14 @@ def discover(driver, credentials, cfg, result=None):
     names = {k: found[k][1] for k in found if found.get(k)}
     row = save_data(BASE_URL, vals, names, auto=True)
     miss = [k for k, _ in SYMBOLS if not found.get(k)]
-    rows = [{"cells": [k, lbl, found[k][0] if found.get(k) else (old.get(k) or "—"), found[k][1] if found.get(k) else "مالقيتش — اكتبيها بإيدك", DISCOVER_RULES[k]],
+    rows = [{"cells": [k, lbl, found[k][0] if found.get(k) else (old.get(k) or "—"), found[k][1] if found.get(k) else "مالقيتش — اكتبها بإيدك", DISCOVER_RULES[k]],
              "ok": True if found.get(k) else False} for k, lbl in SYMBOLS]
     result["detail"] = {"title": "🔎 ملف بيانات الموقع — اتملى تلقائي (قراءة بس)", "columns": ["الرمز", "معناه", "القيمة", "الاسم في الـ ERP", "اتختار ليه"],
                         "rows": rows, "note": f"اتفحص {a.get('checked', 0)} صنف · " + ("كل الرموز اتملت" if not miss else "ناقص: " + ", ".join(miss))}
     result["biz"] = {"data": row}
     logger.info("🔎 " + " · ".join(f"{k}={vals[k]}" for k, _ in SYMBOLS))
     if miss:
-        e = AssertionError("ملف بيانات الموقع: مالقيتش " + ", ".join(miss) + " — اكتبيهم بإيدك في صفحة سيناريوهات الأعمال")
+        e = AssertionError("ملف بيانات الموقع: مالقيتش " + ", ".join(miss) + " — اكتبهم بإيدك في صفحة سيناريوهات الأعمال")
         e.partial_result = result
         raise e
     return result
@@ -516,7 +516,7 @@ def run_invoice(driver, code, c, data, day, opts=None):
     b = _js(driver, "const [ctrl, code] = A; let dup = 0; try { dup = JSON.parse(await N.get('/SalesInvoice/GetItemsSmartSearchHints?term=' + encodeURIComponent(code))).filter(i => String(i.barcode) === String(code)).length; } catch (e) {} return {ids: Object.keys(await N.ids(ctrl)), dup};",
             P["ctrl"], data["A"])
     if b.get("dup", 0) > 1:
-        return k.done(BDATA, f"الباركود «{data['A']}» متسجل على {b['dup']} صنف في الـ ERP — حطي في ملف البيانات باركود الصنف A مايتكررش (الأداة مش هتختار واحد بالتخمين)")
+        return k.done(BDATA, f"الباركود «{data['A']}» متسجل على {b['dup']} صنف في الـ ERP — حط في ملف البيانات باركود الصنف A مايتكررش (الأداة مش هتختار واحد بالتخمين)")
     # header
     h = _js(driver, r"""
       const [P, d, s] = A; const out = {miss: []};

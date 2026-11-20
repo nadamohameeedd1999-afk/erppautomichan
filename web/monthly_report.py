@@ -305,7 +305,7 @@ def monthly_send():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
     if not ok:
-        return jsonify({"success": False, "error": "الـ PDF اتعمل بس الإيميل ما اتبعتش — اتأكدي من الإعدادات ← Email"})
+        return jsonify({"success": False, "error": "الـ PDF اتعمل بس الإيميل ما اتبعتش — اتأكد من الإعدادات ← Email"})
     return jsonify({"success": True, "file": f.name})
 
 

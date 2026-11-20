@@ -133,7 +133,7 @@ def normalize(cfg):
             k = str(st.get("key") or "").strip()
             name = str(st.get("name") or k).strip()
             if not k:
-                raise ConfigError(f"خطوة {i} «{name}»: اختاري الشاشة اللي هتتشغل فيها (أو امسحي الخطوة)")
+                raise ConfigError(f"خطوة {i} «{name}»: اختار الشاشة اللي هتتشغل فيها (أو امسح الخطوة)")
             if k == key:
                 raise ConfigError("الدورة مينفعش تشغّل نفسها")
             steps.append({"key": k, "name": name or k, "optional": bool(st.get("optional", False))})
@@ -145,7 +145,7 @@ def normalize(cfg):
         from engine import screen_config
         url = _url(cfg.get("url"))
         if not url:
-            raise ConfigError("اكتبي رابط التقرير (زي /Reports/TrialBalance)")
+            raise ConfigError("اكتب رابط التقرير (زي /Reports/TrialBalance)")
         fields, seen = [], set()
         for i, f in enumerate(cfg.get("fields") or [], 1):
             try:
@@ -159,7 +159,7 @@ def normalize(cfg):
                 values.append({"name": str(v.get("name") or ref).strip(), "ref": ref})
         asserts = _list(cfg.get("asserts"))
         if not values and not asserts:
-            raise ConfigError("حددي رقم واحد على الأقل يتقري (زي sum:مدين) أو قاعدة يتأكد منها (زي {sum:مدين} = {sum:دائن})")
+            raise ConfigError("حدد رقم واحد على الأقل يتقري (زي sum:مدين) أو قاعدة يتأكد منها (زي {sum:مدين} = {sum:دائن})")
         compare = str(cfg.get("compare") or "warn")
         if compare not in ("equal", "warn", "off"):
             compare = "warn"
@@ -170,12 +170,12 @@ def normalize(cfg):
     elif typ == "auto":
         screen = str(cfg.get("screen") or "").strip()
         if not screen:
-            raise ConfigError("اختاري الشاشة اللي هتتختبر")
+            raise ConfigError("اختار الشاشة اللي هتتختبر")
         raw = [("add" if w in ("add_required", "add_full") else w) for w in (cfg.get("ways") or CLASSIC_WAYS)]
         raw = [w for w in raw if w in AUTO_WAYS] or list(CLASSIC_WAYS)        # old saved tests (reject_…) -> the four tests
         ways = [w for w in AUTO_WAYS if w in raw]
         if not ways:
-            raise ConfigError("اختاري طريقة واحدة على الأقل")
+            raise ConfigError("اختار طريقة واحدة على الأقل")
         scen = [x for x in AUTO_SCENARIOS if x in (cfg.get("scenarios") or ["first"])] or ["first"]
         mode = cfg.get("fields_mode") or ("required" if cfg.get("ways") and "add_required" in cfg["ways"] and "add_full" not in cfg["ways"] else "all")
         out.update({"screen": screen, "ways": ways, "scenarios": scen, "fields_mode": mode if mode in ("all", "required") else "all",
@@ -194,7 +194,7 @@ def normalize(cfg):
                 pages.append({"url": u, "name": str((p.get("name") if isinstance(p, dict) else "") or u).strip()})
         all_pages = bool(cfg.get("all_pages", False))
         if not pages and not all_pages:
-            raise ConfigError("اختاري الشاشات اللي هتتقاس (أو علّمي «كل الشاشات»)")
+            raise ConfigError("اختار الشاشات اللي هتتقاس (أو علّم «كل الشاشات»)")
         out.update({"pages": pages, "all_pages": all_pages,
                     "times": max(1, min(5, int(cfg.get("times", 2) or 2))),
                     "factor": max(1.2, float(cfg.get("factor", 2) or 2)),
@@ -220,7 +220,7 @@ def normalize(cfg):
             except (TypeError, ValueError):
                 raise ConfigError("كمية / سعر الصنف لازم يبقوا أرقام")
         if len(its) < 2 or not all(i["code"] and i["qty"] > 0 and i["price"] > 0 for i in its):
-            raise ConfigError("حددي صنفين: الكود (الباركود) والكمية والسعر لكل واحد")
+            raise ConfigError("حدد صنفين: الكود (الباركود) والكمية والسعر لكل واحد")
         out.update({"template": "sales_invoice_credit", "items": its,
                     "qty_edit": float(cfg.get("qty_edit") or its[0]["qty"] + 2), "discount_pct": float(cfg.get("discount_pct", 10) or 0),
                     "customer": str(cfg.get("customer") or "").strip(), "department": str(cfg.get("department") or "").strip(),
@@ -238,7 +238,7 @@ def normalize(cfg):
         if screens and not scr:
             scr = screens[0]["screen"]
         if not re.match(r"^[A-Z]{2,5}$", scr):
-            raise ConfigError("حددي الشاشة (SAL / PUR / CRV / CPV …)")
+            raise ConfigError("حدد الشاشة (SAL / PUR / CRV / CPV …)")
         out.update({"screen": scr, "cases": [str(x).strip() for x in (cfg.get("cases") or []) if str(x).strip()][:200],
                     "discover": bool(cfg.get("discover"))})
 

@@ -81,7 +81,7 @@
     </div>
     <div class="d-flex flex-wrap gap-2">
         {% if home.failing %}
-        <button class="btn btn-danger btn-sm" onclick="rerunFailing()"><i class="bi bi-arrow-repeat"></i> شغّلي الفاشلين بس ({{ home.failing|length }})</button>
+        <button class="btn btn-danger btn-sm" onclick="rerunFailing()"><i class="bi bi-arrow-repeat"></i> شغّل الفاشلين بس ({{ home.failing|length }})</button>
         {% endif %}
         <a class="btn btn-outline-primary btn-sm" href="/auto-test"><i class="bi bi-robot"></i> الاختبار الآلي</a>
         <a class="btn btn-outline-secondary btn-sm" href="/reports/daily"><i class="bi bi-file-earmark-pdf"></i> التقرير اليومي</a>
@@ -123,7 +123,7 @@
         {% for f in home.failing[:3] %}{% set ns.n = ns.n + 1 %}
         <div class="att"><span>⚠️</span><div class="tx"><b>{{ f.name }}</b> فشل <span class="ago" data-t="{{ f.when }}"></span>
             {% if f.message %}<div title="{{ f.message }}">{{ f.message }}</div>{% endif %}</div>
-            {% if f.path %}<button class="btn btn-outline-danger" onclick='runOne({{ f.path|tojson }}, {{ f.name|tojson }})'>أعيدي</button>{% endif %}
+            {% if f.path %}<button class="btn btn-outline-danger" onclick='runOne({{ f.path|tojson }}, {{ f.name|tojson }})'>أعيد</button>{% endif %}
             <a class="btn btn-outline-primary" href="/reports/{{ f.run_id }}#whyCard" title="ليه فشل؟ + اسأل الذكاء الاصطناعي">✨ ليه؟</a></div>
         {% endfor %}
         {% for s in home.slower[:1] %}{% set ns.n = ns.n + 1 %}
@@ -318,7 +318,7 @@ let BATCH = false;
 async function rerunFailing() {
     const list = HOME.failing.filter(f => f.path);
     if (!list.length) return;
-    if (!confirm(`هيتعاد تشغيل ${list.length} اختبار فاشل. متأكدة؟`)) return;
+    if (!confirm(`هيتعاد تشغيل ${list.length} اختبار فاشل. متأكد؟`)) return;
     BATCH = true;
     for (const f of list) await runOne(f.path, f.name + ' (إعادة)');
     BATCH = false;

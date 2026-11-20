@@ -21,7 +21,7 @@
             <div class="text-muted">كل حاجة البرنامج بيحفظها موجودة في <code class="ltr">{{ data_dir }}</code></div>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-success" onclick="makeBackup(false)"><i class="bi bi-download"></i> خدي نسخة دلوقتي</button>
+            <button class="btn btn-success" onclick="makeBackup(false)"><i class="bi bi-download"></i> خد نسخة دلوقتي</button>
             <button class="btn btn-outline-success" onclick="makeBackup(true)" title="بكل اللقطات القديمة كمان (حجمها أكبر)">نسخة كاملة</button>
         </div>
     </div>
@@ -31,14 +31,14 @@
         <ul class="mb-0 small">
             <li><strong>نسخة أوتوماتيك كل يوم</strong> الساعة <span id="bkHour"></span>:00، وبيفضل آخر <span id="bkKeep"></span> نسخة.</li>
             <li><strong>أي إعداد بيتحفظ</strong> (شاشة، سيناريو، جدولة، مستخدمين، إعدادات) بيحتفظ بآخر 10 نسخ قديمة منه — ولو الملف باظ بيرجع لآخر نسخة سليمة لوحده.</li>
-            <li><strong>المسح مش نهائي:</strong> أي شاشة أو سيناريو بيتمسح بيروح سلة المحذوفات تحت، وتقدري ترجّعيه.</li>
+            <li><strong>المسح مش نهائي:</strong> أي شاشة أو سيناريو بيتمسح بيروح سلة المحذوفات تحت، وتقدر ترجّعيه.</li>
         </ul>
     </div>
 
     <div class="row g-3">
         <div class="col-lg-7">
             <div class="card bk-card h-100">
-                <div class="card-header">النسخ المحفوظة <span class="muted fw-normal">نزّليها واحفظيها برا السيرفر كمان</span></div>
+                <div class="card-header">النسخ المحفوظة <span class="muted fw-normal">نزّلها واحفظها برا السيرفر كمان</span></div>
                 <div class="card-body pt-2">
                     <table class="table table-sm align-middle mb-0">
                         <thead><tr class="muted"><th>النسخة</th><th>النوع</th><th>الحجم</th><th></th></tr></thead>
@@ -51,19 +51,19 @@
             <div class="card bk-card mb-3">
                 <div class="card-header">استرجاع من ملف</div>
                 <div class="card-body">
-                    <div class="small text-muted mb-2">ارفعي ملف نسخة (zip) من جهازك. قبل الاسترجاع بيتاخد نسخة أمان من الوضع الحالي.</div>
+                    <div class="small text-muted mb-2">ارفع ملف نسخة (zip) من جهازك. قبل الاسترجاع بيتاخد نسخة أمان من الوضع الحالي.</div>
                     <input type="file" class="form-control mb-2" id="restoreFile" accept=".zip">
-                    <button class="btn btn-outline-danger w-100" onclick="restoreUpload()"><i class="bi bi-arrow-counterclockwise"></i> استرجعي من الملف</button>
+                    <button class="btn btn-outline-danger w-100" onclick="restoreUpload()"><i class="bi bi-arrow-counterclockwise"></i> استرجع من الملف</button>
                 </div>
             </div>
             {% if current_user and current_user.role == 'admin' %}
             <div class="card bk-card mb-3" style="border:1px solid rgba(229,72,77,.45) !important">
-                <div class="card-header text-danger">🧨 {{ 'بداية جديدة — امسحي كل حاجة' if current_lang == 'ar' else 'Fresh start — wipe everything' }}</div>
+                <div class="card-header text-danger">🧨 {{ 'بداية جديدة — امسح كل حاجة' if current_lang == 'ar' else 'Fresh start — wipe everything' }}</div>
                 <div class="card-body">
-                    <div class="muted mb-2">{{ 'بيمسح بيانات اللوحة نفسها عشان تجربي من الأول. قبل المسح بتتعمل نسخة احتياطية كاملة تقدري ترجعيها من هنا. حسابك بيفضل، ومفيش أي حاجة بتتمسح على مواقع الـ ERP.' if current_lang == 'ar' else 'Clears the dashboard’s own data so you can start over. A full backup is made first (restorable here). Your account stays, and nothing on any ERP site is touched.' }}</div>
+                    <div class="muted mb-2">{{ 'بيمسح بيانات اللوحة نفسها عشان تجرب من الأول. قبل المسح بتتعمل نسخة احتياطية كاملة تقدر ترجعيها من هنا. حسابك بيفضل، ومفيش أي حاجة بتتمسح على مواقع الـ ERP.' if current_lang == 'ar' else 'Clears the dashboard’s own data so you can start over. A full backup is made first (restorable here). Your account stays, and nothing on any ERP site is touched.' }}</div>
                     <div id="rsGroups" class="mb-2"></div>
-                    <input class="form-control form-control-sm mb-2" id="rsConfirm" placeholder="{{ 'اكتبي «امسح» للتأكيد' if current_lang == 'ar' else 'Type RESET to confirm' }}">
-                    <button class="btn btn-danger w-100" onclick="factoryReset()"><i class="bi bi-exclamation-octagon"></i> {{ 'خدي نسخة احتياطية وامسحي المختار' if current_lang == 'ar' else 'Back up, then wipe the selected' }}</button>
+                    <input class="form-control form-control-sm mb-2" id="rsConfirm" placeholder="{{ 'اكتب «امسح» للتأكيد' if current_lang == 'ar' else 'Type RESET to confirm' }}">
+                    <button class="btn btn-danger w-100" onclick="factoryReset()"><i class="bi bi-exclamation-octagon"></i> {{ 'خد نسخة احتياطية وامسح المختار' if current_lang == 'ar' else 'Back up, then wipe the selected' }}</button>
                     <div id="rsOut" class="small mt-2"></div>
                 </div>
             </div>
@@ -94,7 +94,7 @@ if (document.getElementById('rsGroups')) document.getElementById('rsGroups').inn
 async function factoryReset() {
     const groups = [...document.querySelectorAll('.rs:checked')].map(c => c.value);
     const out = document.getElementById('rsOut');
-    if (!groups.length) { out.innerHTML = '<span class="text-danger">' + (RS_AR ? 'اختاري حاجة' : 'Pick something') + '</span>'; return; }
+    if (!groups.length) { out.innerHTML = '<span class="text-danger">' + (RS_AR ? 'اختار حاجة' : 'Pick something') + '</span>'; return; }
     out.textContent = RS_AR ? '⏳ باخد نسخة احتياطية كاملة وبعدين بمسح…' : '⏳ Backing up, then wiping…';
     const r = await fetch('/api/factory-reset', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({groups, confirm: document.getElementById('rsConfirm').value})}).then(r => r.json()).catch(e => ({success: false, error: String(e)}));
@@ -131,7 +131,7 @@ async function restoreName(name) {
 }
 async function restoreUpload() {
     const f = document.getElementById('restoreFile').files[0];
-    if (!f) { alert('اختاري ملف'); return; }
+    if (!f) { alert('اختار ملف'); return; }
     if (!confirm('تسترجعي من الملف ده؟ (هيتاخد نسخة أمان قبلها)')) return;
     const fd = new FormData(); fd.append('file', f);
     const r = await fetch('/api/backups/restore', { method: 'POST', body: fd }).then(r => r.json());

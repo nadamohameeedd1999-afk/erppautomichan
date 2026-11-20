@@ -316,7 +316,7 @@ async function load() {
   const sites = r.sites || [];
   el('scSites').innerHTML = sites.length ? sites.map(s => `<button type="button" class="sc-site" data-id="${esc(s.id)}" ${s.kind === 'client' ? 'disabled title="نظام عميل — قراءة بس"' : ''} onclick="pickSite('${esc(s.id)}')">
       <div class="fw-bold">${esc(s.name)} ${s.active ? '<span class="sc-badge t">النشط</span>' : ''} ${s.kind === 'client' ? '<span class="sc-badge">عميل 🔒</span>' : '<span class="sc-badge t">اختبار</span>'}</div>
-      <div class="u">${esc(s.url)}</div></button>`).join('') : '<span class="text-muted small">مفيش مواقع — ضيفي موقع من الإعدادات</span>';
+      <div class="u">${esc(s.url)}</div></button>`).join('') : '<span class="text-muted small">مفيش مواقع — ضيف موقع من الإعدادات</span>';
   const first = sites.find(s => s.active && s.kind !== 'client') || sites.find(s => s.kind !== 'client');
   if (first) pickSite(first.id);
   const runs = r.runs || [];
@@ -336,10 +336,10 @@ async function load() {
 
 async function scSave(run) {
   const v = id => el(id).value.trim();
-  if (!v('bzA') || !v('bzB')) { alert('اكتبي كود الصنفين A و B'); return; }
+  if (!v('bzA') || !v('bzB')) { alert('اكتب كود الصنفين A و B'); return; }
   const config = {items: [{code: v('bzA'), qty: v('bzAq'), price: v('bzAp')}, {code: v('bzB'), qty: v('bzBq'), price: v('bzBp')}],
                   discount_pct: v('bzD'), qty_edit: v('bzE'), customer: v('bzC'), cases: el('bzCases').checked};
-  if (run && !SITE) { alert('اختاري موقع اختبار'); return; }
+  if (run && !SITE) { alert('اختار موقع اختبار'); return; }
   if (run && !confirm('السيناريو هيعمل فاتورة اختبار' + (el('bzCases').checked ? ' + فواتير الحالات 14–18' : '') + ' على الموقع المختار. نكمل؟')) return;
   const r = await fetch('/api/biz/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({config, run, sites: run ? SITE : ''})}).then(x => x.json());
@@ -433,7 +433,7 @@ function bcRenderChipsOnly() { const y = window.scrollY; bcRender(); window.scro
 el('bcFilter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; BCF = b.dataset.f;
   document.querySelectorAll('#bcFilter button').forEach(x => x.classList.toggle('on', x === b)); bcRender(); });
 async function bcSaveData(quiet) {
-  if (!BCSITE) { alert('اختاري موقع اختبار'); return false; }
+  if (!BCSITE) { alert('اختار موقع اختبار'); return false; }
   const data = {}; BC.symbols.forEach(([k]) => data[k] = el('bcd_' + k).value.trim());
   const r = await fetch('/api/bizcases/data', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({site: BCSITE, data})}).then(x => x.json());
   if (!r.success) { alert(r.error); return false; }

@@ -95,7 +95,7 @@ def run_test():
 
     qm = get_qm()
     sites = data.get("sites") or ""
-    if sites:                                   # «شغّلي على: كل المواقع / موقع معين»
+    if sites:                                   # «شغّل على: كل المواقع / موقع معين»
         from web import sites_api
         out = sites_api.queue_on_sites(qm, test_path, test_name, sites, repeat=_repeat_from_request(test_path))
         return jsonify({"success": True, **out, "repeat": _repeat_from_request(test_path)})

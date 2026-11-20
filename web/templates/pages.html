@@ -11,7 +11,7 @@
 {% block content %}
 {% set ar = current_lang == 'ar' %}
 <div class="container-fluid py-3">
-  <p class="text-muted">{{ 'كل صفحات المشروع مرتبة زي القايمة الجانبية — اسم كل صفحة وبتعمل إيه. ودوري على أي حاجة بـ Ctrl K.' if ar else 'Every page of the project, in the same order as the side menu — what each one does. Search anything with Ctrl K.' }}</p>
+  <p class="text-muted">{{ 'كل صفحات المشروع مرتبة زي القايمة الجانبية — اسم كل صفحة وبتعمل إيه. ودوّر على أي حاجة بـ Ctrl K.' if ar else 'Every page of the project, in the same order as the side menu — what each one does. Search anything with Ctrl K.' }}</p>
   {% for sk, sar, sen, its in sections %}
   <div class="pg-sec"><h5>{{ sar if ar else sen }}</h5>
     <div class="pg-grid">

@@ -144,7 +144,7 @@ def run_sod(driver, credentials, cfg, result=None):
     rows, fails = analyse(data, cfg)
     result["detail"] = {"title": "🛡️ الصلاحيات والفصل بين المهام", "columns": ["المستخدم", "القاعدة", "النتيجة"], "rows": rows,
                         "note": f"{len(data.get('users') or [])} مستخدم · {len(RULES)} قاعدة تعارض · من شاشات الصلاحيات على الموقع نفسه (قراءة بس)"
-                                " · استثناء مقبول: ضيفيه في الإعدادات «المستخدم|القاعدة»"}
+                                " · استثناء مقبول: ضيفه في الإعدادات «المستخدم|القاعدة»"}
     logger.info(f"🛡️ {len(data.get('users') or [])} مستخدم · {len(fails)} تعارض")
     if fails:
         e = AssertionError(f"الفصل بين المهام: {len(fails)} تعارض\n   " + "\n   ".join(fails[:15]))

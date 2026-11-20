@@ -24,16 +24,16 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-primary" href="/reports/monthly"><i class="bi bi-file-earmark-richtext"></i> التقرير الشهري للعميل</a>
-            <a class="btn btn-outline-secondary" href="/settings#test-sites"><i class="bi bi-plus-lg"></i> ضيفي موقع عميل</a>
+            <a class="btn btn-outline-secondary" href="/settings#test-sites"><i class="bi bi-plus-lg"></i> ضيف موقع عميل</a>
             {% if m.sites|length > 1 %}
-            <button class="btn btn-success" onclick="runAll('all', this)" title="كل الاختبارات الكاملة على كل المواقع"><i class="bi bi-play-fill"></i> شغّلي كل الاختبارات على كل العملاء</button>
+            <button class="btn btn-success" onclick="runAll('all', this)" title="كل الاختبارات الكاملة على كل المواقع"><i class="bi bi-play-fill"></i> شغّل كل الاختبارات على كل العملاء</button>
             {% endif %}
         </div>
     </div>
 
     {% if m.sites|length < 2 %}
-    <div class="alert alert-info">💡 عشان تختبري أكتر من عميل: من <a href="/settings#test-sites">الإعدادات ← مواقع الاختبار</a> ضيفي نسخة كل عميل (الرابط + المستخدم + كلمة المرور).
-        بعد كده من صفحة الاختبارات اختاري «🌐 على: كل المواقع»، أو في الجدولة اختاري «كل المواقع».</div>
+    <div class="alert alert-info">💡 عشان تختبري أكتر من عميل: من <a href="/settings#test-sites">الإعدادات ← مواقع الاختبار</a> ضيف نسخة كل عميل (الرابط + المستخدم + كلمة المرور).
+        بعد كده من صفحة الاختبارات اختار «🌐 على: كل المواقع»، أو في الجدولة اختار «كل المواقع».</div>
     {% endif %}
 
     <div class="row g-3 mb-3">
@@ -79,7 +79,7 @@
 {% block extra_js %}
 <script>
 async function runAll(site, btn) {
-    if (!confirm(site === 'all' ? 'هيتشغل كل اختبار كامل على كل موقع — ده ممكن ياخد وقت. متأكدة؟' : 'هيتشغل كل اختبار كامل على الموقع ده. متأكدة؟')) return;
+    if (!confirm(site === 'all' ? 'هيتشغل كل اختبار كامل على كل موقع — ده ممكن ياخد وقت. متأكد؟' : 'هيتشغل كل اختبار كامل على الموقع ده. متأكد؟')) return;
     btn.disabled = true;
     const r = await fetch('/api/sites/run', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({all_full: true, sites: site === 'all' ? 'all' : [site]})}).then(r => r.json()).catch(e => ({error: String(e)}));

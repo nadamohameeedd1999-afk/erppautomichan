@@ -8,14 +8,14 @@
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env      # واكتبي فيه كلمة السر
+copy .env.example .env      # واكتب فيه كلمة السر
 python web/app.py           # http://localhost:5000
 ```
 
 أو `start_all.ps1` (بيشغّل اللوحة + Cloudflare tunnel).
 
 ### نسيتي كلمة سر لوحة التحكم؟
-- اكتبي `ADMIN_PASSWORD=...` في `.env` وشغّلي البرنامج تاني، أو
+- اكتب `ADMIN_PASSWORD=...` في `.env` وشغّل البرنامج تاني، أو
 - `python tools\reset_password.py`
 
 ## 🏢 الشركة الافتراضية (NQ Simulation)
@@ -37,7 +37,7 @@ python web/app.py           # http://localhost:5000
 docker compose up -d --build
 ```
 
-كل البيانات في الـ volume `./data:/app/data`. على Railway اعملي Volume على `/app/data`.
+كل البيانات في الـ volume `./data:/app/data`. على Railway اعمل Volume على `/app/data`.
 
 ## هيكل المشروع
 

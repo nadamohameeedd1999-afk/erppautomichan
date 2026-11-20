@@ -235,7 +235,7 @@ def api_auto_save():
     if d.get("all"):
         keys = list(names)
     if not keys:
-        return jsonify({"success": False, "error": "اختاري شاشة واحدة على الأقل"}), 400
+        return jsonify({"success": False, "error": "اختار شاشة واحدة على الأقل"}), 400
     autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
     saved, ids = [], []
     for k in keys:
@@ -273,7 +273,7 @@ def api_test_library_apply():
     d = request.get_json(silent=True) or {}
     keys = [x[0] for x in L.LIBRARY] if d.get("all") else [k for k in d.get("keys") or [] if any(x[0] == k for x in L.LIBRARY)]
     if not keys:
-        return jsonify({"success": False, "error": "اختاري شاشة واحدة على الأقل"}), 400
+        return jsonify({"success": False, "error": "اختار شاشة واحدة على الأقل"}), 400
     autos = {c["screen"]: c for c in C.list_all() if c.get("type") == "auto" and not c.get("error")}
     saved, ids = [], []
     for k in keys:
@@ -656,7 +656,7 @@ def api_bizcases_data():
     d = request.get_json(silent=True) or {}
     prof = next((p for p in ts.load_all().get("profiles", []) if p.get("id") == d.get("site")), None)
     if not prof:
-        return jsonify({"success": False, "error": "اختاري الموقع"}), 400
+        return jsonify({"success": False, "error": "اختار الموقع"}), 400
     return jsonify({"success": True, "data": B.save_data(prof.get("base_url", ""), d.get("data") or {})})
 
 

@@ -41,7 +41,7 @@
       <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
       {% for t in h.slower %}{{ row(t, '+' ~ t.slower_pct ~ '% · متوسط ' ~ t.avg ~ ' ث') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
       </tbody></table></div></div></div>
-    <div class="col-lg-6"><div class="ah-card"><h6>💤 ما اتشغلش من أسبوع أو أكتر</h6><div class="hint">اختبار مش بيتشغل = مش بيحمي حاجة — ضيفيه للجدولة أو امسحيه</div>
+    <div class="col-lg-6"><div class="ah-card"><h6>💤 ما اتشغلش من أسبوع أو أكتر</h6><div class="hint">اختبار مش بيتشغل = مش بيحمي حاجة — ضيفه للجدولة أو امسحه</div>
       <div class="table-responsive"><table class="table table-sm mb-0"><tbody>
       {% for t in h.idle %}{{ row(t, 'من ' ~ t.idle_days ~ ' يوم') }}{% else %}<tr><td class="text-muted">مفيش ✅</td></tr>{% endfor %}
       </tbody></table></div></div></div>

@@ -413,7 +413,7 @@ def check_saved_values(r, cfg, steps):
     hit = driver.execute_script(OPEN_ROW_JS, cfg["verify"].get("open_selector") or "",
                                 re.sub(r"^https?://[^/]+", "", _abs(cfg["list_url"])))
     if not hit:
-        logger.warning("مالقيتش لينك فتح/تعديل في أول صف — مش هقدر أراجع القيم (حددي selector في الإعداد)")
+        logger.warning("مالقيتش لينك فتح/تعديل في أول صف — مش هقدر أراجع القيم (حدد selector في الإعداد)")
         return {"checked": False, "reason": "مفيش لينك فتح في أول صف"}
     if hit.get("href"):
         driver.get(hit["href"])
@@ -591,7 +591,7 @@ def run_screen(driver, credentials, key_or_cfg, save=True, do_login=True, _depth
             if no:
                 RUN_VARS["saved_no"] = no
                 RUN_VARS[f"{cfg['key']}.saved_no"] = no
-                logger.info(f"🔖 رقم السند الجديد: {no}  (تقدري تستخدميه بـ {{var:saved_no}})")
+                logger.info(f"🔖 رقم السند الجديد: {no}  (تقدر تستخدمه بـ {{var:saved_no}})")
             RUN_VARS["saved_row"] = after
             missing = [t for t in cfg["verify"]["row_contains"] if t not in after]
             if missing:

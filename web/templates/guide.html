@@ -60,10 +60,10 @@
   <h2>الخطوات</h2>
   {% set ns = namespace(n=0) %}
   {% for s in steps %}
-    {% if s.kind == 'title' %}<div class="step title"><b>📄 افتحي شاشة «{{ s.text }}» ← دوسي «إضافة»</b></div>
+    {% if s.kind == 'title' %}<div class="step title"><b>📄 افتح شاشة «{{ s.text }}» ← دوسي «إضافة»</b></div>
     {% else %}{% set ns.n = ns.n + 1 %}
     <div class="step"><div class="n">{{ ns.n }}</div><div>
-      {% if s.kind == 'field' %}في خانة <span class="tag">{{ s.label }}</span> اختاري / اكتبي: <b>{{ s.value }}</b>
+      {% if s.kind == 'field' %}في خانة <span class="tag">{{ s.label }}</span> اختار / اكتب: <b>{{ s.value }}</b>
       {% elif s.kind == 'button' %}دوسي زرار <span class="tag">{{ s.label }}</span>
       {% elif s.kind == 'save' %}دوسي <span class="tag">حفظ</span> — السجل هيظهر أول القايمة
       {% elif s.kind == 'number' %}النظام بيدي المستند رقم <b>{{ s.value }}</b>{% endif %}

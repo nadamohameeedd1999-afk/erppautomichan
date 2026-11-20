@@ -113,8 +113,8 @@ def install(app):
                     n = free_space()
                 except Exception:
                     pass
-                why = ("مساحة الديسك على السيرفر كانت خلصت — " + (f"مسحت {n} صورة / لوج قديم، جربي تاني" if n else
-                       "امسحي تقارير قديمة أو كبّري المساحة على Railway"))
+                why = ("مساحة الديسك على السيرفر كانت خلصت — " + (f"مسحت {n} صورة / لوج قديم، جرب تاني" if n else
+                       "امسح تقارير قديمة أو كبّري المساحة على Railway"))
             return jsonify({"success": False, "error": why[:500]}), 500
         return f"<h3>حصل خطأ في السيرفر</h3><pre>{type(e).__name__}: {str(e)[:500]}</pre>", 500
     app.register_blueprint(bp)
