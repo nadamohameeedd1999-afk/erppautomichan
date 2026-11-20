@@ -2,6 +2,7 @@
 {% block title %}سيناريوهات الأعمال - {{ site_name }}{% endblock %}
 {% block extra_css %}
 <style>
+  @media (max-width: 760px) { .bc-cases-wrap { max-height: 65vh; overflow: auto; } }   /* 300 cases: a scroll box on a phone, not 17 screens of page */
   .sc-old { border: 1px dashed var(--g-line); border-radius: 14px; padding: 10px 14px; }
   .sc-old > summary { cursor: pointer; font-weight: 800; font-size: 13.5px; }
   .sc-old[open] > summary { margin-bottom: 12px; }
@@ -135,7 +136,7 @@
               <button data-f="auto" class="on">المؤتمتة</button><button data-f="all">الكل</button><button data-f="P0">P0</button><button data-f="FAIL">الفاشلة</button>
             </div>
           </div>
-          <div class="table-responsive"><table class="bc-cases">
+          <div class="table-responsive bc-cases-wrap"><table class="bc-cases">
             <colgroup><col class="a"><col class="b"><col class="c"><col><col class="e"></colgroup>
             <thead><tr><th><input type="checkbox" id="bcAll" class="form-check-input" title="تحديد الكل"></th><th>الحالة</th><th></th><th>العنوان والمتوقع</th><th>آخر نتيجة</th></tr></thead>
             <tbody id="bcCases"></tbody>

@@ -163,6 +163,7 @@ def inject_globals():
         "nav_sections": _nav.menu_sections(), "nav_all_sections": _nav.SECTIONS,
         "nav_page_title": _nav.page_meta(request.endpoint or "", lang)[0],
         "nav_section_title": _nav.page_meta(request.endpoint or "", lang)[1],
+        "nav_hub": _nav.hub_tabs(request.endpoint or "", lang),
     }
 
 

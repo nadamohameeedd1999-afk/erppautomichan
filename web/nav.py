@@ -63,6 +63,19 @@ SECTIONS = [
 HIDDEN = {"map", "autohealth", "diag"}
 
 
+# pages that answer one question together: each one shows the others as tabs on top («فحص الموقع» · «المقارنات»)
+HUBS = {"health": ["health", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
+
+
+def hub_tabs(endpoint, lang):
+    """-> [(name, url, icon, on)] when this page belongs to a hub, else []"""
+    by = {it[0]: it for _, _, _, its in SECTIONS for it in its}
+    for keys in HUBS.values():
+        if any(endpoint in by[k][1] for k in keys if k in by):
+            return [((by[k][4] if lang == "ar" else by[k][5]), by[k][2], by[k][3], endpoint in by[k][1]) for k in keys if k in by]
+    return []
+
+
 def menu_sections():
     """the side menu: SECTIONS without the HIDDEN pages (and without a section left empty)"""
     out = []

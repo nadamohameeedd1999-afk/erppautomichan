@@ -418,3 +418,9 @@ h1, h2, h3 { text-wrap: balance; }
 .g-fold > summary::after { content: "▾"; font-size: 10px; opacity: .7; }
 .g-fold:not([open]) > summary::after { content: "◂"; }
 [dir="ltr"] .g-fold:not([open]) > summary::after { content: "▸"; }
+/* the tabs of a hub (فحص الموقع · المقارنات) */
+.g-hub { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; padding: 4px; background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; }
+.g-hub a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; color: var(--g-muted); text-decoration: none; font-weight: 700; font-size: 13.5px;
+           transition: background-color .15s ease, color .15s ease; }
+.g-hub a:hover { background: var(--g-hover); color: var(--g-head); }
+.g-hub a.on { background: var(--g-acc); color: #fff; }

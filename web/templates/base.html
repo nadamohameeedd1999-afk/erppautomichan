@@ -80,6 +80,7 @@
                 </div>
                 {% endfor %}
             {% endwith %}
+            {% if nav_hub %}<nav class="g-hub" aria-label="{{ nav_section_title }}">{% for n, u, ic, on in nav_hub %}<a href="{{ u }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}><i class="bi {{ ic }}" aria-hidden="true"></i> {{ n }}</a>{% endfor %}</nav>{% endif %}
             {% block content %}{% endblock %}
             <div class="g-footer">{{ site_config.company_name_ar if (ar and site_config.company_name_ar) else 'ERP Test Automation v4.2' }}</div>
         </main>
