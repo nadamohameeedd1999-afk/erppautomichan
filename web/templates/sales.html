@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}العرض للعميل - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .sa-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .sa-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sa-card > .bd { padding: 14px 16px; }
+  .sa-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+  .sa-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sa-tab { border: 1px solid var(--g-line); background: var(--g-panel); border-radius: 999px; padding: 6px 16px; font-weight: 700; color: var(--g-text); }
+  .sa-tab[aria-selected="true"] { background: var(--g-acc, #0F7C7A); color: #fff; border-color: var(--g-acc, #0F7C7A); }
+  .sa-pitch { font-size: 16px; color: var(--g-head); line-height: 1.8; margin: 0 0 12px; }
+  .sa-pains { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .sa-pain { border: 1px solid var(--g-line); border-radius: 10px; padding: 10px 12px; }
+  .sa-pain b { display: block; color: var(--g-bad, #C0392B); font-size: 13px; } .sa-pain span { font-size: 13px; }
+  .sa-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--g-line); }
+  .sa-step .n { width: 30px; height: 30px; border-radius: 50%; background: var(--g-hover); color: var(--g-head); font-weight: 700; display: grid; place-items: center; }
+  .sa-step b { color: var(--g-head); } .sa-step .say { font-size: 13px; color: var(--g-muted); } .sa-step .say::before { content: "💬 "; }
+  .sa-step .miss { font-size: 12px; color: var(--g-warn, #B7791F); }
+  .sa-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sa-kpi { border: 1px solid var(--g-line); border-radius: 10px; padding: 10px 12px; } .sa-kpi span { font-size: 12px; color: var(--g-muted); }
+  .sa-kpi b { display: block; font-size: 22px; color: var(--g-head); font-variant-numeric: tabular-nums; }
+  .sa-day { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--g-line); font-variant-numeric: tabular-nums; }
+  .sa-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
+  .sa-warn { background: rgba(183,121,31,.12); color: var(--g-warn, #B7791F); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
+  .sa-opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .sa-opts select, .sa-opts input[type=time] { width: auto; display: inline-block; }
+  .sa-feed input { direction: ltr; font: 12px ui-monospace, Consolas, monospace; }
+  @media (max-width: 900px) { .sa-grid, .sa-pains { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">افتحها في الاجتماع. اختار قطاع العميل، وهتلاقي الكلام اللي هتقوله، ومشاكله والحل بتاعها في NQ ERP، وجولة كل خطوة فيها بتفتح الشاشة على موقع العرض. موقع العرض فيه شغل النهارده لأن الشركة الافتراضية بتشتغل عليه كل يوم الصبح. وبعد الاجتماع ابعتله الملخص PDF.</div>
+
+  <div id="saWarn"></div>
+
+  <div class="sa-grid">
+    <div>
+      <div class="sa-card">
+        <div class="hd"><div class="sa-tabs" role="tablist" id="saTabs"></div>
+          <div class="d-flex gap-2 align-items-center"><input id="saClient" class="form-control form-control-sm" style="width:170px" placeholder="اسم العميل (للملخص)">
+            <a class="btn btn-sm sa-teal" id="saLeave" href="#"><i class="bi bi-filetype-pdf"></i> ملخص للعميل</a></div></div>
+        <div class="bd">
+          <p class="sa-pitch" id="saPitch"></p>
+          <div class="sa-pains" id="saPains"></div>
+          <div class="d-flex justify-content-between align-items-center"><b>🧭 الجولة على موقع العرض</b>
+            <a class="btn btn-sm btn-outline-secondary" id="saOpen" href="#" target="_blank"><i class="bi bi-box-arrow-up-left"></i> افتح NQ ERP</a></div>
+          <div id="saSteps"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="sa-card">
+        <div class="hd"><b>🏢 موقع العرض</b><a class="small" href="/demo/" target="_blank">شوف المكتب وهو شغال ↗</a></div>
+        <div class="bd">
+          <div id="saDemo" class="small mb-2"></div>
+          <div id="saDays"></div>
+          <button class="btn btn-sm btn-outline-secondary mt-2" id="saStart" onclick="startDay()"><i class="bi bi-play-fill"></i> شغّل يوم دلوقتي</button>
+          <span class="small" id="saMsg" aria-live="polite"></span>
+        </div>
+      </div>
+      <div class="sa-card">
+        <div class="hd"><b>📈 أرقامنا الحقيقية (للعميل)</b><a class="small" href="/care/offer" target="_blank">باقات NQ Care ↗</a></div>
+        <div class="bd"><div class="sa-kpis" id="saProof"></div>
+          <div class="small text-muted mt-2">أرقام حقيقية من مراقبتنا لكل العملاء آخر 30 يوم، من غير أسماء. قولها كدليل: «إحنا بنعرف المشكلة قبلك».</div></div>
+      </div>
+    </div>
+  </div>
+
+  {% if current_user and current_user.role == 'admin' %}
+  <div class="sa-card">
+    <div class="hd"><b>⚙️ إعدادات العرض</b><button class="btn btn-sm sa-teal" onclick="saveCfg()">احفظ</button></div>
+    <div class="bd">
+      <div class="sa-opts mb-3">
+        <label>موقع العرض <select id="cSite" class="form-select form-select-sm"></select></label>
+        <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="cAuto"> الشركة تشتغل عليه لوحدها كل يوم الساعة</label>
+        <input type="time" id="cAt" class="form-control form-control-sm" aria-label="الساعة">
+        <span id="cDays"></span>
+      </div>
+      <div class="small text-muted mb-3">استخدم موقع عرض لوحده (نسخة NQ ERP فيها بيانات شركة شكلها حقيقي)، غير موقع الاختبار وغير مواقع العملاء. ولازم يكون نوعه «اختبار» في الإعدادات ▸ المواقع علشان الشركة تقدر تسجّل فيه. الكلام اللي في كل قطاع ومسار كل خطوة في الجولة بيتعدلوا من هنا: كل سطر في الجولة مكتوب كده «العنوان | كلمة من اسم الشاشة في المنيو | الكلام».</div>
+      <details><summary class="fw-bold" style="cursor:pointer">✏️ عدّل كلام القطاعات والجولات</summary><div class="row g-3 mt-1" id="cSectors"></div></details>
+      <div class="sa-feed mt-3"><b>🤖 لموظف المبيعات الذكي (n8n)</b>
+        <div class="small text-muted mb-1">لينك JSON فيه القطاعات والكلام والباقات والأرقام، يقراه البوت. متشاركوش برّه، ولو اتسرّب دوس «لينك جديد».</div>
+        <div class="d-flex gap-2"><input id="cFeed" class="form-control form-control-sm" readonly placeholder="دوس «اعرض اللينك»">
+          <button class="btn btn-sm btn-outline-secondary" onclick="feedLink(false)">اعرض اللينك</button>
+          <button class="btn btn-sm btn-link text-muted" onclick="confirm('اللينك القديم هيبطل. أكمل؟') && feedLink(true)">لينك جديد</button></div></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const money = n => Number(n || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
+let D = null, cur = 'trading';
+try { cur = localStorage.getItem('saSector') || 'trading'; } catch (e) {}
+
+async function load() {
+  D = await fetch('/api/sales').then(r => r.json());
+  if (!D.sectors[cur]) cur = 'trading';
+  el('saTabs').innerHTML = Object.entries(D.sectors).map(([k, s]) => `<button class="sa-tab" role="tab" aria-selected="${k === cur}" onclick="pick('${k}')">${esc(s.name)}</button>`).join('');
+  const d = D.demo;
+  el('saWarn').innerHTML = !d ? '<div class="sa-warn">لسه مفيش موقع عرض. اختاره من «إعدادات العرض» تحت.</div>'
+    : d.kind !== 'test' ? '<div class="sa-warn">موقع العرض نوعه «عميل»، يعني الشركة مش هتقدر تسجّل فيه. خليه «اختبار» من الإعدادات ▸ المواقع.</div>'
+    : !d.menu ? '<div class="sa-warn">لسه مقريناش منيو موقع العرض، فالجولة هتفتح الصفحة الرئيسية. شغّل يوم عليه مرة، أو اقرا المنيو من إعدادات الشركة الافتراضية.</div>' : '';
+  el('saDemo').innerHTML = d ? `<b>${esc(d.name)}</b> · <span dir="ltr">${esc(d.url)}</span> ${d.running ? '· <span class="text-success">⏳ الشركة شغالة عليه دلوقتي</span>' : ''}` : '—';
+  el('saStart').disabled = !d || d.running;
+  el('saDays').innerHTML = D.days.length ? D.days.map(x => `<div class="sa-day"><span>${esc(x.date)}</span><span>${x.deals} صفقة · ${x.closed} اتقفلت · ${money(x.sales)} ريال مبيعات</span></div>`).join('')
+    : '<div class="small text-muted">لسه مفيش أيام اتعملت على موقع العرض.</div>';
+  const p = D.proof;
+  el('saProof').innerHTML = [['نسبة تشغيل أنظمة عملائنا', p.uptime30 == null ? '—' : p.uptime30 + '%'], ['فحوصات آخر 30 يوم', money(p.checks30)],
+    ['مشاكل لقيناها واتصلحت', money(p.screens_fixed30 + p.errors_caught30)], ['بنراقب كل', p.every_min + ' دقيقة']]
+    .map(([k, v]) => `<div class="sa-kpi"><span>${k}</span><b>${v}</b></div>`).join('');
+  if (el('cSite')) admin();
+  tour();
+}
+
+async function tour() {
+  const r = await fetch(`/api/sales/tour/${cur}`).then(x => x.json());
+  el('saPitch').textContent = r.sector.pitch;
+  el('saPains').innerHTML = r.sector.pains.map(([a, b]) => `<div class="sa-pain"><b>✕ ${esc(a)}</b><span>✓ ${esc(b)}</span></div>`).join('');
+  el('saSteps').innerHTML = r.steps.map((s, i) => `<div class="sa-step"><span class="n">${i + 1}</span>
+      <div><b>${esc(s.title)}</b><div class="say">${esc(s.say)}</div>${!s.found && D.demo ? `<div class="miss">مش لاقي شاشة فيها «${esc(s.word)}» في منيو موقع العرض، فهتفتح الرئيسية</div>` : ''}</div>
+      ${s.url ? `<a class="btn btn-sm btn-outline-secondary" href="${esc(s.url)}" target="_blank">افتح ↗</a>` : ''}</div>`).join('');
+  el('saOpen').href = D.demo ? D.demo.url : '#';
+  leaveLink();
+}
+function leaveLink() { el('saLeave').href = `/sales/leave.pdf?sector=${cur}&client=${encodeURIComponent(el('saClient').value)}`; }
+el('saClient').addEventListener('input', leaveLink);
+function pick(k) { cur = k; try { localStorage.setItem('saSector', k); } catch (e) {} document.querySelectorAll('.sa-tab').forEach(b => b.setAttribute('aria-selected', b.textContent === D.sectors[k].name)); tour(); }
+async function post(u, b) { return fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(r => r.json()); }
+async function startDay() { const r = await post('/api/sales/start'); el('saMsg').innerHTML = r.ok ? '<span class="text-success">✓ الشركة بدأت يومها على موقع العرض</span>' : `<span class="text-danger">${esc(r.error)}</span>`; setTimeout(load, 1500); }
+
+function admin() {
+  const c = D.config;
+  el('cSite').innerHTML = '<option value="">—</option>' + D.sites.map(s => `<option value="${esc(s.id)}" ${s.id === c.demo_site ? 'selected' : ''}>${esc(s.name)} (${s.kind === 'test' ? 'اختبار' : 'عميل'})</option>`).join('');
+  el('cAuto').checked = c.auto_on; el('cAt').value = c.at;
+  el('cDays').innerHTML = D.days_ar.map((n, i) => `<label class="me-1"><input type="checkbox" data-day="${i}" ${c.days.includes(i) ? 'checked' : ''}> ${n}</label>`).join('');
+  el('cSectors').innerHTML = Object.entries(D.sectors).map(([k, s]) => `<div class="col-lg-6" data-sec="${k}"><b>${esc(s.name)}</b>
+      <input class="form-control form-control-sm mt-1" data-f="name" value="${esc(s.name)}" aria-label="اسم القطاع">
+      <textarea class="form-control form-control-sm mt-1" rows="2" data-f="pitch" aria-label="الكلام">${esc(s.pitch)}</textarea>
+      <label class="small text-muted mt-1">المشاكل والحل (كل سطر: المشكلة | الحل)</label>
+      <textarea class="form-control form-control-sm" rows="4" data-f="pains">${esc(s.pains.map(p => p.join(' | ')).join('\n'))}</textarea>
+      <label class="small text-muted mt-1">الجولة (كل سطر: العنوان | كلمة من اسم الشاشة | الكلام)</label>
+      <textarea class="form-control form-control-sm" rows="5" data-f="tour">${esc(s.tour.map(t => t.join(' | ')).join('\n'))}</textarea></div>`).join('');
+}
+async function saveCfg() {
+  const lines = (v, n) => v.split('\n').map(l => l.split('|').map(x => x.trim())).filter(a => a[0]).map(a => { while (a.length < n) a.push(''); return a.slice(0, n); });
+  const sectors = {};
+  document.querySelectorAll('[data-sec]').forEach(d => { const f = k => d.querySelector(`[data-f="${k}"]`).value;
+    sectors[d.dataset.sec] = {name: f('name'), pitch: f('pitch'), pains: lines(f('pains'), 2), tour: lines(f('tour'), 3)}; });
+  await post('/api/sales/settings', {demo_site: el('cSite').value, auto_on: el('cAuto').checked, at: el('cAt').value,
+    days: [...document.querySelectorAll('[data-day]:checked')].map(x => +x.dataset.day), sectors});
+  el('saMsg').innerHTML = '<span class="text-success">✓ اتحفظ</span>'; load();
+}
+async function feedLink(n) { const r = await post('/api/sales/key', {new: n}); el('cFeed').value = r.link; }
+load();
+</script>
+{% endblock %}

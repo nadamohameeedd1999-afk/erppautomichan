@@ -804,3 +804,62 @@ def test_nq_care(tmp_path, monkeypatch):
     with c.session_transaction() as ss:
         ss["user_id"], ss["role"] = 2, "user"
     assert c.get("/api/care").status_code == 403                      # admin only
+
+
+def test_sales_demo(tmp_path, monkeypatch):
+    """🤝 the sales demo: the virtual company on its own site, tour → the demo site's screens, feed behind a key, leave-behind, daily start"""
+    import json
+    from datetime import datetime
+    from simulation import settings as S
+    from web import care as C, monitor as M, sales as SA, telemetry as T
+    from web.app import app
+    profs = [{"id": "t", "name": "الاختبار", "base_url": "https://test.x", "kind": "test", "username": "u", "password": "p"},
+             {"id": "d", "name": "العرض", "base_url": "https://demo.x", "kind": "test", "username": "du", "password": "dp"},
+             {"id": "c", "name": "عميل", "base_url": "https://c.x", "kind": "client", "username": "cu", "password": "cp"}]
+    monkeypatch.setattr(S, "_profiles", lambda: (profs, "t"))
+    monkeypatch.setattr(M, "_sites", lambda c: profs)
+    for mod, name in ((SA, "sales.json"), (C, "care.json")):
+        monkeypatch.setattr(mod, "FILE", tmp_path / name)
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
+    monkeypatch.setattr(SA, "RUNS", tmp_path / "runs")
+    # the simulation can work on a chosen site without touching the main choice
+    assert S.runtime()["url"] == "https://test.x" and S.runtime("d")["url"] == "https://demo.x"
+    assert S.credentials("manager", "d")[:2] == ("du", "dp") and S.credentials("manager")[:2] == ("u", "p")
+    # the tour opens the demo site's screens from the menu the company read
+    menus = tmp_path / "menus.json"
+    menus.write_text(json.dumps({"d:du": {"n": 2, "menu": [{"path": "/SalesInvoice/index", "name": "فواتير المبيعات فاتورة مبيعات", "module": "المبيعات"},
+                                                           {"path": "/Debt/Ages", "name": "أعمار الديون", "module": "التقارير"}]}}), encoding="utf-8")
+    real_sf = SA.paths.settings_file
+    monkeypatch.setattr(SA.paths, "settings_file", lambda n: menus if n == "simulation_menus.json" else real_sf(n))
+    assert SA.start_day() == "اختار موقع العرض الأول"
+    SA.save({"demo_site": "c"})
+    assert "اختبار" in SA.start_day()                                 # a client site is never written to
+    SA.save({"demo_site": "d"})
+    steps = {s["word"]: s for s in SA.tour_links("trading")}
+    assert steps["فاتورة مبيعات"]["url"] == "https://demo.x/SalesInvoice/index" and steps["أعمار الديون"]["found"]
+    assert steps["تحويل"]["url"] == "https://demo.x/" and not steps["تحويل"]["found"]
+    assert steps["الرئيسية"]["found"]
+    # the daily start: once a day, only on the chosen days, after the hour
+    started = []
+    monkeypatch.setattr(SA, "start_day", lambda: started.append(1) or "")
+    SA.save({"auto_on": True, "at": "00:00", "days": [datetime.now().weekday()]})
+    SA.auto_tick()
+    assert started == [1]
+    SA.save({**SA.load(), "auto_on": True})
+    raw = json.loads(SA.FILE.read_text()); raw["last_run"] = datetime.now().strftime("%Y-%m-%d 06:30"); SA.FILE.write_text(json.dumps(raw))
+    SA.auto_tick()
+    assert started == [1]
+    # the leave-behind and the AI employee's feed
+    h = SA.html_leave("manufacturing", "مصنع الإبراهيم")
+    assert "تصنيع خفيف" in h and "مصنع الإبراهيم" in h and "NQ Care متقدم" in h and "سند التجميع" in h
+    c = app.test_client()
+    assert c.get("/api/sales/feed?key=x").status_code == 404
+    key = SA.feed_key()
+    f = c.get(f"/api/sales/feed?key={key}").get_json()
+    assert set(f["sectors"]) == {"trading", "manufacturing", "services", "concrete"} and f["nq_care"][0]["name"] == "NQ Care أساسي"
+    assert "proof" in f and f["demo"]["site"] == "https://demo.x"
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"] = 2, "user"
+    assert c.post("/api/sales/key").status_code == 403                # the feed link: admin only
+    assert c.get("/api/sales").status_code == 200                     # the presenter page: any signed-in user

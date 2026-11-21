@@ -99,8 +99,8 @@ def logout_user():
 # user   = يشغّل ويعدّل الاختبارات (مش الإعدادات ولا المستخدمين)
 # viewer = يشوف بس
 ROLES = {"admin": "أدمن", "user": "مستخدم", "viewer": "مشاهد"}
-_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/simulation/settings", "/simulation/api/settings", "/api/monitor/settings", "/api/monitor/connect", "/care", "/api/care")
-_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/healthz", "/static", "/media", "/uat/s/", "/api/uat/s/", "/demo/", "/api/telemetry/", "/status/", "/api/status/")
+_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/simulation/settings", "/simulation/api/settings", "/api/monitor/settings", "/api/monitor/connect", "/care", "/api/care", "/api/sales/settings", "/api/sales/key")
+_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/healthz", "/static", "/media", "/uat/s/", "/api/uat/s/", "/demo/", "/api/telemetry/", "/status/", "/api/status/", "/api/sales/feed")
 
 
 def check_permission():

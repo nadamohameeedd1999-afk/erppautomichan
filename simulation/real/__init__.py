@@ -147,7 +147,7 @@ class RealERP:
                     self._busy -= 1
 
     def _user(self, emp):
-        user, pw, via = self.S.credentials(emp["id"])
+        user, pw, via = self.S.credentials(emp["id"], self.cfg.get("site_id") or None)
         if not user or not pw:
             raise RuntimeError(f"{emp['name']} مالوش مستخدم على الموقع ده، ولا المدير — ضيف مستخدم المدير في الإعدادات")
         return user, pw, via

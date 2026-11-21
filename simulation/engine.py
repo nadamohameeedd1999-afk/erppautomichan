@@ -48,8 +48,9 @@ ROUND_BASED = {"purchase_order": "FromPurchaseRequest"}
 
 
 class Company:
-    def __init__(self, seed=None, erp=None, use_settings=True, runs=None):
+    def __init__(self, seed=None, erp=None, use_settings=True, runs=None, site_id=None):
         self.use_settings = use_settings
+        self.site_id = site_id                                # set = always a real day on THAT site (the sales demo's copy)
         self.runs = Path(runs) if runs else RUNS             # the client demo keeps its own history, apart from the real days
         self.cfg = self._load_cfg()
         self._load_texts()
@@ -92,7 +93,9 @@ class Company:
         if not self.use_settings:
             return sim
         from simulation import settings as S
-        st = S.runtime()
+        st = S.runtime(self.site_id)
+        if self.site_id:
+            st = {**st, "mode": "real"}
         if st.get("mode") == "real" and st.get("url"):
             from simulation.real import RealERP
             return RealERP(st, sim, on_event=self._erp_event)

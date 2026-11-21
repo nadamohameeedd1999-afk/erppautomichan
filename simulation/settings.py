@@ -97,15 +97,15 @@ def load():
     return s
 
 
-def active_site(s=None):
+def active_site(s=None, site_id=None):
     s = s or load()
-    return next((x for x in s["sites"] if x["id"] == s.get("active_site")), None)
+    return next((x for x in s["sites"] if x["id"] == (site_id or s.get("active_site"))), None)
 
 
-def runtime():
-    """the settings + the chosen site, flat (what the real NQ ERP link reads)"""
+def runtime(site_id=None):
+    """the settings + the chosen site (or `site_id`: the sales demo's copy works on its own site), flat (what the real NQ ERP link reads)"""
     s = load()
-    a = active_site(s) or {}
+    a = active_site(s, site_id) or {}
     return {**s, "site_id": a.get("id", ""), "site_name": a.get("name", ""), "url": a.get("url", ""), "site_kind": a.get("kind", "client"),
             "screens": a.get("screens") or {}}
 
@@ -188,10 +188,10 @@ def company_cfg():
     return c
 
 
-def credentials(eid):
+def credentials(eid, site_id=None):
     """(user, password, through the manager?) on the chosen site — an employee with no user of their own works with the manager's"""
     s = load()
-    site = active_site(s) or {}
+    site = active_site(s, site_id) or {}
     users = site.get("users") or {}
     u = users.get(eid) or {}
     if u.get("user") and u.get("pw"):
