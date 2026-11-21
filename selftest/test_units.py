@@ -928,3 +928,85 @@ def test_client_health_and_ticket_deadlines(tmp_path, monkeypatch):
     assert SP._load("support_status.json", {})["x1"]["fixed_at"]
     stats = c.get("/api/support/sla").get_json()
     assert stats["config"]["hours"]["عالية"] == 24 and stats["config"]["devs"][0] == "عصام"
+
+
+def test_releases_gate_rollout_and_regressions(tmp_path, monkeypatch):
+    """🚀 a version: gate on the test site → pilot client watched → the rest; alerts; 🔁 errors / screens that come back after «اتصلح»"""
+    import time as _t
+    from datetime import datetime, timedelta
+    from simulation import settings as SS
+    from web import monitor as M, releases as R, support as SP, telemetry as T
+    profs = [{"id": "t", "name": "الاختبار", "base_url": "https://t.x", "kind": "test", "username": "u", "password": "p"},
+             {"id": "c1", "name": "التجريبي", "base_url": "https://c1.x", "kind": "client"},
+             {"id": "c2", "name": "عميل تاني", "base_url": "https://c2.x", "kind": "client"}]
+    monkeypatch.setattr(M, "_sites", lambda c: profs)
+    for mod, attr, name in ((M, "STATE_FILE", "state.json"), (T, "FILE", "tel.json"), (R, "FILE", "rel.json")):
+        monkeypatch.setattr(mod, attr, tmp_path / name)
+    monkeypatch.setattr(SP, "_f", lambda name: tmp_path / name)
+    monkeypatch.setattr(SS, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(T, "_alerts", {})
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    ago = lambda h: _t.time() - h * 3600
+    r = R.add("2026.11.25", "ربحية الخرسانة", pilot=["c1"], test_site="t")
+    assert R.gate(r)["verdict"] == "none"
+    T.receive("t", {"kind": "start", "version": "2026.11.25"}, now=ago(1))
+    g = R.gate(r)
+    assert g["verdict"] == "wait" and any("ساعة بس" in x for x in g["reasons"]) and any("الشركة الافتراضية" in x for x in g["reasons"])
+    T.receive("t", {"kind": "server", "type": "E", "message": "boom", "url": "/SalesInvoice/AddEdit"}, now=ago(0.5))
+    assert R.gate(r)["verdict"] == "stop" and "SalesInvoice" in R.gate(r)["reasons"][0]
+    assert "متنزلهاش" in R.advice(r, R.gate(r), R.rollout(r))
+    # a client gets it before the gate: alert
+    T.receive("c2", {"kind": "start", "version": "2026.11.25"}, now=ago(0.2))
+    R._last["t"] = 0
+    R.auto_tick()
+    assert "قبل ما تعدّي البوابة" in sent[-1] and "عميل تاني" in sent[-1]
+    # a clean test site after enough hours + a company day → go
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel2.json")
+    monkeypatch.setattr(T, "_rate", {})
+    T.receive("t", {"kind": "start", "version": "2026.11.25"}, now=ago(6))
+    (tmp_path / "runs").mkdir()
+    (tmp_path / "runs" / f"day_{datetime.now():%Y%m%d}_090000.json").write_text("{}")
+    assert R.gate(r)["verdict"] == "go"
+    assert "نزّلها عند العميل التجريبي: التجريبي" in R.advice(r, R.gate(r), R.rollout(r))
+    T.receive("c1", {"kind": "start", "version": "2026.11.25"}, now=ago(30))     # pilot 30 h ago, nothing went wrong
+    roll = {x["id"]: x for x in R.rollout(r)}
+    assert roll["c1"]["status"] == "ok" and roll["c2"]["status"] == "pending"
+    assert "كمل نزّلها لباقي العملاء" in R.advice(r, R.gate(r), R.rollout(r))
+    R.update(r["id"], {"mark": {"site": "c2", "at": (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M")}})
+    assert {x["id"]: x for x in R.rollout(R.load()["releases"][0])}["c2"]["status"] == "watching"
+    # 🔁 an error marked «اتصلح» that comes back → alert + ticket back to «جديد»
+    T.receive("c1", {"kind": "server", "type": "E", "message": "Invalid column 'Qty'", "url": "/Stock"}, now=ago(10))
+    key = next(iter(T._load()["c1"]["errors"]))
+    SP._save("support_status.json", {f"tel_c1_{key}"[:40]: {"status": "اتصلح", "at": (datetime.now() - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"), "fixed_at": "x"}})
+    T.receive("c1", {"kind": "server", "type": "E", "message": "Invalid column 'Qty'", "url": "/Stock"})
+    assert "كان اتصلح ورجع تاني" in sent[-1]
+    st = SP._load("support_status.json", {})[f"tel_c1_{key}"[:40]]
+    assert st["status"] == "جديد" and "رجع تاني" in st["note"] and "fixed_at" not in st
+    assert R.rollout(R.load()["releases"][0])[0]["status"] == "problem"          # the pilot now has a problem that came back
+    # 🔁 a screen that was fixed and broke again
+    M._save_state({"t": {"hist": [], "v": "up", "deep": {"at": "x", "screens": 5, "problems": []},
+                         "deep_log": [{"at": "2026-11-01T10:00:00", "new": ["/HR"], "fixed": []}, {"at": "2026-11-02T10:00:00", "new": [], "fixed": ["/HR"]}]}})
+    monkeypatch.setattr(M, "load_config", lambda: {**M.DEFAULTS})
+    monkeypatch.setattr(M, "deep_check", lambda p, c: {"at": datetime.now().isoformat(timespec="seconds"), "screens": 5, "problems": [["/HR", "HTTP 500"]], "slow": [], "msg": ""})
+    M.run_deep()
+    assert "كانت اتصلحت ورجعت: /HR" in sent[-1] and M._state()["t"]["deep_log"][-1]["regressed"] == ["/HR"]
+
+
+def test_release_judged_only_while_it_ran(tmp_path, monkeypatch):
+    """🚀 an older version isn't blamed for an error that happened after the site moved to the next one"""
+    import time as _t
+    from web import monitor as M, releases as R, telemetry as T
+    monkeypatch.setattr(M, "_sites", lambda c: [{"id": "t", "name": "الاختبار", "base_url": "https://t.x", "kind": "test"}])
+    for mod, attr, name in ((M, "STATE_FILE", "s.json"), (T, "FILE", "tel.json"), (R, "FILE", "rel.json")):
+        monkeypatch.setattr(mod, attr, tmp_path / name)
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(M, "broadcast", lambda t: None)
+    ago = lambda h: _t.time() - h * 3600
+    a, b = R.add("1.0", test_site="t"), R.add("1.1", test_site="t")
+    T.receive("t", {"kind": "start", "version": "1.0"}, now=ago(30))
+    T.receive("t", {"kind": "start", "version": "1.1"}, now=ago(2))
+    T.receive("t", {"kind": "server", "type": "E", "message": "boom", "url": "/x"}, now=ago(1))
+    assert R.gate(a)["verdict"] != "stop" and R.gate(a)["facts"]["until"] and R.gate(a)["facts"]["errors"] == 0
+    assert R.gate(b)["verdict"] == "stop"

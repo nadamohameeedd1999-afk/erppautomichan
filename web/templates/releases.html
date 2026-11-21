@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}الإصدارات - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .rl-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .rl-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rl-card > .bd { padding: 14px 16px; }
+  .rl-ver { font-size: 20px; font-weight: 700; color: var(--g-head); direction: ltr; unicode-bidi: embed; }
+  .rl-flow { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; }
+  .rl-gate { border-radius: 10px; padding: 12px 14px; border: 1px solid var(--g-line); }
+  .rl-gate.go { border-color: var(--g-ok, #0F7C7A); background: rgba(15,124,122,.06); } .rl-gate.stop { border-color: var(--g-bad, #C0392B); background: rgba(192,57,43,.05); }
+  .rl-gate.wait { border-color: var(--g-warn, #B7791F); background: rgba(183,121,31,.06); }
+  .rl-gate b.t { display: block; font-size: 16px; color: var(--g-head); } .rl-gate ul { margin: 6px 0 0; padding-inline-start: 18px; font-size: 13px; }
+  .rl-facts { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--g-muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .rl-adv { background: var(--g-hover); border-radius: 10px; padding: 10px 14px; font-weight: 700; color: var(--g-head); margin-bottom: 10px; }
+  .rl-tbl { width: 100%; border-collapse: collapse; font-size: 13px; } .rl-tbl th { background: var(--g-acc, #0F7C7A); color: #fff; padding: 7px 8px; text-align: right; }
+  .rl-tbl td { padding: 7px 8px; border-bottom: 1px solid var(--g-line); vertical-align: middle; }
+  .rl-st { font-weight: 700; } .rl-st.ok { color: var(--g-ok, #0F7C7A); } .rl-st.problem { color: var(--g-bad, #C0392B); } .rl-st.watching { color: var(--g-warn, #B7791F); } .rl-st.pending { color: var(--g-muted); }
+  .rl-pilot { font-size: 11px; background: var(--g-hover); color: var(--g-head); border-radius: 999px; padding: 1px 8px; margin-inline-start: 6px; }
+  .rl-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
+  @media (max-width: 900px) { .rl-flow { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">أي نسخة جديدة من NQ ERP بتمشي كده: <b>موقع الاختبار</b> الأول، ولازم تعدّي البوابة (مفيش أخطاء جديدة، ولا شاشات باظت، ولا مشاكل رجعت، والشركة الافتراضية اشتغلت عليها يوم). بعدين <b>عميل تجريبي</b> يتراقب 24 ساعة، وبعدين <b>باقي العملاء</b>. النسخة بتتعرف لوحدها من كود الربط (NqTelemetry)، ولو عميل مش متربوط تقدر تعلّم «نزلت» بإيدك. لو نسخة نزلت عند عميل قبل ما تعدّي البوابة، بيجيلك تنبيه.</div>
+
+  {% if current_user and current_user.role == 'admin' %}
+  <div class="rl-card">
+    <div class="hd"><b>➕ نسخة جديدة</b></div>
+    <div class="bd"><div class="row g-2 align-items-end">
+      <div class="col-md-2"><label class="small text-muted">رقم النسخة (زي NqVersion)</label><input id="nV" class="form-control form-control-sm" dir="ltr" placeholder="2026.11.25"></div>
+      <div class="col-md-2"><label class="small text-muted">موقع الاختبار</label><select id="nT" class="form-select form-select-sm"></select></div>
+      <div class="col-md-3"><label class="small text-muted">العملاء التجريبيين (Ctrl لأكتر من واحد)</label><select id="nP" class="form-select form-select-sm" multiple size="3"></select></div>
+      <div class="col-md-4"><label class="small text-muted">إيه الجديد</label><textarea id="nN" class="form-control form-control-sm" rows="3" placeholder="شاشة ربحية الخرسانة · إصلاح فاتورة المبيعات"></textarea></div>
+      <div class="col-md-1"><button class="btn btn-sm rl-teal w-100" onclick="addRel()">ضيف</button></div>
+    </div><div class="small mt-1" id="nMsg" aria-live="polite"></div></div>
+  </div>
+  {% endif %}
+
+  <div id="rlList"><div class="text-muted">بيحمّل…</div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const IS_ADMIN = {{ 'true' if current_user and current_user.role == 'admin' else 'false' }};
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const ST = {ok: '✓ سليم', problem: '⛔ مشكلة', watching: '⏳ تحت المراقبة', pending: 'لسه'};
+async function post(u, b) { return fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(r => r.json()); }
+async function load() {
+  const D = await fetch('/api/releases').then(r => r.json());
+  if (el('nT')) {
+    el('nT').innerHTML = D.sites.filter(s => s.kind === 'test').map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    el('nP').innerHTML = D.sites.filter(s => s.kind === 'client').map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+  }
+  el('rlList').innerHTML = D.releases.map(r => {
+    const g = r.gate, f = g.facts || {};
+    const rows = r.rollout.map(x => `<tr><td>${esc(x.name)}${x.pilot ? '<span class="rl-pilot">تجريبي</span>' : ''}</td>
+        <td class="text-center" dir="ltr">${esc(x.since || '—')}${x.manual ? ' ✋' : ''}</td><td><span class="rl-st ${x.status}">${ST[x.status]}</span> <span class="small text-muted">${esc(x.status === 'pending' ? '' : x.text)}</span></td>
+        <td>${IS_ADMIN ? (x.since && x.manual ? `<a href="#" class="small" onclick="mark('${r.id}','${esc(x.id)}','');return false">شيل العلامة</a>` : !x.since ? `<a href="#" class="small" onclick="mark('${r.id}','${esc(x.id)}','now');return false">✋ نزلت</a>` : '') : ''}</td></tr>`).join('')
+      || '<tr><td colspan="4" class="text-muted">مفيش مواقع عملاء.</td></tr>';
+    return `<div class="rl-card"><div class="hd"><div><span class="rl-ver">${esc(r.version)}</span> <span class="small text-muted">اتضافت ${esc(r.created)}</span></div>
+        ${IS_ADMIN ? `<div class="d-flex gap-2">${g.verdict !== 'go' ? `<button class="btn btn-sm btn-outline-secondary" onclick="approve('${r.id}')">اعتماد يدوي</button>` : r.approved ? `<button class="btn btn-sm btn-link text-muted" onclick="unapprove('${r.id}')">شيل الاعتماد</button>` : ''}
+          <button class="btn btn-sm btn-link text-danger" onclick="confirm('تمسح النسخة دي من القايمة؟') && del('${r.id}')">امسح</button></div>` : ''}</div>
+      <div class="bd">${r.notes ? `<div class="small mb-2" style="white-space:pre-wrap">${esc(r.notes)}</div>` : ''}
+        <div class="rl-adv">👉 ${esc(r.advice)}</div>
+        <div class="rl-flow">
+          <div class="rl-gate ${g.verdict}"><span class="small text-muted">1) البوابة على موقع الاختبار</span><b class="t">${esc(g.text)}</b>
+            ${g.reasons.length ? `<ul>${g.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+            ${g.since ? `<div class="rl-facts"><span>نزلت ${esc(f.since)}</span>${f.until ? `<span>اتبدلت ${esc(f.until)}</span>` : ''}<span>${f.hours} ساعة</span><span>${f.errors} خطأ سيرفر</span><span>${f.js} JavaScript</span><span>${f.broke} شاشة باظت</span><span>وقع ${f.downs}</span></div>` : ''}</div>
+          <div><span class="small text-muted">2) العملاء (التجريبي الأول)</span>
+            <div class="table-responsive"><table class="rl-tbl mt-1"><thead><tr><th>العميل</th><th class="text-center">نزلت من</th><th>الحالة</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
+        </div></div></div>`;
+  }).join('') || '<div class="rl-card"><div class="bd text-muted">لسه مفيش نسخ. ضيف رقم النسخة اللي هتنزلها على موقع الاختبار.</div></div>';
+}
+async function addRel() {
+  const r = await post('/api/releases/add', {version: el('nV').value, notes: el('nN').value, test_site: el('nT').value, pilot: [...el('nP').selectedOptions].map(o => o.value)});
+  el('nMsg').innerHTML = r.ok ? '<span class="text-success">✓ اتضافت</span>' : `<span class="text-danger">${esc(r.error)}</span>`; if (r.ok) { el('nV').value = ''; el('nN').value = ''; load(); }
+}
+async function approve(id) { const why = prompt('ليه بتعتمدها من غير ما تعدّي البوابة؟'); if (why) { await post(`/api/releases/${id}`, {approve: why}); load(); } }
+async function unapprove(id) { await post(`/api/releases/${id}`, {approve: ''}); load(); }
+async function del(id) { await post(`/api/releases/${id}`, {delete: true}); load(); }
+async function mark(id, site, at) { const now = new Date(); const t = at ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` : '';
+  await post(`/api/releases/${id}`, {mark: {site, at: t}}); load(); }
+load(); setInterval(load, 120000);
+</script>
+{% endblock %}

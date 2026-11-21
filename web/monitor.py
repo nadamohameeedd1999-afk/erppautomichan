@@ -286,14 +286,17 @@ def run_deep(force=False):
                     today = d["at"][:10]
                     d["first"] = {k: (old.get("first") or {}).get(k) or today for k in now}
                     new, fixed = [k for k in now if k not in was], [k for k in was if k not in now]
+                    ever_fixed = {k for x in s.get("deep_log") or [] for k in x.get("fixed") or []}
+                    regressed = [k for k in new if k in ever_fixed]          # 🔁 a screen that was fixed and broke again
                     if new:
                         broadcast(f"📡 مراقبة المواقع\n🖥️ {name}: {len(new)} شاشة فيها مشكلة" + (" جديدة" if old else "") + f" (من {d['screens']} شاشة)\n"
                                   + "\n".join(f"⛔ {k} → {now[k]}" for k in new[:8]) + (f"\n… و{len(new) - 8} كمان" if len(new) > 8 else "")
+                                  + (f"\n🔁 كانت اتصلحت ورجعت: {'، '.join(regressed[:5])}" if regressed else "")
                                   + "\nالتفاصيل في «دعم المطورين»")
                     if fixed and old and not old.get("error"):
                         broadcast(f"📡 مراقبة المواقع\n✅ {name}: {len(fixed)} شاشة اتصلحت\n" + "\n".join(f"✓ {k}" for k in fixed[:8]))
                 if not d.get("error") and (new or fixed):            # NQ Care: screens found broken / fixed, for the monthly report
-                    s["deep_log"] = (s.get("deep_log", []) + [{"at": d["at"], "new": new, "fixed": fixed}])[-300:]
+                    s["deep_log"] = (s.get("deep_log", []) + [{"at": d["at"], "new": new, "fixed": fixed, "regressed": regressed}])[-300:]
                 s["deep"] = d
                 _save_state(st)
         return _state()

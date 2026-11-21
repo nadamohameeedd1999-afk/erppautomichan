@@ -91,7 +91,7 @@ def receive(site_id, items, now=None):
     if not items:
         return 0
     at = datetime.fromtimestamp(now).isoformat(timespec="seconds")
-    fresh = []
+    fresh, back = [], []
     with _lock:
         d = _load()
         s = d.setdefault(site_id, {"errors": {}, "starts": []})
@@ -110,6 +110,9 @@ def receive(site_id, items, now=None):
             if not e:
                 e = s["errors"][key] = {"kind": kind, "type": typ, "message": msg, "screen": screen, "first": at, "count": 0, "users": [], "urls": []}
                 fresh.append(e)
+            elif _reopen_if_fixed(site_id, key, at):                       # 🔁 marked «اتصلح» and here it is again
+                e["regressed"] = (e.get("regressed", []) + [at])[-20:]
+                back.append(e)
             e["count"] += 1
             e["last"] = at
             e["message"], e["stack"], e["status"] = msg, _clip(x.get("stack"), 6000), _clip(x.get("status"), 10)
@@ -125,7 +128,28 @@ def receive(site_id, items, now=None):
         _save(d)
     if fresh:
         _alert(site_id, fresh, now)
+    if back:
+        from web import monitor
+        name = next((x.get("name") for x in monitor._sites({}) if x["id"] == site_id), site_id)
+        monitor.broadcast("📡 مراقبة المواقع\n🔁 " + f"{name}: خطأ كان اتصلح ورجع تاني\n"
+                          + "\n".join(f"⛔ {e['screen']}: {e['message'][:140]}" for e in back[:5]) + "\nالتذكرة رجعت «جديد» في «دعم المطورين»")
     return len(items)
+
+
+def _reopen_if_fixed(site_id, key, at):
+    """the error's ticket was set «اتصلح» before `at` → back to «جديد» with a note; True when it was"""
+    from web import support
+    iid = f"tel_{site_id}_{key}"[:40]
+    st = support._load("support_status.json", {})
+    cur = st.get(iid) or {}
+    if cur.get("status") != "اتصلح" or (cur.get("at") or "") > at.replace("T", " ")[:16]:
+        return False
+    cur.update({"status": "جديد", "note": (f"🔁 رجع تاني {at[:16].replace('T', ' ')} بعد ما اتعلّم اتصلح {cur.get('at', '')}. " + cur.get("note", ""))[:1000]})
+    cur.pop("fixed_at", None)
+    cur.pop("sent_at", None)
+    st[iid] = cur
+    support._save("support_status.json", st)
+    return True
 
 
 def _alert(site_id, fresh, now):

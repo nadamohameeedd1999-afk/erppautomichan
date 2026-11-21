@@ -25,6 +25,7 @@ SECTIONS = [
     ]),
     ('health', 'فحص الموقع', 'Site checks', [
         ('health', ['checks.health_page'], '/health', 'bi-heart-pulse', 'صحة النظام', 'System health', 'كل الشاشات بتفتح؟ السرعة الحقيقية؟ الحسابات متزنة؟ + تقرير للعميل', 'Do all screens open? Real speed? Balanced books? + client report'),
+        ('releases', ['releases.page'], '/releases', 'bi-signpost-2', 'الإصدارات', 'Releases', 'كل نسخة جديدة: بوابة على موقع الاختبار، وبعدين عميل تجريبي، وبعدين الباقي — ومشاكل اتصلحت ورجعت', 'Each new version: a gate on the test site, then a pilot client, then the rest — and problems that came back'),
         ('readiness', ['checks.readiness_page'], '/readiness', 'bi-stoplights', 'جاهزية الإصدار', 'Release readiness', 'درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش', 'Score /100 and a go / care / no-go verdict'),
         ('golive', ['golive.page'], '/go-live', 'bi-rocket-takeoff', 'اختبار الاستلام', 'Go-Live acceptance', 'زرار واحد قبل تسليم موقع العميل: الشاشات والأسماء واللينكات والتقارير والسرعة والحمل والحسابات والكود — حكم لكل جزء وتقرير للمطورين', 'One button before handing a client site over: screens, names, links, reports, speed, load, books, code — a verdict per area and a developer report'),
         ('clients', ['clients_health.page'], '/clients', 'bi-heart-pulse', 'صحة العملاء', 'Client health', 'درجة من 100 لكل عميل (التشغيل والأخطاء والشاشات والسرعة والنسخة): مين في خطر يشتكي، وملخص الصبح على واتساب، وتقرير أسبوعي', 'A score out of 100 per client: who may complain soon, the morning WhatsApp summary and a weekly report'),
@@ -68,7 +69,7 @@ HIDDEN = {"map", "autohealth", "diag"}
 
 
 # pages that answer one question together: each one shows the others as tabs on top («فحص الموقع» · «المقارنات»)
-HUBS = {"health": ["health", "clients", "monitor", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
+HUBS = {"health": ["health", "clients", "monitor", "releases", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
 
 
 def hub_tabs(endpoint, lang):
