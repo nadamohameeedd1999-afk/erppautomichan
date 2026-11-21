@@ -102,7 +102,7 @@ const el = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const VN = {up: '● شغال', down: '● واقع', slow: '● بطيء', none: 'لسه مفيش فحص'};
 const sec = ms => ms == null ? '—' : (ms / 1000).toFixed(1) + ' ث';
-const when = t => t ? new Date(t).toLocaleString('ar-EG', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '—';
+const when = t => t ? new Date(t).toLocaleString('ar-EG-u-nu-latn', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '—';
 let first = true, poll = null;
 
 function card(s) {

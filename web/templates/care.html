@@ -107,7 +107,7 @@ async function load() {
   el('nSite').innerHTML = '<option value="all">كل العملاء</option>' + D.clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   const names = Object.fromEntries(D.clients.map(c => [c.id, c.name]));
   el('caNotices').innerHTML = D.notices.length ? D.notices.slice().reverse().map(n => `<div class="d-flex justify-content-between border-bottom py-1 gap-2">
-      <span>${n.kind === 'maintenance' ? '🛠️' : 'ℹ️'} <b>${esc(n.title)}</b> · ${n.site === 'all' ? 'كل العملاء' : esc(names[n.site] || n.site)} · ${esc((n.start || '').replace('T', ' '))} ← ${esc((n.end || '').replace('T', ' '))}</span>
+      <span>${n.kind === 'maintenance' ? '🛠️' : 'ℹ️'} <b>${esc(n.title)}</b> · ${n.site === 'all' ? 'كل العملاء' : esc(names[n.site] || n.site)} · <bdi dir="ltr">${esc((n.start || '').replace('T', ' '))}</bdi> ← <bdi dir="ltr">${esc((n.end || '').replace('T', ' '))}</bdi></span>
       <button class="btn btn-sm btn-link text-danger p-0" onclick="delNotice('${n.id}')">امسح</button></div>`).join('') : '<span class="text-muted">مفيش إعلانات.</span>';
   el('caPlans').innerHTML = KEYS.map(k => { const p = D.plans[k]; return `<div class="ca-plan" data-plan="${k}">
       <label>اسم الباقة</label><input class="form-control form-control-sm" data-p="name" value="${esc(p.name)}">

@@ -13,11 +13,11 @@
   .ch-ring::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--g-panel); }
   .ch-ring b { z-index: 1; }
   .ch-c h3 { font-size: 16px; margin: 0; color: var(--g-head); }
-  .ch-lbl { font-size: 12px; font-weight: 700; } .ch-lbl.ok { color: var(--g-ok, #0F7C7A); } .ch-lbl.warn { color: var(--g-warn, #B7791F); } .ch-lbl.bad { color: var(--g-bad, #C0392B); }
+  .ch-lbl { font-size: 12px; font-weight: 700; } .ch-lbl.ok { color: var(--g-ok, #0F7C7A); } .ch-lbl.warn { color: var(--g-warn, #B7791F); } .ch-lbl.bad { color: var(--g-bad, #C0392B); } .ch-lbl.none { color: var(--g-muted); }
   .ch-chg { font-size: 12px; color: var(--g-muted); font-variant-numeric: tabular-nums; } .ch-chg.up { color: var(--g-ok, #0F7C7A); } .ch-chg.down { color: var(--g-bad, #C0392B); }
   .ch-why { font-size: 13px; margin: 6px 0 0; padding-inline-start: 18px; } .ch-why li { overflow-wrap: anywhere; }
-  .ch-parts { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; }
-  .ch-parts div { font-size: 10px; color: var(--g-muted); text-align: center; } .ch-parts i { display: block; height: 5px; border-radius: 3px; background: var(--g-line); margin-bottom: 2px; overflow: hidden; }
+  .ch-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px 6px; margin-top: 8px; }
+  .ch-parts div { font-size: 12px; color: var(--g-muted); text-align: center; } .ch-parts i { display: block; height: 5px; border-radius: 3px; background: var(--g-line); margin-bottom: 2px; overflow: hidden; }
   .ch-parts i span { display: block; height: 100%; background: var(--g-acc, #0F7C7A); }
   .ch-opts { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; }
   .ch-opts input[type=time], .ch-opts select { width: auto; display: inline-block; }
@@ -71,7 +71,8 @@
 <script>
 const el = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const COL = {ok: 'var(--g-ok, #0F7C7A)', warn: 'var(--g-warn, #B7791F)', bad: 'var(--g-bad, #C0392B)'};
+const IS_ADMIN = {{ 'true' if current_user and current_user.role == 'admin' else 'false' }};
+const COL = {ok: 'var(--g-ok, #0F7C7A)', warn: 'var(--g-warn, #B7791F)', bad: 'var(--g-bad, #C0392B)', none: 'var(--g-muted)'};
 async function load() {
   const r = await fetch('/api/clients').then(x => x.json());
   el('chList').innerHTML = r.clients.map(c => {
@@ -81,7 +82,7 @@ async function load() {
       <div style="min-width:0"><h3>${esc(c.name)}</h3><span class="ch-lbl ${c.level}">● ${esc(c.label)}</span> ${chg}
         ${c.reasons.length ? `<ul class="ch-why">${c.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<div class="small text-muted mt-1">مفيش حاجة مقلقة 👌</div>'}
         <div class="ch-parts">${c.parts.map(p => `<div><i><span style="width:${100 * p.got / p.max}%"></span></i>${esc(p.name)}</div>`).join('')}</div>
-        <div class="small mt-2"><a href="/monitor">المراقبة</a> · <a href="/dev-support">التذاكر</a> · <a href="/care">NQ Care</a></div></div></div>`;
+        <div class="small mt-2"><a href="/monitor">المراقبة</a> · <a href="/dev-support">التذاكر</a>${IS_ADMIN ? ' · <a href="/care">NQ Care</a>' : ''}</div></div></div>`;
   }).join('') || '<div class="text-muted">لسه مفيش مواقع عملاء. ضيفها من <a href="/settings">الإعدادات ▸ المواقع</a> بنوع «عميل».</div>';
   if (el('mOn')) {
     const c = r.config;

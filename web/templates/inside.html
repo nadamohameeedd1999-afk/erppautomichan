@@ -30,6 +30,8 @@
     <div class="d-flex gap-2"><select id="inSite" class="form-select form-select-sm" style="width:auto" aria-label="العميل"></select>
       <select id="inDays" class="form-select form-select-sm" style="width:auto" aria-label="الفترة"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="60">آخر 60 يوم</option></select></div>
   </div>
+  <div id="inNoSites" class="in-card" hidden><div class="bd in-empty">لسه مفيش مواقع — ضيفها من <a href="/settings">الإعدادات ▸ المواقع</a>.</div></div>
+  <div id="inBody">
   <div id="inNone" class="in-card" hidden><div class="bd in-empty">العميل ده لسه مش متربوط. ابعت كود الربط للمطورين من <a href="/monitor#moConn">مراقبة المواقع ▸ ربط NQ ERP</a>.</div></div>
   <div class="in-grid">
     <div class="in-card"><div class="hd"><b>🧾 الفواتير الإلكترونية (زاتكا)</b></div><div class="bd" id="inZ"></div></div>
@@ -49,6 +51,7 @@
           <button class="btn btn-sm btn-link text-muted" onclick="confirm('اللينكات القديمة هتبطل. أكمل؟') && tKey(true)">لينكات جديدة</button></div>
         <div id="tLinks" class="mt-1" dir="ltr" style="font:12px ui-monospace,Consolas,monospace;overflow-wrap:anywhere"></div></details>
       {% endif %}</div></div>
+  </div>
 </div>
 {% endblock %}
 {% block extra_js %}
@@ -61,6 +64,8 @@ let site = new URLSearchParams(location.search).get('site') || '';
 async function load() {
   const r = await fetch(`/api/inside?site=${encodeURIComponent(site)}&days=${el('inDays').value}`).then(x => x.json());
   site = r.site;
+  el('inNoSites').hidden = !!r.sites.length; el('inBody').hidden = !r.sites.length; el('inSite').hidden = !r.sites.length;
+  if (!r.sites.length) return;
   el('inSite').innerHTML = r.sites.map(s => `<option value="${esc(s.id)}" ${s.id === site ? 'selected' : ''}>${esc(s.name)}${s.kind === 'client' ? '' : ' (اختبار)'}</option>`).join('');
   const d = r.data || {};
   el('inNone').hidden = !!d.connected;

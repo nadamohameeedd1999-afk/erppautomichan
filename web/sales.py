@@ -226,7 +226,8 @@ def html_leave(sector, client="", user="", for_pdf=False):
     if pr["uptime30"]:
         facts.append(f"متوسط تشغيل أنظمة عملائنا آخر 30 يوم: {pr['uptime30']}%")
     if pr["screens_fixed30"] or pr["errors_caught30"]:
-        facts.append(f"آخر 30 يوم: لقينا وصلّحنا {pr['screens_fixed30'] + pr['errors_caught30']} مشكلة قبل ما العميل يبلّغ عنها")
+        fixed = f" واتصلح منها {pr['screens_fixed30']}" if pr["screens_fixed30"] else ""
+        facts.append(f"آخر 30 يوم: لقينا {pr['screens_fixed30'] + pr['errors_caught30']} مشكلة قبل ما العميل يبلّغ عنها{fixed}")
     body = f"""<p class="intro"><b>{e(sec['name'])}:</b> {e(sec['pitch'])}</p>
   <h3>اللي بيتعبك، وإزاي NQ ERP بيحله</h3>
   <table><thead><tr><th class="c" style="width:30px">م</th><th>المشكلة</th><th>الحل في NQ ERP</th></tr></thead><tbody>{pains}</tbody></table>

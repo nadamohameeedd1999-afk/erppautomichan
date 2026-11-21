@@ -1227,3 +1227,17 @@ def test_review_fixes(tmp_path, monkeypatch):
     M._save_state({"c1": {"incidents": [{"at": "2026-10-31T23:00:00", "v": "down"}, {"at": "2026-11-01T02:00:00", "v": "up"}]}})
     assert C.outages("c1", "2026-10-01", "2026-10-31T23:59:59")[0]["minutes"] == 59
     assert C.outages("c1", "2026-11-01", "2026-11-30T23:59:59")[0]["minutes"] == 120
+
+
+def test_frontend_review_fixes(tmp_path, monkeypatch):
+    """a client never checked and not linked is «no data», not «at risk»; sales may open the plans sheet but not NQ Care itself"""
+    from web import clients_health as H, monitor as M, telemetry as T
+    from web.app import app
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(T, "_load", lambda: {})
+    r = H.score("new")
+    assert r["level"] == "none" and r["label"] == "لسه مفيش بيانات" and r["reasons"] == []
+    c = app.test_client()
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"] = 1, "user"
+    assert c.get("/care").status_code == 403 and c.get("/care/offer").status_code == 200

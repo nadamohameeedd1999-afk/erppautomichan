@@ -12,7 +12,7 @@
   .sa-pitch { font-size: 16px; color: var(--g-head); line-height: 1.8; margin: 0 0 12px; }
   .sa-pains { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
   .sa-pain { border: 1px solid var(--g-line); border-radius: 10px; padding: 10px 12px; }
-  .sa-pain b { display: block; color: var(--g-bad, #C0392B); font-size: 13px; } .sa-pain span { font-size: 13px; }
+  .sa-pain b { display: block; color: var(--g-head); font-size: 13px; } .sa-pain span { font-size: 13px; }
   .sa-step { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--g-line); }
   .sa-step .n { width: 30px; height: 30px; border-radius: 50%; background: var(--g-hover); color: var(--g-head); font-weight: 700; display: grid; place-items: center; }
   .sa-step b { color: var(--g-head); } .sa-step .say { font-size: 13px; color: var(--g-muted); } .sa-step .say::before { content: "💬 "; }
@@ -112,7 +112,7 @@ async function load() {
     : '<div class="small text-muted">لسه مفيش أيام اتعملت على موقع العرض.</div>';
   const p = D.proof;
   el('saProof').innerHTML = [['نسبة تشغيل أنظمة عملائنا', p.uptime30 == null ? '—' : p.uptime30 + '%'], ['فحوصات آخر 30 يوم', money(p.checks30)],
-    ['مشاكل لقيناها واتصلحت', money(p.screens_fixed30 + p.errors_caught30)], ['بنراقب كل', p.every_min + ' دقيقة']]
+    ['مشاكل لقيناها قبل العميل', money(p.screens_fixed30 + p.errors_caught30)], ['منها اتصلحت', money(p.screens_fixed30)], ['بنراقب كل', p.every_min + ' دقيقة']]
     .map(([k, v]) => `<div class="sa-kpi"><span>${k}</span><b>${v}</b></div>`).join('');
   if (el('cSite')) admin();
   tour();

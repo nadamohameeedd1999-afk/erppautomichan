@@ -186,7 +186,7 @@ function spRender() {
       <div class="sp-more" id="m_${i.id}">${more(i)}</div></td>
     <td><div>${esc(KIND === 'dev' ? i.screen : i.test)}</div><div class="sp-sub" dir="ltr" style="text-align:right">${esc(i.site)}</div></td>
     <td><select class="form-select form-select-sm" onchange="spSet('${i.id}', {status: this.value})">${STATUSES.map(s => `<option ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
-      ${KIND === 'dev' ? `<select class="form-select form-select-sm mt-1" aria-label="المطور" onchange="spSet('${i.id}', {dev: this.value})"><option value="">— مطور —</option>${DEVS.concat(i.dev && !DEVS.includes(i.dev) ? [i.dev] : []).map(d => `<option ${d === i.dev ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>${due(i)}` : ''}
+      ${KIND === 'dev' ? (DEVS.length || i.dev ? `<select class="form-select form-select-sm mt-1" aria-label="المطور" onchange="spSet('${i.id}', {dev: this.value})"><option value="">— مطور —</option>${DEVS.concat(i.dev && !DEVS.includes(i.dev) ? [i.dev] : []).map(d => `<option ${d === i.dev ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>` : '') + due(i) : ''}
       <input class="form-control form-control-sm mt-1" placeholder="ملاحظة" value="${esc(i.note)}" onchange="spSet('${i.id}', {note: this.value})"></td></tr>`).join('')
     || '<tr><td colspan="6" class="sp-empty">مفيش مشاكل في الفلتر ده 🎉</td></tr>';
   spCount();

@@ -70,7 +70,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const when = t => t ? new Date(t).toLocaleString('ar-EG', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) : '—';
+const when = t => t ? new Date(t).toLocaleString('ar-EG-u-nu-latn', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) : '—';
 const dur = m => m >= 60 ? `${Math.floor(m / 60)} ساعة ${m % 60 ? 'و' + (m % 60) + ' دقيقة' : ''}` : `${m} دقيقة`;
 const T = {up: ['النظام شغال بشكل طبيعي', 'كل الخدمات شغالة'], slow: ['النظام شغال بس أبطأ من الطبيعي', 'فريقنا عارف وبيتابع'],
            down: ['فيه عطل في النظام دلوقتي', 'فريقنا عارف بالمشكلة وشغال على حلها'], maintenance: ['صيانة مجدولة', 'النظام هيرجع بعد انتهاء الصيانة'],
@@ -84,7 +84,7 @@ async function load() {
   $('sub').textContent = T[r.state][1] + (r.since && r.state !== 'none' ? ' · من ' + when(r.since) : '') + (r.checked ? ' · آخر فحص ' + when(r.checked) : '');
   if (r.plan) { $('plan').hidden = false; $('plan').textContent = r.plan; }
   $('up').textContent = r.uptime30 == null ? '—' : r.uptime30 + '%';
-  $('ms').textContent = r.ms == null || r.state === 'down' ? '—' : (r.ms / 1000).toFixed(1) + ' ث';
+  $('ms').textContent = r.ms == null || !['up', 'slow'].includes(r.state) ? '—' : (r.ms / 1000).toFixed(1) + ' ث';
   if (r.screens) $('scr').textContent = r.screens.bad ? 'جاري حل مشكلة في بعضها' : `${r.screens.total} شاشة شغالة`;
   else $('scrK').hidden = true;
   $('tgt').textContent = r.target ? `هدف التشغيل في باقتك ${r.target}%` : '';

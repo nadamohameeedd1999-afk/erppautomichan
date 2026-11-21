@@ -99,6 +99,7 @@ def logout_user():
 # user   = يشغّل ويعدّل الاختبارات (مش الإعدادات ولا المستخدمين)
 # viewer = يشوف بس
 ROLES = {"admin": "أدمن", "user": "مستخدم", "viewer": "مشاهد"}
+_SALES_OPEN = ("/care/offer",)   # the plans sheet for sales meetings: plans and prices only, no client data
 _ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/simulation/settings", "/simulation/api/settings", "/api/monitor/settings", "/api/monitor/connect", "/care", "/api/care", "/api/sales/settings", "/api/sales/key", "/api/clients/settings", "/api/clients/morning", "/api/clients/weekly/send", "/api/releases/", "/api/inside/trainer-key")
 _OPEN_PATHS = ("/login", "/logout", "/set-lang", "/healthz", "/static", "/media", "/uat/s/", "/api/uat/s/", "/demo/", "/api/telemetry/", "/status/", "/api/client-status/", "/api/sales/feed", "/api/trainer/")
 
@@ -111,7 +112,7 @@ def check_permission():
         return None
     role = session.get("role", "user")
     deny = None
-    if role != "admin" and path.startswith(_ADMIN_PATHS):
+    if role != "admin" and path.startswith(_ADMIN_PATHS) and not path.startswith(_SALES_OPEN):
         deny = "الصفحة دي للأدمن بس"
     elif role == "viewer" and request.method not in ("GET", "HEAD", "OPTIONS"):
         deny = "صلاحيتك مشاهدة بس — مش هتقدر تشغّل أو تعدّل"

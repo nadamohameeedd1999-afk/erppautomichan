@@ -60,7 +60,7 @@ async function load() {
         <td class="text-center" dir="ltr">${esc(x.since || '—')}${x.manual ? ' ✋' : ''}</td><td><span class="rl-st ${x.status}">${ST[x.status]}</span> <span class="small text-muted">${esc(x.status === 'pending' ? '' : x.text)}</span></td>
         <td>${IS_ADMIN ? (x.since && x.manual ? `<a href="#" class="small" onclick="mark('${r.id}','${esc(x.id)}','');return false">شيل العلامة</a>` : !x.since ? `<a href="#" class="small" onclick="mark('${r.id}','${esc(x.id)}','now');return false">✋ نزلت</a>` : '') : ''}</td></tr>`).join('')
       || '<tr><td colspan="4" class="text-muted">مفيش مواقع عملاء.</td></tr>';
-    return `<div class="rl-card"><div class="hd"><div><span class="rl-ver">${esc(r.version)}</span> <span class="small text-muted">اتضافت ${esc(r.created)}</span></div>
+    return `<div class="rl-card"><div class="hd"><div><span class="rl-ver">${esc(r.version)}</span> <span class="small text-muted">اتضافت <bdi dir="ltr">${esc(r.created)}</bdi></span></div>
         ${IS_ADMIN ? `<div class="d-flex gap-2">${g.verdict !== 'go' ? `<button class="btn btn-sm btn-outline-secondary" onclick="approve('${r.id}')">اعتماد يدوي</button>` : r.approved ? `<button class="btn btn-sm btn-link text-muted" onclick="unapprove('${r.id}')">شيل الاعتماد</button>` : ''}
           <button class="btn btn-sm btn-link text-danger" onclick="confirm('تمسح النسخة دي من القايمة؟') && del('${r.id}')">امسح</button></div>` : ''}</div>
       <div class="bd">${r.notes ? `<div class="small mb-2" style="white-space:pre-wrap">${esc(r.notes)}</div>` : ''}
@@ -68,7 +68,7 @@ async function load() {
         <div class="rl-flow">
           <div class="rl-gate ${g.verdict}"><span class="small text-muted">1) البوابة على موقع الاختبار</span><b class="t">${esc(g.text)}</b>
             ${g.reasons.length ? `<ul>${g.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-            ${g.since ? `<div class="rl-facts"><span>نزلت ${esc(f.since)}</span>${f.until ? `<span>اتبدلت ${esc(f.until)}</span>` : ''}<span>${f.hours} ساعة</span><span>${f.errors} خطأ سيرفر</span><span>${f.js} JavaScript</span><span>${f.broke} شاشة باظت</span><span>وقع ${f.downs}</span></div>` : ''}</div>
+            ${g.since ? `<div class="rl-facts"><span>نزلت <bdi dir="ltr">${esc(f.since)}</bdi></span>${f.until ? `<span>اتبدلت <bdi dir="ltr">${esc(f.until)}</bdi></span>` : ''}<span>${f.hours} ساعة</span><span>${f.errors} خطأ سيرفر</span><span>${f.js} JavaScript</span><span>${f.broke} شاشة باظت</span><span>وقع ${f.downs}</span></div>` : ''}</div>
           <div><span class="small text-muted">2) العملاء (التجريبي الأول)</span>
             <div class="table-responsive"><table class="rl-tbl mt-1"><thead><tr><th>العميل</th><th class="text-center">نزلت من</th><th>الحالة</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
         </div></div></div>`;

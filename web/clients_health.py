@@ -88,8 +88,9 @@ def score(site_id, newest=None):
     ]
     total = round(sum(p[1] for p in parts))
     reasons = [p[3] for p in sorted(parts, key=lambda p: p[1] - p[2]) if p[2] - p[1] >= 2 and p[3]][:3]
-    return {"score": total, "label": "سليم" if total >= 85 else "محتاج متابعة" if total >= 70 else "في خطر",
-            "level": "ok" if total >= 85 else "warn" if total >= 70 else "bad", "reasons": reasons,
+    fresh = up is None and not tel                                   # never checked, not linked: nothing is known yet
+    return {"score": total, "label": "لسه مفيش بيانات" if fresh else "سليم" if total >= 85 else "محتاج متابعة" if total >= 70 else "في خطر",
+            "level": "none" if fresh else "ok" if total >= 85 else "warn" if total >= 70 else "bad", "reasons": [] if fresh else reasons,
             "parts": [{"name": p[0], "got": round(p[1], 1), "max": p[2]} for p in parts],
             "uptime7": round(up, 2) if up is not None else None, "errors7": len(errs), "bad_screens": bad, "version": ver, "state": s.get("v", "none")}
 
@@ -116,7 +117,7 @@ def all_scores(save=False):
         r.update({"id": p["id"], "name": p.get("name"), "url": p.get("base_url"),
                   "change": r["score"] - old[p["id"]] if p["id"] in old else None})
         out.append(r)
-    out.sort(key=lambda r: r["score"])
+    out.sort(key=lambda r: (r["level"] == "none", r["score"]))
     if save:
         h[today] = {r["id"]: r["score"] for r in out}
         for k in sorted(h)[:-120]:
@@ -197,7 +198,7 @@ def _overdue_tickets():
 def html_weekly(user="", for_pdf=False):
     from web.monthly_report import report_shell
     e, rows = html.escape, all_scores()
-    lvl = {"ok": "ok", "warn": "warn", "bad": "bad"}
+    lvl = {"ok": "ok", "warn": "warn", "bad": "bad", "none": ""}
     body_rows = "".join(f"""<tr><td class="c">{i}</td><td><b>{e(r['name'] or '')}</b></td>
         <td class="c"><span class="st {lvl[r['level']]}">{r['score']}</span></td><td class="c">{e(r['label'])}</td>
         <td class="c">{'—' if r['change'] is None else f'<span class="st {"ok" if r["change"] > 0 else "bad" if r["change"] < 0 else ""}">' + ('▲ ' if r['change'] > 0 else '▼ ' if r['change'] < 0 else '') + str(abs(r['change'])) + '</span>'}</td>
