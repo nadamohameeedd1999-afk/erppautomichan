@@ -863,3 +863,68 @@ def test_sales_demo(tmp_path, monkeypatch):
         ss["user_id"], ss["role"] = 2, "user"
     assert c.post("/api/sales/key").status_code == 403                # the feed link: admin only
     assert c.get("/api/sales").status_code == 200                     # the presenter page: any signed-in user
+
+
+def test_client_health_and_ticket_deadlines(tmp_path, monkeypatch):
+    """❤️ score per client (worst first, reasons, change), morning summary, weekly report; ⏱️ ticket deadline from «اتبلغ للمطور», overdue alert once"""
+    import json
+    from datetime import datetime, timedelta
+    from web import care as C, clients_health as H, monitor as M, support as SP, telemetry as T
+    from web.app import app
+    profs = [{"id": "a", "name": "شركة سليمة", "base_url": "https://a.x", "kind": "client"},
+             {"id": "b", "name": "شركة تعبانة", "base_url": "https://b.x", "kind": "client"},
+             {"id": "t", "name": "الاختبار", "base_url": "https://t.x", "kind": "test"}]
+    monkeypatch.setattr(M, "_sites", lambda c: profs)
+    for mod, attr, name in ((M, "STATE_FILE", "state.json"), (T, "FILE", "tel.json"), (C, "FILE", "care.json"), (H, "CFG", "digest.json"), (H, "HIST", "health.json")):
+        monkeypatch.setattr(mod, attr, tmp_path / name)
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    d = lambda k: (datetime.now() - timedelta(days=k)).strftime("%Y-%m-%d")
+    M._save_state({
+        "a": {"v": "up", "hist": [1], "last": {"ssl_days": 200}, "days": {d(k): {"n": 96, "ok": 96, "ms": 96 * 900} for k in range(7)},
+              "deep": {"screens": 100, "problems": []}},
+        "b": {"v": "down", "hist": [1], "last": {"ssl_days": 10}, "days": {d(k): {"n": 96, "ok": 90, "ms": 90 * 6000} for k in range(7)},
+              "deep": {"screens": 100, "problems": [["/x", "HTTP 500"], ["/y", "HTTP 500"], ["/z", "HTTP 404"]]},
+              "deep_log": [{"at": d(1) + "T10:00:00", "new": ["/x"], "fixed": []}]}})
+    T.receive("a", {"kind": "start", "version": "2026.11.21"})
+    T.receive("b", {"kind": "start", "version": "2026.10.01"})
+    for i in range(6):
+        T.receive("b", {"kind": "server", "type": "E", "message": f"boom kind {chr(97 + i)}", "url": f"/s{chr(97 + i)}"})
+    H.HIST.write_text(json.dumps({d(7): {"a": 90, "b": 60}}))
+    r = H.all_scores()
+    assert [x["id"] for x in r] == ["b", "a"]                      # worst first, client sites only
+    a, b = r[1], r[0]
+    assert a["score"] >= 95 and a["level"] == "ok" and a["change"] == a["score"] - 90
+    assert b["level"] == "bad" and len(b["reasons"]) == 3 and "93.8%" in b["reasons"][0]          # the biggest deductions first
+    assert {p["name"]: p["got"] for p in b["parts"]}["النسخة"] == 0                                  # older than the newest client
+    txt = H.morning_text()
+    assert "واقع دلوقتي: شركة تعبانة" in txt and "1 شاشة باظت" in txt and "عملاء في خطر: شركة تعبانة" in txt
+    assert "شركة تعبانة" in H.html_weekly() and "في خطر" in H.html_weekly()
+    # ⏱️ deadlines: from «اتبلغ للمطور», per severity
+    monkeypatch.setattr(SP, "_f", lambda name: tmp_path / name)
+    c = app.test_client()
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"], ss["username"] = 1, "admin", "admin"
+    c.post("/api/support/status", json={"id": "x1", "status": "اتبلغ للمطور", "dev": "عصام"})
+    st = SP._load("support_status.json", {})
+    assert st["x1"]["sent_at"] and st["x1"]["dev"] == "عصام"
+    st["x1"]["sent_at"] = (datetime.now() - timedelta(hours=30)).strftime("%Y-%m-%d %H:%M")
+    SP._save("support_status.json", st)
+    it = {"id": "x1", "severity": "عالية", "status": "اتبلغ للمطور", "title": "فاتورة المبيعات بترجع 500"}
+    SP._sla(it, st["x1"], SP.sla_cfg(), datetime.now())
+    assert it["overdue"] and it["late_h"] == 6
+    it2 = {"id": "x2", "severity": "متوسطة", "status": "بيتصلح"}
+    SP._sla(it2, {"sent_at": st["x1"]["sent_at"]}, SP.sla_cfg(), datetime.now())
+    assert not it2["overdue"] and it2["left_h"] == 42
+    monkeypatch.setattr(SP, "collect", lambda: ([{**it, "dev": "عصام"}], []))
+    H._last["od"] = 0
+    H._overdue_alerts()
+    assert "تذاكر عدّت ميعاد الحل" in sent[-1] and "عصام" in sent[-1]
+    n = len(sent)
+    H._last["od"] = 0
+    H._overdue_alerts()
+    assert len(sent) == n                                           # once per ticket
+    c.post("/api/support/status", json={"id": "x1", "status": "اتصلح"})
+    assert SP._load("support_status.json", {})["x1"]["fixed_at"]
+    stats = c.get("/api/support/sla").get_json()
+    assert stats["config"]["hours"]["عالية"] == 24 and stats["config"]["devs"][0] == "عصام"

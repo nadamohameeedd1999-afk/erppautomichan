@@ -5,7 +5,7 @@
   .sp-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; margin-bottom: 16px; min-width: 0; }
   .sp-card > .hd { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--g-line); }
   .sp-card > .bd { padding: 12px 16px; }
-  .sp-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .sp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
   @media (max-width: 800px) { .sp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .sp-kpi { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 14px; padding: 12px 14px; cursor: pointer; min-width: 0; }
   .sp-kpi .v { font-size: 24px; font-weight: 800; }
@@ -61,6 +61,23 @@
   </div>
 
   <div class="sp-kpis" id="spKpis"></div>
+  {% if kind == 'dev' %}
+  <details class="sp-card" id="slaBox" ontoggle="this.open && slaLoad()" style="padding:0">
+    <summary style="cursor:pointer;padding:12px 16px;font-weight:700">⏱️ مواعيد الحل والمطورين</summary>
+    <div style="padding:0 16px 14px">
+      <div class="small text-muted mb-2">العداد بيبدأ لما تخلي التذكرة «اتبلغ للمطور»، وبيقف لما تبقى «اتصلح». لو عدّت الميعاد هيجيلك تنبيه مرة واحدة، والتذاكر المتأخرة بتظهر في ملخص الصبح.</div>
+      <div class="table-responsive"><table class="table table-sm mb-2" style="font-size:13px"><thead><tr><th>المطور</th><th class="text-center">مفتوحة معاه</th><th class="text-center">متأخرة</th><th class="text-center">اتصلحت</th><th class="text-center">متوسط وقت الحل</th></tr></thead><tbody id="slaStats"></tbody></table></div>
+      {% if current_user and current_user.role == 'admin' %}
+      <div class="d-flex flex-wrap gap-2 align-items-end small">
+        <label>عالية خلال <input type="number" id="slaH" class="form-control form-control-sm" style="width:80px"> ساعة</label>
+        <label>متوسطة <input type="number" id="slaM" class="form-control form-control-sm" style="width:80px"></label>
+        <label>منخفضة <input type="number" id="slaL" class="form-control form-control-sm" style="width:80px"></label>
+        <label class="flex-grow-1">المطورين (افصل بـ ،) <input id="slaDevs" class="form-control form-control-sm"></label>
+        <button class="btn btn-sm sp-teal" onclick="slaSave()">احفظ</button>
+      </div>{% endif %}
+    </div>
+  </details>
+  {% endif %}
 
   <div class="sp-card">
     <div class="hd">
@@ -136,14 +153,14 @@ const KIND = '{{ kind }}';
 const STATUSES = {{ statuses|tojson }};
 const el = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-let ITEMS = [], KF = '';
+let ITEMS = [], KF = '', DEVS = [];
 const SEV = {'عالية': 'h', 'متوسطة': 'm', 'منخفضة': 'l'};
 const closed = i => i.status === 'اتصلح' || i.status === 'مش مشكلة';
 
 async function spLoad() {
   const r = await fetch('/api/support/' + KIND).then(x => x.json()).catch(() => ({}));
   if (!r.success) { el('spRows').innerHTML = '<tr><td colspan="6" class="sp-empty">تعذر التحميل</td></tr>'; return; }
-  ITEMS = r.items;
+  ITEMS = r.items; DEVS = r.devs || [];
   const cur = el('fsite').value;
   el('fsite').innerHTML = '<option value="">كل المواقع</option>' + r.sites.map(s => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('');
   spRender();
@@ -151,12 +168,12 @@ async function spLoad() {
 function filtered() {
   const q = el('fq').value.trim(), site = el('fsite').value, sev = el('fsev').value, st = el('fst').value;
   return ITEMS.filter(i => (!site || i.site === site) && (!sev || i.severity === sev) && (!st || (st === 'open' ? !closed(i) : i.status === st))
-    && (!q || JSON.stringify(i).includes(q)) && (!KF || (KF === 'high' ? i.severity === 'عالية' && !closed(i) : KF === 'fixed' ? i.auto_fixed && !closed(i) : true)));
+    && (!q || JSON.stringify(i).includes(q)) && (!KF || (KF === 'high' ? i.severity === 'عالية' && !closed(i) : KF === 'fixed' ? i.auto_fixed && !closed(i) : KF === 'late' ? i.overdue : true)));
 }
 function spRender() {
   const open = ITEMS.filter(i => !closed(i));
   const k = [['all', ITEMS.length, 'كل المشاكل'], ['open', open.length, 'مفتوحة'], ['high', open.filter(i => i.severity === 'عالية').length, 'خطورة عالية مفتوحة'],
-             ['fixed', open.filter(i => i.auto_fixed).length, 'آخر تشغيل نجح — راجعها']];
+             ['fixed', open.filter(i => i.auto_fixed).length, 'آخر تشغيل نجح — راجعها']].concat(KIND === 'dev' ? [['late', ITEMS.filter(i => i.overdue).length, 'متأخرة عن ميعاد الحل']] : []);
   el('spKpis').innerHTML = k.map(([id, v, l]) => `<div class="sp-kpi ${KF === id ? 'on' : ''}" onclick="KF=(KF==='${id}'?'':'${id}');${id === 'all' ? "el('fst').value='';" : ''}spRender()"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
   const list = filtered();
   el('spRows').innerHTML = list.map(i => `<tr class="${closed(i) ? 'done' : ''}">
@@ -168,9 +185,28 @@ function spRender() {
       <div class="sp-more" id="m_${i.id}">${more(i)}</div></td>
     <td><div>${esc(KIND === 'dev' ? i.screen : i.test)}</div><div class="sp-sub" dir="ltr" style="text-align:right">${esc(i.site)}</div></td>
     <td><select class="form-select form-select-sm" onchange="spSet('${i.id}', {status: this.value})">${STATUSES.map(s => `<option ${s === i.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      ${KIND === 'dev' ? `<select class="form-select form-select-sm mt-1" aria-label="المطور" onchange="spSet('${i.id}', {dev: this.value})"><option value="">— مطور —</option>${DEVS.concat(i.dev && !DEVS.includes(i.dev) ? [i.dev] : []).map(d => `<option ${d === i.dev ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>${due(i)}` : ''}
       <input class="form-control form-control-sm mt-1" placeholder="ملاحظة" value="${esc(i.note)}" onchange="spSet('${i.id}', {note: this.value})"></td></tr>`).join('')
     || '<tr><td colspan="6" class="sp-empty">مفيش مشاكل في الفلتر ده 🎉</td></tr>';
   spCount();
+}
+function due(i) {
+  if (i.fix_h != null) return `<div class="small mt-1" style="color:var(--g-ok,#0F7C7A)">✓ اتصلحت في ${i.fix_h} س</div>`;
+  if (i.overdue) return `<div class="small mt-1 fw-bold" style="color:var(--g-bad,#C0392B)">⛔ متأخرة ${i.late_h} س</div>`;
+  if (i.left_h != null) return `<div class="small mt-1" style="color:${i.left_h <= 6 ? 'var(--g-warn,#B7791F)' : 'var(--g-muted)'}">⏱ فاضل ${i.left_h} س</div>`;
+  return '';
+}
+async function slaLoad() {
+  const r = await fetch('/api/support/sla').then(x => x.json());
+  DEVS = r.config.devs;
+  el('slaStats').innerHTML = r.stats.map(s => `<tr><td>${esc(s.dev)}</td><td class="text-center">${s.open}</td><td class="text-center ${s.overdue ? 'text-danger fw-bold' : ''}">${s.overdue}</td>
+    <td class="text-center">${s.fixed}</td><td class="text-center">${s.avg_fix_h == null ? '—' : s.avg_fix_h + ' س'}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">لسه مفيش تذاكر متعيّنة لمطور.</td></tr>';
+  if (el('slaH')) { el('slaH').value = r.config.hours['عالية']; el('slaM').value = r.config.hours['متوسطة']; el('slaL').value = r.config.hours['منخفضة']; el('slaDevs').value = DEVS.join('، '); }
+}
+async function slaSave() {
+  await fetch('/api/support/sla', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hours: {'عالية': +el('slaH').value, 'متوسطة': +el('slaM').value, 'منخفضة': +el('slaL').value},
+    devs: el('slaDevs').value.split(/[،,]/).map(x => x.trim()).filter(Boolean)})});
+  await slaLoad(); spLoad();
 }
 function more(i) {
   const row = (t, v) => v ? `<dt>${t}</dt><dd>${esc(v)}</dd>` : '';

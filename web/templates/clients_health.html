@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}صحة العملاء - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .ch-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .ch-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ch-card > .bd { padding: 14px 16px; }
+  .ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .ch-c { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 76px 1fr; gap: 14px; min-width: 0; }
+  .ch-c.bad { border-color: var(--g-bad, #C0392B); } .ch-c.warn { border-color: var(--g-warn, #B7791F); }
+  .ch-ring { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .ch-ring b { font-size: 24px; color: var(--g-head); font-variant-numeric: tabular-nums; position: relative; }
+  .ch-ring::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--g-panel); }
+  .ch-ring b { z-index: 1; }
+  .ch-c h3 { font-size: 16px; margin: 0; color: var(--g-head); }
+  .ch-lbl { font-size: 12px; font-weight: 700; } .ch-lbl.ok { color: var(--g-ok, #0F7C7A); } .ch-lbl.warn { color: var(--g-warn, #B7791F); } .ch-lbl.bad { color: var(--g-bad, #C0392B); }
+  .ch-chg { font-size: 12px; color: var(--g-muted); font-variant-numeric: tabular-nums; } .ch-chg.up { color: var(--g-ok, #0F7C7A); } .ch-chg.down { color: var(--g-bad, #C0392B); }
+  .ch-why { font-size: 13px; margin: 6px 0 0; padding-inline-start: 18px; } .ch-why li { overflow-wrap: anywhere; }
+  .ch-parts { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; }
+  .ch-parts div { font-size: 10px; color: var(--g-muted); text-align: center; } .ch-parts i { display: block; height: 5px; border-radius: 3px; background: var(--g-line); margin-bottom: 2px; overflow: hidden; }
+  .ch-parts i span { display: block; height: 100%; background: var(--g-acc, #0F7C7A); }
+  .ch-opts { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; }
+  .ch-opts input[type=time], .ch-opts select { width: auto; display: inline-block; }
+  .ch-pre { white-space: pre-wrap; background: var(--g-hover); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-top: 10px; }
+  .ch-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">كل عميل له درجة من 100 من آخر 7 أيام: التشغيل 35، والأخطاء من جوه البرنامج 20، والشاشات البايظة 20، والسرعة 10، والنسخة 10، والشهادة 5. اللي فوق هو الأسوأ، فابدأ بيه: كلّمه أو ابعتله المطور قبل ما يشتكي.</div>
+  <div class="ch-grid" id="chList"><div class="text-muted">بيحمّل…</div></div>
+
+  <div class="ch-card mt-3">
+    <div class="hd"><b>☀️ ملخص الصبح والتقرير الأسبوعي</b>
+      <div class="d-flex gap-2 flex-wrap"><a class="btn btn-sm btn-outline-secondary" href="/clients/weekly" target="_blank">التقرير الأسبوعي</a>
+        <a class="btn btn-sm btn-outline-secondary" href="/clients/weekly.pdf">PDF</a></div></div>
+    <div class="bd">
+      {% if current_user and current_user.role == 'admin' %}
+      <div class="ch-opts mb-2">
+        <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="mOn"> ملخص الصبح على واتساب وتليجرام الساعة</label><input type="time" id="mAt" class="form-control form-control-sm" aria-label="ساعة ملخص الصبح">
+        <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="wOn"> التقرير الأسبوعي على الإيميل كل</label>
+        <select id="wDay" class="form-select form-select-sm" aria-label="يوم التقرير"></select><input type="time" id="wAt" class="form-control form-control-sm" aria-label="ساعة التقرير">
+        <button class="btn btn-sm ch-teal" onclick="saveCfg()">احفظ</button>
+      </div>
+      <div class="d-flex gap-2 flex-wrap"><button class="btn btn-sm btn-outline-secondary" onclick="preview()">شوف ملخص النهارده</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="sendMorning()">ابعته دلوقتي</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="sendWeekly()">ابعت التقرير الأسبوعي دلوقتي</button>
+        <span class="small" id="chMsg" aria-live="polite"></span></div>
+      <div class="ch-pre" id="chPre" hidden></div>
+      {% else %}<div class="small text-muted">ملخص الصبح والتقرير الأسبوعي بيظبطهم الأدمن.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const COL = {ok: 'var(--g-ok, #0F7C7A)', warn: 'var(--g-warn, #B7791F)', bad: 'var(--g-bad, #C0392B)'};
+async function load() {
+  const r = await fetch('/api/clients').then(x => x.json());
+  el('chList').innerHTML = r.clients.map(c => {
+    const chg = c.change == null ? '' : c.change > 0 ? `<span class="ch-chg up">▲ ${c.change} عن الأسبوع اللي فات</span>` : c.change < 0 ? `<span class="ch-chg down">▼ ${-c.change} عن الأسبوع اللي فات</span>` : '<span class="ch-chg">زي الأسبوع اللي فات</span>';
+    return `<div class="ch-c ${c.level}">
+      <div class="ch-ring" style="background: conic-gradient(${COL[c.level]} ${c.score * 3.6}deg, var(--g-line) 0)" role="img" aria-label="الدرجة ${c.score} من 100"><b>${c.score}</b></div>
+      <div style="min-width:0"><h3>${esc(c.name)}</h3><span class="ch-lbl ${c.level}">● ${esc(c.label)}</span> ${chg}
+        ${c.reasons.length ? `<ul class="ch-why">${c.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<div class="small text-muted mt-1">مفيش حاجة مقلقة 👌</div>'}
+        <div class="ch-parts">${c.parts.map(p => `<div><i><span style="width:${100 * p.got / p.max}%"></span></i>${esc(p.name)}</div>`).join('')}</div>
+        <div class="small mt-2"><a href="/monitor">المراقبة</a> · <a href="/dev-support">التذاكر</a> · <a href="/care">NQ Care</a></div></div></div>`;
+  }).join('') || '<div class="text-muted">لسه مفيش مواقع عملاء. ضيفها من <a href="/settings">الإعدادات ▸ المواقع</a> بنوع «عميل».</div>';
+  if (el('mOn')) {
+    const c = r.config;
+    el('mOn').checked = c.morning_on; el('mAt').value = c.morning_at; el('wOn').checked = c.weekly_on; el('wAt').value = c.weekly_at;
+    el('wDay').innerHTML = r.week.map((d, i) => `<option value="${i}" ${i == c.weekly_day ? 'selected' : ''}>${d}</option>`).join('');
+  }
+}
+async function post(u, b) { return fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b || {})}).then(r => r.json()); }
+async function saveCfg() { await post('/api/clients/settings', {morning_on: el('mOn').checked, morning_at: el('mAt').value, weekly_on: el('wOn').checked, weekly_day: +el('wDay').value, weekly_at: el('wAt').value}); el('chMsg').innerHTML = '<span class="text-success">✓ اتحفظ</span>'; }
+async function preview() { const r = await fetch('/api/clients/morning').then(x => x.json()); el('chPre').hidden = false; el('chPre').textContent = r.text; }
+async function sendMorning() { const r = await post('/api/clients/morning'); el('chPre').hidden = false; el('chPre').textContent = r.text;
+  el('chMsg').innerHTML = r.sent && r.sent.length ? `<span class="text-success">✓ اتبعت على: ${esc(r.sent.join('، '))}</span>` : '<span class="text-danger">مفيش قناة تنبيه شغالة. ظبطها من الإعدادات ▸ التنبيهات</span>'; }
+async function sendWeekly() { el('chMsg').textContent = '⏳ بيجهّز التقرير…'; const r = await post('/api/clients/weekly/send'); el('chMsg').innerHTML = r.ok ? '<span class="text-success">✓ اتبعت</span>' : `<span class="text-danger">${esc(r.error)}</span>`; }
+load();
+</script>
+{% endblock %}

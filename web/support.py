@@ -23,6 +23,29 @@ bp = Blueprint("support", __name__)
 DEV_STATUS = ["جديد", "اتبلغ للمطور", "بيتصلح", "اتصلح", "مش مشكلة"]
 TOOL_STATUS = ["جديد", "اتبعت للإصلاح", "اتصلح", "مش مشكلة"]
 SEV_ORDER = {"عالية": 0, "متوسطة": 1, "منخفضة": 2}
+SLA_DEFAULT = {"hours": {"عالية": 24, "متوسطة": 72, "منخفضة": 168}, "devs": ["عصام", "كريم", "شرف", "وائل"]}
+
+
+def sla_cfg():
+    """⏱️ hours to fix per severity, counted from «اتبلغ للمطور» + the developers a ticket can be given to"""
+    c = _load("support_sla.json", {})
+    return {"hours": {**SLA_DEFAULT["hours"], **(c.get("hours") or {})}, "devs": c.get("devs") or SLA_DEFAULT["devs"]}
+
+
+def _sla(it, st, cfg, now):
+    """deadline fields on a dev item: sent_at / fixed_at / dev / due / left_h / late_h / overdue / fix_h"""
+    it["sent_at"], it["fixed_at"], it["dev"] = st.get("sent_at", ""), st.get("fixed_at", ""), st.get("dev", "")
+    if not it["sent_at"]:
+        return
+    sent = datetime.strptime(it["sent_at"], "%Y-%m-%d %H:%M")
+    due = sent + timedelta(hours=float(cfg["hours"].get(it.get("severity"), 72)))
+    it["due"] = due.strftime("%Y-%m-%d %H:%M")
+    if it["fixed_at"]:
+        it["fix_h"] = round((datetime.strptime(it["fixed_at"], "%Y-%m-%d %H:%M") - sent).total_seconds() / 3600, 1)
+    elif it["status"] not in ("اتصلح", "مش مشكلة"):
+        h = (due - now).total_seconds() / 3600
+        it["overdue"] = h < 0
+        it["left_h" if h >= 0 else "late_h"] = round(abs(h))
 MAX_DAYS = 60
 
 
@@ -294,6 +317,7 @@ def collect():
 
 def _finish(store, kind):
     st = _load("support_status.json", {})
+    cfg, now = sla_cfg(), datetime.now()
     out = []
     for it in store.values():
         s = st.get(it["id"]) or {}
@@ -301,6 +325,8 @@ def _finish(store, kind):
         it["note"] = s.get("note", "")
         it["ticket"] = s.get("ticket")
         it["auto_fixed"] = bool(it.get("fixed"))
+        if kind == "dev":
+            _sla(it, s, cfg, now)
         out.append(it)
     out.sort(key=lambda x: x.get("last", ""), reverse=True)
     out.sort(key=lambda x: (x["status"] in ("اتصلح", "مش مشكلة"), SEV_ORDER.get(x.get("severity"), 3)))
@@ -645,7 +671,8 @@ def api_list(kind):
     dev, tool = collect()
     items = dev if kind == "dev" else tool
     sites = sorted({i.get("site") for i in items if i.get("site")})
-    return jsonify({"success": True, "items": items, "sites": sites, "statuses": DEV_STATUS if kind == "dev" else TOOL_STATUS})
+    return jsonify({"success": True, "items": items, "sites": sites, "statuses": DEV_STATUS if kind == "dev" else TOOL_STATUS,
+                    "devs": sla_cfg()["devs"] if kind == "dev" else []})
 
 
 @bp.route("/api/support/<kind>/log/<run_id>")
@@ -667,6 +694,15 @@ def api_status():
         cur = st.get(iid, {})
         if "status" in d:
             cur["status"] = d["status"]
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            if d["status"] in ("اتبلغ للمطور", "بيتصلح") and not cur.get("sent_at"):
+                cur["sent_at"] = stamp                            # ⏱️ the deadline starts when it reaches the developer
+            if d["status"] == "اتصلح" and cur.get("sent_at") and not cur.get("fixed_at"):
+                cur["fixed_at"] = stamp
+            if d["status"] not in ("اتصلح", "مش مشكلة"):
+                cur.pop("fixed_at", None)                         # reopened: the clock runs again
+        if "dev" in d:
+            cur["dev"] = str(d["dev"])[:40]
         if "note" in d:
             cur["note"] = str(d["note"])[:1000]
         cur["by"] = (auth.current_user() or {}).get("username", "")
@@ -674,6 +710,39 @@ def api_status():
         st[iid] = cur
     _save("support_status.json", st)
     return jsonify({"success": True})
+
+
+@bp.route("/api/support/sla", methods=["GET", "POST"])
+@auth.login_required
+def api_sla():
+    """the deadlines + each developer's numbers (last 60 days); POST (admin) saves hours / developers"""
+    if request.method == "POST":
+        if (auth.current_user() or {}).get("role") != "admin":
+            return jsonify({"success": False, "error": "للأدمن بس"}), 403
+        b = request.get_json(silent=True) or {}
+        c = sla_cfg()
+        for k in SLA_DEFAULT["hours"]:
+            if k in (b.get("hours") or {}):
+                c["hours"][k] = max(1, min(2000, float(b["hours"][k])))
+        if "devs" in b:
+            c["devs"] = [str(x).strip()[:40] for x in b["devs"] if str(x).strip()][:20]
+        _save("support_sla.json", c)
+    items = collect()[0]
+    stats = {}
+    for i in items:
+        if not i.get("dev"):
+            continue
+        s = stats.setdefault(i["dev"], {"dev": i["dev"], "open": 0, "overdue": 0, "fixed": 0, "fix_h": []})
+        if i.get("fix_h") is not None:
+            s["fixed"] += 1
+            s["fix_h"].append(i["fix_h"])
+        elif i["status"] not in ("اتصلح", "مش مشكلة"):
+            s["open"] += 1
+            s["overdue"] += bool(i.get("overdue"))
+    for s in stats.values():
+        s["avg_fix_h"] = round(sum(s["fix_h"]) / len(s["fix_h"]), 1) if s["fix_h"] else None
+        del s["fix_h"]
+    return jsonify({"success": True, "config": sla_cfg(), "stats": sorted(stats.values(), key=lambda s: -s["overdue"])})
 
 
 @bp.route("/api/support/dev/add", methods=["POST"])

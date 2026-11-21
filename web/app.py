@@ -75,6 +75,8 @@ from web.care_api import bp as _care_bp  # noqa: E402
 app.register_blueprint(_care_bp)
 from web.sales_api import bp as _sales_bp  # noqa: E402
 app.register_blueprint(_sales_bp)
+from web.clients_health_api import bp as _clients_health_bp  # noqa: E402
+app.register_blueprint(_clients_health_bp)
 from web.uat_api import bp as _uat_bp  # noqa: E402
 app.register_blueprint(_uat_bp)
 from web.migration_api import bp as _migration_bp  # noqa: E402
