@@ -318,6 +318,7 @@ def collect():
 def _finish(store, kind):
     st = _load("support_status.json", {})
     cfg, now = sla_cfg(), datetime.now()
+    ai = _load("support_ai.json", {}) if kind == "dev" else {}
     out = []
     for it in store.values():
         s = st.get(it["id"]) or {}
@@ -327,6 +328,8 @@ def _finish(store, kind):
         it["auto_fixed"] = bool(it.get("fixed"))
         if kind == "dev":
             _sla(it, s, cfg, now)
+            if ai.get(it["id"]):
+                it["ai"] = ai[it["id"]]                           # 🤖 web/ai_triage.py
         out.append(it)
     out.sort(key=lambda x: x.get("last", ""), reverse=True)
     out.sort(key=lambda x: (x["status"] in ("اتصلح", "مش مشكلة"), SEV_ORDER.get(x.get("severity"), 3)))
@@ -743,6 +746,26 @@ def api_sla():
         s["avg_fix_h"] = round(sum(s["fix_h"]) / len(s["fix_h"]), 1) if s["fix_h"] else None
         del s["fix_h"]
     return jsonify({"success": True, "config": sla_cfg(), "stats": sorted(stats.values(), key=lambda s: -s["overdue"])})
+
+
+@bp.route("/api/support/triage", methods=["POST"])
+@auth.login_required
+def api_triage():
+    """🤖 group / cause / developer / hint for every open ticket (rules, + Claude when there's a key)"""
+    if (auth.current_user() or {}).get("role") != "admin":
+        return jsonify({"success": False, "error": "للأدمن بس"}), 403
+    from web import ai_triage
+    return jsonify({"success": True, **ai_triage.run(use_ai=bool((request.get_json(silent=True) or {}).get("ai", True)))})
+
+
+@bp.route("/api/support/client-msg/<iid>")
+@auth.login_required
+def api_client_msg(iid):
+    from web import ai_triage
+    it = next((i for i in collect()[0] if i["id"] == iid), None)
+    if not it:
+        return jsonify({"success": False, "error": "مش موجودة"}), 404
+    return jsonify({"success": True, **ai_triage.client_message(it)})
 
 
 @bp.route("/api/support/dev/add", methods=["POST"])

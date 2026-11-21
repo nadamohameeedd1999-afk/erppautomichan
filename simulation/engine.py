@@ -47,6 +47,26 @@ ROUND_NEEDS = {"sales_return": "sales_invoice", "purchase_return": "purchase_inv
 ROUND_BASED = {"purchase_order": "FromPurchaseRequest"}
 
 
+def _real_usage(n=8, days=14):
+    """the screens the clients' people opened most in the last days (from NqTelemetry, all client sites) -> [(path, times)]"""
+    try:
+        from datetime import timedelta as _td
+        from web import monitor, telemetry
+        clients = {p["id"] for p in monitor._sites({}) if p.get("kind") == "client"}
+        since = (datetime.now() - _td(days=days)).strftime("%Y-%m-%d")
+        tot = {}
+        for sid, s in telemetry._load().items():
+            if sid in clients:
+                for day, scr in (s.get("usage") or {}).items():
+                    if day >= since:
+                        for k, v in scr.items():
+                            tot[k] = tot.get(k, 0) + v.get("n", 0)
+        skip = ("home/", "account/", "login")
+        return [("/" + k, c) for k, c in sorted(tot.items(), key=lambda x: -x[1]) if not k.lower().startswith(skip)][:n]
+    except Exception:
+        return []
+
+
 class Company:
     def __init__(self, seed=None, erp=None, use_settings=True, runs=None, site_id=None):
         self.use_settings = use_settings
@@ -912,6 +932,10 @@ class Company:
                 self.at(self.end - 45, self.assign, acc, {"screen": "audit_docs", "action": "review", "label": "🧾 مراجعة مستندات اليوم",
                                                           "then": "_said_guard"})
             self.at(self.start + 200, self._burst)
+            emps = [x for x in self.emps.values() if x["role"] != "manager"] or list(self.emps.values())
+            for i, (path, n) in enumerate(_real_usage(8)):       # 🏢 the screens real clients open most (NqTelemetry usage)
+                self.at(self.start + 90 + i * 9, self.assign, emps[i % len(emps)],
+                        {"screen": "smoke", "path": path, "label": f"🏢 شاشة العملاء بيفتحوها كتير ({n} مرة): {path}", "then": "_said_guard"})
         if self.cfg.get("test_waves", True):
             self._test_plan()
         if self.cfg.get("screen_round", True):                   # the round over the main screens: add · edit · print · delete

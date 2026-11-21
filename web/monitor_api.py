@@ -105,3 +105,42 @@ def api_inside():
     sid = request.args.get("site") or next((s["id"] for s in sites if s["kind"] == "client"), sites[0]["id"] if sites else "")
     return jsonify({"sites": sites, "site": sid, "data": telemetry.inside(sid, int(request.args.get("days", 30))) if sid else None,
                     "backup_h": telemetry.BACKUP_H})
+
+
+# ------------------------------------------------------------------ 🎓 the AI trainer (web/trainer.py)
+@bp.route("/api/trainer/question", methods=["POST"])
+def api_trainer_question():
+    """open with the key: the trainer reports a client's question"""
+    from web import trainer
+    if not trainer.key_ok(request.args.get("key", "")):
+        return jsonify({"ok": False}), 404
+    try:
+        trainer.add(request.get_json(silent=True) or {})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/trainer/known")
+def api_trainer_known():
+    """open with the key: what's known to be broken, in client-safe words"""
+    from web import trainer
+    if not trainer.key_ok(request.args.get("key", "")):
+        return jsonify({"ok": False}), 404
+    return jsonify(trainer.known())
+
+
+@bp.route("/api/inside/trainer")
+@auth.login_required
+def api_inside_trainer():
+    from web import trainer
+    return jsonify(trainer.summary(request.args.get("site", ""), int(request.args.get("days", 30))))
+
+
+@bp.route("/api/inside/trainer-key", methods=["POST"])
+@auth.login_required
+def api_inside_trainer_key():
+    from web import notify, trainer
+    base = (notify.load_config().get("dashboard_url") or request.url_root).rstrip("/")
+    k = trainer.key(new=bool((request.get_json(silent=True) or {}).get("new")))
+    return jsonify({"question": f"{base}/api/trainer/question?key={k}", "known": f"{base}/api/trainer/known?key={k}"})

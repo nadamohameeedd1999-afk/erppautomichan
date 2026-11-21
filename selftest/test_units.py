@@ -1049,3 +1049,67 @@ def test_inside_zatca_db_usage(tmp_path, monkeypatch):
     with c.session_transaction() as ss:
         ss["user_id"], ss["role"] = 1, "user"
     assert c.get("/api/inside?site=a").get_json()["data"]["db"]["database"] == "NQ_AQUA"
+
+
+def test_ai_triage_trainer_and_real_usage(tmp_path, monkeypatch):
+    """🤖 triage by rules (group, cause, developer by ownership), client message; 🎓 trainer questions + known issues behind a key; 🏢 real usage → the company"""
+    from web import ai_triage as A, explain, monitor as M, support as SP, telemetry as T, trainer as TR
+    from web.app import app
+    from simulation import engine as E
+    monkeypatch.setattr(SP, "_f", lambda name: tmp_path / name)
+    monkeypatch.setattr(explain, "_api_key", lambda: "")                  # no key: the rules
+    items = [{"id": "i1", "title": "/SalesInvoice/AddEdit: Invalid column name 'Qty2'", "screen": "/SalesInvoice/AddEdit/#", "severity": "عالية",
+              "status": "جديد", "evidence": "SqlException: Invalid column name 'Qty2'", "count": 3},
+             {"id": "i2", "title": "/SalesInvoice/AddEdit: Invalid column name 'Qty7'", "screen": "/SalesInvoice/AddEdit/#", "severity": "متوسطة",
+              "status": "جديد", "evidence": "", "count": 1},
+             {"id": "i3", "title": "/HR/Payroll: Object reference not set", "screen": "/HR/Payroll", "severity": "متوسطة", "status": "اتبلغ للمطور",
+              "evidence": "NullReferenceException", "count": 1, "dev": "كريم"},
+             {"id": "old", "title": "/SalesInvoice/Index: x", "screen": "/SalesInvoice/Index", "severity": "منخفضة", "status": "اتصلح", "evidence": ""}]
+    monkeypatch.setattr(SP, "collect", lambda: (items, []))
+    SP._save("support_status.json", {"old": {"status": "اتصلح", "dev": "عصام", "fixed_at": "2026-11-01 10:00"}, "i3": {"dev": "كريم"}})
+    r = A.run()
+    assert r == {"n": 3, "by": "rules", "error": ""}
+    ai = SP._load("support_ai.json", {})
+    assert ai["i2"]["group"] == "i1" and ai["i1"]["group"] == ""                      # same cause, numbers blanked
+    assert "عمود" in ai["i1"]["cause"] and ai["i1"]["dev"] == "عصام" and "salesinvoice" in ai["i1"]["dev_why"]   # who fixed that screen family
+    assert "قيمة فاضية" in ai["i3"]["cause"] and ai["i1"]["priority"] == "عالية"
+    m = A.client_message(items[0])
+    assert m["by"] == "template" and "خلال 24 ساعة" in m["text"] and "Qty2" not in m["text"] and "SqlException" not in m["text"]
+    c = app.test_client()
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"] = 2, "user"
+    assert c.post("/api/support/triage").status_code == 403
+    # 🎓 the trainer
+    monkeypatch.setattr(TR, "CFG", tmp_path / "trainer.json")
+    monkeypatch.setattr(TR, "FILE", tmp_path / "q.json")
+    monkeypatch.setattr(M, "_sites", lambda cfg: [{"id": "a", "name": "أ", "base_url": "https://a.x", "kind": "client"}])
+    assert c.post("/api/trainer/question?key=x", json={"question": "؟"}).status_code == 404
+    k = TR.key()
+    for q, ans in (("إزاي أعمل فاتورة مرتجع؟", True), ("ليه الفاتورة مش بتترحّل؟", False), ("فين تقرير الضريبة؟", True)):
+        assert c.post(f"/api/trainer/question?key={k}", json={"question": q, "screen": "https://a.x/SalesInvoice/Index", "site": "https://a.x/", "answered": ans}).status_code == 200
+    s = TR.summary("a")
+    assert s["total"] == 3 and s["unanswered"] == 1 and s["screens"][0] == {"screen": "/SalesInvoice/Index", "n": 3, "unanswered": 1}
+    kn = c.get(f"/api/trainer/known?key={k}").get_json()["known"]
+    assert len(kn) == 3 and all("Qty" not in x["note"] and "Exception" not in x["note"] for x in kn)
+    # 🏢 the screens real clients open most go into the company's day
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
+    monkeypatch.setattr(T, "_rate", {})
+    T.receive("a", {"kind": "usage", "screens": {"Home/Index": {"n": 99}, "SalesInvoice/Index": {"n": 40}, "StockTransfer/Index": {"n": 12}}})
+    assert E._real_usage() == [("/SalesInvoice/Index", 40), ("/StockTransfer/Index", 12)]
+
+
+def test_client_message_uses_menu_names(tmp_path, monkeypatch):
+    """✉️ the client never sees a path: the menu's name, or «إحدى شاشات النظام»"""
+    import json
+    from web import ai_triage as A, explain, support as SP
+    monkeypatch.setattr(explain, "_api_key", lambda: "")
+    monkeypatch.setattr(SP, "_f", lambda name: tmp_path / name)
+    menus = tmp_path / "menus.json"
+    menus.write_text(json.dumps({"t:u": {"menu": [{"path": "/SalesInvoice/Index", "name": "فواتير المبيعات"}, {"path": "/SalesInvoice/AddEdit", "name": "فاتورة مبيعات جديدة"}]}}))
+    from config import paths
+    monkeypatch.setattr(paths, "settings_file", lambda n, _o=paths.settings_file: menus if n == "simulation_menus.json" else _o(n))
+    assert A.screen_label("/SalesInvoice/AddEdit/#") == "فاتورة مبيعات جديدة"
+    assert A.screen_label("/SalesInvoice/Print") == "فواتير المبيعات"
+    assert A.screen_label("/Weird/X") == "إحدى شاشات النظام" and A.screen_label("كشف الحساب") == "كشف الحساب"
+    t = A.client_message({"id": "z", "screen": "/Weird/X", "severity": "متوسطة", "title": "boom"})["text"]
+    assert "/" not in t.split("\n")[1] and "إحدى شاشات النظام" in t

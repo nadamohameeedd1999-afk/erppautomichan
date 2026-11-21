@@ -93,7 +93,8 @@
       <div class="sp-actions">
         {% if kind == 'dev' %}<button class="btn btn-sm sp-out" onclick="spAddOpen()"><i class="bi bi-plus-lg"></i> مشكلة يدوي</button>
         <button class="btn btn-sm sp-out" onclick="tkOpen()" title="إعدادات موقع التيكتات" aria-label="إعدادات موقع التيكتات"><i class="bi bi-gear" aria-hidden="true"></i></button>
-        <button class="btn btn-sm sp-teal" onclick="tkMake(selIds())"><i class="bi bi-ticket-perforated"></i> اعمل تذكرة دعم للمحدد</button>{% endif %}
+        <button class="btn btn-sm sp-teal" onclick="tkMake(selIds())"><i class="bi bi-ticket-perforated"></i> اعمل تذكرة دعم للمحدد</button>
+        {% if current_user and current_user.role == 'admin' %}<button class="btn btn-sm sp-out" onclick="aiRun(this)" title="يجمّع المكرر ويقترح السبب والمطور والأولوية"><i class="bi bi-stars"></i> رتّب بالذكاء</button>{% endif %}{% endif %}
         <select id="spBulk" class="form-select form-select-sm" style="width:auto" onchange="spBulk(this.value)"><option value="">غيّر حالة المحدد…</option>{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
         <button class="btn btn-sm sp-out" onclick="spCopy()"><i class="bi bi-clipboard"></i> {{ 'انسخ نص' if kind == 'dev' else 'انسخ للإصلاح' }}</button>
         <button class="btn btn-sm sp-out" onclick="spExport('xlsx')"><i class="bi bi-file-earmark-excel"></i> Excel</button>
@@ -190,6 +191,29 @@ function spRender() {
     || '<tr><td colspan="6" class="sp-empty">مفيش مشاكل في الفلتر ده 🎉</td></tr>';
   spCount();
 }
+function aiBox(i) {
+  const a = i.ai; if (!a) return `<div class="mb-2"><a href="#" class="small" onclick="event.preventDefault();clientMsg('${i.id}')">✉️ رسالة للعميل عن المشكلة دي</a> <span id="cm_${i.id}"></span></div>`;
+  const g = a.group ? ITEMS.find(x => x.id === a.group) : null;
+  return `<div class="sp-ai mb-2" style="background:var(--g-hover);border-radius:8px;padding:8px 12px;font-size:13px">
+    <b>🤖 ${a.by === 'claude' ? 'Claude' : 'القواعد'}:</b> ${esc(a.cause)}${a.hint ? ` · <span class="text-muted">💡 ${esc(a.hint)}</span>` : ''}
+    ${g ? `<div>🔗 نفس مشكلة #${g.n}: ${esc(g.title.slice(0, 80))}</div>` : ''}
+    <div>👤 المقترح: <b>${esc(a.dev || '—')}</b> <span class="text-muted">(${esc(a.dev_why || '')})</span>${a.dev && a.dev !== i.dev ? ` <a href="#" onclick="event.preventDefault();spSet('${i.id}', {dev: '${esc(a.dev)}'}).then(spRender)">عيّنه</a>` : ''}
+      · الأولوية المقترحة: ${esc(a.priority || '—')}</div>
+    <a href="#" onclick="event.preventDefault();clientMsg('${i.id}')">✉️ رسالة للعميل</a> <span id="cm_${i.id}"></span></div>`;
+}
+async function aiRun(b) {
+  b.disabled = true; const t = b.innerHTML; b.innerHTML = '⏳ بيرتّب…';
+  const r = await fetch('/api/support/triage', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}).then(x => x.json()).catch(() => ({}));
+  b.disabled = false; b.innerHTML = t;
+  el('spSel').textContent = r.success ? `🤖 اترتّبت ${r.n} تذكرة (${r.by === 'claude' ? 'بـ Claude' : 'بالقواعد — ضيف مفتاح Claude من الإعدادات لنتيجة أدق'})${r.error ? ' · ' + r.error : ''}` : 'ماترتبتش';
+  spLoad();
+}
+async function clientMsg(id) {
+  const box = el('cm_' + id); box.textContent = '⏳';
+  const r = await fetch('/api/support/client-msg/' + encodeURIComponent(id)).then(x => x.json());
+  box.innerHTML = `<textarea class="form-control form-control-sm mt-1" rows="4" readonly>${esc(r.text || r.error)}</textarea>
+    <button class="btn btn-sm sp-out mt-1" onclick="navigator.clipboard.writeText(this.previousElementSibling.value).then(() => this.textContent = '✓ اتنسخ').catch(() => this.previousElementSibling.select())">انسخ</button>`;
+}
 function due(i) {
   if (i.fix_h != null) return `<div class="small mt-1" style="color:var(--g-ok,#0F7C7A)">✓ اتصلحت في ${i.fix_h} س</div>`;
   if (i.overdue) return `<div class="small mt-1 fw-bold" style="color:var(--g-bad,#C0392B)">⛔ متأخرة ${i.late_h} س</div>`;
@@ -210,7 +234,7 @@ async function slaSave() {
 }
 function more(i) {
   const row = (t, v) => v ? `<dt>${t}</dt><dd>${esc(v)}</dd>` : '';
-  if (KIND === 'dev') return `<dl class="mb-0">${i.url ? `<dt>لينك الشاشة</dt><dd><a href="${esc(i.url)}" target="_blank" dir="ltr">${esc(i.url)}</a></dd>` : ''}${row('التفاصيل', i.details)}${row('خطوات التكرار', i.steps)}${row('الدليل', i.evidence)}${row('المستند', i.doc)}
+  if (KIND === 'dev') return `${aiBox(i)}<dl class="mb-0">${i.url ? `<dt>لينك الشاشة</dt><dd><a href="${esc(i.url)}" target="_blank" dir="ltr">${esc(i.url)}</a></dd>` : ''}${row('التفاصيل', i.details)}${row('خطوات التكرار', i.steps)}${row('الدليل', i.evidence)}${row('المستند', i.doc)}
       ${row('أول ظهور', i.first)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd>` : ''}</dl>`;
   return `<dl class="mb-0">${row('الرسالة', i.message)}${row('الحل المقترح', i.fix)}${i.run_id ? `<dt>آخر تشغيلة</dt><dd><a href="/reports/${esc(i.run_id)}">${esc(i.run_id)}</a></dd><dt>آخر اللوج</dt><div class="sp-log" id="lg_${i.id}">…</div>` : ''}</dl>`;
 }

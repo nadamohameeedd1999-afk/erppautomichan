@@ -36,6 +36,15 @@
     <div class="in-card"><div class="hd"><b>🗄️ قاعدة البيانات</b></div><div class="bd" id="inD"></div></div>
   </div>
   <div class="in-card"><div class="hd"><b>👥 استخدام الشاشات</b><span class="small text-muted">الشاشة بتتحسب مرة كل ما موظف يفتحها</span></div><div class="bd" id="inU"></div></div>
+  <div class="in-card"><div class="hd"><b>🎓 أسئلة العملاء للمدرب الذكي</b><span class="small text-muted">الشاشات اللي بيسألوا عنها كتير، أو المدرب مقدرش يجاوب فيها، غالبًا محتاجة تتوضح أو تتعدل</span></div>
+    <div class="bd"><div id="inQ"></div>
+      {% if current_user and current_user.role == 'admin' %}
+      <details class="mt-2"><summary class="small fw-bold" style="cursor:pointer">🔗 ربط المدرب الذكي</summary>
+        <div class="small text-muted my-1">المدرب يبعت كل سؤال (POST JSON: question, screen, site, user, answered)، ويقرا المشاكل المعروفة علشان لو العميل سأل عن شاشة فيها مشكلة يقوله «معروفة وبتتحل» بدل إجابة غلط.</div>
+        <div class="d-flex gap-2 flex-wrap"><button class="btn btn-sm btn-outline-secondary" onclick="tKey(false)">اعرض اللينكات</button>
+          <button class="btn btn-sm btn-link text-muted" onclick="confirm('اللينكات القديمة هتبطل. أكمل؟') && tKey(true)">لينكات جديدة</button></div>
+        <div id="tLinks" class="mt-1" dir="ltr" style="font:12px ui-monospace,Consolas,monospace;overflow-wrap:anywhere"></div></details>
+      {% endif %}</div></div>
 </div>
 {% endblock %}
 {% block extra_js %}
@@ -98,8 +107,20 @@ async function load() {
           <div class="in-hint">💡 لو الشاشات دي مهمة لشغله، يمكن محتاج زيارة تدريب، أو مش عارف إنها موجودة.</div>` : '<div class="in-empty">بيستخدم نفس الشاشات اللي الباقي بيستخدمها 👌</div>'}</div></div>`;
   }
 }
+async function loadQ() {
+  const q = await fetch(`/api/inside/trainer?site=${encodeURIComponent(site)}&days=${el('inDays').value}`).then(x => x.json());
+  el('inQ').innerHTML = !q.total ? '<div class="in-empty">لسه مفيش أسئلة من المدرب الذكي للعميل ده.</div>'
+    : `<div class="in-kpis">${kpi('أسئلة', num(q.total))}${kpi('المدرب مقدرش يجاوب', num(q.unanswered), q.unanswered ? 'warn' : '')}</div>
+      <div class="in-grid"><div><table class="in-tbl"><thead><tr><th>الشاشة</th><th class="num">أسئلة</th><th class="num">من غير إجابة</th></tr></thead><tbody>
+        ${q.screens.map(s => `<tr><td><code>${esc(s.screen)}</code></td><td class="num">${s.n}</td><td class="num ${s.unanswered ? 'text-danger fw-bold' : ''}">${s.unanswered}</td></tr>`).join('')}</tbody></table></div>
+      <div><table class="in-tbl"><thead><tr><th>آخر الأسئلة</th></tr></thead><tbody>${q.recent.map(x => `<tr><td>${x.answered ? '' : '❓ '}${esc(x.question)}
+        <div class="small text-muted">${esc(x.user)} · <code>${esc(x.screen)}</code> · ${esc(x.at.slice(5, 16).replace('T', ' '))}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+async function tKey(n) { const r = await fetch('/api/inside/trainer-key', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({new: n})}).then(x => x.json());
+  el('tLinks').innerHTML = `POST ${esc(r.question)}<br>GET&nbsp; ${esc(r.known)}`; }
 el('inSite').addEventListener('change', e => { site = e.target.value; history.replaceState(null, '', '?site=' + encodeURIComponent(site)); load(); });
-el('inDays').addEventListener('change', load);
-load();
+el('inDays').addEventListener('change', () => { load(); loadQ(); });
+el('inSite').addEventListener('change', loadQ);
+load().then(loadQ);
 </script>
 {% endblock %}
