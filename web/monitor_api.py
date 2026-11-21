@@ -17,14 +17,15 @@ def page():
 @bp.route("/api/monitor")
 @auth.login_required
 def api_state():
-    return jsonify({**monitor.summary(), "busy": monitor._busy["on"]})
+    return jsonify({**monitor.summary(), "busy": monitor._busy["on"], "deep_busy": monitor._busy["deep"]})
 
 
 @bp.route("/api/monitor/run", methods=["POST"])
 @auth.login_required
 def api_run():
-    if not monitor._busy["on"]:
-        threading.Thread(target=monitor.run_once, kwargs={"force": True}, name="monitor-now", daemon=True).start()
+    deep = bool((request.get_json(silent=True) or {}).get("deep"))       # «افحص الشاشات دلوقتي»: sign in and open the menu (read only)
+    if not monitor._busy["deep" if deep else "on"]:
+        threading.Thread(target=monitor.run_deep if deep else monitor.run_once, kwargs={"force": True}, name="monitor-now", daemon=True).start()
     return jsonify({"ok": True})
 
 

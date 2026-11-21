@@ -8,8 +8,15 @@ A site is DOWN after 2 failed checks in a row (one network blip doesn't wake any
 and back UP on the first good one. Each change → one alert on the dashboard's channels (WhatsApp / Telegram / webhook /
 e-mail / Slack, Settings ▸ التنبيهات); the certificate warns once a day from 14 days before it expires.
 
+🖥️ The screens (every «deep_every_h» hours): the quick check can't see inside the system, so this one signs in with the site's
+user from Settings and opens every screen of the menu READ ONLY (the virtual company's it_sweep: links fetched + list screens
+opened, never a button / save / delete). A screen that newly breaks (404 / server error / stays loading / sends you back to
+login) → an alert and an item in «دعم المطورين»; a screen that works again → «اتصلحت». Test sites always; clients only when
+«deep_clients» is on — use a user made for this on each client (a real person's account may get logged out by our sign-in).
+
 Settings: data/settings/monitor.json · history (last 24 h per site): data/monitor/state.json
 """
+import hashlib
 import json
 import os
 import re
@@ -27,10 +34,12 @@ from config.storage import load_json, save_json
 
 CFG_FILE = paths.settings_file("monitor.json")
 STATE_FILE = paths.DATA_DIR / "monitor" / "state.json"
-DEFAULTS = {"on": True, "every_min": 15, "slow_ms": 8000, "sites": [], "ssl_days": 14}   # sites: [] = every site in Settings
+DEFAULTS = {"on": True, "every_min": 15, "slow_ms": 8000, "sites": [], "ssl_days": 14,      # sites: [] = every site in Settings
+            "deep_on": True, "deep_every_h": 3, "deep_clients": False, "deep_limit": 400}
 KEEP = 96                                                     # 24 h of 15-minute checks
 ERROR_PAGE = re.compile(r"Server Error in '/' Application|Runtime Error|HTTP Error 50\d|Service Unavailable|The resource cannot be found", re.I)
-_lock, _busy, _last = threading.Lock(), {"on": False}, {"t": 0.0}
+_lock, _busy, _last = threading.Lock(), {"on": False, "deep": False}, {"t": 0.0, "deep": 0.0}
+_state_lock, _started = threading.Lock(), time.time()
 
 
 def load_config():
@@ -44,6 +53,7 @@ def save_config(new):
             c[k] = new[k]
     c["every_min"] = max(5, min(240, int(c.get("every_min") or 15)))
     c["slow_ms"] = max(1000, int(c.get("slow_ms") or 8000))
+    c["deep_every_h"] = max(1, min(48, int(c.get("deep_every_h") or 3)))
     save_json(CFG_FILE, c)
     return c
 
@@ -90,7 +100,7 @@ def check_site(p, cfg=None, timeout=30):
     base = p["base_url"].rstrip("/")
     st, ms, body, final = _get(base + "/", timeout)
     if 400 <= st < 500:                                                # a home page that needs a path: the login page decides
-        st, ms2, body, final = _get(base + "/Account/Login", timeout)
+        st, ms2, body, final = _get(base + "/Login", timeout)
         ms += ms2
     why = ""
     if st == 0:
@@ -102,7 +112,7 @@ def check_site(p, cfg=None, timeout=30):
     elif ERROR_PAGE.search(body):
         why = "صفحة خطأ NQ ERP ظاهرة بدل الموقع"
     elif not re.search(r'type=["\']?password', body, re.I):           # the home page normally sends you to the login form
-        st2, ms2, body2, _ = _get(base + "/Account/Login", timeout)
+        st2, ms2, body2, _ = _get(base + "/Login", timeout)
         if st2 == 200 and re.search(r'type=["\']?password', body2, re.I):
             pass
         elif "login" not in final.lower() and not re.search(r"تسجيل الدخول|login", body, re.I):
@@ -173,33 +183,123 @@ def run_once(force=False):
             return _state()
         _busy["on"] = True
     try:
-        st = _state()
-        for p in _sites(cfg):
-            r = check_site(p, cfg)
-            s = st.setdefault(p["id"], {"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", ""), "hist": [], "v": "up"})
-            s.update({"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", "")})
-            s["hist"] = (s["hist"] + [r])[-KEEP:]
-            v_old, v = s.get("v", "up"), _verdict(s["hist"])
-            r["v"] = v
-            s["v"], s["last"] = v, r
-            name = p.get("name") or p["base_url"]
-            if v != v_old:
-                s["since"] = r["at"]
-                msg = {"down": f"🔴 {name} واقع — {r['why'] or 'مش بيرد'}\n{p['base_url']}",
-                       "slow": f"🟡 {name} بطيء — بيرد في {r['ms'] / 1000:.1f} ث (3 مرات ورا بعض)\n{p['base_url']}",
-                       "up": f"🟢 {name} رجع يشتغل — بيرد في {r['ms'] / 1000:.1f} ث"}[v]
-                s.setdefault("incidents", []).append({"at": r["at"], "v": v, "why": r["why"]})
-                s["incidents"] = s["incidents"][-30:]
-                broadcast("📡 مراقبة المواقع\n" + msg)
-            d = r.get("ssl_days")
-            today = r["at"][:10]
-            if d is not None and d <= int(cfg.get("ssl_days", 14)) and s.get("ssl_warned") != today:
-                s["ssl_warned"] = today
-                broadcast(f"📡 مراقبة المواقع\n🔐 شهادة HTTPS بتاعة {name} " + ("خلصت!" if d < 0 else f"هتخلص بعد {d} يوم") + f"\n{p['base_url']}")
-        _save_state(st)
-        return st
+        with _state_lock:
+            st = _state()
+            for p in _sites(cfg):
+                r = check_site(p, cfg)
+                s = st.setdefault(p["id"], {"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", ""), "hist": [], "v": "up"})
+                s.update({"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", "")})
+                s["hist"] = (s["hist"] + [r])[-KEEP:]
+                v_old, v = s.get("v", "up"), _verdict(s["hist"])
+                r["v"] = v
+                s["v"], s["last"] = v, r
+                name = p.get("name") or p["base_url"]
+                if v != v_old:
+                    s["since"] = r["at"]
+                    msg = {"down": f"🔴 {name} واقع — {r['why'] or 'مش بيرد'}\n{p['base_url']}",
+                           "slow": f"🟡 {name} بطيء — بيرد في {r['ms'] / 1000:.1f} ث (3 مرات ورا بعض)\n{p['base_url']}",
+                           "up": f"🟢 {name} رجع يشتغل — بيرد في {r['ms'] / 1000:.1f} ث"}[v]
+                    s.setdefault("incidents", []).append({"at": r["at"], "v": v, "why": r["why"]})
+                    s["incidents"] = s["incidents"][-30:]
+                    broadcast("📡 مراقبة المواقع\n" + msg)
+                d = r.get("ssl_days")
+                today = r["at"][:10]
+                if d is not None and d <= int(cfg.get("ssl_days", 14)) and s.get("ssl_warned") != today:
+                    s["ssl_warned"] = today
+                    broadcast(f"📡 مراقبة المواقع\n🔐 شهادة HTTPS بتاعة {name} " + ("خلصت!" if d < 0 else f"هتخلص بعد {d} يوم") + f"\n{p['base_url']}")
+            _save_state(st)
+            return st
     finally:
         _busy["on"] = False
+
+
+def deep_reason(p, cfg):
+    """why a site's screens aren't checked ("" = they are)"""
+    if not cfg.get("deep_on"):
+        return "فحص الشاشات مقفول من الإعدادات"
+    if not (p.get("username") and p.get("password")):
+        return "مفيش مستخدم وكلمة سر للموقع ده في الإعدادات ▸ المواقع"
+    if p.get("kind") == "client" and not cfg.get("deep_clients"):
+        return "موقع عميل: شغّل «افحص شاشات مواقع العملاء» (بمستخدم مخصوص للمراقبة)"
+    return ""
+
+
+def deep_check(p, cfg):
+    """sign in and open every menu screen read only -> {"at", "screens", "problems": [[path, why]], "slow", "msg"} or {"at", "error"}"""
+    from simulation.real.browser import ErpSession
+    from simulation.real.probes import it_sweep
+    at, s = datetime.now().isoformat(timespec="seconds"), ErpSession(p["base_url"], p["username"], p["password"])
+    try:
+        info = s.login()
+        r = it_sweep(s, info.get("menu") or [], limit=int(cfg.get("deep_limit", 400)))
+    except Exception as e:
+        return {"at": at, "error": str(e)[:300]}
+    finally:
+        s.close()
+    probs = (r.get("broken") or []) + [[x, "فضلت تحمّل ومطلعتش بيانات"] for x in r.get("stuck") or []] \
+        + [[x, "ملف بتحمّله الصفحات مش موجود: " + w] for x, w in r.get("assets") or []]
+    return {"at": at, "screens": r.get("screens", 0), "problems": probs, "slow": r.get("slow") or [], "relogin": r.get("relogin", 0),
+            "ms": r.get("ms", 0), "msg": r.get("msg") or r.get("note") or ""}
+
+
+def run_deep(force=False):
+    """the screens of every site that can be checked, one at a time (one Chrome); alerts on what newly broke / got fixed"""
+    cfg = load_config()
+    if not (cfg.get("deep_on") or force):
+        return _state()
+    with _lock:
+        if _busy["deep"]:
+            return _state()
+        _busy["deep"] = True
+    try:
+        for p in _sites(cfg):
+            if deep_reason(p, cfg if not force else {**cfg, "deep_on": True}):
+                continue
+            d = deep_check(p, cfg)
+            name = p.get("name") or p["base_url"]
+            with _state_lock:                                 # the quick round may have saved meanwhile: merge into the fresh state
+                st = _state()
+                s = st.setdefault(p["id"], {"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", ""), "hist": [], "v": "up"})
+                old = s.get("deep") or {}
+                if d.get("error"):
+                    d["first"] = old.get("first") or {}
+                    d["problems"] = old.get("problems") or []          # what we knew stays until we can look again
+                    if not old.get("error"):
+                        broadcast(f"📡 مراقبة المواقع\n🔑 مقدرتش أدخل {name} علشان أفحص الشاشات — {d['error']}\n{p['base_url']}")
+                else:
+                    was = {x[0]: x[1] for x in old.get("problems") or []}
+                    now = {x[0]: x[1] for x in d["problems"]}
+                    today = d["at"][:10]
+                    d["first"] = {k: (old.get("first") or {}).get(k) or today for k in now}
+                    new, fixed = [k for k in now if k not in was], [k for k in was if k not in now]
+                    if new:
+                        broadcast(f"📡 مراقبة المواقع\n🖥️ {name}: {len(new)} شاشة فيها مشكلة" + (" جديدة" if old else "") + f" (من {d['screens']} شاشة)\n"
+                                  + "\n".join(f"⛔ {k} → {now[k]}" for k in new[:8]) + (f"\n… و{len(new) - 8} كمان" if len(new) > 8 else "")
+                                  + "\nالتفاصيل في «دعم المطورين»")
+                    if fixed and old and not old.get("error"):
+                        broadcast(f"📡 مراقبة المواقع\n✅ {name}: {len(fixed)} شاشة اتصلحت\n" + "\n".join(f"✓ {k}" for k in fixed[:8]))
+                s["deep"] = d
+                _save_state(st)
+        return _state()
+    finally:
+        _busy["deep"] = False
+
+
+def support_issues():
+    """the screens broken right now on each site -> items for «دعم المطورين» (one per site + screen)"""
+    out = []
+    for sid, s in _state().items():
+        d = s.get("deep") or {}
+        site = re.sub(r"^https?://", "", s.get("url") or "").strip("/")
+        for path, why in d.get("problems") or []:
+            first = (d.get("first") or {}).get(path) or d.get("at", "")[:10]
+            out.append({"id": "mon_" + hashlib.sha1(f"{sid}|{path}".encode("utf-8")).hexdigest()[:12], "source": "📡 مراقبة المواقع",
+                        "site": site, "url": (s.get("url") or "").rstrip("/") + path, "screen": path,
+                        "severity": "عالية" if re.search(r"HTTP 5\d\d|ملف", why) else "متوسطة",
+                        "title": f"{path}: {why}"[:200], "details": f"{why}\nلقاها فحص الشاشات من {first} · آخر فحص {d.get('at', '')[:16].replace('T', ' ')}",
+                        "evidence": "", "doc": "", "found": first, "fixed": False,
+                        "steps": f"1. ادخل {s.get('url', '')} بأي مستخدم عنده الشاشة دي في المنيو\n2. افتح {path}\nالمتوقع: الشاشة تفتح وتحمّل بياناتها\nاللي بيحصل: {why}"})
+    return out
 
 
 def summary():
@@ -214,14 +314,18 @@ def summary():
                     "uptime": round(100 * len(oks) / len(h), 1) if h else None,
                     "avg_ms": int(sum(x["ms"] for x in oks) / len(oks)) if oks else None,
                     "spark": [None if not x["ok"] else x["ms"] for x in h[-48:]],
-                    "incidents": list(reversed((s.get("incidents") or [])[-5:]))})
+                    "incidents": list(reversed((s.get("incidents") or [])[-5:])),
+                    "deep": s.get("deep"), "deep_reason": deep_reason(p, cfg)})
     return {"config": cfg, "sites": out}
 
 
 def auto_tick(now=None):
     """called by the background ticker every ~20 s: a round every «every_min» minutes, in its own thread"""
-    cfg = load_config()
-    if not cfg.get("on") or time.time() - _last["t"] < int(cfg.get("every_min", 15)) * 60:
-        return
-    _last["t"] = time.time()
-    threading.Thread(target=run_once, name="monitor", daemon=True).start()
+    cfg, t = load_config(), time.time()
+    if cfg.get("on") and t - _last["t"] >= int(cfg.get("every_min", 15)) * 60:
+        _last["t"] = t
+        threading.Thread(target=run_once, name="monitor", daemon=True).start()
+    # the screens: first round 10 minutes after the dashboard starts (not in the middle of a deploy), then every «deep_every_h»
+    if cfg.get("deep_on") and t - _started > 600 and t - _last["deep"] >= int(cfg.get("deep_every_h", 3)) * 3600:
+        _last["deep"] = t
+        threading.Thread(target=run_deep, name="monitor-deep", daemon=True).start()

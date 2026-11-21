@@ -26,16 +26,20 @@
   .mo-opts input[type=number] { width: 90px; display: inline-block; }
   .mo-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
   .mo-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  .mo-deep { margin-top: 10px; border-top: 1px solid var(--g-line); padding-top: 8px; font-size: 13px; }
+  .mo-deep ul { margin: 6px 0 0; padding-inline-start: 18px; } .mo-deep li { overflow-wrap: anywhere; } .mo-deep code { direction: ltr; unicode-bidi: embed; }
+  .mo-deep .ok { color: var(--g-ok, #0F7C7A); font-weight: 700; } .mo-deep .bad { color: var(--g-bad, #C0392B); font-weight: 700; }
   @media (max-width: 480px) { .mo-kv { grid-template-columns: repeat(2, 1fr); } .mo-card > .bd { padding: 12px; } }
 </style>
 {% endblock %}
 {% block content %}
 <div class="container-fluid py-3">
-  <div class="small text-muted mb-3">كل موقع (موقع الاختبار ومواقع العملاء) بيتفحص لوحده كل شوية — قراءة بس، من غير دخول ولا أي تعديل: الموقع بيرد؟ صفحة الدخول ظاهرة؟ في صفحة خطأ؟ بيرد في قد إيه؟ شهادة HTTPS فاضلها كام يوم؟ ولو موقع وقع (مرتين ورا بعض) أو بقى بطيء (3 مرات ورا بعض) أو رجع اشتغل، بيوصلك تنبيه على القنوات اللي في <a href="/settings">الإعدادات ▸ التنبيهات</a> (واتساب / تليجرام / إيميل / Webhook).</div>
+  <div class="small text-muted mb-3">فحصين، الاتنين قراءة بس ومن غير أي تعديل: <b>الفحص السريع</b> كل 15 دقيقة من غير دخول (الموقع بيرد؟ صفحة الدخول ظاهرة؟ في صفحة خطأ؟ بيرد في قد إيه؟ شهادة HTTPS فاضلها كام يوم؟)، و<b>فحص الشاشات</b> كل كام ساعة بيدخل بمستخدم الموقع ويفتح كل شاشة في المنيو. ولو موقع وقع (مرتين ورا بعض) أو بقى بطيء (3 مرات ورا بعض) أو رجع اشتغل، أو شاشة باظت أو اتصلحت، بيوصلك تنبيه على القنوات اللي في <a href="/settings">الإعدادات ▸ التنبيهات</a> (واتساب / تليجرام / إيميل / Webhook).</div>
 
   <div class="mo-card">
     <div class="hd"><b>📡 مراقبة المواقع</b>
       <div class="d-flex gap-2 align-items-center"><span class="small text-muted" id="moInfo" aria-live="polite"></span>
+        <button class="btn btn-sm btn-outline-secondary" id="moDeep" onclick="moRun(true)"><i class="bi bi-window-stack"></i> افحص الشاشات دلوقتي</button>
         <button class="btn btn-sm mo-teal" id="moRun" onclick="moRun()"><i class="bi bi-arrow-repeat"></i> افحص دلوقتي</button></div>
     </div>
     {% if current_user and current_user.role == 'admin' %}
@@ -44,7 +48,10 @@
       <label>كل <input type="number" id="moEvery" class="form-control form-control-sm" min="5" max="240"> دقيقة</label>
       <label>بطيء لو أكتر من <input type="number" id="moSlow" class="form-control form-control-sm" min="1" max="60" step="0.5"> ثانية</label>
       <label>نبّه عن الشهادة قبل <input type="number" id="moSsl" class="form-control form-control-sm" min="1" max="60"> يوم</label>
+      <label>افحص الشاشات كل <input type="number" id="moDeepH" class="form-control form-control-sm" min="1" max="48"> ساعة</label>
+      <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="moDeepC"> افحص شاشات مواقع العملاء كمان</label>
       <button class="btn btn-sm btn-outline-secondary" onclick="moSave()">احفظ</button>
+      <div class="w-100 small text-muted">فحص الشاشات بيدخل بمستخدم الموقع اللي في الإعدادات ويفتح كل شاشة في المنيو قراءة بس (من غير ما يدوس حفظ أو حذف). لمواقع العملاء اعمل مستخدم مخصوص للمراقبة (مثلاً nq-monitor) بصلاحية عرض بس، علشان دخولنا ميخرّجش موظف حقيقي من حسابه.</div>
     </div>
     {% endif %}
   </div>
@@ -77,27 +84,42 @@ function card(s) {
     </div>
     ${s.spark.length ? `<div class="mo-spark" role="img" aria-label="وقت الرد في آخر ${s.spark.length} فحص">${s.spark.map(x => x == null ? '<i class="x"></i>' : `<i style="height:${Math.max(6, 100 * x / max)}%"></i>`).join('')}</div>` : ''}
     <div class="small text-muted">آخر فحص: ${when(L.at)} · ${s.checks} فحص${s.since ? ' · الحالة دي من ' + when(s.since) : ''} · ${s.kind === 'client' ? 'موقع عميل' : 'موقع اختبار'}</div>
+    ${deepBox(s)}
     ${inc ? `<div class="mo-inc"><b>آخر التغييرات</b>${inc}</div>` : ''}
   </div>`;
+}
+
+function deepBox(s) {
+  const d = s.deep;
+  if (s.deep_reason && !d) return `<div class="mo-deep text-muted">🖥️ الشاشات مش بتتفحص: ${esc(s.deep_reason)}</div>`;
+  if (!d) return '<div class="mo-deep text-muted">🖥️ الشاشات: لسه متفحصتش</div>';
+  const p = d.problems || [];
+  const head = d.error ? `<span class="bad">🔑 مقدرتش أدخل:</span> ${esc(d.error)}`
+    : p.length ? `<span class="bad">${p.length} شاشة فيها مشكلة</span> من ${d.screens}` : `<span class="ok">✓ كل الـ ${d.screens} شاشة بتفتح</span>`;
+  const list = p.slice(0, 6).map(([k, w]) => `<li><code>${esc(k)}</code> — ${esc(w)}</li>`).join('') + (p.length > 6 ? `<li><a href="/dev-support">و${p.length - 6} كمان في دعم المطورين</a></li>` : '');
+  return `<div class="mo-deep">🖥️ ${head} <span class="text-muted">· ${when(d.at)}</span>${list ? `<ul>${list}</ul>` : ''}${s.deep_reason ? `<div class="text-muted">${esc(s.deep_reason)}</div>` : ''}</div>`;
 }
 
 async function moLoad() {
   const r = await fetch('/api/monitor').then(x => x.json()).catch(() => null);
   if (!r) return;
   const c = r.config;
-  if (first && el('moOn')) { el('moOn').checked = !!c.on; el('moEvery').value = c.every_min; el('moSlow').value = c.slow_ms / 1000; el('moSsl').value = c.ssl_days; }
+  if (first && el('moOn')) { el('moOn').checked = !!c.on; el('moEvery').value = c.every_min; el('moSlow').value = c.slow_ms / 1000; el('moSsl').value = c.ssl_days; el('moDeepH').value = c.deep_every_h; el('moDeepC').checked = !!c.deep_clients; }
   first = false;
   el('moSites').innerHTML = r.sites.length ? r.sites.map(card).join('')
     : '<div class="mo-empty">لسه مفيش مواقع — ضيف موقع من <a href="/settings">الإعدادات ▸ المواقع</a></div>';
   const down = r.sites.filter(s => s.v === 'down').length;
-  el('moInfo').textContent = r.busy ? '⏳ بيفحص دلوقتي…' : !c.on ? 'المراقبة متوقفة' : down ? `${down} موقع واقع` : `كل ${c.every_min} دقيقة`;
-  el('moRun').disabled = r.busy;
-  clearTimeout(poll); poll = setTimeout(moLoad, r.busy ? 3000 : 60000);
+  el('moInfo').textContent = r.deep_busy ? '⏳ بيفحص الشاشات… (ممكن ياخد كام دقيقة)' : r.busy ? '⏳ بيفحص دلوقتي…' : !c.on ? 'المراقبة متوقفة' : down ? `${down} موقع واقع` : `كل ${c.every_min} دقيقة`;
+  el('moRun').disabled = r.busy; el('moDeep').disabled = r.deep_busy;
+  clearTimeout(poll); poll = setTimeout(moLoad, r.busy || r.deep_busy ? 4000 : 60000);
 }
-async function moRun() { await fetch('/api/monitor/run', {method: 'POST'}); setTimeout(moLoad, 800); }
+async function moRun(deep) {
+  await fetch('/api/monitor/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({deep: !!deep})}); setTimeout(moLoad, 800);
+}
 async function moSave() {
   await fetch('/api/monitor/settings', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({on: el('moOn').checked, every_min: +el('moEvery').value, slow_ms: Math.round(+el('moSlow').value * 1000), ssl_days: +el('moSsl').value})});
+    body: JSON.stringify({on: el('moOn').checked, every_min: +el('moEvery').value, slow_ms: Math.round(+el('moSlow').value * 1000), ssl_days: +el('moSsl').value,
+      deep_every_h: +el('moDeepH').value, deep_clients: el('moDeepC').checked})});
   el('moInfo').textContent = '✓ اتحفظ'; setTimeout(moLoad, 1200);
 }
 moLoad();

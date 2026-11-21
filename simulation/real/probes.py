@@ -516,16 +516,19 @@ def it_sweep(session, menu, limit=2000):
     for a in assets[:8]:
         lines.append(f"🧩 ملف بتحمّله كل الصفحات مش موجود: {a['src']} → HTTP {a['st']}")
     ev = "\n".join(lines)
+    out = {"ms": ms, "evidence": ev, "screens": len(res), "stuck": stuck, "slow": [[r["p"], r["ms"]] for r in slow], "relogin": len(login),
+           "broken": [[r["p"], (f"HTTP {r['st']}" if r.get("st") else "ما فتحتش") + (f" · {r['err']}" if r.get("err") else "")] for r in broken],
+           "assets": [[a["src"], f"HTTP {a['st']}"] for a in assets]}       # for the site monitor: which screens, not only how many
     if assets and not (broken or stuck):
-        return {"kind": "wrong", "ms": ms, "evidence": ev,
+        return {**out, "kind": "wrong",
                 "msg": f"كل الـ {len(res)} شاشة بتفتح، بس {len(assets)} ملف بتحمّله الصفحات مش موجود ({', '.join(a['src'] for a in assets[:3])}) — بيطلّع أخطاء في كل شاشة"}
     if broken or stuck:
         n404 = sum(1 for r in broken if r.get("st") == 404)
         n500 = sum(1 for r in broken if r.get("st", 0) >= 500)
-        return {"kind": "wrong", "ms": ms, "evidence": ev,
+        return {**out, "kind": "wrong",
                 "msg": f"من {len(res)} شاشة: {len(broken)} فيها مشكلة" + (f" ({n404}× 404" if n404 else " (") + (f"، {n500}× خطأ سيرفر" if n500 else "") + ")"
                        + (f" و{len(stuck)} مش بتحمّل بيانات" if stuck else "")}
-    return {"kind": "ok", "ms": ms, "evidence": ev, "note": f"🖥️ فتحت كل الـ {len(res)} شاشة في المنيو — كلها شغالة، و{filled} شاشة قوايم حمّلت بياناتها ✅"}
+    return {**out, "kind": "ok", "note": f"🖥️ فتحت كل الـ {len(res)} شاشة في المنيو — كلها شغالة، و{filled} شاشة قوايم حمّلت بياناتها ✅"}
 
 
 # ---------------------------------------------------------------- 📒 the accountant's daily books check (read only)

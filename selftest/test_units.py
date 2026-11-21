@@ -669,3 +669,50 @@ def test_site_monitor_states_and_alerts(tmp_path, monkeypatch):
     assert M._state()["c1"]["last"]["why"].startswith("صفحة خطأ")
     s = M.summary()["sites"][0]
     assert s["checks"] == 9 and s["uptime"] is not None and len(s["incidents"]) == 3 and s["incidents"][0]["v"] == "slow"
+
+
+def test_site_monitor_screens(tmp_path, monkeypatch):
+    """📡🖥️ screens: alert on newly broken / fixed screens and a failed sign-in (once); clients only when allowed; items for «دعم المطورين»"""
+    from web import monitor as M
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "state.json")
+    cfg = {**M.DEFAULTS}
+    monkeypatch.setattr(M, "load_config", lambda: cfg)
+    sites = [{"id": "t", "name": "اختبار", "base_url": "https://test.x", "kind": "test", "username": "u", "password": "p"},
+             {"id": "c", "name": "عميل", "base_url": "https://c.x", "kind": "client", "username": "u", "password": "p"},
+             {"id": "n", "name": "بدون مستخدم", "base_url": "https://n.x", "kind": "test", "username": "", "password": ""}]
+    monkeypatch.setattr(M, "_sites", lambda c: sites)
+    sent, seen, rounds = [], [], []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+
+    def fake(p, c):
+        seen.append(p["id"])
+        r = rounds[0]
+        return {"at": "2026-11-21T10:00:00", **r} if "error" in r else {"at": "2026-11-21T10:00:00", "screens": 50, "problems": r["p"], "slow": [], "msg": ""}
+    monkeypatch.setattr(M, "deep_check", fake)
+
+    def go(r):
+        rounds[:] = [r]
+        seen.clear()
+        M.run_deep()
+
+    go({"p": [["/Sales/index", "HTTP 500"], ["/Stock", "فضلت تحمّل ومطلعتش بيانات"]]})
+    assert seen == ["t"]                                          # client not allowed yet, no-user site skipped
+    assert len(sent) == 1 and "2 شاشة" in sent[0] and "/Sales/index" in sent[0]
+    go({"p": [["/Sales/index", "HTTP 500"], ["/Stock", "فضلت تحمّل ومطلعتش بيانات"]]})
+    assert len(sent) == 1                                         # same problems: quiet
+    go({"p": [["/Sales/index", "HTTP 500"], ["/HR/index", "HTTP 404"]]})
+    assert "جديدة" in sent[-2] and "/HR/index" in sent[-2] and "اتصلحت" in sent[-1] and "/Stock" in sent[-1]
+    go({"error": "الدخول ما نجحش: اسم المستخدم أو كلمة السر غلط"})
+    assert "مقدرتش أدخل" in sent[-1]
+    n = len(sent)
+    go({"error": "الدخول ما نجحش"})
+    assert len(sent) == n                                         # the same failure: once
+    issues = M.support_issues()
+    assert {i["screen"] for i in issues} == {"/Sales/index", "/HR/index"}   # kept from the last good look
+    assert next(i for i in issues if i["screen"] == "/Sales/index")["severity"] == "عالية"
+    assert issues[0]["url"].startswith("https://test.x/")
+    cfg["deep_clients"] = True
+    go({"p": []})
+    assert seen == ["t", "c"] and M.support_issues() == []
+    s = {x["id"]: x for x in M.summary()["sites"]}
+    assert s["n"]["deep_reason"] and not s["t"]["deep_reason"] and s["t"]["deep"]["screens"] == 50
