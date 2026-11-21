@@ -14,6 +14,7 @@ These run only on a test site (the company's own documents, deleted after).
 """
 import re
 import time
+from pathlib import Path
 import urllib.request
 from urllib.parse import urljoin
 
@@ -557,3 +558,91 @@ def books_check(session, site, since):
                                        f"{len(missing)} مستند اتحفظ ومالوش قيد" if missing else "") if p)
         return {"kind": "wrong", "ms": ms, "msg": msg, "evidence": ev}
     return {"kind": "ok", "ms": ms, "evidence": ev, "note": f"📒 {len(entries)} قيد النهارده كلهم متزنين، وكل مستند من {len(ours)} مستند ليه قيده ✅"}
+
+
+# ---------------------------------------------------------------- 🖼️ Fahd's UI round: look changes · accessibility · page timing (read only)
+AXE = Path(__file__).parent / "vendor" / "axe.min.js"          # axe-core 4.10 (Deque, MPL-2.0): the accessibility checker the big sites use
+MASK_JS = r"""                                                  // the data changes every day, the screen's shape shouldn't: hide the data, keep the layout
+var st = document.getElementById('__nqmask') || document.createElement('style'); st.id = '__nqmask';
+st.textContent = 'tbody td, tbody td *, .dataTables_info, input, textarea, select, .select2-selection__rendered, time, .badge, .toast, .swal2-container, .loading, [class*=spinner] { color: transparent !important; caret-color: transparent !important; } img[src*=avatar], canvas { visibility: hidden !important; } * { animation: none !important; transition: none !important; }';
+document.head.appendChild(st); window.scrollTo(0, 0); return true;
+"""
+TIMING_JS = r"""
+var n = performance.getEntriesByType('navigation')[0] || {}, rs = performance.getEntriesByType('resource');
+var kb = rs.reduce(function (a, r) { return a + (r.transferSize || 0); }, n.transferSize || 0) / 1024;
+return {ttfb: Math.round(n.responseStart || 0), dom: Math.round(n.domContentLoadedEventEnd || 0), load: Math.round(n.loadEventEnd || 0), requests: rs.length + 1, kb: Math.round(kb)};
+"""
+AXE_RUN_JS = r"""
+var done = arguments[arguments.length - 1];
+if (!window.axe) { done({err: 'axe not loaded'}); return; }
+axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}, resultTypes: ['violations']}).then(function (r) {
+  done({v: r.violations.filter(function (v) { return v.impact === 'critical' || v.impact === 'serious'; })
+    .map(function (v) { return {id: v.id, impact: v.impact, help: v.help, n: v.nodes.length}; })});
+}).catch(function (e) { done({err: String(e).slice(0, 120)}); });
+"""
+DIFF_PIXEL, DIFF_SHARE = 40, 0.04       # a pixel counts when it moved by > 40 (of 255); a screen «changed» when > 4% of it did
+
+
+def look_change(old_png, new_png):
+    """share of the screen that changed between two screenshots (0..1); None when they can't be compared (another size = the layout moved)"""
+    from PIL import Image, ImageChops
+    a, b = Image.open(old_png).convert("L"), Image.open(new_png).convert("L")
+    if a.size != b.size:
+        return None
+    d = ImageChops.difference(a, b).point(lambda p: 255 if p > DIFF_PIXEL else 0)
+    return sum(d.histogram()[255:]) / float(a.size[0] * a.size[1])
+
+
+def ui_audit(session, menu, folder, limit=15):
+    """🖼️ each list screen like a person (data hidden): its picture against the last day's, axe (serious / critical only), and its timing.
+    -> result; pictures kept in folder/<date>/ so tomorrow compares with today"""
+    import datetime as _dt
+    t0, d = time.time(), session.driver
+    today = folder / _dt.date.today().isoformat()
+    today.mkdir(parents=True, exist_ok=True)
+    before = sorted(p for p in folder.iterdir() if p.is_dir() and p.name < today.name)[-1:] if folder.exists() else []
+    lists = [p for p in _menu_paths(menu, 2000) if LIST_RE.match(p)]
+    lists = lists[::max(1, len(lists) // limit)][:limit]
+    axe_src = AXE.read_text(encoding="utf-8") if AXE.exists() else ""
+    rows, changed, a11y, slow = [], [], {}, []
+    for p in lists:
+        st, ms, _ = _open_list(session, p, tries=30, wait=.5)
+        if st in ("error", "fail"):
+            continue
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", p).strip("_")[:60] or "home"
+        try:
+            tm = d.execute_script(TIMING_JS) or {}
+            d.execute_script(MASK_JS)
+            time.sleep(.4)
+            shot = today / f"{slug}.png"
+            d.save_screenshot(str(shot))
+            ch = None
+            if before and (before[0] / f"{slug}.png").exists():
+                ch = look_change(before[0] / f"{slug}.png", shot)
+                if ch is None or ch > DIFF_SHARE:
+                    changed.append((p, ch))
+            if axe_src:
+                d.execute_script(axe_src)
+                d.set_script_timeout(40)
+                for v in (d.execute_async_script(AXE_RUN_JS) or {}).get("v") or []:
+                    a = a11y.setdefault(v["id"], {**v, "screens": 0})
+                    a["screens"] += 1
+            if (tm.get("load") or 0) > 8000:
+                slow.append((p, tm["load"]))
+            rows.append((p, tm, ch))
+        except Exception:
+            continue
+    if not rows:
+        return {"kind": "skip", "notarget": True, "ms": int((time.time() - t0) * 1000), "msg": "ولا شاشة قوايم فتحت عشان أراجع شكلها"}
+    crit = [a for a in a11y.values() if a["impact"] == "critical"]
+    lines = [f"🖼️ راجعت {len(rows)} شاشة" + (f" وقارنتها بصور {before[0].name}" if before else " (أول يوم: الصور دي هي الأساس للمقارنة بكرة)")]
+    lines += [f"🔀 {p}: " + ("المقاس اتغير — التصميم اتحرك" if ch is None else f"{ch:.0%} من الشاشة شكله اتغير") for p, ch in changed[:10]]
+    lines += [f"♿ {a['help']} ({a['impact']}) — في {a['screens']} شاشة" for a in sorted(a11y.values(), key=lambda a: (a["impact"] != "critical", -a["screens"]))[:8]]
+    lines += [f"⏱️ {p}: أول بايت {tm.get('ttfb', 0)}ms · الصفحة {tm.get('load', 0) / 1000:.1f}ث · {tm.get('requests', 0)} طلب · {tm.get('kb', 0)}KB" for p, tm, _ in rows[:6]]
+    r = {"ms": int((time.time() - t0) * 1000), "evidence": "\n".join(lines)}
+    if changed or crit:
+        msg = "، ".join(x for x in (f"{len(changed)} شاشة شكلها اتغير عن آخر يوم — اتأكد إنه مقصود" if changed else "",
+                                    f"{len(crit)} مشكلة سهولة استخدام حرجة" if crit else "") if x)
+        return {**r, "kind": "wrong", "msg": msg}
+    note = f"🖼️ {len(rows)} شاشة: " + ("مفيش شاشة شكلها اتغير" if before else "الصور اتحفظت كأساس للمقارنة") + (f" · {len(a11y)} ملاحظة سهولة استخدام (مش حرجة)" if a11y else " · مفيش مشاكل سهولة استخدام") + " ✅"
+    return {**r, "kind": "ok", "note": note}

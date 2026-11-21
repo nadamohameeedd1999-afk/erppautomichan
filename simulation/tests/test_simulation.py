@@ -252,3 +252,48 @@ def test_books_check():
     r = probes.books_check(Ses(bad), "bk", today)
     assert r["kind"] == "wrong" and "مش متزن" in r["msg"] and "مالوش قيد" in r["msg"] and "902" in r["evidence"] and "903" not in r["evidence"]
     assert probes.books_check(Ses({"ok": False, "s": 500}), "bk", today)["kind"] == "skip"
+
+
+def test_ui_audit(tmp_path):
+    """🖼️ day 1 keeps the pictures; day 2 flags a screen whose look changed (data hidden) and critical accessibility problems"""
+    from PIL import Image, ImageDraw
+    from simulation.real import probes
+    menu = [{"path": "/SalesInvoice"}, {"path": "/Customer/Index"}]
+    look = {"/SalesInvoice": "same", "/Customer/Index": "same"}
+    axe = {"v": []}
+
+    class Drv:
+        cur = ""
+        def execute_script(self, js, *a):
+            return {"ttfb": 120, "dom": 900, "load": 1400, "requests": 30, "kb": 800} if "performance" in js else True
+        def set_script_timeout(self, s): pass
+        def execute_async_script(self, js, *a): return axe
+        def save_screenshot(self, f):
+            im = Image.new("RGB", (400, 300), "white")
+            if look[self.cur] == "moved":
+                ImageDraw.Draw(im).rectangle((0, 0, 400, 120), fill="black")       # the header grew: 40% of the screen moved
+            im.save(f)
+
+    class Ses:
+        driver = Drv()
+    orig = probes._open_list
+    try:
+        def fake_open(s, p, **k):
+            s.driver.cur = p
+            return "rows", 900, ""
+        probes._open_list = fake_open
+        import datetime
+        day1 = tmp_path / (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        r = probes.ui_audit(Ses(), menu, tmp_path)                                   # no earlier day: pictures become the baseline
+        assert r["kind"] == "ok" and "كأساس" in r["note"]
+        (tmp_path / datetime.date.today().isoformat()).rename(day1)                   # pretend that was yesterday
+        look["/SalesInvoice"] = "moved"
+        axe["v"] = [{"id": "button-name", "impact": "critical", "help": "Buttons must have discernible text", "n": 3}]
+        r = probes.ui_audit(Ses(), menu, tmp_path)
+        assert r["kind"] == "wrong" and "1 شاشة شكلها اتغير" in r["msg"] and "حرجة" in r["msg"] and "/SalesInvoice" in r["evidence"] and "/Customer/Index:" not in r["evidence"].split("♿")[0]
+    finally:
+        probes._open_list = orig
+    a, b = tmp_path / "a.png", tmp_path / "b.png"
+    Image.new("L", (10, 10), 0).save(a)
+    Image.new("L", (10, 20), 0).save(b)
+    assert probes.look_change(a, a) == 0 and probes.look_change(a, b) is None

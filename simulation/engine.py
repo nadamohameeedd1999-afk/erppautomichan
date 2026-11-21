@@ -1106,6 +1106,10 @@ class Company:
                 self.at(self.start + at, self.assign, it, {"screen": "it_sweep", "probe": "it_sweep",
                                                            "label": T("🖥️ فحص الصبح: بفتح كل شاشات السيستم وبتأكد إنها بتحمّل من غير Error أو 404", "🖥️ Morning check: opening every screen of the system — loads, no error, no 404")
                                                            if at < 100 else T("🖥️ فحص بعد الضهر: كل شاشات السيستم تاني", "🖥️ Afternoon check: every screen again")})
+        if it and "ui_audit" in S:                               # 🖼️ IT's third round: how each screen looks (vs yesterday), accessibility, timing
+            self.at(self.start + 70, self.assign, it, {"screen": "ui_audit", "probe": "ui_audit",
+                                                     "label": T("🖼️ مراجعة شكل الشاشات: اتغيرت عن امبارح؟ سهلة الاستخدام؟ بتحمّل في قد إيه؟",
+                                                                "🖼️ Screens' look: changed since yesterday? accessible? how fast?")})
         if it and "it_speed" in S:                               # 🐢 IT's second round: the screens' speed, morning and again after lunch
             for at in (40, 330):
                 self.at(self.start + at, self.assign, it, {"screen": "it_speed", "probe": "it_speed",
@@ -1297,6 +1301,7 @@ class Company:
         else:                                                      # read checks: 🔐 👁️ 🧮 ⚖️ ✅
             if k in ("ok", "slow"):
                 text = r.get("note") or ({"it_sweep": T("فتحت كل الـ 118 شاشة في المنيو — كلها شغالة وبتحمّل بياناتها ✅", "Opened all 118 menu screens — all working and loading their data ✅"),
+                                          "ui_audit": T("🖼️ 15 شاشة: مفيش شاشة شكلها اتغير · مفيش مشاكل سهولة استخدام ✅", "🖼️ 15 screens: none changed its look · no accessibility problems ✅"),
                                           "acc_books": T("📒 42 قيد النهارده كلهم متزنين، وكل مستند ليه قيده ✅", "📒 42 entries today, all balanced, every document has its entry ✅"),
                                           "it_speed": T("كل شاشات القوايم بتظهر بياناتها في أقل من 8 ث — المتوسط 2.4 ث ✅", "Every list screen shows its data in under 8 s — 2.4 s on average ✅")}.get(p)
                                          if sim else None) or T("تمام ✅", "OK ✅")
