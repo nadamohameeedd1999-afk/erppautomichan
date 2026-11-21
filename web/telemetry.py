@@ -7,6 +7,10 @@ by the NQ ERP developers) sends:
   • ajax    — a call from a screen that came back 500 (jQuery ajaxError), with the server's answer
   • js      — a JavaScript error on a screen (window.onerror / unhandled promise)
   • start   — the application started (deploy, IIS recycle, crash): version + build date = which version each client runs
+  • usage   — every 10 min: how many times each screen was opened and by whom (60 days kept)
+  • zatca   — e-invoices: rejected / failed at once (alert), cleared / reported / warning counted (per day, 90 days)
+  • db      — every 6 h, read only: last full / log backup, sizes, recovery model, free disk, failed jobs, slowest queries
+              (alert once a day when the last full backup is older than BACKUP_H hours)
 The same error is ONE item (numbers / ids blanked): how many times, how many users, first / last time, the latest stack.
 A new one → one alert (at most 6 an hour per site, the rest wait on the page) and an item in «دعم المطورين».
 
@@ -26,6 +30,8 @@ from config import paths
 FILE = paths.DATA_DIR / "monitor" / "telemetry.json"
 KINDS = {"server": "خطأ سيرفر", "ajax": "طلب رجع 500", "js": "خطأ JavaScript"}
 KEEP, PER_MIN, ALERTS_PER_HOUR, MAX_BYTES = 300, 60, 6, 20_000
+BACKUP_H = 26
+ZATCA_AR = {"cleared": "اتقبلت (Clearance)", "reported": "اتبلغت (Reporting)", "warning": "اتقبلت بتحذير", "rejected": "اترفضت", "failed": "فشل الإرسال"}
 _lock, _rate, _alerts = threading.Lock(), {}, {}
 
 
@@ -91,7 +97,7 @@ def receive(site_id, items, now=None):
     if not items:
         return 0
     at = datetime.fromtimestamp(now).isoformat(timespec="seconds")
-    fresh, back = [], []
+    fresh, back, extra = [], [], []                                  # extra: alert lines from usage / zatca / db
     with _lock:
         d = _load()
         s = d.setdefault(site_id, {"errors": {}, "starts": []})
@@ -102,6 +108,9 @@ def receive(site_id, items, now=None):
                 s["version"] = {**ver, "at": at}
             if kind == "start":
                 s["starts"] = (s["starts"] + [{"at": at, **ver, "machine": _clip(x.get("machine"), 60)}])[-30:]
+                continue
+            if x.get("kind") in ("usage", "zatca", "db"):
+                extra.extend(globals()["_" + x["kind"]](s, x, at))
                 continue
             typ, msg = _clip(x.get("type"), 150), _clip(x.get("message"), 1000)
             screen = _path(x.get("url"))
@@ -128,12 +137,132 @@ def receive(site_id, items, now=None):
         _save(d)
     if fresh:
         _alert(site_id, fresh, now)
+    if extra:
+        _alert_lines(site_id, extra, now)
     if back:
         from web import monitor
         name = next((x.get("name") for x in monitor._sites({}) if x["id"] == site_id), site_id)
         monitor.broadcast("📡 مراقبة المواقع\n🔁 " + f"{name}: خطأ كان اتصلح ورجع تاني\n"
                           + "\n".join(f"⛔ {e['screen']}: {e['message'][:140]}" for e in back[:5]) + "\nالتذكرة رجعت «جديد» في «دعم المطورين»")
     return len(items)
+
+
+def _usage(s, x, at):
+    day = s.setdefault("usage", {}).setdefault(at[:10], {})
+    for screen, v in list((x.get("screens") or {}).items())[:200]:
+        screen = _clip(screen, 120)
+        if not isinstance(v, dict):
+            continue
+        u = day.setdefault(screen, {"n": 0, "users": []})
+        u["n"] += int(v.get("n") or 0)
+        u["users"] = list(dict.fromkeys(u["users"] + [_clip(x, 80) for x in (v.get("users") or [])][:50]))[:50]
+    for k in sorted(s["usage"])[:-60]:
+        del s["usage"][k]
+    return []
+
+
+def _zatca(s, x, at):
+    z = s.setdefault("zatca", {"days": {}, "issues": []})
+    day = z["days"].setdefault(at[:10], {k: 0 for k in ZATCA_AR})
+    lines = []
+    if x.get("counts") is not None or x.get("warnings") is not None:   # the 10-minute summary
+        for k, n in (x.get("counts") or {}).items():
+            if k in ZATCA_AR:
+                day[k] += int(n or 0)
+        for w in (x.get("warnings") or [])[:20]:
+            z["issues"].append({"at": at, "invoice": _clip(w.get("invoice"), 40), "status": "warning", "message": _clip(w.get("message"), 800)})
+    else:                                                                # one rejected / failed invoice
+        st = x.get("status") if x.get("status") in ZATCA_AR else "failed"
+        day[st] += 1
+        z["issues"].append({"at": at, "invoice": _clip(x.get("invoice"), 40), "status": st, "message": _clip(x.get("message"), 800),
+                            "amount": x.get("amount") or 0})
+        if st in ("rejected", "failed"):
+            lines.append(f"🧾 فاتورة {_clip(x.get('invoice'), 40) or '—'} {ZATCA_AR[st]}: {_clip(x.get('message'), 160)}")
+    z["issues"] = z["issues"][-100:]
+    for k in sorted(z["days"])[:-90]:
+        del z["days"][k]
+    return lines
+
+
+def _db(s, x, at):
+    keep = ("database", "backup_full", "backup_log", "data_mb", "log_mb", "recovery", "disk_free_gb", "jobs_failed_24h", "sql_version", "error")
+    last = {k: x.get(k) for k in keep if x.get(k) is not None}
+    last["not_allowed"] = {k[:-6]: _clip(v, 200) for k, v in x.items() if k.endswith("_error") and k != "error"}
+    last["slow"] = [{"query": _clip(q.get("query"), 300), "count": q.get("count"), "avg_ms": q.get("avg_ms")} for q in (x.get("slow") or [])[:5]]
+    last["at"] = at
+    db = s.setdefault("db", {"sizes": {}, "warned": ""})
+    db["last"] = last
+    if x.get("data_mb") is not None:
+        db["sizes"][at[:10]] = x["data_mb"]
+        for k in sorted(db["sizes"])[:-120]:
+            del db["sizes"][k]
+    lines, age = [], backup_age_h(last)
+    if age is not None and age > BACKUP_H and db.get("warned") != at[:10]:
+        db["warned"] = at[:10]
+        lines.append(f"🗄️ آخر نسخة احتياطية كاملة لقاعدة {last.get('database', '')} من {age:.0f} ساعة ({last.get('backup_full')})")
+    if not last.get("backup_full") and "backup_full" not in last["not_allowed"] and not x.get("error") and db.get("warned") != at[:10]:
+        db["warned"] = at[:10]
+        lines.append(f"🗄️ قاعدة {last.get('database', '')} مفيهاش أي نسخة احتياطية كاملة متسجلة")
+    return lines
+
+
+def backup_age_h(last):
+    try:
+        return (datetime.now() - datetime.strptime(str(last.get("backup_full"))[:16], "%Y-%m-%d %H:%M")).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return None
+
+
+def _alert_lines(site_id, lines, now):
+    key = f"{site_id}|inside"
+    sent = [t for t in _alerts.get(key, []) if now - t < 3600]
+    if len(sent) >= ALERTS_PER_HOUR:
+        return
+    _alerts[key] = sent + [now]
+    from web import monitor
+    name = next((x.get("name") for x in monitor._sites({}) if x["id"] == site_id), site_id)
+    monitor.broadcast(f"📡 مراقبة المواقع\n{name}:\n" + "\n".join(lines[:8]))
+
+
+def inside(site_id, days=30):
+    """the «من جوه الأنظمة» page for one site: ZATCA, the database, screen usage (with the screens other clients use and this one doesn't)"""
+    d = _load()
+    s = d.get(site_id) or {}
+    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    z = s.get("zatca") or {}
+    zdays = {k: v for k, v in (z.get("days") or {}).items() if k >= since}
+    ztot = {k: sum(v.get(k, 0) for v in zdays.values()) for k in ZATCA_AR}
+    sent = sum(ztot.values())
+    use = {}
+    users_day = {}
+    for day, scr in (s.get("usage") or {}).items():
+        if day < since:
+            continue
+        users_day[day] = len({u for v in scr.values() for u in v.get("users", [])})
+        for k, v in scr.items():
+            u = use.setdefault(k, {"screen": k, "n": 0, "users": set()})
+            u["n"] += v.get("n", 0)
+            u["users"] |= set(v.get("users", []))
+    top = sorted(({"screen": k, "n": v["n"], "users": len(v["users"])} for k, v in use.items()), key=lambda x: -x["n"])
+    others = {}
+    for sid, o in d.items():
+        if sid == site_id:
+            continue
+        for day, scr in (o.get("usage") or {}).items():
+            if day >= since:
+                for k, v in scr.items():
+                    others[k] = others.get(k, 0) + v.get("n", 0)
+    unused = sorted(((k, n) for k, n in others.items() if k not in use and n >= 5), key=lambda x: -x[1])[:15]
+    mods = {}
+    for k, v in use.items():
+        mods[k.split("/")[0]] = mods.get(k.split("/")[0], 0) + v["n"]
+    db = (s.get("db") or {})
+    return {"zatca": {"total": ztot, "sent": sent, "reject_rate": round(100 * (ztot["rejected"] + ztot["failed"]) / sent, 1) if sent else None,
+                      "days": dict(sorted(zdays.items())[-14:]), "issues": list(reversed(z.get("issues") or []))[:25], "labels": ZATCA_AR},
+            "db": {**(db.get("last") or {}), "backup_age_h": backup_age_h(db.get("last") or {}), "sizes": dict(sorted((db.get("sizes") or {}).items())[-60:])} if db else None,
+            "usage": {"top": top[:25], "users_day": dict(sorted(users_day.items())[-14:]), "unused_vs_others": [{"screen": k, "n_others": n} for k, n in unused],
+                      "modules": sorted(({"module": k, "n": n} for k, n in mods.items()), key=lambda x: -x["n"]), "screens": len(use)} if use or others else None,
+            "connected": bool(s)}
 
 
 def _reopen_if_fixed(site_id, key, at):

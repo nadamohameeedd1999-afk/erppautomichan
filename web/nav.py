@@ -29,6 +29,7 @@ SECTIONS = [
         ('readiness', ['checks.readiness_page'], '/readiness', 'bi-stoplights', 'جاهزية الإصدار', 'Release readiness', 'درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش', 'Score /100 and a go / care / no-go verdict'),
         ('golive', ['golive.page'], '/go-live', 'bi-rocket-takeoff', 'اختبار الاستلام', 'Go-Live acceptance', 'زرار واحد قبل تسليم موقع العميل: الشاشات والأسماء واللينكات والتقارير والسرعة والحمل والحسابات والكود — حكم لكل جزء وتقرير للمطورين', 'One button before handing a client site over: screens, names, links, reports, speed, load, books, code — a verdict per area and a developer report'),
         ('clients', ['clients_health.page'], '/clients', 'bi-heart-pulse', 'صحة العملاء', 'Client health', 'درجة من 100 لكل عميل (التشغيل والأخطاء والشاشات والسرعة والنسخة): مين في خطر يشتكي، وملخص الصبح على واتساب، وتقرير أسبوعي', 'A score out of 100 per client: who may complain soon, the morning WhatsApp summary and a weekly report'),
+        ('inside', ['monitor.inside_page'], '/inside', 'bi-cpu', 'من جوه الأنظمة', 'Inside the systems', 'لكل عميل: الفواتير الإلكترونية وزاتكا، وصحة قاعدة البيانات والنسخ الاحتياطي، وأنهي شاشات بيستخدمها وأنهي لأ (محتاج تدريب؟)', 'Per client: ZATCA e-invoices, database health and backups, which screens they use and which not (training needed?)'),
         ('monitor', ['monitor.page'], '/monitor', 'bi-broadcast', 'مراقبة المواقع', 'Site monitor', 'كل موقع (والعملاء) بيتفحص كل 15 دقيقة — قراءة بس: واقع؟ بطيء؟ الشهادة هتخلص؟ — وتنبيه واتساب / إيميل قبل ما العميل يكلمك', 'Every site (clients too) checked every 15 minutes, read only: down? slow? certificate expiring? — WhatsApp / e-mail alert before the client calls'),
         ('sales', ['sales.page'], '/sales', 'bi-easel2', 'العرض للعميل', 'Sales demo', 'الشركة الافتراضية كديمو مبيعات: موقع عرض فيه شغل النهارده، وجولة لكل قطاع بالكلام اللي هتقوله، وملخص PDF للعميل بعد الاجتماع', 'The virtual company as a sales demo: a demo site with today\'s work, a guided tour per sector with what to say, a PDF summary after the meeting'),
         ('care', ['care.page'], '/care', 'bi-briefcase', 'NQ Care', 'NQ Care', 'باقة الدعم المدفوعة: صفحة حالة لكل عميل، تقرير شهري بنسبة التشغيل مقابل الهدف، والعقود وتجديدها', 'The paid support plan: a status page per client, a monthly uptime-vs-target report, contracts and renewals'),
@@ -69,7 +70,7 @@ HIDDEN = {"map", "autohealth", "diag"}
 
 
 # pages that answer one question together: each one shows the others as tabs on top («فحص الموقع» · «المقارنات»)
-HUBS = {"health": ["health", "clients", "monitor", "releases", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
+HUBS = {"health": ["health", "clients", "monitor", "inside", "releases", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
 
 
 def hub_tabs(endpoint, lang):

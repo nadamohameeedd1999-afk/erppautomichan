@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}من جوه الأنظمة - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .in-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .in-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .in-card > .bd { padding: 14px 16px; }
+  .in-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .in-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .in-kpi { border: 1px solid var(--g-line); border-radius: 10px; padding: 8px 10px; } .in-kpi span { font-size: 12px; color: var(--g-muted); }
+  .in-kpi b { display: block; font-size: 20px; color: var(--g-head); font-variant-numeric: tabular-nums; } .in-kpi b.bad { color: var(--g-bad, #C0392B); } .in-kpi b.date { font-size: 15px; } .in-kpi b.date div { font-size: 12px; } .in-kpi b.warn { color: var(--g-warn, #B7791F); }
+  .in-tbl { width: 100%; border-collapse: collapse; font-size: 13px; } .in-tbl th { background: var(--g-acc, #0F7C7A); color: #fff; padding: 6px 8px; text-align: right; }
+  .in-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--g-line); vertical-align: top; } .in-tbl .num { text-align: center; font-variant-numeric: tabular-nums; }
+  .in-tbl code { direction: ltr; unicode-bidi: embed; font-size: 12px; }
+  .in-bars { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin: 6px 0 2px; }
+  .in-bars div { flex: 1; display: flex; flex-direction: column-reverse; min-width: 0; height: 100%; }
+  .in-bars i { display: block; } .in-bars i.ok { background: var(--g-acc, #0F7C7A); } .in-bars i.w { background: var(--g-warn, #B7791F); } .in-bars i.b { background: var(--g-bad, #C0392B); }
+  .in-legend { display: flex; gap: 12px; font-size: 12px; color: var(--g-muted); flex-wrap: wrap; } .in-legend span::before { content: "■ "; }
+  .in-legend .ok::before { color: var(--g-acc, #0F7C7A); } .in-legend .w::before { color: var(--g-warn, #B7791F); } .in-legend .b::before { color: var(--g-bad, #C0392B); }
+  .in-empty { color: var(--g-muted); font-size: 13px; }
+  .in-hint { background: var(--g-hover); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-top: 10px; }
+  .in-wrap { overflow-x: auto; }
+  @media (max-width: 1000px) { .in-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div class="small text-muted" style="max-width:900px">اللي NQ ERP نفسه بيبعته من عند كل عميل (محتاج كود الربط من «مراقبة المواقع ▸ ربط NQ ERP»): ردود زاتكا على الفواتير الإلكترونية، وصحة قاعدة البيانات والنسخ الاحتياطي (قراءة بس، كل 6 ساعات)، وأنهي شاشات بيستخدمها الموظفين وأنهي لأ.</div>
+    <div class="d-flex gap-2"><select id="inSite" class="form-select form-select-sm" style="width:auto" aria-label="العميل"></select>
+      <select id="inDays" class="form-select form-select-sm" style="width:auto" aria-label="الفترة"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="60">آخر 60 يوم</option></select></div>
+  </div>
+  <div id="inNone" class="in-card" hidden><div class="bd in-empty">العميل ده لسه مش متربوط. ابعت كود الربط للمطورين من <a href="/monitor#moConn">مراقبة المواقع ▸ ربط NQ ERP</a>.</div></div>
+  <div class="in-grid">
+    <div class="in-card"><div class="hd"><b>🧾 الفواتير الإلكترونية (زاتكا)</b></div><div class="bd" id="inZ"></div></div>
+    <div class="in-card"><div class="hd"><b>🗄️ قاعدة البيانات</b></div><div class="bd" id="inD"></div></div>
+  </div>
+  <div class="in-card"><div class="hd"><b>👥 استخدام الشاشات</b><span class="small text-muted">الشاشة بتتحسب مرة كل ما موظف يفتحها</span></div><div class="bd" id="inU"></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const num = n => Number(n || 0).toLocaleString('en-US');
+const kpi = (l, v, c) => `<div class="in-kpi"><span>${l}</span><b class="${c || ''}">${v}</b></div>`;
+let site = new URLSearchParams(location.search).get('site') || '';
+async function load() {
+  const r = await fetch(`/api/inside?site=${encodeURIComponent(site)}&days=${el('inDays').value}`).then(x => x.json());
+  site = r.site;
+  el('inSite').innerHTML = r.sites.map(s => `<option value="${esc(s.id)}" ${s.id === site ? 'selected' : ''}>${esc(s.name)}${s.kind === 'client' ? '' : ' (اختبار)'}</option>`).join('');
+  const d = r.data || {};
+  el('inNone').hidden = !!d.connected;
+  // ZATCA
+  const z = d.zatca;
+  if (!z || !z.sent) el('inZ').innerHTML = '<div class="in-empty">مفيش فواتير اتبعتت لزاتكا متسجلة. المطورين لازم يضيفوا سطر <code>NqTelemetry.Zatca(…)</code> في المكان اللي بيرجع فيه رد زاتكا.</div>';
+  else {
+    const t = z.total, days = Object.entries(z.days), mx = Math.max(1, ...days.map(([, v]) => Object.values(v).reduce((a, b) => a + b, 0)));
+    el('inZ').innerHTML = `<div class="in-kpis">${kpi('اتبعتت', num(z.sent))}${kpi('اتقبلت', num(t.cleared + t.reported))}${kpi('بتحذير', num(t.warning), t.warning ? 'warn' : '')}
+        ${kpi('اترفضت / فشلت', num(t.rejected + t.failed), t.rejected + t.failed ? 'bad' : '')}${kpi('نسبة الرفض', z.reject_rate + '%', z.reject_rate > 2 ? 'bad' : '')}</div>
+      <div class="in-bars" role="img" aria-label="الفواتير يوم بيوم">${days.map(([day, v]) => { const h = k => `${100 * v[k] / mx}%`;
+        return `<div title="${day}"><i class="ok" style="height:${h('cleared')}"></i><i class="ok" style="height:${h('reported')}"></i><i class="w" style="height:${h('warning')}"></i><i class="b" style="height:${h('rejected')}"></i><i class="b" style="height:${h('failed')}"></i></div>`; }).join('')}</div>
+      <div class="in-legend"><span class="ok">اتقبلت</span><span class="w">بتحذير</span><span class="b">اترفضت / فشلت</span></div>
+      ${z.issues.length ? `<div class="in-wrap mt-2"><table class="in-tbl"><thead><tr><th>الفاتورة</th><th>الحالة</th><th>رد زاتكا</th><th class="num">الوقت</th></tr></thead><tbody>
+        ${z.issues.map(i => `<tr><td><code>${esc(i.invoice)}</code></td><td>${esc(z.labels[i.status] || i.status)}</td><td>${esc(i.message)}</td><td class="num" dir="ltr">${esc(i.at.slice(5, 16).replace('T', ' '))}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+  }
+  // database
+  const db = d.db;
+  if (!db) el('inD').innerHTML = '<div class="in-empty">لسه مفيش تقرير عن قاعدة البيانات. بيوصل بعد دقيقتين من تشغيل البرنامج، وبعدين كل 6 ساعات.</div>';
+  else {
+    const age = db.backup_age_h, na = db.not_allowed || {};
+    const bk = db.backup_full ? `${esc(db.backup_full)}<div class="small ${age > r.backup_h ? 'text-danger fw-bold' : 'text-muted'}">من ${Math.round(age)} ساعة</div>` : na.backup_full ? '<span class="text-muted">مش مسموح بالقراءة</span>' : '<span class="text-danger fw-bold">مفيش ولا نسخة!</span>';
+    const sizes = Object.values(db.sizes || {}), grow = sizes.length > 1 ? sizes[sizes.length - 1] - sizes[0] : null;
+    el('inD').innerHTML = `${db.error ? `<div class="text-danger small mb-2">مقدرش يوصل للقاعدة: ${esc(db.error)}</div>` : ''}
+      <div class="in-kpis">${kpi('آخر نسخة كاملة', bk, (age > r.backup_h || !db.backup_full ? 'bad ' : '') + 'date')}${kpi('حجم البيانات', db.data_mb != null ? num(db.data_mb) + ' MB' : '—')}
+        ${kpi('حجم اللوج', db.log_mb != null ? num(db.log_mb) + ' MB' : '—', db.log_mb > db.data_mb ? 'warn' : '')}${kpi('مساحة فاضية', db.disk_free_gb != null ? db.disk_free_gb + ' GB' : '—', db.disk_free_gb != null && db.disk_free_gb < 5 ? 'bad' : '')}</div>
+      <table class="in-tbl"><tbody>
+        <tr><td>القاعدة</td><td><code>${esc(db.database || '—')}</code> · ${esc(db.recovery || '')}</td></tr>
+        <tr><td>آخر نسخة للوج</td><td>${esc(db.backup_log || (na.backup_log ? 'مش مسموح' : '—'))}</td></tr>
+        <tr><td>زيادة الحجم</td><td>${grow == null ? '—' : (grow >= 0 ? '+' : '') + num(grow.toFixed ? grow.toFixed(1) : grow) + ' MB في الفترة'}</td></tr>
+        <tr><td>Jobs فشلت آخر 24 ساعة</td><td class="${db.jobs_failed_24h ? 'text-danger fw-bold' : ''}">${db.jobs_failed_24h != null ? db.jobs_failed_24h : (na.jobs_failed_24h ? 'مش مسموح' : '—')}</td></tr>
+        <tr><td>SQL Server</td><td class="small">${esc(db.sql_version || '—')}</td></tr>
+        <tr><td>آخر فحص</td><td dir="ltr" style="text-align:right">${esc((db.at || '').replace('T', ' ').slice(0, 16))}</td></tr></tbody></table>
+      ${(db.slow || []).length ? `<div class="fw-bold mt-2 small">أبطأ الاستعلامات</div><div class="in-wrap"><table class="in-tbl"><thead><tr><th>الاستعلام</th><th class="num">مرات</th><th class="num">متوسط</th></tr></thead><tbody>
+        ${db.slow.map(q => `<tr><td><code>${esc(q.query)}</code></td><td class="num">${num(q.count)}</td><td class="num">${num(q.avg_ms)} ms</td></tr>`).join('')}</tbody></table></div>` : na.slow ? '<div class="small text-muted mt-2">أبطأ الاستعلامات: حساب الاستضافة مش مسموحله يقراها.</div>' : ''}`;
+  }
+  // usage
+  const u = d.usage;
+  if (!u || !u.top.length) el('inU').innerHTML = '<div class="in-empty">لسه مفيش استخدام متسجل. بيوصل كل 10 دقايق بعد ما الكود يتركب.</div>';
+  else {
+    const ud = Object.values(u.users_day), avgU = ud.length ? Math.round(ud.reduce((a, b) => a + b, 0) / ud.length) : 0;
+    el('inU').innerHTML = `<div class="in-kpis">${kpi('شاشات اتفتحت', u.screens)}${kpi('متوسط المستخدمين في اليوم', avgU)}${kpi('أكتر موديول', esc((u.modules[0] || {}).module || '—'))}</div>
+      <div class="in-grid"><div><div class="fw-bold small mb-1">الأكتر استخدام</div><div class="in-wrap"><table class="in-tbl"><thead><tr><th>الشاشة</th><th class="num">فتحات</th><th class="num">موظفين</th></tr></thead><tbody>
+        ${u.top.map(t => `<tr><td><code>${esc(t.screen)}</code></td><td class="num">${num(t.n)}</td><td class="num">${t.users}</td></tr>`).join('')}</tbody></table></div></div>
+      <div><div class="fw-bold small mb-1">شاشات عملاء تانيين بيستخدموها كتير والعميل ده لأ</div>
+        ${u.unused_vs_others.length ? `<div class="in-wrap"><table class="in-tbl"><thead><tr><th>الشاشة</th><th class="num">فتحات عند الباقي</th></tr></thead><tbody>
+          ${u.unused_vs_others.map(t => `<tr><td><code>${esc(t.screen)}</code></td><td class="num">${num(t.n_others)}</td></tr>`).join('')}</tbody></table></div>
+          <div class="in-hint">💡 لو الشاشات دي مهمة لشغله، يمكن محتاج زيارة تدريب، أو مش عارف إنها موجودة.</div>` : '<div class="in-empty">بيستخدم نفس الشاشات اللي الباقي بيستخدمها 👌</div>'}</div></div>`;
+  }
+}
+el('inSite').addEventListener('change', e => { site = e.target.value; history.replaceState(null, '', '?site=' + encodeURIComponent(site)); load(); });
+el('inDays').addEventListener('change', load);
+load();
+</script>
+{% endblock %}

@@ -147,6 +147,18 @@ def morning_text():
              f"🖥️ امبارح: {broke} شاشة باظت · {fixed} اتصلحت" if broke or fixed else "",
              ("❤️ عملاء في خطر: " + "، ".join(f"{r['name']} ({r['score']})" for r in risk)) if risk else "❤️ مفيش عملاء في خطر",
              ("💼 عقود بتخلص: " + "، ".join(ending)) if ending else ""]
+    zrej, oldbk = 0, []
+    for p in sites:
+        t = tel.get(p["id"]) or {}
+        zd = ((t.get("zatca") or {}).get("days") or {}).get(y) or {}
+        zrej += zd.get("rejected", 0) + zd.get("failed", 0)
+        age = telemetry.backup_age_h((t.get("db") or {}).get("last") or {})
+        if age is not None and age > telemetry.BACKUP_H:
+            oldbk.append(f"{p.get('name')} ({age:.0f} س)")
+    if zrej:
+        lines.append(f"🧾 امبارح: {zrej} فاتورة اترفضت أو فشل إرسالها لزاتكا")
+    if oldbk:
+        lines.append("🗄️ نسخ احتياطي قديم: " + "، ".join(oldbk))
     overdue = _overdue_tickets()
     if overdue:
         lines.append(f"⏱️ {len(overdue)} تذكرة متأخرة عن ميعاد الحل في «دعم المطورين»")

@@ -84,6 +84,8 @@
         <li>في <code>Global.asax.cs</code>: آخر سطر في <code>Application_Start</code>، وبعده دالة جديدة:<code class="blk">NqTelemetry.Started();
 protected void Application_Error() { NqTelemetry.Report(Server.GetLastError(), HttpContext.Current); }</code></li>
         <li>في <code>_Layout.cshtml</code> (وصفحة الدخول) قبل <code>&lt;/body&gt;</code>:<code class="blk">@Html.Raw(NqTelemetry.BrowserScript())</code></li>
+        <li>(اختياري) مكان ما رد زاتكا بيرجع على الفاتورة الإلكترونية:<code class="blk">NqTelemetry.Zatca(invoice.Number, "cleared" / "reported" / "warning" / "rejected" / "failed", zatcaMessage, invoice.Total);</code>
+          ده بيظهر في <a href="/inside">من جوه الأنظمة</a>، ومعاه لوحده: استخدام الشاشات كل 10 دقايق، وصحة قاعدة البيانات كل 6 ساعات (قراءة بس، من نفس connection string البرنامج).</li>
       </ol>
       <div class="d-flex justify-content-between align-items-center mb-1"><b>NqTelemetry.cs</b>
         <button class="btn btn-sm btn-outline-secondary" onclick="copyText(el('connCode').textContent, this)"><i class="bi bi-clipboard"></i> انسخ الكود</button></div>

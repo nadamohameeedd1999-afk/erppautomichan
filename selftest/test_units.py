@@ -1010,3 +1010,42 @@ def test_release_judged_only_while_it_ran(tmp_path, monkeypatch):
     T.receive("t", {"kind": "server", "type": "E", "message": "boom", "url": "/x"}, now=ago(1))
     assert R.gate(a)["verdict"] != "stop" and R.gate(a)["facts"]["until"] and R.gate(a)["facts"]["errors"] == 0
     assert R.gate(b)["verdict"] == "stop"
+
+
+def test_inside_zatca_db_usage(tmp_path, monkeypatch):
+    """🔬 NQ ERP's own reports: ZATCA (rejections alert, counts per day), database (old backup alert once a day), screen usage vs other clients"""
+    from datetime import datetime, timedelta
+    from web import monitor as M, telemetry as T
+    from web.app import app
+    profs = [{"id": "a", "name": "عميل أ", "base_url": "https://a.x", "kind": "client"}, {"id": "b", "name": "عميل ب", "base_url": "https://b.x", "kind": "client"}]
+    monkeypatch.setattr(M, "_sites", lambda c: profs)
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(T, "_alerts", {})
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    T.receive("a", {"kind": "zatca", "invoice": "INV-1001", "status": "rejected", "message": "BR-KSA-37: seller VAT number invalid", "amount": 1150})
+    assert "INV-1001 اترفضت" in sent[-1] and "BR-KSA-37" in sent[-1]
+    T.receive("a", {"kind": "zatca", "counts": {"cleared": 40, "reported": 9, "warning": 1}, "warnings": [{"invoice": "INV-1002", "message": "rounding"}]})
+    old = (datetime.now() - timedelta(hours=40)).strftime("%Y-%m-%d %H:%M")
+    T.receive("a", {"kind": "db", "database": "NQ_AQUA", "backup_full": old, "data_mb": 5120.5, "log_mb": 9000, "recovery": "FULL",
+                    "slow_error": "VIEW SERVER STATE permission was denied", "slow": None})
+    assert "آخر نسخة احتياطية كاملة لقاعدة NQ_AQUA من 40 ساعة" in sent[-1]
+    n = len(sent)
+    T.receive("a", {"kind": "db", "database": "NQ_AQUA", "backup_full": old, "data_mb": 5121, "slow_error": "VIEW SERVER STATE permission was denied"})
+    assert len(sent) == n                                            # once a day
+    T.receive("a", {"kind": "usage", "screens": {"SalesInvoice/Index": {"n": 30, "users": ["ahmed", "sara"]}, "Home/Index": {"n": 50, "users": ["ahmed"]}}})
+    T.receive("b", {"kind": "usage", "screens": {"StockTransfer/Index": {"n": 25, "users": ["ali"]}, "SalesInvoice/Index": {"n": 10, "users": ["ali"]}}})
+    d = T.inside("a")
+    assert d["zatca"]["sent"] == 51 and d["zatca"]["total"]["rejected"] == 1 and d["zatca"]["reject_rate"] == 2.0
+    assert d["zatca"]["issues"][0]["invoice"] == "INV-1002" and d["zatca"]["issues"][1]["status"] == "rejected"
+    assert d["db"]["database"] == "NQ_AQUA" and d["db"]["backup_age_h"] > 39 and d["db"]["not_allowed"]["slow"].startswith("VIEW SERVER STATE")
+    assert d["usage"]["top"][0] == {"screen": "Home/Index", "n": 50, "users": 1}
+    assert d["usage"]["unused_vs_others"] == [{"screen": "StockTransfer/Index", "n_others": 25}]   # others use it, this client doesn't
+    from web import clients_health as H
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "s.json")
+    assert "نسخ احتياطي قديم: عميل أ (40 س)" in H.morning_text()
+    c = app.test_client()
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"] = 1, "user"
+    assert c.get("/api/inside?site=a").get_json()["data"]["db"]["database"] == "NQ_AQUA"

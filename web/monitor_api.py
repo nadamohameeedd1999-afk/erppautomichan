@@ -88,3 +88,20 @@ def api_connect_new(site_id):
     from web import telemetry
     telemetry.token_for(site_id, new=True)
     return api_connect()
+
+
+# ------------------------------------------------------------------ 🔬 من جوه الأنظمة: ZATCA, the database, screen usage (web/telemetry.py)
+@bp.route("/inside")
+@auth.login_required
+def inside_page():
+    return render_template("inside.html")
+
+
+@bp.route("/api/inside")
+@auth.login_required
+def api_inside():
+    from web import telemetry
+    sites = [{"id": p["id"], "name": p.get("name"), "kind": p.get("kind")} for p in monitor._sites({})]
+    sid = request.args.get("site") or next((s["id"] for s in sites if s["kind"] == "client"), sites[0]["id"] if sites else "")
+    return jsonify({"sites": sites, "site": sid, "data": telemetry.inside(sid, int(request.args.get("days", 30))) if sid else None,
+                    "backup_h": telemetry.BACKUP_H})
