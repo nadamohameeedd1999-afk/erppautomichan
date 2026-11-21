@@ -14,6 +14,7 @@ Settings: data/settings/digest.json · daily scores: data/monitor/health.json
 """
 import html
 import json
+import re
 import time
 from datetime import datetime, timedelta
 
@@ -36,6 +37,10 @@ def save_cfg(new):
     for k in ("morning_on", "morning_at", "weekly_on", "weekly_day", "weekly_at"):
         if k in new:
             c[k] = new[k]
+    for k, dflt in (("morning_at", "09:00"), ("weekly_at", "08:00")):
+        if not re.fullmatch(r"\d\d:\d\d", str(c.get(k) or "")):
+            c[k] = dflt                                               # an empty time would fire at midnight
+    c["weekly_day"] = int(c.get("weekly_day") or 0) % 7
     save_json(CFG, c)
     return c
 
@@ -45,7 +50,9 @@ def _clamp(x):
 
 
 def _vkey(v):
-    """'2026.11.21' / '1.4.10' → comparable; build dates sort as text"""
+    """'2026.11.21' / '1.4.10' → comparable; build dates ('2026-11-21 10:00', no NqVersion) sort as text"""
+    if re.match(r"\d{4}-\d\d-\d\d", str(v or "")):
+        return (1, str(v))
     try:
         return tuple(int(x) for x in str(v).replace("-", ".").split(".") if x.strip())
     except ValueError:
@@ -229,16 +236,18 @@ def auto_tick(now=None):
     try:
         c, t = load_cfg(), datetime.now()
         today, hm, sent = t.strftime("%Y-%m-%d"), t.strftime("%H:%M"), dict(c.get("sent") or {})
-        changed = False
+        def mark(k):                                                  # saved at once: a later failure must not resend every minute
+            sent[k] = today
+            save_json(CFG, {**(load_json(CFG, {}) or {}), "sent": sent})
         if sent.get("snapshot") != today:
+            mark("snapshot")
             all_scores(save=True)
-            sent["snapshot"], changed = today, True
         if c["morning_on"] and hm >= c["morning_at"] and sent.get("morning") != today:
-            sent["morning"], changed = today, True
+            mark("morning")
             from web import monitor
             monitor.broadcast(morning_text())
         if c["weekly_on"] and t.weekday() == int(c["weekly_day"]) and hm >= c["weekly_at"] and sent.get("weekly") != today:
-            sent["weekly"], changed = today, True
+            mark("weekly")
             try:
                 send_weekly()
             except Exception as e:
@@ -248,8 +257,6 @@ def auto_tick(now=None):
             _last["drift"] = time.time()
             from web import telemetry
             telemetry.drift_alerts()
-        if changed:
-            save_json(CFG, {**(load_json(CFG, {}) or {}), "sent": sent})
     except Exception as e:
         print(f"[health] {e}", flush=True)
 

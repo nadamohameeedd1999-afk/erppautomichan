@@ -125,7 +125,7 @@ def status_page(token):
     return render_template("status.html", token=token, company=_company())
 
 
-@bp.route("/api/status/<token>")
+@bp.route("/api/client-status/<token>")      # not /api/status/<id>: that one is the test runner's (routes_runs.task_status)
 def status_api(token):
     sid = care.site_of(token)
     if not sid:

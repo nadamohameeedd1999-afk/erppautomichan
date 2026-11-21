@@ -782,7 +782,7 @@ def test_nq_care(tmp_path, monkeypatch):
     assert d["versions"][0]["version"] == "2026.11.21"
     c = app.test_client()
     assert c.get("/status/nope").status_code == 404
-    r = c.get(f"/api/status/{cl['token']}")                          # no login: the link is the key
+    r = c.get(f"/api/client-status/{cl['token']}")                          # no login: the link is the key
     assert r.status_code == 200
     s = r.get_json()
     assert s["state"] == "up" and s["incidents"][0]["minutes"] == 45 and s["screens"] == {"total": 120, "bad": 1, "at": today + "T09:00:00"}
@@ -967,7 +967,11 @@ def test_releases_gate_rollout_and_regressions(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "_rate", {})
     T.receive("t", {"kind": "start", "version": "2026.11.25"}, now=ago(6))
     (tmp_path / "runs").mkdir()
-    (tmp_path / "runs" / f"day_{datetime.now():%Y%m%d}_090000.json").write_text("{}")
+    (tmp_path / "runs" / f"day_{datetime.now() - timedelta(hours=7):%Y%m%d_%H%M%S}.json").write_text('{"mode": "حقيقي", "site": "https://t.x"}')
+    assert R.gate(r)["verdict"] == "wait"                              # a day from BEFORE the version doesn't count
+    (tmp_path / "runs" / f"day_{datetime.now() - timedelta(hours=2):%Y%m%d_%H%M%S}.json").write_text('{"mode": "محاكاة", "site": "https://t.x"}')
+    assert R.gate(r)["verdict"] == "wait"                              # nor a simulated one
+    (tmp_path / "runs" / f"day_{datetime.now() - timedelta(hours=1):%Y%m%d_%H%M%S}.json").write_text('{"mode": "حقيقي", "site": "https://t.x/"}')
     assert R.gate(r)["verdict"] == "go"
     assert "نزّلها عند العميل التجريبي: التجريبي" in R.advice(r, R.gate(r), R.rollout(r))
     T.receive("c1", {"kind": "start", "version": "2026.11.25"}, now=ago(30))     # pilot 30 h ago, nothing went wrong
@@ -1089,8 +1093,12 @@ def test_ai_triage_trainer_and_real_usage(tmp_path, monkeypatch):
         assert c.post(f"/api/trainer/question?key={k}", json={"question": q, "screen": "https://a.x/SalesInvoice/Index", "site": "https://a.x/", "answered": ans}).status_code == 200
     s = TR.summary("a")
     assert s["total"] == 3 and s["unanswered"] == 1 and s["screens"][0] == {"screen": "/SalesInvoice/Index", "n": 3, "unanswered": 1}
-    kn = c.get(f"/api/trainer/known?key={k}").get_json()["known"]
-    assert len(kn) == 3 and all("Qty" not in x["note"] and "Exception" not in x["note"] for x in kn)
+    for it in items:
+        it["site"] = "a.x" if it["id"] != "i3" else "other-client.x"
+    assert c.get(f"/api/trainer/known?key={k}").get_json()["known"] == []           # no site: nothing
+    kn = c.get(f"/api/trainer/known?key={k}&site=https://a.x/").get_json()["known"]
+    assert len(kn) == 2 and all("Qty" not in x["note"] and "Exception" not in x["note"] for x in kn)   # only this client's, client-safe
+    assert all(x["expected_hours"] is None for x in kn)                              # not with a developer yet: no time promised
     # 🏢 the screens real clients open most go into the company's day
     monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
     monkeypatch.setattr(T, "_rate", {})
@@ -1161,3 +1169,61 @@ def test_books_schema_drift_and_month_end(tmp_path, monkeypatch):
     assert ME.PRESET["users"] == 20 and ME.PRESET["reports"] == 5
     from engine import checks as C
     assert C.normalize({**ME.PRESET})["reports"] == 5
+
+
+def test_review_fixes(tmp_path, monkeypatch):
+    """🔍 what the independent review found: browser link limits, stored-XSS data, route collision, bad items, moving version time,
+    slow/up flapping, outages split at month edges"""
+    import json
+    import time as _t
+    from datetime import datetime, timedelta
+    from web import care as C, monitor as M, telemetry as T
+    from web.app import app
+    monkeypatch.setattr(M, "_sites", lambda cfg: [{"id": "c1", "name": "عميل", "base_url": "https://c.x", "kind": "client"}])
+    cfg = {**M.DEFAULTS, "tokens": {}}
+    monkeypatch.setattr(M, "load_config", lambda: cfg)
+    monkeypatch.setattr(M, "save_config", lambda new: cfg.update(new) or cfg)
+    for mod, attr, name in ((T, "FILE", "tel.json"), (M, "STATE_FILE", "s.json"), (C, "FILE", "care.json")):
+        monkeypatch.setattr(mod, attr, tmp_path / name)
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(T, "_alerts", {})
+    monkeypatch.setattr(M, "broadcast", lambda t: None)
+    tok = T.token_for("c1")
+    c = app.test_client()
+    b = T.browser_token(tok)
+    assert tok not in b and len(b) == 32
+    # the page's link: js / ajax only, never the version
+    r = c.post(f"/api/telemetry/b/{b}", data=json.dumps([{"kind": "start", "version": "9.9.9"}, {"kind": "db", "disk_free_gb": "x"},
+                                                         {"kind": "js", "message": "boom", "url": "/x", "version": "9.9.9"}]))
+    assert r.status_code == 204
+    d = T._load()["c1"]
+    assert "version" not in d and not d.get("starts") and "db" not in d and len(d["errors"]) == 1
+    assert c.post("/api/telemetry/b/nothash", data="{}").status_code == 404
+    # the server link: numbers must be numbers (the page shows them)
+    c.post(f"/api/telemetry/{tok}", data=json.dumps({"kind": "db", "disk_free_gb": "<img src=x onerror=alert(1)>", "data_mb": "12.5",
+                                                     "database": "<b>NQ</b>" * 50}))
+    last = T._load()["c1"]["db"]["last"]
+    assert "disk_free_gb" not in last and last["data_mb"] == 12.5 and len(last["database"]) <= 200
+    # one bad item doesn't lose the batch; garbage → 400 not 500
+    r = c.post(f"/api/telemetry/{tok}", data=json.dumps([{"kind": "usage", "screens": ["a"]}, {"kind": "zatca", "warnings": ["str"]},
+                                                         {"kind": "server", "message": "kept", "url": "/k"}]))
+    assert r.status_code == 204 and any(e["message"] == "kept" for e in T._load()["c1"]["errors"].values())
+    assert c.post(f"/api/telemetry/{tok}", data=json.dumps({"kind": "schema", "parts": "x", "hash": "h"})).status_code in (204, 400)
+    assert c.post(f"/api/telemetry/{tok}", data=json.dumps({"kind": "schema", "parts": 10 ** 9, "part": 5, "hash": "h", "tables": {"a": "b"}})).status_code == 204
+    assert "schema_parts" not in T._load()["c1"] or not T._load()["c1"]["schema_parts"]
+    # the version's time = when it was first seen
+    T.receive("c1", {"kind": "start", "version": "1.0"}, now=_t.time() - 7200)
+    first = T._load()["c1"]["version"]["at"]
+    T.receive("c1", {"kind": "server", "message": "later", "url": "/l", "version": "1.0"})
+    assert T._load()["c1"]["version"]["at"] == first
+    # the test runner's /api/status/<task_id> is not taken by the client status page
+    rules = {r.rule: r.endpoint for r in app.url_map.iter_rules()}
+    assert "/api/client-status/<token>" in rules and rules["/api/status/<task_id>"] != "care.status_api"
+    # slow ends after two fast checks, not one
+    h = [{"ok": True, "slow": True, "v": "slow"}] * 3 + [{"ok": True, "slow": False, "v": "slow"}]
+    assert M._verdict(h) == "slow"
+    assert M._verdict(h + [{"ok": True, "slow": False}]) == "up"
+    # an outage across midnight of a month is split between the two months
+    M._save_state({"c1": {"incidents": [{"at": "2026-10-31T23:00:00", "v": "down"}, {"at": "2026-11-01T02:00:00", "v": "up"}]}})
+    assert C.outages("c1", "2026-10-01", "2026-10-31T23:59:59")[0]["minutes"] == 59
+    assert C.outages("c1", "2026-11-01", "2026-11-30T23:59:59")[0]["minutes"] == 120

@@ -73,15 +73,24 @@ def summary(site_id="", days=30):
             "recent": list(reversed(qs))[:15]}
 
 
-def known():
-    """open dev tickets → per screen, client-safe: no messages, no stacks"""
-    from web import support
-    cfg = support.sla_cfg()
+def known(site):
+    """the open dev tickets of ONE client site (a client never sees another's), client-safe: a fixed sentence, no messages,
+    no AI text (it is written from evidence that public reports can influence), no stacks"""
+    from web import monitor, support
+    sid = _site_id(site)
+    if not sid:
+        return {"known": [], "error": "site is required (its base URL or id)"}
+    host = re.sub(r"^https?://", "", next((p.get("base_url") or "" for p in monitor._sites({}) if p["id"] == sid), "")).strip("/").lower()
     out = []
     for i in support.collect()[0]:
-        if i["status"] in ("اتصلح", "مش مشكلة"):
+        if i["status"] in ("اتصلح", "مش مشكلة") or (i.get("site") or "").strip("/").lower() != host:
             continue
-        note = (i.get("ai") or {}).get("client_note") or "فيه مشكلة معروفة في الشاشة دي والفريق بيصلحها"
-        out.append({"site": i.get("site", ""), "screen": i.get("screen", ""), "note": note, "status": i["status"],
-                    "expected_hours": i.get("left_h") if i.get("left_h") is not None else cfg["hours"].get(i.get("severity"), 72)})
+        if i.get("overdue"):
+            eta = 0                                                    # late: no promise of a time that already passed
+        elif i.get("left_h") is not None:
+            eta = i["left_h"]
+        else:
+            eta = None                                                 # not with a developer yet: no time promised
+        out.append({"screen": i.get("screen", ""), "note": "فيه مشكلة معروفة في الشاشة دي والفريق بيصلحها", "status": i["status"],
+                    "expected_hours": eta, "late": bool(i.get("overdue"))})
     return {"known": out, "generated": datetime.now().isoformat(timespec="seconds")}

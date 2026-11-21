@@ -4,6 +4,7 @@ feels: 20 users at once, 5 rounds, the slowest screens + the busiest data reques
 The result is a normal run (التشغيلات) — slow or failing under load = fix it before the clients close their month.
 Settings: data/settings/month_end.json
 """
+import re
 from datetime import datetime
 
 from config import paths
@@ -24,6 +25,8 @@ def save_cfg(new):
         if k in new:
             c[k] = new[k]
     c["day"] = max(1, min(28, int(c.get("day") or 25)))
+    if not re.fullmatch(r"\d\d:\d\d", str(c.get("at") or "")):
+        c["at"] = "22:00"
     save_json(CFG, c)
     return c
 

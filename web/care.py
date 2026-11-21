@@ -13,6 +13,7 @@ Settings: data/settings/care.json
 import calendar
 import html
 import secrets
+import threading
 import time
 from datetime import datetime, timedelta
 
@@ -127,10 +128,14 @@ def outages(site_id, since="", until="9999"):
             cur = None
     if cur:
         out.append({**cur, "end": None})
-    for o in out:
-        end = datetime.fromisoformat(o["end"]) if o["end"] else datetime.now()
-        o["minutes"] = max(1, int((end - datetime.fromisoformat(o["start"])).total_seconds() // 60))
-    return [o for o in out if o["start"] < until and (o["end"] or "9999") >= since]
+    out = [o for o in out if o["start"] < until and (o["end"] or "9999") >= since]
+    for o in out:                                                     # minutes inside the period only: Oct 31 23:00 → Nov 1 02:00 is split
+        s0 = max(datetime.fromisoformat(o["start"]), datetime.fromisoformat(since)) if since else datetime.fromisoformat(o["start"])
+        e0 = datetime.fromisoformat(o["end"]) if o["end"] else datetime.now()
+        if until != "9999":
+            e0 = min(e0, datetime.fromisoformat(until))
+        o["minutes"] = max(1, int((e0 - s0).total_seconds() // 60))
+    return out
 
 
 def days_uptime(site_id, n=90):
@@ -312,6 +317,8 @@ def auto_tick(now=None):
     try:
         c, today = load(), datetime.now().date()
         changed = False
+        c["warned"] = {}                                              # only what this tick adds is merged back
+        old = load()["warned"]
         for sid, cl in c["clients"].items():
             if not (cl.get("plan") and cl.get("end")):
                 continue
@@ -321,7 +328,7 @@ def auto_tick(now=None):
                 continue
             step = next((s for s in (0, 7, 30) if left <= s), None)
             key = f"{sid}|{cl['end']}|{step}"
-            if step is None or c["warned"].get(key):
+            if step is None or old.get(key):
                 continue
             c["warned"][key] = today.isoformat()
             changed = True
@@ -332,16 +339,36 @@ def auto_tick(now=None):
                               + (f"\nالمسؤول: {cl['contact']}" if cl.get("contact") else "") + "\nوقت التجديد.")
         if datetime.now().day == 1:
             prev = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
-            for sid, cl in c["clients"].items():
-                key = f"report|{sid}|{prev}"
-                if cl.get("plan") and cl.get("email") and not c["warned"].get(key):
-                    c["warned"][key] = today.isoformat()
-                    changed = True
-                    try:
-                        send_report(sid, prev)
-                    except Exception as e:
-                        print(f"[care] report {sid}: {e}", flush=True)
+            due = [sid for sid, cl in c["clients"].items() if cl.get("plan") and cl.get("email")
+                   and not str(old.get(f"report|{sid}|{prev}", "")).startswith(("sent", "fail:3"))]
+            if due and not _last.get("reports"):
+                _last["reports"] = True                               # PDFs take time: not inside the shared background tick
+                threading.Thread(target=_send_reports, args=(due, prev), name="care-reports", daemon=True).start()
         if changed:
-            _save(c)
+            _merge_warned(c["warned"])
     except Exception as e:
         print(f"[care] {e}", flush=True)
+
+
+def _merge_warned(new):
+    """only «warned» is written back: a plan / contract / notice saved meanwhile on the page is kept"""
+    cur = load_json(FILE, {}) or {}
+    w = {**(cur.get("warned") or {}), **new}
+    cur["warned"] = dict(sorted(w.items(), key=lambda kv: str(kv[1]))[-500:])  # never grows without end
+    _save(cur)
+
+
+def _send_reports(sids, month):
+    try:
+        for sid in sids:
+            key = f"report|{sid}|{month}"
+            try:
+                ok, _ = send_report(sid, month)
+            except Exception as e:
+                ok = False
+                print(f"[care] report {sid}: {e}", flush=True)
+            prev = str(load()["warned"].get(key, ""))
+            n = int(prev.split(":")[1]) + 1 if prev.startswith("fail:") else 1
+            _merge_warned({key: "sent " + datetime.now().strftime("%Y-%m-%d %H:%M") if ok else f"fail:{min(n, 3)}"})
+    finally:
+        _last["reports"] = False

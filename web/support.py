@@ -11,6 +11,7 @@ import hashlib
 import io
 import json
 import re
+import threading
 from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, render_template, request, send_file
@@ -60,9 +61,15 @@ def _load(name, dflt):
         return dflt
 
 
+LOCK = threading.RLock()       # support_status.json is written by the page AND by the telemetry receiver (a ticket that came back)
+
+
 def _save(name, data):
-    _f(name).parent.mkdir(parents=True, exist_ok=True)
-    _f(name).write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    f = _f(name)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name(f.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(f)                                                    # a reader never sees half a file
 
 
 def _id(*parts):
@@ -690,12 +697,20 @@ def api_log(kind, run_id):
 @auth.login_required
 def api_status():
     d = request.get_json(silent=True) or {}
+    with LOCK:
+        _set_status(d)
+    return jsonify({"success": True})
+
+
+def _set_status(d):
     st = _load("support_status.json", {})
     for iid in (d.get("ids") or [d.get("id")]):
         if not iid:
             continue
         cur = st.get(iid, {})
         if "status" in d:
+            if cur.get("status") in ("اتصلح", "مش مشكلة") and d["status"] not in ("اتصلح", "مش مشكلة"):
+                cur.pop("sent_at", None)                          # reopened: a new deadline from when it reaches the developer again
             cur["status"] = d["status"]
             stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
             if d["status"] in ("اتبلغ للمطور", "بيتصلح") and not cur.get("sent_at"):
@@ -712,7 +727,6 @@ def api_status():
         cur["at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
         st[iid] = cur
     _save("support_status.json", st)
-    return jsonify({"success": True})
 
 
 @bp.route("/api/support/sla", methods=["GET", "POST"])

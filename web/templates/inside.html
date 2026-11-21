@@ -86,12 +86,12 @@ async function load() {
     const sizes = Object.values(db.sizes || {}), grow = sizes.length > 1 ? sizes[sizes.length - 1] - sizes[0] : null;
     el('inD').innerHTML = `${db.error ? `<div class="text-danger small mb-2">مقدرش يوصل للقاعدة: ${esc(db.error)}</div>` : ''}
       <div class="in-kpis">${kpi('آخر نسخة كاملة', bk, (age > r.backup_h || !db.backup_full ? 'bad ' : '') + 'date')}${kpi('حجم البيانات', db.data_mb != null ? num(db.data_mb) + ' MB' : '—')}
-        ${kpi('حجم اللوج', db.log_mb != null ? num(db.log_mb) + ' MB' : '—', db.log_mb > db.data_mb ? 'warn' : '')}${kpi('مساحة فاضية', db.disk_free_gb != null ? db.disk_free_gb + ' GB' : '—', db.disk_free_gb != null && db.disk_free_gb < 5 ? 'bad' : '')}</div>
+        ${kpi('حجم اللوج', db.log_mb != null ? num(db.log_mb) + ' MB' : '—', db.log_mb > db.data_mb ? 'warn' : '')}${kpi('مساحة فاضية', db.disk_free_gb != null ? esc(db.disk_free_gb) + ' GB' : '—', db.disk_free_gb != null && db.disk_free_gb < 5 ? 'bad' : '')}</div>
       <table class="in-tbl"><tbody>
         <tr><td>القاعدة</td><td><code>${esc(db.database || '—')}</code> · ${esc(db.recovery || '')}</td></tr>
         <tr><td>آخر نسخة للوج</td><td>${esc(db.backup_log || (na.backup_log ? 'مش مسموح' : '—'))}</td></tr>
         <tr><td>زيادة الحجم</td><td>${grow == null ? '—' : (grow >= 0 ? '+' : '') + num(grow.toFixed ? grow.toFixed(1) : grow) + ' MB في الفترة'}</td></tr>
-        <tr><td>Jobs فشلت آخر 24 ساعة</td><td class="${db.jobs_failed_24h ? 'text-danger fw-bold' : ''}">${db.jobs_failed_24h != null ? db.jobs_failed_24h : (na.jobs_failed_24h ? 'مش مسموح' : '—')}</td></tr>
+        <tr><td>Jobs فشلت آخر 24 ساعة</td><td class="${db.jobs_failed_24h ? 'text-danger fw-bold' : ''}">${db.jobs_failed_24h != null ? esc(db.jobs_failed_24h) : (na.jobs_failed_24h ? 'مش مسموح' : '—')}</td></tr>
         <tr><td>SQL Server</td><td class="small">${esc(db.sql_version || '—')}</td></tr>
         <tr><td>آخر فحص</td><td dir="ltr" style="text-align:right">${esc((db.at || '').replace('T', ' ').slice(0, 16))}</td></tr></tbody></table>
       ${(db.slow || []).length ? `<div class="fw-bold mt-2 small">أبطأ الاستعلامات</div><div class="in-wrap"><table class="in-tbl"><thead><tr><th>الاستعلام</th><th class="num">مرات</th><th class="num">متوسط</th></tr></thead><tbody>

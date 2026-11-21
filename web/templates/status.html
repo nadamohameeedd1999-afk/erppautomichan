@@ -76,7 +76,7 @@ const T = {up: ['النظام شغال بشكل طبيعي', 'كل الخدما�
            down: ['فيه عطل في النظام دلوقتي', 'فريقنا عارف بالمشكلة وشغال على حلها'], maintenance: ['صيانة مجدولة', 'النظام هيرجع بعد انتهاء الصيانة'],
            none: ['لسه بنجهّز المتابعة', 'أول فحص هيظهر هنا خلال دقايق']};
 async function load() {
-  const r = await fetch('/api/status/{{ token }}', {cache: 'no-store'}).then(x => x.ok ? x.json() : null).catch(() => null);
+  const r = await fetch('/api/client-status/{{ token }}', {cache: 'no-store'}).then(x => x.ok ? x.json() : null).catch(() => null);
   if (!r) return;
   document.title = 'حالة النظام — ' + r.name;
   $('now').className = 'now ' + r.state;

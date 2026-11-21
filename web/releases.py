@@ -148,7 +148,7 @@ def gate(r):
     wait = []
     if hours < c["soak_h"]:
         wait.append(f"نزلت من {hours:.1f} ساعة بس — استنى {c['soak_h']} ساعات على الأقل")
-    if not _company_worked_since(t0):
+    if not _company_worked_since(t0, r["test_site"]):
         wait.append("الشركة الافتراضية لسه مشتغلتش يوم على النسخة دي")
     if t1:
         wait = [x for x in wait if "ساعة بس" not in x]                # it ran its course: judged on the hours it had
@@ -164,10 +164,23 @@ def gate(r):
     return {"verdict": v[0], "text": v[1], "reasons": v[2], "facts": facts, "since": t0}
 
 
-def _company_worked_since(t0):
+def _company_worked_since(t0, site_id=""):
+    """a REAL day (not the simulation) of the virtual company, on the test site, that started after the version went in"""
+    import json as _json
     from simulation.settings import RUNS
-    day = t0[:10].replace("-", "")
-    return any(f.name[4:12] >= day for f in RUNS.glob("day_*.json")) if RUNS.exists() else False
+    stamp = t0.replace("-", "").replace(":", "").replace(" ", "_")        # 'YYYYMMDD_HHMM' like the file names
+    base = next((p.get("base_url") or "" for p in _sites() if p["id"] == site_id), "").rstrip("/").lower()
+    for f in sorted(RUNS.glob("day_*.json"), reverse=True) if RUNS.exists() else []:
+        if f.name[4:17] < stamp:
+            break
+        try:
+            r = _json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        site = str(r.get("site") or "").rstrip("/").lower()
+        if r.get("mode") != "محاكاة" and (not base or not site or site == base):
+            return True
+    return False
 
 
 def rollout(r):
@@ -259,4 +272,4 @@ def auto_tick(now=None):
 
 
 def version_ok(v):
-    return bool(re.fullmatch(r"[\w.\- ]{1,40}", v or ""))
+    return bool(re.fullmatch(r"[\w.\-: ]{1,40}", v or ""))               # «2026-11-21 10:00» = a build date (no NqVersion)

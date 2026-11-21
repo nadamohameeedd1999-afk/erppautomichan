@@ -17,6 +17,7 @@ login) → an alert and an item in «دعم المطورين»; a screen that wo
 Settings: data/settings/monitor.json · history (last 24 h per site): data/monitor/state.json
 """
 import hashlib
+import html
 import json
 import os
 import re
@@ -145,6 +146,8 @@ def _verdict(hist):
         return "slow"
     if hist and not hist[-1]["ok"]:
         return hist[-2]["v"] if len(hist) > 1 and hist[-2].get("v") else "up"     # one failure: keep what it was
+    if len(hist) > 1 and hist[-2].get("v") == "slow" and not (len(last) >= 2 and all(h["ok"] and not h.get("slow") for h in last[-2:])):
+        return "slow"                                                 # slow ends after 2 fast checks, not one (no flapping)
     return "up"
 
 
@@ -167,7 +170,7 @@ def broadcast(text):
         to = ec.get("recipients") or []
         to = [x.strip() for x in (to if isinstance(to, list) else str(to).replace(";", ",").split(",")) if x.strip()]
         if ec.get("enabled") and to:
-            emailer._deliver(ec, to, text.splitlines()[0], "<div dir='rtl' style='font:14px Tahoma'>" + text.replace("\n", "<br>") + "</div>")
+            emailer._deliver(ec, to, text.splitlines()[0], "<div dir='rtl' style='font:14px Tahoma'>" + html.escape(text).replace("\n", "<br>") + "</div>")
             sent.append("email")
     except Exception as e:
         print(f"[monitor] email: {e}", flush=True)
@@ -200,7 +203,8 @@ def run_once(force=False):
                     s["since"] = r["at"]
                     msg = {"down": f"🔴 {name} واقع — {r['why'] or 'مش بيرد'}\n{p['base_url']}",
                            "slow": f"🟡 {name} بطيء — بيرد في {r['ms'] / 1000:.1f} ث (3 مرات ورا بعض)\n{p['base_url']}",
-                           "up": f"🟢 {name} رجع يشتغل — بيرد في {r['ms'] / 1000:.1f} ث"}[v]
+                           "up": (f"🟢 {name} رجع لسرعته الطبيعية — بيرد في {r['ms'] / 1000:.1f} ث" if v_old == "slow"
+                              else f"🟢 {name} رجع يشتغل — بيرد في {r['ms'] / 1000:.1f} ث")}[v]
                     s.setdefault("incidents", []).append({"at": r["at"], "v": v, "why": r["why"]})
                     s["incidents"] = s["incidents"][-300:]          # NQ Care: a year of changes for the status page and the monthly report
                     broadcast("📡 مراقبة المواقع\n" + msg)
@@ -306,8 +310,11 @@ def run_deep(force=False):
 
 def support_issues():
     """the screens broken right now on each site -> items for «دعم المطورين» (one per site + screen)"""
-    out = []
+    out, cfg = [], load_config()
+    live = {p["id"] for p in _sites(cfg) if not deep_reason(p, cfg)}  # a deleted site / screens no longer checked: no ticket forever
     for sid, s in _state().items():
+        if sid not in live:
+            continue
         d = s.get("deep") or {}
         site = re.sub(r"^https?://", "", s.get("url") or "").strip("/")
         for path, why in d.get("problems") or []:

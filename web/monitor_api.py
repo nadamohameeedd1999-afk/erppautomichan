@@ -43,17 +43,14 @@ def _cors(r):
     return r
 
 
-@bp.route("/api/telemetry/<token>", methods=["POST", "OPTIONS"])
-def api_telemetry(token):
-    """open (no dashboard login): the secret token in the link is the site's key; bad token = 404"""
+def _take(sid, browser):
     import json
     from flask import make_response
     from web import telemetry
-    if request.method == "OPTIONS":
-        return _cors(make_response("", 204))
-    sid = telemetry.site_of(token)
     if not sid:
         return _cors(make_response("", 404))
+    if (request.content_length or 0) > telemetry.MAX_BYTES * 5:     # refused before it is read into memory
+        return _cors(make_response("", 413))
     raw = request.get_data(cache=False, as_text=True)[:telemetry.MAX_BYTES * 5]
     try:
         body = json.loads(raw)
@@ -63,8 +60,32 @@ def api_telemetry(token):
         body = [x for x in body if len(json.dumps(x, ensure_ascii=False)) <= telemetry.MAX_BYTES]
     elif len(raw) > telemetry.MAX_BYTES:
         return _cors(make_response("", 413))
-    telemetry.receive(sid, body)
+    try:
+        telemetry.receive(sid, body, browser=browser)
+    except (TypeError, ValueError, AttributeError):                  # a malformed report: refused, never a 500
+        return _cors(make_response("", 400))
     return _cors(make_response("", 204))
+
+
+@bp.route("/api/telemetry/<token>", methods=["POST", "OPTIONS"])
+def api_telemetry(token):
+    """open (no dashboard login), from NQ ERP's server: the secret token (Web.config only) is the site's key; bad token = 404"""
+    from flask import make_response
+    from web import telemetry
+    if request.method == "OPTIONS":
+        return _cors(make_response("", 204))
+    return _take(telemetry.site_of(token), browser=False)
+
+
+@bp.route("/api/telemetry/b/<h>", methods=["POST", "OPTIONS"])
+def api_telemetry_browser(h):
+    """from users' browsers: the link in the page holds only a hash of the server token, and may send js / ajax errors only
+    (no version, database, books, ZATCA — a visitor who reads the page's script can't fake those)"""
+    from flask import make_response
+    from web import telemetry
+    if request.method == "OPTIONS":
+        return _cors(make_response("", 204))
+    return _take(telemetry.site_of_browser(h), browser=True)
 
 
 @bp.route("/api/monitor/connect")
@@ -103,7 +124,9 @@ def api_inside():
     from web import telemetry
     sites = [{"id": p["id"], "name": p.get("name"), "kind": p.get("kind")} for p in monitor._sites({})]
     sid = request.args.get("site") or next((s["id"] for s in sites if s["kind"] == "client"), sites[0]["id"] if sites else "")
-    return jsonify({"sites": sites, "site": sid, "data": telemetry.inside(sid, int(request.args.get("days", 30))) if sid else None,
+    days = request.args.get("days", "30")
+    days = max(1, min(90, int(days))) if days.isdigit() else 30
+    return jsonify({"sites": sites, "site": sid, "data": telemetry.inside(sid, days) if sid else None,
                     "backup_h": telemetry.BACKUP_H})
 
 
@@ -127,14 +150,15 @@ def api_trainer_known():
     from web import trainer
     if not trainer.key_ok(request.args.get("key", "")):
         return jsonify({"ok": False}), 404
-    return jsonify(trainer.known())
+    return jsonify(trainer.known(request.args.get("site", "")))
 
 
 @bp.route("/api/inside/trainer")
 @auth.login_required
 def api_inside_trainer():
     from web import trainer
-    return jsonify(trainer.summary(request.args.get("site", ""), int(request.args.get("days", 30))))
+    days = request.args.get("days", "30")
+    return jsonify(trainer.summary(request.args.get("site", ""), max(1, min(90, int(days))) if days.isdigit() else 30))
 
 
 @bp.route("/api/inside/trainer-key", methods=["POST"])
@@ -143,4 +167,4 @@ def api_inside_trainer_key():
     from web import notify, trainer
     base = (notify.load_config().get("dashboard_url") or request.url_root).rstrip("/")
     k = trainer.key(new=bool((request.get_json(silent=True) or {}).get("new")))
-    return jsonify({"question": f"{base}/api/trainer/question?key={k}", "known": f"{base}/api/trainer/known?key={k}"})
+    return jsonify({"question": f"{base}/api/trainer/question?key={k}", "known": f"{base}/api/trainer/known?key={k}&site=<site URL>"})

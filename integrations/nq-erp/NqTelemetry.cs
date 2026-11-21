@@ -53,8 +53,33 @@ public static class NqTelemetry
     static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
     static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
     static readonly string Url = (ConfigurationManager.AppSettings["NqTelemetryUrl"] ?? "").Trim();
-    static readonly string Version = ConfigurationManager.AppSettings["NqVersion"] ?? typeof(NqTelemetry).Assembly.GetName().Version.ToString();
     static readonly string Build = BuildDate();
+    static readonly string Version = ConfigurationManager.AppSettings["NqVersion"] ?? DllVersion();
+
+    static string DllVersion()
+    {
+        var v = typeof(NqTelemetry).Assembly.GetName().Version.ToString();
+        return v == "1.0.0.0" || v == "0.0.0.0" ? Build : v;                  // the default AssemblyInfo says nothing: the build date tells versions apart
+    }
+
+    static string Clip(string s, int n) { return s == null ? "" : s.Length > n ? s.Substring(0, n) : s; }
+
+    /// <summary>Keeps adding items to a part until ~14,000 characters (the dashboard refuses a report over 20,000).</summary>
+    static List<Dictionary<string, object>> Parts(IEnumerable<KeyValuePair<string, object>> items, Func<object, int> size)
+    {
+        var parts = new List<Dictionary<string, object>>();
+        var cur = new Dictionary<string, object>();
+        int n = 0;
+        foreach (var kv in items)
+        {
+            int s = kv.Key.Length + size(kv.Value) + 10;
+            if (cur.Count > 0 && n + s > 14000) { parts.Add(cur); cur = new Dictionary<string, object>(); n = 0; }
+            cur[kv.Key] = kv.Value;
+            n += s;
+        }
+        if (cur.Count > 0) parts.Add(cur);
+        return parts;
+    }
 
     static string BuildDate()
     {
@@ -74,12 +99,28 @@ public static class NqTelemetry
     /// Also starts the 10-minute flush (screen usage, ZATCA counts) and the 6-hour database check.</summary>
     public static void Started()
     {
-        Send(new Dictionary<string, object> { { "kind", "start" }, { "machine", Environment.MachineName } });
-        if (string.IsNullOrEmpty(Url) || _timer != null) return;
-        _timer = new Timer(_ => Tick(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10));
+        try
+        {
+            if (string.IsNullOrEmpty(Url)) return;
+            // .NET 4.5–4.6 default to TLS 1.0: an https dashboard would refuse every report. |= only ADDS 1.2, nothing the app uses is removed
+            System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+            string machine = "";
+            try { machine = Environment.MachineName; } catch { }
+            Send(new Dictionary<string, object> { { "kind", "start" }, { "machine", machine } });
+            if (_timer == null) _timer = new Timer(_ => Tick(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10));
+        }
+        catch { }
     }
 
+    static int _ticking;
+
     static void Tick()
+    {
+        if (Interlocked.Exchange(ref _ticking, 1) == 1) return;          // a slow round (big database) never overlaps the next one
+        try { TickCore(); } finally { Interlocked.Exchange(ref _ticking, 0); }
+    }
+
+    static void TickCore()
     {
         try { FlushUsage(); } catch { }
         try { FlushZatca(); } catch { }
@@ -88,10 +129,19 @@ public static class NqTelemetry
             _lastDb = DateTime.Now;
             try { DbHealth(); } catch { }
         }
-        if (DateTime.Now - _lastBooks > TimeSpan.FromHours(24))
+        // the books: at night (0–6) — or any time when they haven't run for two days
+        if (DateTime.Now - _lastBooks > TimeSpan.FromHours(24) && (DateTime.Now.Hour < 6 || DateTime.Now - _lastBooks > TimeSpan.FromHours(48)))
         {
             _lastBooks = DateTime.Now;
-            try { Books(); } catch { }
+            // the app pool recycles several times a day on shared hosting: remember the last run on disk, or the heavy checks
+            // would run 2 minutes after every recycle, at peak time (App_Data writes don't restart the app; no file = 1601 = run)
+            string stamp = null;
+            try { stamp = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "App_Data", "nq_books.stamp"); } catch { }
+            if (stamp == null || DateTime.Now - File.GetLastWriteTime(stamp) > TimeSpan.FromHours(24))
+            {
+                try { if (stamp != null) { Directory.CreateDirectory(Path.GetDirectoryName(stamp)); File.WriteAllText(stamp, ""); } } catch { }
+                try { Books(); } catch { }
+            }
         }
         try { Schema(); } catch { }
     }
@@ -116,8 +166,8 @@ public static class NqTelemetry
             UsageUsers.TryRemove(k, out u);
             all[k] = new Dictionary<string, object> { { "n", n }, { "users", u == null ? new string[0] : u.Keys.Take(20).ToArray() } };
         }
-        foreach (var chunk in all.Select((kv, i) => new { kv, i }).GroupBy(x => x.i / 80))      // keeps each report small
-            Send(new Dictionary<string, object> { { "kind", "usage" }, { "screens", chunk.ToDictionary(x => x.kv.Key, x => x.kv.Value) } });
+        foreach (var part in Parts(all, v => 40 + ((string[])((Dictionary<string, object>)v)["users"]).Sum(u => u.Length + 3)))
+            Send(new Dictionary<string, object> { { "kind", "usage" }, { "screens", part } });
     }
 
     /// <summary>The answer ZATCA gave for an e-invoice. Rejected / failed are sent at once; the rest are counted every 10 minutes.</summary>
@@ -151,7 +201,7 @@ public static class NqTelemetry
         var d = new Dictionary<string, object> { { "kind", "db" } };
         try
         {
-            using (var cn = new SqlConnection(css.ConnectionString))
+            using (var cn = new SqlConnection(css))
             {
                 cn.Open();
                 One(cn, d, "database", "SELECT DB_NAME()");
@@ -180,12 +230,20 @@ public static class NqTelemetry
         Send(d);
     }
 
-    static ConnectionStringSettings Conn()
+    static string Conn()
     {
         var name = ConfigurationManager.AppSettings["NqTelemetryDb"];
         ConnectionStringSettings css = null;
         if (!string.IsNullOrEmpty(name)) css = ConfigurationManager.ConnectionStrings[name];
-        return css ?? ConfigurationManager.ConnectionStrings.Cast<ConnectionStringSettings>().FirstOrDefault(c => c.Name != "LocalSqlServer" && !string.IsNullOrEmpty(c.ConnectionString));
+        css = css ?? ConfigurationManager.ConnectionStrings.Cast<ConnectionStringSettings>().FirstOrDefault(c => c.Name != "LocalSqlServer" && !string.IsNullOrEmpty(c.ConnectionString));
+        if (css == null) return null;
+        try
+        {   // an Entity Framework (EDMX) string: metadata=…;provider connection string="…" — the SQL part is inside
+            var b = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = css.ConnectionString };
+            if (b.ContainsKey("provider connection string")) return (string)b["provider connection string"];
+        }
+        catch { }
+        return css.ConnectionString;
     }
 
     // key, then the query with the IsDeleted columns, then the same without them (older databases). Each returns ONE number;
@@ -224,9 +282,14 @@ public static class NqTelemetry
         if (css == null) return;
         var res = new Dictionary<string, object>();
         var na = new Dictionary<string, object>();
-        using (var cn = new SqlConnection(css.ConnectionString))
+        using (var cn = new SqlConnection(css))
         {
-            cn.Open();
+            try { cn.Open(); }
+            catch (Exception ex)
+            {
+                Send(new Dictionary<string, object> { { "kind", "books" }, { "checks", res }, { "not_allowed", new Dictionary<string, object> { { "all", Clip(ex.Message, 200) } } } });
+                return;
+            }
             foreach (var c in BookChecks)
             {
                 string err = null;
@@ -242,7 +305,10 @@ public static class NqTelemetry
                             break;
                         }
                     }
-                    catch (Exception ex) { err = ex.Message; }
+                    // only an older database without IsDeleted («Invalid column name», 207) may use the query without it:
+                    // after a timeout or a lock it would count deleted entries and raise a false alarm
+                    catch (SqlException ex) { err = ex.Message; if (ex.Number != 207) break; }
+                    catch (Exception ex) { err = ex.Message; break; }
                 }
                 if (err != null) na[c[0]] = err.Length > 200 ? err.Substring(0, 200) : err;
             }
@@ -256,7 +322,7 @@ public static class NqTelemetry
         var css = Conn();
         if (css == null) return;
         var tables = new SortedDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        using (var cn = new SqlConnection(css.ConnectionString))
+        using (var cn = new SqlConnection(css))
         {
             cn.Open();
             using (var cmd = new SqlCommand("SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' ORDER BY TABLE_NAME, ORDINAL_POSITION", cn) { CommandTimeout = 60 })
@@ -275,10 +341,9 @@ public static class NqTelemetry
         if (hash == _schemaHash && DateTime.Now - _lastSchema < TimeSpan.FromHours(24)) return;
         _schemaHash = hash;
         _lastSchema = DateTime.Now;
-        var parts = flat.Select((kv, i) => new { kv, i }).GroupBy(x => x.i / 40).ToList();
+        var parts = Parts(flat.Select(kv => new KeyValuePair<string, object>(kv.Key, Clip(kv.Value, 8000))), v => ((string)v).Length);
         for (int p = 0; p < parts.Count; p++)
-            Send(new Dictionary<string, object> { { "kind", "schema" }, { "hash", hash }, { "part", p }, { "parts", parts.Count },
-                                                  { "tables", parts[p].ToDictionary(x => x.kv.Key, x => x.kv.Value) } });
+            Send(new Dictionary<string, object> { { "kind", "schema" }, { "hash", hash }, { "part", p }, { "parts", parts.Count }, { "tables", parts[p] } });
     }
 
     static void One(SqlConnection cn, Dictionary<string, object> d, string key, string sql)
@@ -297,9 +362,16 @@ public static class NqTelemetry
     /// <summary>An exception on the server (from the MVC filter or Application_Error).</summary>
     public static void Report(Exception ex, HttpContext ctx)
     {
+        try { ReportCore(ex, ctx); } catch { }                                 // inside Application_Error: must never hide the real error
+    }
+
+    static void ReportCore(Exception ex, HttpContext ctx)
+    {
         if (ex == null || string.IsNullOrEmpty(Url)) return;
         var http = ex as HttpException;
-        if (http != null && http.GetHttpCode() == 404) return;                 // missing pages are bots and old links, not errors
+        // 4xx = bots, old links, dangerous paths, expired sessions — not bugs (and they'd fill the alerts)
+        if (http != null && http.GetHttpCode() >= 400 && http.GetHttpCode() < 500) return;
+        if (ex is HttpRequestValidationException || ex.GetType().Name == "HttpAntiForgeryException") return;   // by name: its assembly differs between MVC versions
         if (ctx != null && ctx.Items["nq_telemetry_sent"] != null) return;     // the filter already sent it, Application_Error sees it again
         if (ctx != null) ctx.Items["nq_telemetry_sent"] = true;
         var msg = new StringBuilder(ex.Message);
@@ -311,19 +383,28 @@ public static class NqTelemetry
         {
             if (ctx != null)
             {
-                url = ctx.Request.Url != null ? ctx.Request.Url.PathAndQuery : "";
+                url = ctx.Request.Url != null ? ctx.Request.Url.AbsolutePath : "";   // no query string: it can carry reset / confirmation tokens
                 user = ctx.User != null && ctx.User.Identity != null ? ctx.User.Identity.Name : "";
             }
         }
         catch { }
         Send(new Dictionary<string, object> {
-            { "kind", "server" }, { "type", root.GetType().FullName }, { "message", msg.ToString() },
-            { "url", url }, { "user", user }, { "stack", ex.ToString() } });
+            { "kind", "server" }, { "type", root.GetType().FullName }, { "message", Clip(msg.ToString(), 1000) },
+            { "url", Clip(url, 300) }, { "user", Clip(user, 80) }, { "stack", Clip(ex.ToString(), 5000) } });     // the dashboard refuses a report over 20 KB
     }
+
+    static int _minute, _sentThisMinute;
+    static readonly object _rateLock = new object();
 
     static void Send(Dictionary<string, object> item)
     {
         if (string.IsNullOrEmpty(Url)) return;
+        lock (_rateLock)
+        {   // an error storm (the database down → every request throws) must not pile up thousands of posts: 40 a minute at most
+            int m = (int)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerMinute);
+            if (m != _minute) { _minute = m; _sentThisMinute = 0; }
+            if (++_sentThisMinute > 40) return;
+        }
         item["version"] = Version;
         item["build"] = Build;
         string body;
@@ -335,21 +416,35 @@ public static class NqTelemetry
         });
     }
 
+    /// <summary>The link the page's script uses: «…/api/telemetry/b/» + a one-way hash of the server token — anyone can read
+    /// the page, so the real token (which may send the version, the database, the books) never goes into it.</summary>
+    static string BrowserUrl()
+    {
+        int i = Url.LastIndexOf("/api/telemetry/", StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return "";
+        var token = Url.Substring(i + "/api/telemetry/".Length).Trim('/');
+        if (token.Length == 0 || token.Contains("/")) return "";
+        using (var sha = System.Security.Cryptography.SHA256.Create())
+            return Url.Substring(0, i) + "/api/telemetry/b/" + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(token))).Replace("-", "").ToLowerInvariant().Substring(0, 32);
+    }
+
     /// <summary>For _Layout.cshtml: JavaScript errors and AJAX calls that came back 500, from the user's browser.</summary>
     public static string BrowserScript()
     {
         if (string.IsNullOrEmpty(Url)) return "";
         string user = "";
         try { var c = HttpContext.Current; user = c != null && c.User != null && c.User.Identity != null ? c.User.Identity.Name : ""; } catch { }
-        var cfg = Json.Serialize(new { url = Url, user = user, version = Version, build = Build });
+        var burl = BrowserUrl();
+        if (burl == "") return "";
+        var cfg = Json.Serialize(new { url = burl, user = user, version = Version, build = Build });
         return @"<script>(function(c){var n=0,seen={};function send(o){if(n>=20)return;var k=o.kind+o.message+o.url;if(seen[k])return;seen[k]=1;n++;
-o.user=c.user;o.version=c.version;o.build=c.build;o.url=o.url||location.pathname+location.search;var b=JSON.stringify(o);
+o.user=c.user;o.version=c.version;o.build=c.build;o.url=o.url||location.pathname;var b=JSON.stringify(o);
 try{if(navigator.sendBeacon&&navigator.sendBeacon(c.url,new Blob([b],{type:'text/plain'})))return}catch(e){}
 try{var x=new XMLHttpRequest();x.open('POST',c.url,true);x.setRequestHeader('Content-Type','text/plain');x.send(b)}catch(e){}}
-window.addEventListener('error',function(e){if(!e.message)return;send({kind:'js',type:'',message:e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')',stack:e.error&&e.error.stack||''})});
+window.addEventListener('error',function(e){if(!e.message||e.message==='Script error.')return;send({kind:'js',type:'',message:String(e.message).slice(0,1000)+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')',stack:String(e.error&&e.error.stack||'').slice(0,5000)})});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};send({kind:'js',type:'Promise',message:String(r.message||r),stack:r.stack||''})});
 if(window.jQuery)jQuery(document).ajaxError(function(ev,x,s){if(!x||x.status<500)return;
-send({kind:'ajax',type:'HTTP '+x.status,status:String(x.status),message:(s.type||'GET')+' '+(s.url||'').split('?')[0],url:location.pathname+location.search,response:String(x.responseText||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,1500)})});
+send({kind:'ajax',type:'HTTP '+x.status,status:String(x.status),message:(s.type||'GET')+' '+(s.url||'').split('?')[0],url:location.pathname,response:String(x.responseText||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,300)})});
 })(" + cfg + ");</script>";
     }
 }
@@ -370,9 +465,10 @@ public class NqTelemetryFilter : IExceptionFilter, IActionFilter
         try
         {
             if (filterContext.IsChildAction || !(filterContext.Result is ViewResult)) return;
-            var rd = filterContext.RouteData.Values;
+            var ad = filterContext.ActionDescriptor;                       // real names, not the URL's spelling (invoice/ = Invoice/Index)
+            var area = filterContext.RouteData.DataTokens["area"] as string;
             var user = filterContext.HttpContext.User != null && filterContext.HttpContext.User.Identity != null ? filterContext.HttpContext.User.Identity.Name : "";
-            NqTelemetry.Used(rd["controller"] + "/" + rd["action"], user);
+            NqTelemetry.Used((string.IsNullOrEmpty(area) ? "" : area + "/") + ad.ControllerDescriptor.ControllerName + "/" + ad.ActionName, user);
         }
         catch { }
     }

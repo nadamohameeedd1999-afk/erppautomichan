@@ -77,6 +77,15 @@ def site_of(token):
     return next((sid for sid, t in tokens().items() if token and secrets.compare_digest(t, token)), None)
 
 
+def browser_token(token):
+    """what the page's script carries: a one-way hash of the server token (NqTelemetry computes the same)"""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]
+
+
+def site_of_browser(h):
+    return next((sid for sid, t in tokens().items() if h and secrets.compare_digest(browser_token(t), str(h))), None)
+
+
 # ------------------------------------------------------------------ receiving
 def _norm(s):
     """the same error with other numbers / ids / dates = the same item"""
@@ -94,11 +103,22 @@ def _clip(v, n):
     return str(v or "")[:n]
 
 
-def receive(site_id, items, now=None):
-    """store a report (one item or a list) -> how many were taken; new errors alert"""
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def receive(site_id, items, now=None, browser=False):
+    """store a report (one item or a list) -> how many were taken; new errors alert.
+    browser=True (the page's script): js / ajax errors only, and never the version"""
     now = now or time.time()
     win = [t for t in _rate.get(site_id, []) if now - t < 60]
     items = items if isinstance(items, list) else [items]
+    if browser:
+        items = [{k: v for k, v in x.items() if k not in ("version", "build")} for x in items
+                 if isinstance(x, dict) and x.get("kind") in ("js", "ajax")]
     room = max(0, PER_MIN - len(win))
     items = [x for x in items if isinstance(x, dict)][:room]
     _rate[site_id] = win + [now] * len(items)
@@ -110,35 +130,39 @@ def receive(site_id, items, now=None):
         d = _load()
         s = d.setdefault(site_id, {"errors": {}, "starts": []})
         for x in items:
-            kind = x.get("kind") if x.get("kind") in KINDS or x.get("kind") == "start" else "server"
-            ver = {"version": _clip(x.get("version"), 40), "build": _clip(x.get("build"), 40)}
-            if ver["version"] or ver["build"]:
-                s["version"] = {**ver, "at": at}
-            if kind == "start":
-                s["starts"] = (s["starts"] + [{"at": at, **ver, "machine": _clip(x.get("machine"), 60)}])[-30:]
+            try:
+                kind = x.get("kind") if x.get("kind") in KINDS or x.get("kind") == "start" else "server"
+                ver = {"version": _clip(x.get("version"), 40), "build": _clip(x.get("build"), 40)}
+                if (ver["version"] or ver["build"]) and {k: (s.get("version") or {}).get(k, "") for k in ver} != ver:
+                    s["version"] = {**ver, "at": at}                          # «at» = when this version was first seen, not the last report
+                if kind == "start":
+                    s["starts"] = (s["starts"] + [{"at": at, **ver, "machine": _clip(x.get("machine"), 60)}])[-30:]
+                    continue
+                if x.get("kind") in ("usage", "zatca", "db", "books", "schema"):
+                    extra.extend(globals()["_" + x["kind"]](s, x, at))
+                    continue
+                typ, msg = _clip(x.get("type"), 150), _clip(x.get("message"), 1000)
+                screen = _path(x.get("url"))
+                key = hashlib.sha1(f"{kind}|{typ}|{_norm(msg)}|{screen}".encode("utf-8")).hexdigest()[:14]
+                e = s["errors"].get(key)
+                if not e:
+                    e = s["errors"][key] = {"kind": kind, "type": typ, "message": msg, "screen": screen, "first": at, "count": 0, "users": [], "urls": []}
+                    fresh.append(e)
+                elif _reopen_if_fixed(site_id, key, at):                       # 🔁 marked «اتصلح» and here it is again
+                    e["regressed"] = (e.get("regressed", []) + [at])[-20:]
+                    back.append(e)
+                e["count"] += 1
+                e["last"] = at
+                e["message"], e["stack"], e["status"] = msg, _clip(x.get("stack"), 6000), _clip(x.get("status"), 10)
+                e["response"] = _clip(x.get("response"), 1500)
+                for k, v, n in (("users", _clip(x.get("user"), 80), 20), ("urls", _clip(x.get("url"), 300), 5)):
+                    if v and v not in e[k]:
+                        e[k] = (e[k] + [v])[-n:]
+                if ver["version"] or ver["build"]:
+                    e["version"] = ver["version"] or ver["build"]
+            except (TypeError, ValueError, AttributeError, KeyError):     # one bad item never loses the rest of the batch
                 continue
-            if x.get("kind") in ("usage", "zatca", "db", "books", "schema"):
-                extra.extend(globals()["_" + x["kind"]](s, x, at))
-                continue
-            typ, msg = _clip(x.get("type"), 150), _clip(x.get("message"), 1000)
-            screen = _path(x.get("url"))
-            key = hashlib.sha1(f"{kind}|{typ}|{_norm(msg)}|{screen}".encode("utf-8")).hexdigest()[:14]
-            e = s["errors"].get(key)
-            if not e:
-                e = s["errors"][key] = {"kind": kind, "type": typ, "message": msg, "screen": screen, "first": at, "count": 0, "users": [], "urls": []}
-                fresh.append(e)
-            elif _reopen_if_fixed(site_id, key, at):                       # 🔁 marked «اتصلح» and here it is again
-                e["regressed"] = (e.get("regressed", []) + [at])[-20:]
-                back.append(e)
-            e["count"] += 1
-            e["last"] = at
-            e["message"], e["stack"], e["status"] = msg, _clip(x.get("stack"), 6000), _clip(x.get("status"), 10)
-            e["response"] = _clip(x.get("response"), 1500)
-            for k, v, n in (("users", _clip(x.get("user"), 80), 20), ("urls", _clip(x.get("url"), 300), 5)):
-                if v and v not in e[k]:
-                    e[k] = (e[k] + [v])[-n:]
-            if ver["version"] or ver["build"]:
-                e["version"] = ver["version"] or ver["build"]
+
         if len(s["errors"]) > KEEP:                                   # oldest go first
             for k in sorted(s["errors"], key=lambda k: s["errors"][k].get("last", ""))[:len(s["errors"]) - KEEP]:
                 del s["errors"][k]
@@ -161,8 +185,10 @@ def _usage(s, x, at):
         screen = _clip(screen, 120)
         if not isinstance(v, dict):
             continue
+        if screen not in day and len(day) >= 500:                    # a day keeps 500 screens at most
+            continue
         u = day.setdefault(screen, {"n": 0, "users": []})
-        u["n"] += int(v.get("n") or 0)
+        u["n"] += int(_num(v.get("n")) or 0)
         u["users"] = list(dict.fromkeys(u["users"] + [_clip(x, 80) for x in (v.get("users") or [])][:50]))[:50]
     for k in sorted(s["usage"])[:-60]:
         del s["usage"][k]
@@ -176,8 +202,8 @@ def _zatca(s, x, at):
     if x.get("counts") is not None or x.get("warnings") is not None:   # the 10-minute summary
         for k, n in (x.get("counts") or {}).items():
             if k in ZATCA_AR:
-                day[k] += int(n or 0)
-        for w in (x.get("warnings") or [])[:20]:
+                day[k] += int(_num(n) or 0)
+        for w in [w for w in (x.get("warnings") or []) if isinstance(w, dict)][:20]:
             z["issues"].append({"at": at, "invoice": _clip(w.get("invoice"), 40), "status": "warning", "message": _clip(w.get("message"), 800)})
     else:                                                                # one rejected / failed invoice
         st = x.get("status") if x.get("status") in ZATCA_AR else "failed"
@@ -193,15 +219,17 @@ def _zatca(s, x, at):
 
 
 def _db(s, x, at):
-    keep = ("database", "backup_full", "backup_log", "data_mb", "log_mb", "recovery", "disk_free_gb", "jobs_failed_24h", "sql_version", "error")
-    last = {k: x.get(k) for k in keep if x.get(k) is not None}
+    # numbers are numbers (or dropped), texts are clipped: these values are shown on the page
+    last = {k: _num(x.get(k)) for k in ("data_mb", "log_mb", "disk_free_gb", "jobs_failed_24h") if _num(x.get(k)) is not None}
+    last.update({k: _clip(x.get(k), 200) for k in ("database", "backup_full", "backup_log", "recovery", "sql_version", "error") if x.get(k) is not None})
     last["not_allowed"] = {k[:-6]: _clip(v, 200) for k, v in x.items() if k.endswith("_error") and k != "error"}
-    last["slow"] = [{"query": _clip(q.get("query"), 300), "count": q.get("count"), "avg_ms": q.get("avg_ms")} for q in (x.get("slow") or [])[:5]]
+    last["slow"] = [{"query": _clip(q.get("query"), 300), "count": _num(q.get("count")), "avg_ms": _num(q.get("avg_ms"))}
+                    for q in (x.get("slow") or [])[:5] if isinstance(q, dict)]
     last["at"] = at
     db = s.setdefault("db", {"sizes": {}, "warned": ""})
     db["last"] = last
-    if x.get("data_mb") is not None:
-        db["sizes"][at[:10]] = x["data_mb"]
+    if last.get("data_mb") is not None:
+        db["sizes"][at[:10]] = last["data_mb"]
         for k in sorted(db["sizes"])[:-120]:
             del db["sizes"][k]
     lines, age = [], backup_age_h(last)
@@ -224,7 +252,7 @@ def _bad(k, v):
 def _books(s, x, at):
     b = s.setdefault("books", {})
     prev = b.get("checks") or {}
-    checks = {k: v for k, v in (x.get("checks") or {}).items() if k in BOOKS_AR}
+    checks = {k: _num(v) for k, v in (x.get("checks") or {}).items() if k in BOOKS_AR and _num(v) is not None}
     b.update({"checks": checks, "not_allowed": {k: _clip(v, 200) for k, v in (x.get("not_allowed") or {}).items() if k in BOOKS_AR}, "at": at})
     hist = b.setdefault("hist", {})
     hist[at[:10]] = sum(1 for k, v in checks.items() if _bad(k, v))
@@ -236,12 +264,14 @@ def _books(s, x, at):
 
 def _schema(s, x, at):
     """the parts of one structure (same hash) are collected; when all arrived it becomes the site's schema"""
-    h, parts = _clip(x.get("hash"), 32), int(x.get("parts") or 1)
+    h, parts, part = _clip(x.get("hash"), 32), int(_num(x.get("parts")) or 1), int(_num(x.get("part")) or 0)
+    if not 1 <= parts <= 200 or not 0 <= part < parts:                # a real structure is a few dozen parts
+        return []
     pend = s.setdefault("schema_parts", {})
     if h not in pend:
         pend.clear()                                                  # a newer structure started: drop the half-received one
         pend[h] = {}
-    pend[h][str(int(x.get("part") or 0))] = {str(t)[:128]: str(c)[:8000] for t, c in (x.get("tables") or {}).items()}
+    pend[h][str(part)] = {str(t)[:128]: str(c)[:8000] for t, c in (x.get("tables") or {}).items()}
     if len(pend[h]) < parts:
         return []
     tables = {}
@@ -385,6 +415,11 @@ def _reopen_if_fixed(site_id, key, at):
     """the error's ticket was set «اتصلح» before `at` → back to «جديد» with a note; True when it was"""
     from web import support
     iid = f"tel_{site_id}_{key}"[:40]
+    with support.LOCK:
+        return _reopen_locked(support, iid, at)
+
+
+def _reopen_locked(support, iid, at):
     st = support._load("support_status.json", {})
     cur = st.get(iid) or {}
     if cur.get("status") != "اتصلح" or (cur.get("at") or "") > at.replace("T", " ")[:16]:
