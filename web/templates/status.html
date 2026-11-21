@@ -1,0 +1,104 @@
+<!doctype html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0F7C7A">
+<title>حالة النظام</title>
+<style>
+  :root { --acc: #0F7C7A; --head: #0A5654; --text: #1C2B2A; --muted: #6B7B7A; --bg: #F4F8F8; --panel: #FFFFFF; --soft: #E7F3F2; --line: #D5E2E1;
+          --ok: #0F7C7A; --bad: #C0392B; --warn: #B7791F; --none: #DDE6E5; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --acc: #2BB3AF; --head: #F2F7F7; --text: #D9E5E4; --muted: #8FA3A2; --bg: #0B1312; --panel: #121D1C;
+          --soft: #17302E; --line: #223634; --ok: #3CC9A0; --bad: #F0706A; --warn: #E8B04B; --none: #223634; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 Tahoma, "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 10px; } .brand img { max-height: 40px; max-width: 80px; }
+  .brand b { color: var(--head); font-size: 16px; } .brand span { display: block; color: var(--muted); font-size: 12px; }
+  .plan { font-size: 12px; color: var(--acc); background: var(--soft); border-radius: 999px; padding: 4px 12px; font-weight: 700; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(10, 86, 84, .06); }
+  .now { display: flex; align-items: center; gap: 14px; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; flex: none; background: var(--ok); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 18%, transparent); }
+  .now.down .dot { background: var(--bad); box-shadow: 0 0 0 6px color-mix(in srgb, var(--bad) 18%, transparent); }
+  .now.slow .dot, .now.maintenance .dot { background: var(--warn); box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 18%, transparent); }
+  .now.none .dot { background: var(--none); box-shadow: none; }
+  .now h1 { font-size: 20px; margin: 0; color: var(--head); text-wrap: balance; } .now p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .kpi { border-top: 1px solid var(--line); padding-top: 10px; } .kpi span { font-size: 12px; color: var(--muted); }
+  .kpi b { display: block; font-size: 20px; color: var(--head); font-variant-numeric: tabular-nums; }
+  h2 { font-size: 16px; margin: 0 0 10px; color: var(--head); }
+  .bars { display: flex; gap: 2px; height: 34px; align-items: stretch; }   /* RTL: oldest on the right, today on the left */
+  .bars i { flex: 1; border-radius: 2px; background: var(--ok); min-width: 0; }
+  .bars i.w { background: var(--warn); } .bars i.b { background: var(--bad); } .bars i.n { background: var(--none); }
+  .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .notice { border-inline-start: 4px solid var(--warn); background: var(--soft); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .notice.info { border-color: var(--acc); } .notice b { color: var(--head); } .notice div { color: var(--muted); font-size: 12px; }
+  .inc { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .inc:last-child { border-bottom: 0; } .muted { color: var(--muted); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .now h1 { font-size: 18px; } .bars { gap: 1px; } .bars i { border-radius: 1px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">{% if company.logo %}<img src="{{ company.logo }}" alt="">{% endif %}<div><b>{{ company.name }}</b><span>صفحة حالة النظام</span></div></div>
+    <span class="plan" id="plan" hidden></span>
+  </header>
+
+  <div class="card"><div class="now none" id="now" aria-live="polite"><span class="dot" aria-hidden="true"></span>
+    <div><h1 id="title">بيحمّل…</h1><p id="sub"></p></div></div>
+    <div class="kpis">
+      <div class="kpi"><span>نسبة التشغيل (30 يوم)</span><b id="up">—</b></div>
+      <div class="kpi"><span>سرعة الرد الآن</span><b id="ms">—</b></div>
+      <div class="kpi" id="scrK"><span>شاشات النظام</span><b id="scr">—</b></div>
+    </div>
+  </div>
+
+  <div id="notices"></div>
+
+  <div class="card"><h2>آخر 90 يوم</h2><div class="bars" id="bars" role="img" aria-label="حالة النظام في آخر 90 يوم"></div>
+    <div class="scale"><span>من 90 يوم</span><span id="tgt"></span><span>النهارده</span></div></div>
+
+  <div class="card"><h2>مرات التوقف الأخيرة</h2><div id="incs" class="muted">—</div></div>
+
+  <footer><span id="ver"></span><div>الصفحة بتتحدث لوحدها كل دقيقة · {{ company.name }}</div></footer>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const when = t => t ? new Date(t).toLocaleString('ar-EG', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) : '—';
+const dur = m => m >= 60 ? `${Math.floor(m / 60)} ساعة ${m % 60 ? 'و' + (m % 60) + ' دقيقة' : ''}` : `${m} دقيقة`;
+const T = {up: ['النظام شغال بشكل طبيعي', 'كل الخدمات شغالة'], slow: ['النظام شغال بس أبطأ من الطبيعي', 'فريقنا عارف وبيتابع'],
+           down: ['فيه عطل في النظام دلوقتي', 'فريقنا عارف بالمشكلة وشغال على حلها'], maintenance: ['صيانة مجدولة', 'النظام هيرجع بعد انتهاء الصيانة'],
+           none: ['لسه بنجهّز المتابعة', 'أول فحص هيظهر هنا خلال دقايق']};
+async function load() {
+  const r = await fetch('/api/status/{{ token }}', {cache: 'no-store'}).then(x => x.ok ? x.json() : null).catch(() => null);
+  if (!r) return;
+  document.title = 'حالة النظام — ' + r.name;
+  $('now').className = 'now ' + r.state;
+  $('title').textContent = T[r.state][0];
+  $('sub').textContent = T[r.state][1] + (r.since && r.state !== 'none' ? ' · من ' + when(r.since) : '') + (r.checked ? ' · آخر فحص ' + when(r.checked) : '');
+  if (r.plan) { $('plan').hidden = false; $('plan').textContent = r.plan; }
+  $('up').textContent = r.uptime30 == null ? '—' : r.uptime30 + '%';
+  $('ms').textContent = r.ms == null || r.state === 'down' ? '—' : (r.ms / 1000).toFixed(1) + ' ث';
+  if (r.screens) $('scr').textContent = r.screens.bad ? 'جاري حل مشكلة في بعضها' : `${r.screens.total} شاشة شغالة`;
+  else $('scrK').hidden = true;
+  $('tgt').textContent = r.target ? `هدف التشغيل في باقتك ${r.target}%` : '';
+  $('bars').innerHTML = r.days.map(d => {
+    const c = d.uptime == null ? 'n' : d.uptime >= (r.target || 99) ? '' : d.uptime >= 95 ? 'w' : 'b';
+    return `<i class="${c}" title="${d.day}: ${d.uptime == null ? 'مفيش بيانات' : d.uptime + '%'}"></i>`;
+  }).join('');
+  $('notices').innerHTML = r.notices.map(n => `<div class="notice ${n.kind === 'info' ? 'info' : ''}"><b>${n.kind === 'maintenance' ? '🛠️ ' : 'ℹ️ '}${esc(n.title)}</b>
+      <div>${n.start ? when(n.start) : ''}${n.end ? ' ← ' + when(n.end) : ''}</div></div>`).join('');
+  $('incs').innerHTML = r.incidents.length ? r.incidents.map(i => `<div class="inc"><span>${when(i.start)}</span><span>${i.end ? 'استمر ' + dur(i.minutes) : 'لسه مستمر'}</span></div>`).join('')
+    : 'مفيش توقف متسجل 👌';
+  $('ver').textContent = r.version && (r.version.version || r.version.build) ? `نسخة النظام ${r.version.version || ''}${r.version.build ? ' · ' + r.version.build : ''}` : '';
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

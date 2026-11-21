@@ -109,9 +109,7 @@ def collect(site_id, month):
 
 def html_report(site_id, month, user="", for_pdf=False):
     d = collect(site_id, month)
-    co = _company()
     e = html.escape
-    now = datetime.now()
 
     def cell(v):
         return e(str(v)) if v not in (None, "") else "—"
@@ -126,10 +124,9 @@ def html_report(site_id, month, user="", for_pdf=False):
                  + f"<b>{verdict}</b>.")
     else:
         intro = f"مفيش تشغيلات اتسجلت على الموقع ده في {d['label']}."
-    strip = "".join(f'<div class="f"><span class="fl">{k}</span><span class="fv">{v}</span></div>' for k, v in [
-        ("العميل / الموقع", e(d["site"]["name"])), ("الشهر", d["label"]), ("عدد التشغيلات", f"{d['total']:,}"),
-        ("نسبة النجاح", rate), ("شاشات وسيناريوهات", d["screens"]), ("مشاكل اتحلت", len(d["fixed"])),
-        ("لسه مفتوحة", len(d["open"])), ("وقت الاختبار", f"{d['minutes']:,} دقيقة")])
+    strip = [("العميل / الموقع", e(d["site"]["name"])), ("الشهر", d["label"]), ("عدد التشغيلات", f"{d['total']:,}"),
+             ("نسبة النجاح", rate), ("شاشات وسيناريوهات", d["screens"]), ("مشاكل اتحلت", len(d["fixed"])),
+             ("لسه مفتوحة", len(d["open"])), ("وقت الاختبار", f"{d['minutes']:,} دقيقة")]
     body = "".join(f"""<tr><td class="c">{i}</td><td>{cell(t['name'])}</td><td class="c">{t['runs']}</td><td class="c">{t['passed']}</td>
         <td class="c">{t['failed']}</td><td class="c">{t['rate']}%</td>
         <td class="c"><span class="st {'ok' if t['last_ok'] else 'bad'}">{'ناجح' if t['last_ok'] else 'فاشل'}</span></td>
@@ -139,39 +136,8 @@ def html_report(site_id, month, user="", for_pdf=False):
         <td class="c ltr">{t['fixed_at'].strftime('%Y-%m-%d')}</td><td>{cell(t['reason'])}</td></tr>""" for i, t in enumerate(d["fixed"], 1))
     perf = "".join(f"""<tr><td class="c">{i}</td><td>{cell(p['name'])}</td><td class="c">{p['avg']:.2f}</td><td class="c">{p['max']:.2f}</td><td class="c">{p['n']}</td></tr>"""
                    for i, p in enumerate(d["perf"], 1))
-    logo = f'<img src="{co["logo"]}" class="logo">' if co["logo"] else ""
-    ids = "".join(f'<div class="grey">{k}: {e(v)}</div>' for k, v in (("س.ت", co["cr"]), ("الرقم الضريبي", co["vat"])) if v)
-    return f"""<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>التقرير الشهري — {e(d['site']['name'])} — {d['label']}</title>
-<style>
-  @page {{ size: A4 landscape; margin: 12mm 10mm 14mm 10mm; }}
-  * {{ box-sizing: border-box; }}
-  body {{ font-family: "Microsoft Sans Serif", Tahoma, Arial, sans-serif; color: {TEXT}; font-size: 11px; margin: 0; background: {'#fff' if for_pdf else '#eef2f2'}; }}
-  .page {{ background: #fff; max-width: 1120px; margin: {'0' if for_pdf else '16px auto'}; padding: {'0' if for_pdf else '18px 22px'}; }}
-  .hdr {{ display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: center; gap: 10px; }}
-  .co {{ display: flex; align-items: center; gap: 10px; }} .logo {{ max-height: 56px; max-width: 90px; }}
-  .coname {{ color: {DARK}; font-weight: bold; font-size: 15px; }} .grey {{ color: #7a8584; font-size: 10.5px; }}
-  .ttl {{ text-align: center; }} .ttl .ar {{ font-weight: bold; font-size: 20px; color: {TEXT}; }} .ttl .en {{ color: {TEAL}; font-size: 13px; margin-top: 2px; }}
-  .meta {{ text-align: left; direction: rtl; }} .meta div {{ margin: 2px 0; }}
-  .line {{ height: 3px; background: {TEAL}; margin: 10px 0 12px; border-radius: 2px; }}
-  .strip {{ background: {LIGHT}; border: 1px solid {BORDER}; border-radius: 10px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 26px; margin-bottom: 12px; }}
-  .f {{ display: flex; gap: 6px; }} .fl {{ color: #6f7b7a; }} .fv {{ font-weight: bold; }}
-  .intro {{ font-size: 13px; line-height: 1.9; margin: 0 0 12px; padding: 10px 14px; border-right: 4px solid {TEAL}; background: #fbfdfd; }}
-  h3 {{ color: {DARK}; font-size: 13px; margin: 16px 0 6px; }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  thead th {{ background: {TEAL}; color: #fff; font-weight: bold; padding: 7px 6px; text-align: right; }} thead th.c {{ text-align: center; }}
-  tbody td {{ padding: 6px; border-bottom: 1px solid {BORDER}; text-align: right; vertical-align: top; }}
-  tbody tr {{ page-break-inside: avoid; }} td.c {{ text-align: center; }} .ltr {{ direction: ltr; }}
-  .st {{ font-weight: bold; }} .st.ok {{ color: {TEAL}; }} .st.bad {{ color: #c0392b; }}
-  @media print {{ body {{ background: #fff; }} .page {{ margin: 0; padding: 0; }} }}
-</style></head><body><div class="page">
-  <div class="hdr">
-    <div class="co">{logo}<div><div class="coname">{e(co['name'])}</div>{ids}</div></div>
-    <div class="ttl"><div class="ar">تقرير جودة النظام الشهري</div><div class="en">Monthly System Quality Report</div></div>
-    <div class="meta"><div><span class="grey">المستخدم:</span> <b>{e(user or '—')}</b></div>
-         <div><span class="grey">تاريخ الطباعة:</span> <b class="ltr">{now.strftime('%Y-%m-%d %H:%M')}</b></div></div>
-  </div>
-  <div class="line"></div>
-  <div class="strip">{strip}</div>
+    return report_shell(f"التقرير الشهري — {e(d['site']['name'])} — {d['label']}", "تقرير جودة النظام الشهري", "Monthly System Quality Report",
+                        user, strip, f"""
   <p class="intro">{intro}</p>
   <h3>نتيجة كل شاشة / سيناريو</h3>
   <table><thead><tr><th class="c" style="width:30px">م</th><th>الاختبار</th><th class="c">مرات التشغيل</th><th class="c">ناجح</th><th class="c">فاشل</th>
@@ -180,6 +146,52 @@ def html_report(site_id, month, user="", for_pdf=False):
     <th class="c">اتحلت في</th><th>المشكلة</th></tr></thead><tbody>{fixed}</tbody></table>''' if fixed else ''}
   {f'''<h3>سرعة فتح الشاشات (بالثانية)</h3><table><thead><tr><th class="c" style="width:30px">م</th><th>الشاشة</th><th class="c">المتوسط</th>
     <th class="c">الأبطأ</th><th class="c">عدد القياسات</th></tr></thead><tbody>{perf}</tbody></table>''' if perf else ''}
+""", for_pdf)
+
+
+REPORT_CSS = """
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft Sans Serif", Tahoma, Arial, sans-serif; color: """+TEXT+"""; font-size: 11px; margin: 0; background: BG; }
+  .page { background: #fff; max-width: 1120px; margin: MARGIN; padding: PAD; }
+  .hdr { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: center; gap: 10px; }
+  .co { display: flex; align-items: center; gap: 10px; } .logo { max-height: 56px; max-width: 90px; }
+  .coname { color: """+DARK+"""; font-weight: bold; font-size: 15px; } .grey { color: #7a8584; font-size: 10.5px; }
+  .ttl { text-align: center; } .ttl .ar { font-weight: bold; font-size: 20px; color: """+TEXT+"""; } .ttl .en { color: """+TEAL+"""; font-size: 13px; margin-top: 2px; }
+  .meta { text-align: left; direction: rtl; } .meta div { margin: 2px 0; }
+  .line { height: 3px; background: """+TEAL+"""; margin: 10px 0 12px; border-radius: 2px; }
+  .strip { background: """+LIGHT+"""; border: 1px solid """+BORDER+"""; border-radius: 10px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 26px; margin-bottom: 12px; }
+  .f { display: flex; gap: 6px; } .fl { color: #6f7b7a; } .fv { font-weight: bold; }
+  .intro { font-size: 13px; line-height: 1.9; margin: 0 0 12px; padding: 10px 14px; border-right: 4px solid """+TEAL+"""; background: #fbfdfd; }
+  h3 { color: """+DARK+"""; font-size: 13px; margin: 16px 0 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: """+TEAL+"""; color: #fff; font-weight: bold; padding: 7px 6px; text-align: right; } thead th.c { text-align: center; }
+  tbody td { padding: 6px; border-bottom: 1px solid """+BORDER+"""; text-align: right; vertical-align: top; }
+  tbody tr { page-break-inside: avoid; } td.c { text-align: center; } .ltr { direction: ltr; }
+  .st { font-weight: bold; } .st.ok { color: """+TEAL+"""; } .st.bad { color: #c0392b; }
+  @media print { body { background: #fff; } .page { margin: 0; padding: 0; } }
+"""
+
+
+def report_shell(page_title, title_ar, title_en, user, strip, body, for_pdf=False, extra_css=""):
+    """التصميم المعتمد: A4 landscape, 3-zone header (logo + company / AR + EN title / user + print date), teal rule,
+    light-teal filter strip [(label, value html)], then the body — shared by every printed report"""
+    co, e = _company(), html.escape
+    logo = f'<img src="{co["logo"]}" class="logo">' if co["logo"] else ""
+    ids = "".join(f'<div class="grey">{k}: {e(v)}</div>' for k, v in (("س.ت", co["cr"]), ("الرقم الضريبي", co["vat"])) if v)
+    strip_html = "".join(f'<div class="f"><span class="fl">{k}</span><span class="fv">{v}</span></div>' for k, v in strip)
+    css = REPORT_CSS.replace("BG", "#fff" if for_pdf else "#eef2f2").replace("MARGIN", "0" if for_pdf else "16px auto").replace("PAD", "0" if for_pdf else "18px 22px")
+    return f"""<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>{page_title}</title>
+<style>{css}{extra_css}</style></head><body><div class="page">
+  <div class="hdr">
+    <div class="co">{logo}<div><div class="coname">{e(co['name'])}</div>{ids}</div></div>
+    <div class="ttl"><div class="ar">{title_ar}</div><div class="en">{title_en}</div></div>
+    <div class="meta"><div><span class="grey">المستخدم:</span> <b>{e(user or '—')}</b></div>
+         <div><span class="grey">تاريخ الطباعة:</span> <b class="ltr">{datetime.now().strftime('%Y-%m-%d %H:%M')}</b></div></div>
+  </div>
+  <div class="line"></div>
+  {f'<div class="strip">{strip_html}</div>' if strip else ''}
+  {body}
 </div></body></html>"""
 
 

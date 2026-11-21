@@ -54,7 +54,7 @@ def after_request(resp):
             return resp
         if resp.headers.get("Content-Disposition", "").startswith("attachment"):
             return resp
-        if request.path.startswith(("/simulation/", "/demo/")):     # NQ Simulation has its own Arabic / English (and voices)
+        if request.path.startswith(("/simulation/", "/demo/", "/status/")):     # NQ Simulation has its own Arabic / English (and voices)
             return resp
         mt = (resp.mimetype or "").lower()
         if mt not in ("text/html", "application/javascript", "text/javascript", "application/json"):

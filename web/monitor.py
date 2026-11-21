@@ -191,6 +191,7 @@ def run_once(force=False):
                 s = st.setdefault(p["id"], {"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", ""), "hist": [], "v": "up"})
                 s.update({"name": p.get("name"), "url": p["base_url"], "kind": p.get("kind", "")})
                 s["hist"] = (s["hist"] + [r])[-KEEP:]
+                _roll(s, r)
                 v_old, v = s.get("v", "up"), _verdict(s["hist"])
                 r["v"] = v
                 s["v"], s["last"] = v, r
@@ -201,7 +202,7 @@ def run_once(force=False):
                            "slow": f"🟡 {name} بطيء — بيرد في {r['ms'] / 1000:.1f} ث (3 مرات ورا بعض)\n{p['base_url']}",
                            "up": f"🟢 {name} رجع يشتغل — بيرد في {r['ms'] / 1000:.1f} ث"}[v]
                     s.setdefault("incidents", []).append({"at": r["at"], "v": v, "why": r["why"]})
-                    s["incidents"] = s["incidents"][-30:]
+                    s["incidents"] = s["incidents"][-300:]          # NQ Care: a year of changes for the status page and the monthly report
                     broadcast("📡 مراقبة المواقع\n" + msg)
                 d = r.get("ssl_days")
                 today = r["at"][:10]
@@ -212,6 +213,18 @@ def run_once(force=False):
             return st
     finally:
         _busy["on"] = False
+
+
+def _roll(s, r):
+    """one line per day (checks, good ones, total time of the good ones) — the 24 h history is too short for a month"""
+    days = s.setdefault("days", {})
+    d = days.setdefault(r["at"][:10], {"n": 0, "ok": 0, "ms": 0})
+    d["n"] += 1
+    if r["ok"]:
+        d["ok"] += 1
+        d["ms"] += r["ms"]
+    for k in sorted(days)[:-400]:                                     # 400 days
+        del days[k]
 
 
 def deep_reason(p, cfg):
@@ -279,6 +292,8 @@ def run_deep(force=False):
                                   + "\nالتفاصيل في «دعم المطورين»")
                     if fixed and old and not old.get("error"):
                         broadcast(f"📡 مراقبة المواقع\n✅ {name}: {len(fixed)} شاشة اتصلحت\n" + "\n".join(f"✓ {k}" for k in fixed[:8]))
+                if not d.get("error") and (new or fixed):            # NQ Care: screens found broken / fixed, for the monthly report
+                    s["deep_log"] = (s.get("deep_log", []) + [{"at": d["at"], "new": new, "fixed": fixed}])[-300:]
                 s["deep"] = d
                 _save_state(st)
         return _state()

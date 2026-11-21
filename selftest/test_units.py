@@ -750,3 +750,57 @@ def test_nq_erp_telemetry(tmp_path, monkeypatch):
     it = [i for i in T.support_issues() if i["screen"] == "/SalesInvoice/AddEdit/#"][0]
     assert it["severity"] == "عالية" and "2 مرة" in it["details"] and "SqlException" in it["evidence"]
     assert "tokens" not in M.summary()["config"]                   # the links never reach the page's JSON
+
+
+def test_nq_care(tmp_path, monkeypatch):
+    """💼 NQ Care: uptime vs the plan's target, outage durations, client-safe status page behind a secret link, contract alerts, reports"""
+    import json
+    from datetime import datetime, timedelta
+    from web import care as C, monitor as M, telemetry as T
+    from web.app import app
+    monkeypatch.setattr(C, "FILE", tmp_path / "care.json")
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
+    monkeypatch.setattr(M, "_sites", lambda c: [{"id": "c1", "name": "شركة الريان", "base_url": "https://c.x", "kind": "client"}])
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    month, today = datetime.now().strftime("%Y-%m"), datetime.now().strftime("%Y-%m-%d")
+    st = {"c1": {"hist": [{"ok": True, "ms": 900, "at": today + "T10:00:00"}], "v": "up", "last": {"at": today + "T10:00:00", "ms": 900},
+                 "days": {today: {"n": 100, "ok": 98, "ms": 98 * 1000}},
+                 "incidents": [{"at": today + "T01:00:00", "v": "down", "why": "السيرفر رجّع خطأ 503 Exception secret"},
+                               {"at": today + "T01:45:00", "v": "up", "why": ""}],
+                 "deep": {"at": today + "T09:00:00", "screens": 120, "problems": [["/HR", "HTTP 500"]]},
+                 "deep_log": [{"at": today + "T03:00:00", "new": ["/HR", "/Stock"], "fixed": []}, {"at": today + "T06:00:00", "new": [], "fixed": ["/Stock"]}]}}
+    M._save_state(st)
+    T.receive("c1", {"kind": "start", "version": "2026.11.21"})
+    assert C.site_of("x") is None
+    cl = C.save_client("c1", {"plan": "pro", "start": "2026-01-01", "end": (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d"), "contact": "أ. خالد"})
+    assert C.site_of(cl["token"]) == "c1"
+    d = C.month_stats("c1", month)
+    assert d["uptime"] == 98.0 and d["target"] == 99.5 and d["met"] is False
+    assert d["down_min"] == 45 and len(d["outages"]) == 1 and d["found"] == ["/HR", "/Stock"] and d["fixed"] == ["/Stock"]
+    assert d["versions"][0]["version"] == "2026.11.21"
+    c = app.test_client()
+    assert c.get("/status/nope").status_code == 404
+    r = c.get(f"/api/status/{cl['token']}")                          # no login: the link is the key
+    assert r.status_code == 200
+    s = r.get_json()
+    assert s["state"] == "up" and s["incidents"][0]["minutes"] == 45 and s["screens"] == {"total": 120, "bad": 1, "at": today + "T09:00:00"}
+    assert "503" not in json.dumps(s) and "Exception" not in json.dumps(s) and "/HR" not in json.dumps(s)   # client-safe
+    assert c.get(f"/status/{cl['token']}").status_code == 200
+    C.add_notice("c1", "تحديث النظام", today + "T00:00", today + "T23:59")
+    st["c1"]["v"] = "down"
+    M._save_state(st)
+    assert C.status("c1")["state"] == "maintenance"                  # down during planned maintenance
+    h = C.html_monthly("c1", month, "admin")
+    assert "98.0%" in h and "ماتحققش" in h and "45 د" in h and "/Stock" in h and "اتصلحت" in h
+    assert "NQ Care متقدم" in C.html_offer() and "خلال 8 ساعة" in C.html_offer()
+    C._last["t"] = 0                                                  # the app's background ticker may have used this hour already
+    C.auto_tick()
+    assert len(sent) == 1 and "هيخلص بعد 5 يوم" in sent[0] and "أ. خالد" in sent[0]
+    C._last["t"] = 0
+    C.auto_tick()
+    assert len(sent) == 1                                             # once per step
+    with c.session_transaction() as ss:
+        ss["user_id"], ss["role"] = 2, "user"
+    assert c.get("/api/care").status_code == 403                      # admin only

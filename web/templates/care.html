@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}NQ Care - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .ca-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .ca-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ca-card > .bd { padding: 14px 16px; }
+  .ca-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .ca-kpi { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; padding: 14px 16px; }
+  .ca-kpi span { font-size: 12px; color: var(--g-muted); } .ca-kpi b { display: block; font-size: 28px; color: var(--g-head); font-variant-numeric: tabular-nums; }
+  .ca-kpi b.bad { color: var(--g-bad, #C0392B); } .ca-kpi b.warn { color: var(--g-warn, #B7791F); }
+  .ca-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ca-tbl th { background: var(--g-acc, #0F7C7A); color: #fff; font-weight: 700; padding: 8px; text-align: right; white-space: nowrap; }
+  .ca-tbl td { padding: 8px; border-bottom: 1px solid var(--g-line); vertical-align: middle; }
+  .ca-tbl input, .ca-tbl select { font-size: 13px; } .ca-tbl select[data-k="plan"] { min-width: 150px; } .ca-tbl input[type="date"] { min-width: 140px; }
+  .ca-tbl .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ca-ok { color: var(--g-ok, #0F7C7A); font-weight: 700; } .ca-bad { color: var(--g-bad, #C0392B); font-weight: 700; } .ca-warn { color: var(--g-warn, #B7791F); font-weight: 700; }
+  .ca-wrap { overflow-x: auto; }
+  .ca-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .ca-plan { border: 1px solid var(--g-line); border-radius: 12px; padding: 12px; }
+  .ca-plan label { font-size: 12px; color: var(--g-muted); display: block; margin-top: 6px; }
+  .ca-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
+  .ca-msg { font-size: 13px; }
+  @media (max-width: 900px) { .ca-kpis { grid-template-columns: repeat(2, 1fr); } .ca-plans { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">المراقبة اللي بنيناها كباقة دعم بعقد سنوي. كل عميل في باقة بياخد: صفحة حالة خاصة بيه من غير دخول (يشوف منها النظام شغال ولا لأ، وتاريخ آخر 90 يوم، ومرات التوقف، والصيانة الجاية)، وتقرير شهري بالتصميم المعتمد فيه نسبة التشغيل مقابل هدف باقته، والمشاكل اللي لقيناها واتصلحت. التقرير بيتبعتله على الإيميل كل أول شهر. ولما عقد يقرّب يخلص بيجيلك تنبيه قبلها بـ 30 يوم وبـ 7 أيام ويوم ما يخلص.</div>
+
+  <div class="ca-kpis">
+    <div class="ca-kpi"><span>عملاء في الباقات</span><b id="kIn">—</b></div>
+    <div class="ca-kpi"><span>عقود بتخلص خلال 30 يوم</span><b id="kEnd">—</b></div>
+    <div class="ca-kpi"><span>تحت هدف التشغيل الشهر ده</span><b id="kMiss">—</b></div>
+    <div class="ca-kpi"><span>متوسط التشغيل الشهر ده</span><b id="kUp">—</b></div>
+  </div>
+
+  <div class="ca-card">
+    <div class="hd"><b>👥 العملاء</b>
+      <div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="/care/offer" target="_blank"><i class="bi bi-file-earmark-richtext"></i> عرض الباقات للعميل</a>
+        <a class="btn btn-sm btn-outline-secondary" href="/care/offer.pdf"><i class="bi bi-filetype-pdf"></i> PDF</a></div></div>
+    <div class="bd ca-wrap"><table class="ca-tbl"><thead><tr>
+      <th>الموقع</th><th>الباقة</th><th>بداية العقد</th><th>نهاية العقد</th><th>المسؤول / إيميل التقرير</th><th class="num">التشغيل الشهر ده</th><th>صفحة الحالة</th><th>التقرير</th><th></th>
+    </tr></thead><tbody id="caRows"><tr><td colspan="9" class="text-muted">بيحمّل…</td></tr></tbody></table>
+    <div class="ca-msg mt-2" id="caMsg" aria-live="polite"></div></div>
+  </div>
+
+  <div class="ca-card">
+    <div class="hd"><b>🛠️ إعلانات الصيانة</b><span class="small text-muted">بتظهر للعميل على صفحة الحالة. أثناء الصيانة، لو الموقع وقف، الصفحة بتقول «صيانة مجدولة» مش «عطل».</span></div>
+    <div class="bd">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-2"><label class="small text-muted">لمين</label><select id="nSite" class="form-select form-select-sm"><option value="all">كل العملاء</option></select></div>
+        <div class="col-md-4"><label class="small text-muted">العنوان</label><input id="nTitle" class="form-control form-control-sm" placeholder="تحديث النظام لنسخة جديدة — ممكن يقف ربع ساعة"></div>
+        <div class="col-md-2"><label class="small text-muted">من</label><input id="nStart" type="datetime-local" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="small text-muted">لحد</label><input id="nEnd" type="datetime-local" class="form-control form-control-sm"></div>
+        <div class="col-md-1"><label class="small text-muted">النوع</label><select id="nKind" class="form-select form-select-sm"><option value="maintenance">صيانة</option><option value="info">معلومة</option></select></div>
+        <div class="col-md-1"><button class="btn btn-sm ca-teal w-100" onclick="addNotice()">ضيف</button></div>
+      </div>
+      <div id="caNotices" class="small"></div>
+    </div>
+  </div>
+
+  <div class="ca-card">
+    <div class="hd"><b>📦 الباقات</b><button class="btn btn-sm ca-teal" onclick="savePlans()">احفظ الباقات</button></div>
+    <div class="bd"><div class="ca-plans" id="caPlans"></div>
+      <div class="small text-muted mt-2">هدف التشغيل بيتحسب من الفحص السريع اللي كل 15 دقيقة، وأي فحص فشل محسوب وقت توقف، حتى لو السبب الاستضافة أو النت عند العميل. اختار الهدف على حسب اللي تقدر تضمنه فعلًا.</div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const KEYS = ['basic', 'pro', 'premium'];
+let D = null;
+
+async function load() {
+  D = await fetch('/api/care').then(r => r.json());
+  const inPlan = D.clients.filter(c => c.plan);
+  el('kIn').textContent = inPlan.length;
+  const ending = inPlan.filter(c => c.days_left != null && c.days_left <= 30);
+  el('kEnd').textContent = ending.length; el('kEnd').className = ending.length ? 'warn' : '';
+  const miss = inPlan.filter(c => c.month && c.month.met === false);
+  el('kMiss').textContent = miss.length; el('kMiss').className = miss.length ? 'bad' : '';
+  const ups = inPlan.map(c => c.month && c.month.uptime).filter(x => x != null);
+  el('kUp').textContent = ups.length ? (ups.reduce((a, b) => a + b, 0) / ups.length).toFixed(2) + '%' : '—';
+  const opt = c => `<option value="">بدون باقة</option>` + KEYS.map(k => `<option value="${k}" ${c.plan === k ? 'selected' : ''}>${esc(D.plans[k].name)}</option>`).join('');
+  el('caRows').innerHTML = D.clients.map(c => {
+    const m = c.month, up = m && m.uptime != null ? m.uptime + '%' : '—';
+    const upCls = !m || m.met == null ? '' : m.met ? 'ca-ok' : 'ca-bad';
+    const left = c.days_left == null ? '' : c.days_left < 0 ? '<div class="ca-bad small">خلص</div>' : c.days_left <= 30 ? `<div class="ca-warn small">فاضل ${c.days_left} يوم</div>` : '';
+    const link = c.token ? `${location.origin}/status/${c.token}` : '';
+    return `<tr data-id="${esc(c.id)}">
+      <td><b>${esc(c.name)}</b><div class="small text-muted">${c.kind === 'client' ? 'موقع عميل' : 'موقع اختبار'}</div></td>
+      <td><select class="form-select form-select-sm" data-k="plan" aria-label="الباقة">${opt(c)}</select></td>
+      <td><input type="date" class="form-control form-control-sm" data-k="start" value="${esc(c.start)}" aria-label="بداية العقد"></td>
+      <td><input type="date" class="form-control form-control-sm" data-k="end" value="${esc(c.end)}" aria-label="نهاية العقد">${left}</td>
+      <td><input class="form-control form-control-sm mb-1" data-k="contact" value="${esc(c.contact)}" placeholder="اسم المسؤول" aria-label="المسؤول">
+          <input type="email" class="form-control form-control-sm" data-k="email" value="${esc(c.email)}" placeholder="إيميل التقرير الشهري" aria-label="إيميل التقرير" dir="ltr"></td>
+      <td class="num"><span class="${upCls}">${up}</span>${m && m.target ? `<div class="small text-muted">الهدف ${m.target}%</div>` : ''}</td>
+      <td>${link ? `<a href="${link}" target="_blank">افتح</a> · <a href="#" onclick="copyLink('${link}', this);return false">انسخ</a>
+          <div><label class="small text-muted"><input type="checkbox" data-k="show_version" ${c.show_version ? 'checked' : ''}> يظهر النسخة</label></div>` : '<span class="small text-muted">اختار باقة الأول</span>'}</td>
+      <td>${c.plan ? `<a href="/care/report?site=${encodeURIComponent(c.id)}&month=${D.month}" target="_blank">عرض</a> · <a href="/care/report.pdf?site=${encodeURIComponent(c.id)}&month=${D.month}">PDF</a>
+          · <a href="#" onclick="sendRep('${esc(c.id)}');return false">ابعت</a>` : ''}</td>
+      <td><button class="btn btn-sm ca-teal" onclick="saveRow(this)">احفظ</button></td></tr>`;
+  }).join('') || '<tr><td colspan="9" class="text-muted">لسه مفيش مواقع، ضيفها من <a href="/settings">الإعدادات ▸ المواقع</a></td></tr>';
+  el('nSite').innerHTML = '<option value="all">كل العملاء</option>' + D.clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  const names = Object.fromEntries(D.clients.map(c => [c.id, c.name]));
+  el('caNotices').innerHTML = D.notices.length ? D.notices.slice().reverse().map(n => `<div class="d-flex justify-content-between border-bottom py-1 gap-2">
+      <span>${n.kind === 'maintenance' ? '🛠️' : 'ℹ️'} <b>${esc(n.title)}</b> · ${n.site === 'all' ? 'كل العملاء' : esc(names[n.site] || n.site)} · ${esc((n.start || '').replace('T', ' '))} ← ${esc((n.end || '').replace('T', ' '))}</span>
+      <button class="btn btn-sm btn-link text-danger p-0" onclick="delNotice('${n.id}')">امسح</button></div>`).join('') : '<span class="text-muted">مفيش إعلانات.</span>';
+  el('caPlans').innerHTML = KEYS.map(k => { const p = D.plans[k]; return `<div class="ca-plan" data-plan="${k}">
+      <label>اسم الباقة</label><input class="form-control form-control-sm" data-p="name" value="${esc(p.name)}">
+      <label>السعر السنوي (يظهر في عرض الباقات)</label><input class="form-control form-control-sm" data-p="price" value="${esc(p.price)}" placeholder="مثلاً 12,000 ريال">
+      <div class="d-flex gap-2"><div><label>هدف التشغيل %</label><input type="number" step="0.1" min="90" max="100" class="form-control form-control-sm" data-p="uptime" value="${p.uptime}"></div>
+        <div><label>الرد خلال (ساعة)</label><input type="number" min="1" max="168" class="form-control form-control-sm" data-p="response_h" value="${p.response_h}"></div></div>
+      <label>المميزات (كل سطر ميزة)</label><textarea class="form-control form-control-sm" rows="5" data-p="features">${esc(p.features.join('\n'))}</textarea></div>`; }).join('');
+}
+
+function msg(t, bad) { el('caMsg').innerHTML = `<span class="${bad ? 'ca-bad' : 'ca-ok'}">${esc(t)}</span>`; }
+async function post(url, body) { return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})}).then(r => r.json()); }
+async function saveRow(b) {
+  const tr = b.closest('tr'), body = {};
+  tr.querySelectorAll('[data-k]').forEach(i => body[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value);
+  await post(`/api/care/client/${encodeURIComponent(tr.dataset.id)}`, body); msg('✓ اتحفظ'); load();
+}
+async function copyLink(t, a) { try { await navigator.clipboard.writeText(t); a.textContent = '✓ اتنسخ'; } catch (e) { prompt('انسخ اللينك:', t); } }
+async function sendRep(id) { msg('⏳ بيجهّز التقرير ويبعته…'); const r = await post(`/api/care/send/${encodeURIComponent(id)}`, {month: D.month}); msg(r.ok ? '✓ اتبعت' : (r.error || 'ما اتبعتش'), !r.ok); }
+async function addNotice() {
+  const r = await post('/api/care/notice', {site: el('nSite').value, title: el('nTitle').value, start: el('nStart').value, end: el('nEnd').value, kind: el('nKind').value});
+  if (!r.ok) return msg(r.error, true); el('nTitle').value = ''; load();
+}
+async function delNotice(id) { await post(`/api/care/notice/${id}/delete`); load(); }
+async function savePlans() {
+  const body = {};
+  document.querySelectorAll('[data-plan]').forEach(d => { const p = {}; d.querySelectorAll('[data-p]').forEach(i => p[i.dataset.p] = i.dataset.p === 'features' ? i.value.split('\n') : i.value); body[d.dataset.plan] = p; });
+  await post('/api/care/plans', body); msg('✓ الباقات اتحفظت'); load();
+}
+load();
+</script>
+{% endblock %}
