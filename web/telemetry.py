@@ -11,6 +11,10 @@ by the NQ ERP developers) sends:
   • zatca   — e-invoices: rejected / failed at once (alert), cleared / reported / warning counted (per day, 90 days)
   • db      — every 6 h, read only: last full / log backup, sizes, recovery model, free disk, failed jobs, slowest queries
               (alert once a day when the last full backup is older than BACKUP_H hours)
+  • books   — once a day, read only, checks fixed in NqTelemetry.cs: unbalanced entries, trial balance difference, … (alert when one
+              goes from clean to a problem)
+  • schema  — table → columns, in parts, when it changed: compared with the test site's → tables / columns missing here
+              (an update script that didn't run) — alert when new ones appear
 The same error is ONE item (numbers / ids blanked): how many times, how many users, first / last time, the latest stack.
 A new one → one alert (at most 6 an hour per site, the rest wait on the page) and an item in «دعم المطورين».
 
@@ -31,6 +35,10 @@ FILE = paths.DATA_DIR / "monitor" / "telemetry.json"
 KINDS = {"server": "خطأ سيرفر", "ajax": "طلب رجع 500", "js": "خطأ JavaScript"}
 KEEP, PER_MIN, ALERTS_PER_HOUR, MAX_BYTES = 300, 60, 6, 20_000
 BACKUP_H = 26
+BOOKS_AR = {"unbalanced": "قيود مش متزنة", "tb_diff": "فرق ميزان المراجعة", "empty": "قيود من غير سطور",
+            "bad_lines": "سطور فيها مدين ودائن مع بعض أو بالسالب", "parent_lines": "سطور على حساب رئيسي (ليه فروع)",
+            "dead_account_lines": "سطور على حساب ممسوح أو موقوف", "customer_lines": "سطور على حساب العملاء من غير العميل",
+            "future": "قيود بتاريخ في المستقبل"}
 ZATCA_AR = {"cleared": "اتقبلت (Clearance)", "reported": "اتبلغت (Reporting)", "warning": "اتقبلت بتحذير", "rejected": "اترفضت", "failed": "فشل الإرسال"}
 _lock, _rate, _alerts = threading.Lock(), {}, {}
 
@@ -109,7 +117,7 @@ def receive(site_id, items, now=None):
             if kind == "start":
                 s["starts"] = (s["starts"] + [{"at": at, **ver, "machine": _clip(x.get("machine"), 60)}])[-30:]
                 continue
-            if x.get("kind") in ("usage", "zatca", "db"):
+            if x.get("kind") in ("usage", "zatca", "db", "books", "schema"):
                 extra.extend(globals()["_" + x["kind"]](s, x, at))
                 continue
             typ, msg = _clip(x.get("type"), 150), _clip(x.get("message"), 1000)
@@ -206,6 +214,110 @@ def _db(s, x, at):
     return lines
 
 
+def _bad(k, v):
+    try:
+        return abs(float(v)) > 0.01 if k == "tb_diff" else float(v) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _books(s, x, at):
+    b = s.setdefault("books", {})
+    prev = b.get("checks") or {}
+    checks = {k: v for k, v in (x.get("checks") or {}).items() if k in BOOKS_AR}
+    b.update({"checks": checks, "not_allowed": {k: _clip(v, 200) for k, v in (x.get("not_allowed") or {}).items() if k in BOOKS_AR}, "at": at})
+    hist = b.setdefault("hist", {})
+    hist[at[:10]] = sum(1 for k, v in checks.items() if _bad(k, v))
+    for k in sorted(hist)[:-90]:
+        del hist[k]
+    new = [k for k, v in checks.items() if _bad(k, v) and not _bad(k, prev.get(k, 0))]
+    return [f"⚖️ {BOOKS_AR[k]}: {checks[k]}" for k in new]
+
+
+def _schema(s, x, at):
+    """the parts of one structure (same hash) are collected; when all arrived it becomes the site's schema"""
+    h, parts = _clip(x.get("hash"), 32), int(x.get("parts") or 1)
+    pend = s.setdefault("schema_parts", {})
+    if h not in pend:
+        pend.clear()                                                  # a newer structure started: drop the half-received one
+        pend[h] = {}
+    pend[h][str(int(x.get("part") or 0))] = {str(t)[:128]: str(c)[:8000] for t, c in (x.get("tables") or {}).items()}
+    if len(pend[h]) < parts:
+        return []
+    tables = {}
+    for part in pend.pop(h).values():
+        tables.update(part)
+    s["schema"] = {"hash": h, "at": at, "tables": {t: [c for c in cols.split(",") if c] for t, cols in tables.items()}}
+    return []
+
+
+def reference_site():
+    """the structure everything is compared with: the first test site that sent one"""
+    from web import monitor
+    d = _load()
+    return next((p["id"] for p in monitor._sites({}) if p.get("kind") == "test" and (d.get(p["id"]) or {}).get("schema")), None)
+
+
+def drift(site_id, ref=None):
+    """what the site's database lacks compared with the reference (test site) -> None when either has no structure"""
+    d = _load()
+    ref = ref or reference_site()
+    a, b = ((d.get(ref) or {}).get("schema") or {}).get("tables"), ((d.get(site_id) or {}).get("schema") or {}).get("tables")
+    if not a or not b or ref == site_id:
+        return None
+    low = lambda t: {k.lower(): v for k, v in t.items()}
+    a, b = low(a), low(b)
+    cols = lambda lst: {c.split(":")[0].lower(): c.split(":")[-1] for c in lst}
+    missing_tables = sorted(t for t in a if t not in b)
+    missing_cols, types = {}, {}
+    for t in a:
+        if t in b:
+            ca, cb = cols(a[t]), cols(b[t])
+            m = sorted(c for c in ca if c not in cb)
+            if m:
+                missing_cols[t] = m
+            ty = [f"{c}: {ca[c]} ← {cb[c]}" for c in ca if c in cb and ca[c] != cb[c]]
+            if ty:
+                types[t] = ty
+    return {"ref": ref, "missing_tables": missing_tables, "missing_cols": missing_cols, "types": types,
+            "extra_tables": len([t for t in b if t not in a]), "n_missing_cols": sum(len(v) for v in missing_cols.values()),
+            "at": ((d.get(site_id) or {}).get("schema") or {}).get("at")}
+
+
+def drift_alerts():
+    """new gaps in a client's database vs the test site → one alert per new gap (called by the background ticker)"""
+    from web import monitor
+    d, ref, lines = _load(), reference_site(), []
+    if not ref:
+        return
+    changed = False
+    for p in monitor._sites({}):
+        if p.get("kind") != "client":
+            continue
+        dr = drift(p["id"], ref)
+        if dr is None:
+            continue
+        now = set(dr["missing_tables"]) | {f"{t}.{c}" for t, cs in dr["missing_cols"].items() for c in cs}
+        s = d.setdefault(p["id"], {})
+        seen = set(s.get("drift_seen") or [])
+        new = sorted(now - seen)
+        if new:
+            lines.append(f"🧬 قاعدة {p.get('name')} ناقصها عن موقع الاختبار: " + "، ".join(new[:8]) + (f" و{len(new) - 8} كمان" if len(new) > 8 else "")
+                         + "\n   (غالبًا سكريبت تحديث القاعدة متنفذش عنده — هيطلع «Invalid column name» أول ما حد يفتح الشاشة)")
+        if now != seen:
+            s["drift_seen"] = sorted(now)
+            changed = True
+    if changed:
+        with _lock:
+            cur = _load()
+            for sid, s in d.items():
+                if "drift_seen" in s:
+                    cur.setdefault(sid, {})["drift_seen"] = s["drift_seen"]
+            _save(cur)
+    if lines:
+        monitor.broadcast("📡 مراقبة المواقع\n" + "\n".join(lines))
+
+
 def backup_age_h(last):
     try:
         return (datetime.now() - datetime.strptime(str(last.get("backup_full"))[:16], "%Y-%m-%d %H:%M")).total_seconds() / 3600
@@ -257,7 +369,11 @@ def inside(site_id, days=30):
     for k, v in use.items():
         mods[k.split("/")[0]] = mods.get(k.split("/")[0], 0) + v["n"]
     db = (s.get("db") or {})
-    return {"zatca": {"total": ztot, "sent": sent, "reject_rate": round(100 * (ztot["rejected"] + ztot["failed"]) / sent, 1) if sent else None,
+    bk = s.get("books") or {}
+    return {"books": {"checks": [{"key": k, "name": BOOKS_AR[k], "value": bk.get("checks", {}).get(k), "bad": _bad(k, bk.get("checks", {}).get(k)),
+                                  "na": bk.get("not_allowed", {}).get(k)} for k in BOOKS_AR], "at": bk.get("at")} if bk else None,
+            "drift": drift(site_id),
+            "zatca": {"total": ztot, "sent": sent, "reject_rate": round(100 * (ztot["rejected"] + ztot["failed"]) / sent, 1) if sent else None,
                       "days": dict(sorted(zdays.items())[-14:]), "issues": list(reversed(z.get("issues") or []))[:25], "labels": ZATCA_AR},
             "db": {**(db.get("last") or {}), "backup_age_h": backup_age_h(db.get("last") or {}), "sizes": dict(sorted((db.get("sizes") or {}).items())[-60:])} if db else None,
             "usage": {"top": top[:25], "users_day": dict(sorted(users_day.items())[-14:]), "unused_vs_others": [{"screen": k, "n_others": n} for k, n in unused],

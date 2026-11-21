@@ -187,6 +187,13 @@ def rollout(r):
             row["until"] = t1
             probs = ([f"{len(w['errors'])} خطأ جديد"] if w["errors"] else []) + ([f"وقع {len(w['downs'])} مرة"] if w["downs"] else []) \
                 + ([f"{len(w['broke'])} شاشة باظت"] if w["broke"] else []) + (["مشكلة رجعت تاني"] if w["regressed"] or w["screens_back"] else [])
+            try:
+                from web import telemetry
+                dr = telemetry.drift(p["id"], r["test_site"])
+                if dr and (dr["n_missing_cols"] or dr["missing_tables"]):          # the update didn't fully reach its database
+                    probs.append(f"القاعدة ناقصها {dr['n_missing_cols']} عمود و{len(dr['missing_tables'])} جدول عن موقع الاختبار")
+            except Exception:
+                pass
             if probs:
                 row.update({"status": "problem", "text": "فيه مشكلة: " + "، ".join(probs)})
             elif now < end:

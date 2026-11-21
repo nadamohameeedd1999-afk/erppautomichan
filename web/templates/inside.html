@@ -35,6 +35,10 @@
     <div class="in-card"><div class="hd"><b>🧾 الفواتير الإلكترونية (زاتكا)</b></div><div class="bd" id="inZ"></div></div>
     <div class="in-card"><div class="hd"><b>🗄️ قاعدة البيانات</b></div><div class="bd" id="inD"></div></div>
   </div>
+  <div class="in-grid">
+    <div class="in-card"><div class="hd"><b>⚖️ صحة الحسابات</b><span class="small text-muted">مرة في اليوم، قراءة بس</span></div><div class="bd" id="inB"></div></div>
+    <div class="in-card"><div class="hd"><b>🧬 القاعدة مقارنة بموقع الاختبار</b></div><div class="bd" id="inS"></div></div>
+  </div>
   <div class="in-card"><div class="hd"><b>👥 استخدام الشاشات</b><span class="small text-muted">الشاشة بتتحسب مرة كل ما موظف يفتحها</span></div><div class="bd" id="inU"></div></div>
   <div class="in-card"><div class="hd"><b>🎓 أسئلة العملاء للمدرب الذكي</b><span class="small text-muted">الشاشات اللي بيسألوا عنها كتير، أو المدرب مقدرش يجاوب فيها، غالبًا محتاجة تتوضح أو تتعدل</span></div>
     <div class="bd"><div id="inQ"></div>
@@ -93,6 +97,21 @@ async function load() {
       ${(db.slow || []).length ? `<div class="fw-bold mt-2 small">أبطأ الاستعلامات</div><div class="in-wrap"><table class="in-tbl"><thead><tr><th>الاستعلام</th><th class="num">مرات</th><th class="num">متوسط</th></tr></thead><tbody>
         ${db.slow.map(q => `<tr><td><code>${esc(q.query)}</code></td><td class="num">${num(q.count)}</td><td class="num">${num(q.avg_ms)} ms</td></tr>`).join('')}</tbody></table></div>` : na.slow ? '<div class="small text-muted mt-2">أبطأ الاستعلامات: حساب الاستضافة مش مسموحله يقراها.</div>' : ''}`;
   }
+  // books
+  const bk = d.books;
+  el('inB').innerHTML = !bk ? '<div class="in-empty">لسه مفيش فحص للحسابات. بيوصل مرة في اليوم من كود الربط.</div>'
+    : `<table class="in-tbl"><tbody>${bk.checks.map(c => `<tr><td>${c.na ? '—' : c.bad ? '⛔' : '✓'} ${esc(c.name)}</td>
+        <td class="num ${c.bad ? 'text-danger fw-bold' : ''}">${c.na ? '<span class="text-muted small" title="' + esc(c.na) + '">مش متاح</span>' : esc(num(c.value))}</td></tr>`).join('')}</tbody></table>
+       <div class="small text-muted mt-1">آخر فحص ${esc((bk.at || '').replace('T', ' ').slice(0, 16))} · أي رقم غير الصفر محتاج مراجعة، والتفاصيل في «فحص قاعدة البيانات» على نسخة من القاعدة.</div>`;
+  // schema drift
+  const dr = d.drift;
+  el('inS').innerHTML = !dr ? '<div class="in-empty">محتاج هيكل القاعدة من العميل ده ومن موقع الاختبار (بيوصلوا من كود الربط مرة في اليوم).</div>'
+    : !dr.n_missing_cols && !dr.missing_tables.length ? `<div class="text-success fw-bold">✓ القاعدة فيها كل جداول وأعمدة موقع الاختبار</div>${Object.keys(dr.types).length ? `<div class="small text-muted mt-1">${Object.keys(dr.types).length} جدول نوع عمود فيه مختلف</div>` : ''}`
+    : `<div class="text-danger fw-bold mb-1">ناقصها ${dr.missing_tables.length} جدول و${dr.n_missing_cols} عمود عن موقع الاختبار</div>
+       <div class="small text-muted mb-2">غالبًا سكريبت تحديث القاعدة متنفذش عند العميل ده. أي شاشة بتستخدمهم هتطلع «Invalid column name».</div>
+       <div class="in-wrap"><table class="in-tbl"><thead><tr><th>الجدول</th><th>الناقص</th></tr></thead><tbody>
+        ${dr.missing_tables.slice(0, 20).map(t => `<tr><td><code>${esc(t)}</code></td><td>الجدول كله</td></tr>`).join('')}
+        ${Object.entries(dr.missing_cols).slice(0, 30).map(([t, cs]) => `<tr><td><code>${esc(t)}</code></td><td><code>${esc(cs.join(', '))}</code></td></tr>`).join('')}</tbody></table></div>`;
   // usage
   const u = d.usage;
   if (!u || !u.top.length) el('inU').innerHTML = '<div class="in-empty">لسه مفيش استخدام متسجل. بيوصل كل 10 دقايق بعد ما الكود يتركب.</div>';

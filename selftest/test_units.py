@@ -1113,3 +1113,51 @@ def test_client_message_uses_menu_names(tmp_path, monkeypatch):
     assert A.screen_label("/Weird/X") == "إحدى شاشات النظام" and A.screen_label("كشف الحساب") == "كشف الحساب"
     t = A.client_message({"id": "z", "screen": "/Weird/X", "severity": "متوسطة", "title": "boom"})["text"]
     assert "/" not in t.split("\n")[1] and "إحدى شاشات النظام" in t
+
+
+def test_books_schema_drift_and_month_end(tmp_path, monkeypatch):
+    """⚖️ books from inside (alert when a check turns bad), 🧬 a client's database vs the test site (alert once, release problem), 🗓️ month-end load preset"""
+    import time as _t
+    from web import monitor as M, releases as R, telemetry as T, month_end as ME
+    from engine import load_test as L
+    profs = [{"id": "t", "name": "الاختبار", "base_url": "https://t.x", "kind": "test"}, {"id": "c", "name": "عميل", "base_url": "https://c.x", "kind": "client"}]
+    monkeypatch.setattr(M, "_sites", lambda cfg: profs)
+    for mod, attr, name in ((T, "FILE", "tel.json"), (R, "FILE", "rel.json"), (M, "STATE_FILE", "s.json"), (ME, "CFG", "me.json")):
+        monkeypatch.setattr(mod, attr, tmp_path / name)
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(T, "_alerts", {})
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    T.receive("c", {"kind": "books", "checks": {"unbalanced": 0, "tb_diff": 0.0, "empty": 0}, "not_allowed": {"customer_lines": "Invalid column name 'IsCustomer'"}})
+    assert not sent
+    T.receive("c", {"kind": "books", "checks": {"unbalanced": 3, "tb_diff": 1520.5, "empty": 0}})
+    assert "قيود مش متزنة: 3" in sent[-1] and "فرق ميزان المراجعة: 1520.5" in sent[-1]
+    n = len(sent)
+    T.receive("c", {"kind": "books", "checks": {"unbalanced": 4, "tb_diff": 1520.5, "empty": 0}})
+    assert len(sent) == n                                              # still bad: no repeat
+    b = {x["key"]: x for x in T.inside("c")["books"]["checks"]}
+    assert b["unbalanced"]["bad"] and not b["empty"]["bad"]
+    # the structure, in two parts each
+    for part, tables in ((0, {"JournalEntry": "Id:int,Date:datetime,IsDeleted:bit"}), (1, {"SalesInvoice": "Id:int,Qty2:decimal,Total:decimal", "NewTable": "Id:int"})):
+        T.receive("t", {"kind": "schema", "hash": "h1", "part": part, "parts": 2, "tables": tables})
+    T.receive("c", {"kind": "schema", "hash": "h2", "part": 0, "parts": 2, "tables": {"journalentry": "Id:int,Date:date"}})
+    assert T.drift("c") is None                                        # half received: nothing yet
+    T.receive("c", {"kind": "schema", "hash": "h2", "part": 1, "parts": 2, "tables": {"SalesInvoice": "Id:int,Total:decimal", "OldTable": "Id:int"}})
+    dr = T.drift("c")
+    assert dr["missing_tables"] == ["newtable"] and dr["missing_cols"] == {"journalentry": ["isdeleted"], "salesinvoice": ["qty2"]}
+    assert dr["types"] == {"journalentry": ["date: datetime ← date"]} and dr["extra_tables"] == 1 and dr["n_missing_cols"] == 2
+    T.drift_alerts()
+    assert "قاعدة عميل ناقصها عن موقع الاختبار" in sent[-1] and "salesinvoice.qty2" in sent[-1]
+    n = len(sent)
+    T.drift_alerts()
+    assert len(sent) == n                                              # once per gap
+    r = R.add("2.0", pilot=["c"], test_site="t")
+    T.receive("c", {"kind": "start", "version": "2.0"}, now=_t.time() - 3600)
+    assert "القاعدة ناقصها 2 عمود و1 جدول" in R.rollout(r)[0]["text"]
+    # 🗓️ month end: the heaviest reports join the load targets
+    st = {"times": {"/Sales/Index": 3.0, "/Report/TrialBalance": 9.0, "/Report/Payroll": 7.0, "/Report/Small": 1.0}, "names": {}, "broken": {}}
+    tg = L.targets("https://t.x", st, {}, n_screens=2, n_api=0, n_reports=2)
+    assert [t["kind"] for t in tg] == ["شاشة", "شاشة", "تقرير", "تقرير"] and tg[2]["url"].endswith("/Report/TrialBalance")
+    assert ME.PRESET["users"] == 20 and ME.PRESET["reports"] == 5
+    from engine import checks as C
+    assert C.normalize({**ME.PRESET})["reports"] == 5

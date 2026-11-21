@@ -255,6 +255,7 @@ def normalize(cfg):
     elif typ == "load":
         out.update({"users": max(1, min(20, int(cfg.get("users", 5) or 5))), "rounds": max(1, min(10, int(cfg.get("rounds", 3) or 3))),
                     "screens": max(0, min(20, int(cfg.get("screens", 6) or 6))), "apis": max(0, min(20, int(cfg.get("apis", 4) or 4))),
+                    "reports": max(0, min(10, int(cfg.get("reports", 0) or 0))),
                     "p95_ms": max(500.0, float(cfg.get("p95_ms", 8000) or 8000))})
     elif typ == "health":
         out.update({"skip": [x for x in _list(cfg.get("skip")) if x], "extra": [x for x in (_url(u) for u in _list(cfg.get("extra"))) if x],

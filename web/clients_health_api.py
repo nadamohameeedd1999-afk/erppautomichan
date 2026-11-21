@@ -63,3 +63,25 @@ def api_weekly_send():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
     return jsonify({"ok": bool(ok), "error": "" if ok else "الإيميل مش متظبط في الإعدادات ▸ الإيميل"})
+
+
+@bp.route("/api/clients/month-end", methods=["GET", "POST"])
+@auth.login_required
+def api_month_end():
+    """🗓️ the month-end load test: GET = settings, POST = save (admin)"""
+    from web import month_end
+    if request.method == "POST":
+        if (auth.current_user() or {}).get("role") != "admin":
+            return jsonify({"ok": False, "error": "للأدمن بس"}), 403
+        return jsonify({"ok": True, "config": month_end.save_cfg(request.get_json(silent=True) or {})})
+    return jsonify({"config": month_end.load_cfg()})
+
+
+@bp.route("/api/clients/month-end/run", methods=["POST"])
+@auth.login_required
+def api_month_end_run():
+    from web import month_end
+    if (auth.current_user() or {}).get("role") != "admin":
+        return jsonify({"ok": False, "error": "للأدمن بس"}), 403
+    n = month_end.run_now()
+    return jsonify({"ok": bool(n), "count": n, "error": "" if n else "مفيش مواقع اختبار"})

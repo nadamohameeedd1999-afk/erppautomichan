@@ -23,6 +23,11 @@
 //     <add key="NqTelemetryDb" value="name of the connection string" />, else the first one): last full / log backup,
 //     data + log size, recovery model, free disk, SQL Agent jobs failed in 24 h, the 5 slowest queries. A query the
 //     hosting account isn't allowed to run is skipped and reported as «not allowed».
+//   • the books once a day, READ ONLY, with checks written HERE (nothing is ever sent from the dashboard to run):
+//     unbalanced journal entries, the trial balance total, entries without lines, lines with debit and credit together
+//     or negative, lines on parent / deleted / inactive accounts, customer-account lines without the customer, future dates
+//   • the database structure (table → columns + types) once a day, or when it changes — the dashboard compares it with
+//     the test site's to find what an update script didn't create here («Invalid column name» before it happens)
 //
 //  Sent: error type + message (+ inner errors), the screen URL, the signed-in user NAME, the stack trace, the version,
 //  screen names + counts, ZATCA invoice numbers + statuses + ZATCA's message, the database numbers above.
@@ -58,7 +63,8 @@ public static class NqTelemetry
     }
 
     static Timer _timer;
-    static DateTime _lastDb = DateTime.MinValue;
+    static DateTime _lastDb = DateTime.MinValue, _lastBooks = DateTime.MinValue, _lastSchema = DateTime.MinValue;
+    static string _schemaHash = "";
     static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> UsageUsers = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
     static readonly ConcurrentDictionary<string, int> UsageCount = new ConcurrentDictionary<string, int>();
     static readonly ConcurrentDictionary<string, int> ZatcaOk = new ConcurrentDictionary<string, int>();
@@ -82,6 +88,12 @@ public static class NqTelemetry
             _lastDb = DateTime.Now;
             try { DbHealth(); } catch { }
         }
+        if (DateTime.Now - _lastBooks > TimeSpan.FromHours(24))
+        {
+            _lastBooks = DateTime.Now;
+            try { Books(); } catch { }
+        }
+        try { Schema(); } catch { }
     }
 
     /// <summary>One page opened (called by NqTelemetryFilter for actions that return a page).</summary>
@@ -134,11 +146,7 @@ public static class NqTelemetry
     /// <summary>Read-only health of the app's own database (SELECTs only; each one skipped if the account isn't allowed).</summary>
     public static void DbHealth()
     {
-        var name = ConfigurationManager.AppSettings["NqTelemetryDb"];
-        ConnectionStringSettings css = null;
-        if (!string.IsNullOrEmpty(name)) css = ConfigurationManager.ConnectionStrings[name];
-        if (css == null)
-            css = ConfigurationManager.ConnectionStrings.Cast<ConnectionStringSettings>().FirstOrDefault(c => c.Name != "LocalSqlServer" && !string.IsNullOrEmpty(c.ConnectionString));
+        var css = Conn();
         if (css == null) return;
         var d = new Dictionary<string, object> { { "kind", "db" } };
         try
@@ -170,6 +178,107 @@ public static class NqTelemetry
         }
         catch (Exception ex) { d["error"] = ex.Message; }
         Send(d);
+    }
+
+    static ConnectionStringSettings Conn()
+    {
+        var name = ConfigurationManager.AppSettings["NqTelemetryDb"];
+        ConnectionStringSettings css = null;
+        if (!string.IsNullOrEmpty(name)) css = ConfigurationManager.ConnectionStrings[name];
+        return css ?? ConfigurationManager.ConnectionStrings.Cast<ConnectionStringSettings>().FirstOrDefault(c => c.Name != "LocalSqlServer" && !string.IsNullOrEmpty(c.ConnectionString));
+    }
+
+    // key, then the query with the IsDeleted columns, then the same without them (older databases). Each returns ONE number;
+    // 0 = fine (tb_diff: the trial balance difference, fine under 0.01).
+    static readonly string[][] BookChecks = {
+        new[] { "unbalanced",
+            "SELECT COUNT(*) FROM (SELECT je.Id FROM JournalEntry je JOIN JournalEntryDetail d ON d.JournalEntryId = je.Id WHERE ISNULL(je.IsDeleted,0) = 0 AND ISNULL(d.IsDeleted,0) = 0 GROUP BY je.Id HAVING ABS(SUM(ISNULL(d.Debit,0)) - SUM(ISNULL(d.Credit,0))) > 0.005) z",
+            "SELECT COUNT(*) FROM (SELECT je.Id FROM JournalEntry je JOIN JournalEntryDetail d ON d.JournalEntryId = je.Id GROUP BY je.Id HAVING ABS(SUM(ISNULL(d.Debit,0)) - SUM(ISNULL(d.Credit,0))) > 0.005) z" },
+        new[] { "tb_diff",
+            "SELECT CAST(ISNULL(SUM(ISNULL(d.Debit,0)) - SUM(ISNULL(d.Credit,0)), 0) AS decimal(18,2)) FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id = d.JournalEntryId WHERE ISNULL(je.IsDeleted,0) = 0 AND ISNULL(d.IsDeleted,0) = 0",
+            "SELECT CAST(ISNULL(SUM(ISNULL(d.Debit,0)) - SUM(ISNULL(d.Credit,0)), 0) AS decimal(18,2)) FROM JournalEntryDetail d" },
+        new[] { "empty",
+            "SELECT COUNT(*) FROM JournalEntry je WHERE ISNULL(je.IsDeleted,0) = 0 AND NOT EXISTS (SELECT 1 FROM JournalEntryDetail d WHERE d.JournalEntryId = je.Id AND ISNULL(d.IsDeleted,0) = 0)",
+            "SELECT COUNT(*) FROM JournalEntry je WHERE NOT EXISTS (SELECT 1 FROM JournalEntryDetail d WHERE d.JournalEntryId = je.Id)" },
+        new[] { "bad_lines",
+            "SELECT COUNT(*) FROM JournalEntryDetail d WHERE ISNULL(d.IsDeleted,0) = 0 AND ((ISNULL(d.Debit,0) <> 0 AND ISNULL(d.Credit,0) <> 0) OR d.Debit < 0 OR d.Credit < 0)",
+            "SELECT COUNT(*) FROM JournalEntryDetail d WHERE (ISNULL(d.Debit,0) <> 0 AND ISNULL(d.Credit,0) <> 0) OR d.Debit < 0 OR d.Credit < 0" },
+        new[] { "parent_lines",
+            "SELECT COUNT(*) FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id = d.JournalEntryId WHERE ISNULL(je.IsDeleted,0) = 0 AND ISNULL(d.IsDeleted,0) = 0 AND EXISTS (SELECT 1 FROM ChartOfAccount c WHERE c.ParentId = d.AccountId AND ISNULL(c.IsDeleted,0) = 0)",
+            "SELECT COUNT(*) FROM JournalEntryDetail d WHERE EXISTS (SELECT 1 FROM ChartOfAccount c WHERE c.ParentId = d.AccountId)" },
+        new[] { "dead_account_lines",
+            "SELECT COUNT(*) FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id = d.JournalEntryId JOIN ChartOfAccount a ON a.Id = d.AccountId WHERE ISNULL(je.IsDeleted,0) = 0 AND ISNULL(d.IsDeleted,0) = 0 AND (ISNULL(a.IsDeleted,0) = 1 OR a.IsActive = 0)",
+            "SELECT COUNT(*) FROM JournalEntryDetail d JOIN ChartOfAccount a ON a.Id = d.AccountId WHERE a.IsActive = 0" },
+        new[] { "customer_lines",
+            "SELECT COUNT(*) FROM JournalEntryDetail d JOIN JournalEntry je ON je.Id = d.JournalEntryId JOIN ChartOfAccount a ON a.Id = d.AccountId WHERE ISNULL(je.IsDeleted,0) = 0 AND ISNULL(d.IsDeleted,0) = 0 AND a.IsCustomer = 1 AND ISNULL(d.CustomerId,0) = 0",
+            "SELECT COUNT(*) FROM JournalEntryDetail d JOIN ChartOfAccount a ON a.Id = d.AccountId WHERE a.IsCustomer = 1 AND ISNULL(d.CustomerId,0) = 0" },
+        new[] { "future",
+            "SELECT COUNT(*) FROM JournalEntry je WHERE ISNULL(je.IsDeleted,0) = 0 AND je.Date > DATEADD(day, 1, GETDATE())",
+            "SELECT COUNT(*) FROM JournalEntry je WHERE je.Date > DATEADD(day, 1, GETDATE())" },
+    };
+
+    /// <summary>The books, read only, once a day (checks fixed in this file).</summary>
+    public static void Books()
+    {
+        var css = Conn();
+        if (css == null) return;
+        var res = new Dictionary<string, object>();
+        var na = new Dictionary<string, object>();
+        using (var cn = new SqlConnection(css.ConnectionString))
+        {
+            cn.Open();
+            foreach (var c in BookChecks)
+            {
+                string err = null;
+                for (int i = 1; i < c.Length; i++)
+                {
+                    try
+                    {
+                        using (var cmd = new SqlCommand(c[i], cn) { CommandTimeout = 120 })
+                        {
+                            var v = cmd.ExecuteScalar();
+                            res[c[0]] = v == null || v == DBNull.Value ? 0 : v;
+                            err = null;
+                            break;
+                        }
+                    }
+                    catch (Exception ex) { err = ex.Message; }
+                }
+                if (err != null) na[c[0]] = err.Length > 200 ? err.Substring(0, 200) : err;
+            }
+        }
+        Send(new Dictionary<string, object> { { "kind", "books" }, { "checks", res }, { "not_allowed", na } });
+    }
+
+    /// <summary>table → "column:type,…" from INFORMATION_SCHEMA, sent in parts when it changed (or once a day).</summary>
+    public static void Schema()
+    {
+        var css = Conn();
+        if (css == null) return;
+        var tables = new SortedDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        using (var cn = new SqlConnection(css.ConnectionString))
+        {
+            cn.Open();
+            using (var cmd = new SqlCommand("SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' ORDER BY TABLE_NAME, ORDINAL_POSITION", cn) { CommandTimeout = 60 })
+            using (var r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    List<string> cols;
+                    if (!tables.TryGetValue(r.GetString(0), out cols)) tables[r.GetString(0)] = cols = new List<string>();
+                    cols.Add(r.GetString(1) + ":" + r.GetString(2));
+                }
+        }
+        var flat = tables.ToDictionary(t => t.Key, t => string.Join(",", t.Value));
+        string hash;
+        using (var sha = System.Security.Cryptography.SHA1.Create())
+            hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(string.Join("|", flat.Select(kv => kv.Key + "=" + kv.Value))))).Replace("-", "").Substring(0, 16);
+        if (hash == _schemaHash && DateTime.Now - _lastSchema < TimeSpan.FromHours(24)) return;
+        _schemaHash = hash;
+        _lastSchema = DateTime.Now;
+        var parts = flat.Select((kv, i) => new { kv, i }).GroupBy(x => x.i / 40).ToList();
+        for (int p = 0; p < parts.Count; p++)
+            Send(new Dictionary<string, object> { { "kind", "schema" }, { "hash", hash }, { "part", p }, { "parts", parts.Count },
+                                                  { "tables", parts[p].ToDictionary(x => x.kv.Key, x => x.kv.Value) } });
     }
 
     static void One(SqlConnection cn, Dictionary<string, object> d, string key, string sql)

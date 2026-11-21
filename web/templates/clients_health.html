@@ -50,6 +50,21 @@
       {% else %}<div class="small text-muted">ملخص الصبح والتقرير الأسبوعي بيظبطهم الأدمن.</div>{% endif %}
     </div>
   </div>
+
+  {% if current_user and current_user.role == 'admin' %}
+  <div class="ch-card">
+    <div class="hd"><b>🗓️ ضغط آخر الشهر</b><a class="small" href="/reports">النتايج في التقارير ↗</a></div>
+    <div class="bd">
+      <div class="small text-muted mb-2">مرة كل شهر، قبل ما العملاء يقفلوا الشهر، اختبار الحمل بيشتغل على مواقع الاختبار بنفس ضغط آخر الشهر: 20 مستخدم في نفس اللحظة × 5 مرات على أبطأ الشاشات وطلبات البيانات وأتقل 5 تقارير (قراءة بس). لو حاجة بطّأت أو وقعت تحت الضغط، صلّحها قبل ما تحصل عند العميل.</div>
+      <div class="ch-opts"><label class="d-flex gap-1 align-items-center"><input type="checkbox" id="meOn"> شغّله لوحده يوم</label>
+        <input type="number" id="meDay" class="form-control form-control-sm" style="width:70px" min="1" max="28" aria-label="اليوم"> <span>من كل شهر الساعة</span>
+        <input type="time" id="meAt" class="form-control form-control-sm" aria-label="الساعة">
+        <button class="btn btn-sm ch-teal" onclick="meSave()">احفظ</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="meRun()">شغّله دلوقتي</button>
+        <span class="small" id="meMsg" aria-live="polite"></span></div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block extra_js %}
@@ -80,6 +95,9 @@ async function preview() { const r = await fetch('/api/clients/morning').then(x 
 async function sendMorning() { const r = await post('/api/clients/morning'); el('chPre').hidden = false; el('chPre').textContent = r.text;
   el('chMsg').innerHTML = r.sent && r.sent.length ? `<span class="text-success">✓ اتبعت على: ${esc(r.sent.join('، '))}</span>` : '<span class="text-danger">مفيش قناة تنبيه شغالة. ظبطها من الإعدادات ▸ التنبيهات</span>'; }
 async function sendWeekly() { el('chMsg').textContent = '⏳ بيجهّز التقرير…'; const r = await post('/api/clients/weekly/send'); el('chMsg').innerHTML = r.ok ? '<span class="text-success">✓ اتبعت</span>' : `<span class="text-danger">${esc(r.error)}</span>`; }
-load();
+async function meLoad() { if (!el('meOn')) return; const r = await fetch('/api/clients/month-end').then(x => x.json()); el('meOn').checked = r.config.on; el('meDay').value = r.config.day; el('meAt').value = r.config.at; }
+async function meSave() { await post('/api/clients/month-end', {on: el('meOn').checked, day: +el('meDay').value, at: el('meAt').value}); el('meMsg').innerHTML = '<span class="text-success">✓ اتحفظ</span>'; }
+async function meRun() { const r = await post('/api/clients/month-end/run'); el('meMsg').innerHTML = r.ok ? `<span class="text-success">✓ اتحط في الطابور على ${r.count} موقع</span>` : `<span class="text-danger">${esc(r.error)}</span>`; }
+load(); meLoad();
 </script>
 {% endblock %}

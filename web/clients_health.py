@@ -157,6 +157,20 @@ def morning_text():
             oldbk.append(f"{p.get('name')} ({age:.0f} س)")
     if zrej:
         lines.append(f"🧾 امبارح: {zrej} فاتورة اترفضت أو فشل إرسالها لزاتكا")
+    books_bad, gaps = [], []
+    for p in sites:
+        t = tel.get(p["id"]) or {}
+        nb = sum(1 for k, v in ((t.get("books") or {}).get("checks") or {}).items() if telemetry._bad(k, v))
+        if nb:
+            books_bad.append(f"{p.get('name')} ({nb})")
+        if p.get("kind") == "client":
+            dr = telemetry.drift(p["id"])
+            if dr and (dr["n_missing_cols"] or dr["missing_tables"]):
+                gaps.append(f"{p.get('name')} ({dr['n_missing_cols'] + len(dr['missing_tables'])})")
+    if books_bad:
+        lines.append("⚖️ مشاكل في الحسابات: " + "، ".join(books_bad))
+    if gaps:
+        lines.append("🧬 قواعد ناقصها حاجات عن موقع الاختبار: " + "، ".join(gaps))
     if oldbk:
         lines.append("🗄️ نسخ احتياطي قديم: " + "، ".join(oldbk))
     overdue = _overdue_tickets()
@@ -230,6 +244,10 @@ def auto_tick(now=None):
             except Exception as e:
                 print(f"[health] weekly: {e}", flush=True)
         _overdue_alerts()
+        if time.time() - _last.get("drift", 0) > 3600:               # 🧬 new gaps in a client's database vs the test site
+            _last["drift"] = time.time()
+            from web import telemetry
+            telemetry.drift_alerts()
         if changed:
             save_json(CFG, {**(load_json(CFG, {}) or {}), "sent": sent})
     except Exception as e:

@@ -29,13 +29,16 @@ def _pct(vals, q):
     return v[min(len(v) - 1, int(len(v) * q))] if v else 0
 
 
-def targets(base, health_state, api_state, n_screens=6, n_api=4):
+def targets(base, health_state, api_state, n_screens=6, n_api=4, n_reports=0):
     out = [{"url": urljoin(base + "/", "Home"), "name": "الصفحة الرئيسية", "kind": "شاشة"}]
     names = (health_state or {}).get("names") or {}
     times = (health_state or {}).get("times") or {}
     broken = set((health_state or {}).get("broken") or {})
     for p, _ in sorted(((p, t) for p, t in times.items() if p not in broken and "/report/" not in p.lower()), key=lambda x: -x[1])[:n_screens]:
         out.append({"url": urljoin(base + "/", p.lstrip("/")), "name": names.get(p, p), "kind": "شاشة"})
+    # 🗓️ month end: the heaviest reports too (trial balance, statements, payroll…) — the slowest ones first
+    for p, _ in sorted(((p, t) for p, t in times.items() if p not in broken and "/report/" in p.lower()), key=lambda x: -x[1])[:n_reports]:
+        out.append({"url": urljoin(base + "/", p.lstrip("/")), "name": names.get(p, p), "kind": "تقرير"})
     apis = sorted(((v.get("ms") or 0, v.get("url")) for v in (api_state or {}).values() if isinstance(v, dict) and v.get("url")), reverse=True)
     for _, u in apis[:n_api]:
         out.append({"url": u if u.startswith("http") else urljoin(base + "/", u.lstrip("/")), "name": u.split("?")[0][-60:], "kind": "طلب بيانات"})
@@ -91,7 +94,7 @@ def run_load(driver, credentials, cfg, result=None):
         api_state = json.loads((STATE / f"api_{_site_key()}.json").read_text(encoding="utf-8"))
     except Exception:
         api_state = {}
-    tg = targets(base, load_state(), api_state, int(cfg.get("screens") or 6), int(cfg.get("apis") or 4))
+    tg = targets(base, load_state(), api_state, int(cfg.get("screens") or 6), int(cfg.get("apis") or 4), int(cfg.get("reports") or 0))
 
     # can every user have its own session?
     probe = _hit(_session(cookies, False, ua), tg[0]["url"])
