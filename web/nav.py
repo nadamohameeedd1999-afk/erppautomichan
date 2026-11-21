@@ -27,6 +27,7 @@ SECTIONS = [
         ('health', ['checks.health_page'], '/health', 'bi-heart-pulse', 'صحة النظام', 'System health', 'كل الشاشات بتفتح؟ السرعة الحقيقية؟ الحسابات متزنة؟ + تقرير للعميل', 'Do all screens open? Real speed? Balanced books? + client report'),
         ('readiness', ['checks.readiness_page'], '/readiness', 'bi-stoplights', 'جاهزية الإصدار', 'Release readiness', 'درجة من 100 وقرار: ينفع ينزل / بحذر / متنشرش', 'Score /100 and a go / care / no-go verdict'),
         ('golive', ['golive.page'], '/go-live', 'bi-rocket-takeoff', 'اختبار الاستلام', 'Go-Live acceptance', 'زرار واحد قبل تسليم موقع العميل: الشاشات والأسماء واللينكات والتقارير والسرعة والحمل والحسابات والكود — حكم لكل جزء وتقرير للمطورين', 'One button before handing a client site over: screens, names, links, reports, speed, load, books, code — a verdict per area and a developer report'),
+        ('monitor', ['monitor.page'], '/monitor', 'bi-broadcast', 'مراقبة المواقع', 'Site monitor', 'كل موقع (والعملاء) بيتفحص كل 15 دقيقة — قراءة بس: واقع؟ بطيء؟ الشهادة هتخلص؟ — وتنبيه واتساب / إيميل قبل ما العميل يكلمك', 'Every site (clients too) checked every 15 minutes, read only: down? slow? certificate expiring? — WhatsApp / e-mail alert before the client calls'),
         ('xray', ['xray.page'], '/xray', 'bi-radioactive', 'أشعة النظام', 'System X-ray', 'قراءة الموقع من بره: روابط غلط، مكتبات فيها ثغرات، أمان، لغة، صور الشاشات، نت ضعيف + مقارنة موقعين', 'Read the site from outside: wrong links, vulnerable libraries, security, language, screenshots, slow network + compare two sites'),
     ]),
     ('compare', 'المقارنات', 'Compare', [
@@ -64,7 +65,7 @@ HIDDEN = {"map", "autohealth", "diag"}
 
 
 # pages that answer one question together: each one shows the others as tabs on top («فحص الموقع» · «المقارنات»)
-HUBS = {"health": ["health", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
+HUBS = {"health": ["health", "monitor", "readiness", "golive", "xray"], "compare": ["repcmp", "compare", "envcmp", "impact"]}
 
 
 def hub_tabs(endpoint, lang):

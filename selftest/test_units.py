@@ -638,3 +638,34 @@ def test_migration_compare():
     assert st == {"الصندوق": "same", "البنك الأهلي": "diff", "ناقص": "missing"} and r["src_balanced"] is True and not r["ok"]
     assert M._num("(1,250.50)") == -1250.5 and M._num("٣٠٠") == 300
     assert M.guess(["كود", "اسم الحساب", "رصيد مدين", "رصيد دائن"]) == {"code": 0, "name": 1, "debit": 2, "credit": 3}
+
+
+def test_site_monitor_states_and_alerts(tmp_path, monkeypatch):
+    """📡 down only after 2 fails in a row, slow after 3, one alert per change, certificate once a day; read only (GET)"""
+    from web import monitor as M
+    monkeypatch.setattr(M, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(M, "load_config", lambda: {**M.DEFAULTS, "slow_ms": 5000})
+    monkeypatch.setattr(M, "_sites", lambda cfg: [{"id": "c1", "name": "عميل", "base_url": "https://c.example", "kind": "client"}])
+    monkeypatch.setattr(M, "ssl_days", lambda url: 10)
+    seq, sent = [], []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    LOGIN = '<form><input type="password"></form>'
+    monkeypatch.setattr(M, "_get", lambda url, timeout: seq.pop(0) if url.endswith("/") else (200, 50, LOGIN, url))
+
+    def go(*r):
+        seq.extend(r)
+        return M.run_once()["c1"]["v"]
+
+    assert go((200, 300, LOGIN, "x")) == "up"
+    assert len(sent) == 1 and "شهادة" in sent[0]                 # certificate: 10 days left -> warned once today
+    assert go((0, 30000, "timed out", "x")) == "up"              # one blip: no alert
+    assert go((503, 200, "", "x")) == "down" and "واقع" in sent[-1] and "503" in sent[-1]
+    assert go((500, 200, "", "x")) == "down" and len(sent) == 2   # still down: no repeat
+    assert go((200, 400, "<p>ok</p>", "https://c.example/Account/Login")) == "up" and "رجع" in sent[-1]
+    for _ in range(2):
+        assert go((200, 7000, LOGIN, "x")) == "up"
+    assert go((200, 7000, LOGIN, "x")) == "slow" and "بطيء" in sent[-1]
+    assert go((200, 200, "Server Error in '/' Application", "x")) == "slow"   # error page: a fail (one so far)
+    assert M._state()["c1"]["last"]["why"].startswith("صفحة خطأ")
+    s = M.summary()["sites"][0]
+    assert s["checks"] == 9 and s["uptime"] is not None and len(s["incidents"]) == 3 and s["incidents"][0]["v"] == "slow"

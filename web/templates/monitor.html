@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}مراقبة المواقع - {{ site_name }}{% endblock %}
+{% block extra_css %}
+<style>
+  .mo-card { background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 12px; margin-bottom: 14px; min-width: 0; }
+  .mo-card > .hd { padding: 12px 16px; border-bottom: 1px solid var(--g-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mo-card > .bd { padding: 14px 16px; }
+  .mo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .mo-site { border: 1px solid var(--g-line); border-radius: 12px; padding: 14px 16px; min-width: 0; background: var(--g-panel); }
+  .mo-site.down { border-color: var(--g-bad, #C0392B); } .mo-site.slow { border-color: var(--g-warn, #B7791F); }
+  .mo-site .nm { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .mo-site .nm b { font-size: 16px; color: var(--g-head); } .mo-site .u { font-size: 12px; color: var(--g-muted); overflow-wrap: anywhere; direction: ltr; text-align: end; }
+  .mo-pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .mo-pill.up { background: rgba(15,124,122,.12); color: var(--g-ok, #0F7C7A); } .mo-pill.down { background: rgba(192,57,43,.12); color: var(--g-bad, #C0392B); }
+  .mo-pill.slow { background: rgba(183,121,31,.14); color: var(--g-warn, #B7791F); } .mo-pill.none { background: var(--g-hover); color: var(--g-muted); }
+  .mo-kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 8px; text-align: center; font-variant-numeric: tabular-nums; }
+  .mo-kv b { display: block; font-size: 16px; color: var(--g-head); } .mo-kv span { font-size: 12px; color: var(--g-muted); }
+  .mo-kv b.bad { color: var(--g-bad, #C0392B); } .mo-kv b.warn { color: var(--g-warn, #B7791F); }
+  .mo-spark { display: flex; align-items: flex-end; gap: 2px; height: 34px; margin: 6px 0; }
+  .mo-spark i { flex: 1; background: var(--g-acc, #0F7C7A); opacity: .55; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .mo-spark i.x { background: var(--g-bad, #C0392B); opacity: 1; height: 100% !important; }
+  .mo-why { font-size: 13px; color: var(--g-bad, #C0392B); margin-top: 4px; }
+  .mo-inc { font-size: 12px; color: var(--g-muted); margin-top: 8px; border-top: 1px solid var(--g-line); padding-top: 6px; }
+  .mo-inc div { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+  .mo-opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .mo-opts input[type=number] { width: 90px; display: inline-block; }
+  .mo-teal { background: var(--g-acc, #0F7C7A); color: #fff !important; border: 0; }
+  .mo-empty { color: var(--g-muted); text-align: center; padding: 22px; }
+  @media (max-width: 480px) { .mo-kv { grid-template-columns: repeat(2, 1fr); } .mo-card > .bd { padding: 12px; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="small text-muted mb-3">كل موقع (موقع الاختبار ومواقع العملاء) بيتفحص لوحده كل شوية — قراءة بس، من غير دخول ولا أي تعديل: الموقع بيرد؟ صفحة الدخول ظاهرة؟ في صفحة خطأ؟ بيرد في قد إيه؟ شهادة HTTPS فاضلها كام يوم؟ ولو موقع وقع (مرتين ورا بعض) أو بقى بطيء (3 مرات ورا بعض) أو رجع اشتغل، بيوصلك تنبيه على القنوات اللي في <a href="/settings">الإعدادات ▸ التنبيهات</a> (واتساب / تليجرام / إيميل / Webhook).</div>
+
+  <div class="mo-card">
+    <div class="hd"><b>📡 مراقبة المواقع</b>
+      <div class="d-flex gap-2 align-items-center"><span class="small text-muted" id="moInfo" aria-live="polite"></span>
+        <button class="btn btn-sm mo-teal" id="moRun" onclick="moRun()"><i class="bi bi-arrow-repeat"></i> افحص دلوقتي</button></div>
+    </div>
+    {% if current_user and current_user.role == 'admin' %}
+    <div class="bd mo-opts">
+      <label class="d-flex gap-1 align-items-center"><input type="checkbox" id="moOn"> المراقبة شغالة</label>
+      <label>كل <input type="number" id="moEvery" class="form-control form-control-sm" min="5" max="240"> دقيقة</label>
+      <label>بطيء لو أكتر من <input type="number" id="moSlow" class="form-control form-control-sm" min="1" max="60" step="0.5"> ثانية</label>
+      <label>نبّه عن الشهادة قبل <input type="number" id="moSsl" class="form-control form-control-sm" min="1" max="60"> يوم</label>
+      <button class="btn btn-sm btn-outline-secondary" onclick="moSave()">احفظ</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mo-grid" id="moSites"></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const VN = {up: '● شغال', down: '● واقع', slow: '● بطيء', none: 'لسه مفيش فحص'};
+const sec = ms => ms == null ? '—' : (ms / 1000).toFixed(1) + ' ث';
+const when = t => t ? new Date(t).toLocaleString('ar-EG', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '—';
+let first = true, poll = null;
+
+function card(s) {
+  const L = s.last || {}, max = Math.max(1, ...s.spark.filter(x => x != null));
+  const ssl = L.ssl_days, sslCls = ssl == null ? '' : ssl < 0 ? 'bad' : ssl <= 14 ? 'warn' : '';
+  const up = s.uptime, upCls = up == null ? '' : up < 95 ? 'bad' : up < 99 ? 'warn' : '';
+  const inc = (s.incidents || []).map(i => `<div><span><span class="mo-pill ${i.v}" style="padding:0 6px">${VN[i.v] || i.v}</span>${i.why ? ' — ' + esc(i.why) : ''}</span><span>${when(i.at)}</span></div>`).join('');
+  return `<div class="mo-site ${s.v}">
+    <div class="nm"><div style="min-width:0"><b>${esc(s.name)}</b><div class="u">${esc(s.url)}</div></div><span class="mo-pill ${s.v}">${VN[s.v] || s.v}</span></div>
+    ${L.why && s.v !== 'up' ? `<div class="mo-why">${esc(L.why)}</div>` : ''}
+    <div class="mo-kv">
+      <div><b>${sec(L.ms)}</b><span>آخر رد</span></div>
+      <div><b>${sec(s.avg_ms)}</b><span>المتوسط 24 س</span></div>
+      <div><b class="${upCls}">${up == null ? '—' : up + '%'}</b><span>شغال من الوقت</span></div>
+      <div><b class="${sslCls}">${ssl == null ? '—' : ssl < 0 ? 'خلصت' : ssl + ' يوم'}</b><span>شهادة HTTPS</span></div>
+    </div>
+    ${s.spark.length ? `<div class="mo-spark" role="img" aria-label="وقت الرد في آخر ${s.spark.length} فحص">${s.spark.map(x => x == null ? '<i class="x"></i>' : `<i style="height:${Math.max(6, 100 * x / max)}%"></i>`).join('')}</div>` : ''}
+    <div class="small text-muted">آخر فحص: ${when(L.at)} · ${s.checks} فحص${s.since ? ' · الحالة دي من ' + when(s.since) : ''} · ${s.kind === 'client' ? 'موقع عميل' : 'موقع اختبار'}</div>
+    ${inc ? `<div class="mo-inc"><b>آخر التغييرات</b>${inc}</div>` : ''}
+  </div>`;
+}
+
+async function moLoad() {
+  const r = await fetch('/api/monitor').then(x => x.json()).catch(() => null);
+  if (!r) return;
+  const c = r.config;
+  if (first && el('moOn')) { el('moOn').checked = !!c.on; el('moEvery').value = c.every_min; el('moSlow').value = c.slow_ms / 1000; el('moSsl').value = c.ssl_days; }
+  first = false;
+  el('moSites').innerHTML = r.sites.length ? r.sites.map(card).join('')
+    : '<div class="mo-empty">لسه مفيش مواقع — ضيف موقع من <a href="/settings">الإعدادات ▸ المواقع</a></div>';
+  const down = r.sites.filter(s => s.v === 'down').length;
+  el('moInfo').textContent = r.busy ? '⏳ بيفحص دلوقتي…' : !c.on ? 'المراقبة متوقفة' : down ? `${down} موقع واقع` : `كل ${c.every_min} دقيقة`;
+  el('moRun').disabled = r.busy;
+  clearTimeout(poll); poll = setTimeout(moLoad, r.busy ? 3000 : 60000);
+}
+async function moRun() { await fetch('/api/monitor/run', {method: 'POST'}); setTimeout(moLoad, 800); }
+async function moSave() {
+  await fetch('/api/monitor/settings', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({on: el('moOn').checked, every_min: +el('moEvery').value, slow_ms: Math.round(+el('moSlow').value * 1000), ssl_days: +el('moSsl').value})});
+  el('moInfo').textContent = '✓ اتحفظ'; setTimeout(moLoad, 1200);
+}
+moLoad();
+</script>
+{% endblock %}

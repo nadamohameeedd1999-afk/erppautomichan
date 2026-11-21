@@ -22,7 +22,7 @@ def now():
 
 def _loop():
     while True:
-        for name, mod in (("daily-report", "daily_report"), ("monthly-report", "monthly_report"), ("backup", "backup")):
+        for name, mod in (("daily-report", "daily_report"), ("monthly-report", "monthly_report"), ("backup", "backup"), ("monitor", "monitor")):
             try:
                 __import__(f"web.{mod}", fromlist=["auto_tick"]).auto_tick(now())
             except Exception as e:
