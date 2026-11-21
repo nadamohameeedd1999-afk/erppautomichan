@@ -35,7 +35,8 @@ from config.storage import load_json, save_json
 CFG_FILE = paths.settings_file("monitor.json")
 STATE_FILE = paths.DATA_DIR / "monitor" / "state.json"
 DEFAULTS = {"on": True, "every_min": 15, "slow_ms": 8000, "sites": [], "ssl_days": 14,      # sites: [] = every site in Settings
-            "deep_on": True, "deep_every_h": 3, "deep_clients": False, "deep_limit": 400}
+            "deep_on": True, "deep_every_h": 3, "deep_clients": False, "deep_limit": 400,
+            "tokens": {}}                                       # tokens: {site id: the secret part of its error-report link} (web/telemetry.py)
 KEEP = 96                                                     # 24 h of 15-minute checks
 ERROR_PAGE = re.compile(r"Server Error in '/' Application|Runtime Error|HTTP Error 50\d|Service Unavailable|The resource cannot be found", re.I)
 _lock, _busy, _last = threading.Lock(), {"on": False, "deep": False}, {"t": 0.0, "deep": 0.0}
@@ -315,8 +316,16 @@ def summary():
                     "avg_ms": int(sum(x["ms"] for x in oks) / len(oks)) if oks else None,
                     "spark": [None if not x["ok"] else x["ms"] for x in h[-48:]],
                     "incidents": list(reversed((s.get("incidents") or [])[-5:])),
-                    "deep": s.get("deep"), "deep_reason": deep_reason(p, cfg)})
-    return {"config": cfg, "sites": out}
+                    "deep": s.get("deep"), "deep_reason": deep_reason(p, cfg), "inside": _inside(p["id"])})
+    return {"config": {k: v for k, v in cfg.items() if k != "tokens"}, "sites": out}      # the links are secret: admin only, on their own
+
+
+def _inside(site_id):
+    try:
+        from web import telemetry
+        return telemetry.site_summary(site_id)
+    except Exception:
+        return None
 
 
 def auto_tick(now=None):

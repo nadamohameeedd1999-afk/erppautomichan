@@ -281,6 +281,12 @@ def collect():
             dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
     except Exception:
         pass
+    try:                                                          # 🛰️ NQ ERP's own errors, reported from inside the system
+        from web.telemetry import support_issues as tel_issues
+        for it in tel_issues():
+            dev.setdefault(it["id"], {**it, "count": 1, "first": it["found"], "last": it["found"], "run_id": "", "runs": []})
+    except Exception:
+        pass
     for m in _load("support_manual.json", []):
         dev.setdefault(m["id"], {**m, "source": "اتضافت يدويًا", "count": 1, "first": m.get("found", ""), "last": m.get("found", ""), "run_id": "", "runs": []})
     return _finish(dev, "dev"), _finish(tool, "tool")

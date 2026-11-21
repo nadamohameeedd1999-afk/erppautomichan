@@ -99,8 +99,8 @@ def logout_user():
 # user   = يشغّل ويعدّل الاختبارات (مش الإعدادات ولا المستخدمين)
 # viewer = يشوف بس
 ROLES = {"admin": "أدمن", "user": "مستخدم", "viewer": "مشاهد"}
-_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/simulation/settings", "/simulation/api/settings", "/api/monitor/settings")
-_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/healthz", "/static", "/media", "/uat/s/", "/api/uat/s/", "/demo/")
+_ADMIN_PATHS = ("/settings", "/users", "/audit", "/api/backups/restore", "/simulation/settings", "/simulation/api/settings", "/api/monitor/settings", "/api/monitor/connect")
+_OPEN_PATHS = ("/login", "/logout", "/set-lang", "/healthz", "/static", "/media", "/uat/s/", "/api/uat/s/", "/demo/", "/api/telemetry/")
 
 
 def check_permission():
@@ -124,7 +124,7 @@ def check_permission():
 
 
 # ==================== audit log (سجل النشاط) ====================
-_SKIP_AUDIT = ("/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center", "/api/tube")
+_SKIP_AUDIT = ("/api/telemetry/", "/api/queue", "/api/status", "/api/log", "/api/screens/jobs", "/api/run-center", "/api/tube")
 
 
 def audit(event, detail="", status=""):

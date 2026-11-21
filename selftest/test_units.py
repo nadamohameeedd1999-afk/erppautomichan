@@ -716,3 +716,37 @@ def test_site_monitor_screens(tmp_path, monkeypatch):
     assert seen == ["t", "c"] and M.support_issues() == []
     s = {x["id"]: x for x in M.summary()["sites"]}
     assert s["n"]["deep_reason"] and not s["t"]["deep_reason"] and s["t"]["deep"]["screens"] == 50
+
+
+def test_nq_erp_telemetry(tmp_path, monkeypatch):
+    """🛰️ NQ ERP's own errors: secret link per site, same error grouped, rate limit, one alert per new error, version, «دعم المطورين»"""
+    from web import monitor as M, telemetry as T
+    from web.app import app
+    cfg = {**M.DEFAULTS, "tokens": {}}
+    monkeypatch.setattr(M, "load_config", lambda: cfg)
+    monkeypatch.setattr(M, "save_config", lambda new: cfg.update(new) or cfg)
+    monkeypatch.setattr(M, "_sites", lambda c: [{"id": "c1", "name": "عميل", "base_url": "https://c.x", "kind": "client"}])
+    monkeypatch.setattr(T, "FILE", tmp_path / "tel.json")
+    monkeypatch.setattr(T, "_rate", {})
+    monkeypatch.setattr(T, "_alerts", {})
+    sent = []
+    monkeypatch.setattr(M, "broadcast", lambda t: sent.append(t))
+    tok = T.token_for("c1")
+    c = app.test_client()
+    assert c.post("/api/telemetry/wrong", data="{}").status_code == 404
+    assert c.open(f"/api/telemetry/{tok}", method="OPTIONS").headers["Access-Control-Allow-Origin"] == "*"
+    err = {"kind": "server", "type": "System.Data.SqlClient.SqlException", "message": "Invalid column name 'Qty2' at row 15",
+           "url": "/SalesInvoice/AddEdit/1520?x=1", "user": "ahmed", "stack": "at ...", "version": "2026.11.20"}
+    r = c.post(f"/api/telemetry/{tok}", data=__import__("json").dumps(err), content_type="text/plain")   # sendBeacon sends text/plain
+    assert r.status_code == 204 and len(sent) == 1 and "SalesInvoice/AddEdit/#" in sent[0] and "ahmed" in sent[0]
+    T.receive("c1", {**err, "message": "Invalid column name 'Qty2' at row 99", "url": "/SalesInvoice/AddEdit/77", "user": "sara"})
+    T.receive("c1", {"kind": "start", "version": "2026.11.21", "build": "2026-11-21 09:00", "machine": "WEB1"})
+    s = T.site_summary("c1")
+    assert s["errors_24h"] == 1 and s["hits_24h"] == 2 and s["users_24h"] == 2 and len(sent) == 1   # grouped, no second alert
+    assert s["version"]["version"] == "2026.11.21" and s["last_start"]["machine"] == "WEB1"
+    T.receive("c1", [{"kind": "js", "message": f"x{i} is not defined", "url": "/HR"} for i in range(100)])
+    assert sum(1 for e in __import__("json").loads(T.FILE.read_text())["c1"]["errors"].values()) <= 60   # 60 a minute
+    assert len(sent) == 2                                          # a burst of new errors = one alert
+    it = [i for i in T.support_issues() if i["screen"] == "/SalesInvoice/AddEdit/#"][0]
+    assert it["severity"] == "عالية" and "2 مرة" in it["details"] and "SqlException" in it["evidence"]
+    assert "tokens" not in M.summary()["config"]                   # the links never reach the page's JSON

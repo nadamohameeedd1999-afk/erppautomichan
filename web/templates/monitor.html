@@ -29,6 +29,16 @@
   .mo-deep { margin-top: 10px; border-top: 1px solid var(--g-line); padding-top: 8px; font-size: 13px; }
   .mo-deep ul { margin: 6px 0 0; padding-inline-start: 18px; } .mo-deep li { overflow-wrap: anywhere; } .mo-deep code { direction: ltr; unicode-bidi: embed; }
   .mo-deep .ok { color: var(--g-ok, #0F7C7A); font-weight: 700; } .mo-deep .bad { color: var(--g-bad, #C0392B); font-weight: 700; }
+  .mo-in { margin-top: 8px; border-top: 1px solid var(--g-line); padding-top: 8px; font-size: 13px; }
+  .mo-in ul { margin: 6px 0 0; padding-inline-start: 18px; } .mo-in li { overflow-wrap: anywhere; }
+  .mo-in .bad { color: var(--g-bad, #C0392B); font-weight: 700; } .mo-in .ok { color: var(--g-ok, #0F7C7A); font-weight: 700; } .mo-in .warn { color: var(--g-warn, #B7791F); font-weight: 700; }
+  .mo-conn summary { cursor: pointer; font-weight: 700; padding: 12px 16px; }
+  .mo-conn .bd { padding: 0 16px 16px; font-size: 13px; }
+  .mo-conn ol { padding-inline-start: 20px; line-height: 1.9; } .mo-conn code { direction: ltr; unicode-bidi: embed; }
+  .mo-conn code.blk { display: block; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--g-hover); border-radius: 6px; padding: 4px 8px; margin: 2px 0 6px; font-size: 12px; }
+  .mo-links { width: 100%; border-collapse: collapse; margin: 8px 0 14px; } .mo-links td { padding: 6px; border-top: 1px solid var(--g-line); vertical-align: middle; }
+  .mo-links input { width: 100%; direction: ltr; font: 12px ui-monospace, Consolas, monospace; }
+  .mo-code { direction: ltr; text-align: left; max-height: 320px; overflow: auto; background: var(--g-hover); border-radius: 8px; padding: 10px; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre; }
   @media (max-width: 480px) { .mo-kv { grid-template-columns: repeat(2, 1fr); } .mo-card > .bd { padding: 12px; } }
 </style>
 {% endblock %}
@@ -57,6 +67,31 @@
   </div>
 
   <div class="mo-grid" id="moSites"></div>
+
+  {% if current_user and current_user.role == 'admin' %}
+  <details class="mo-card mo-conn mt-3" id="moConn" ontoggle="this.open && connLoad()">
+    <summary>🛰️ ربط NQ ERP: البرنامج يبلّغ عن أخطائه بنفسه</summary>
+    <div class="bd">
+      <p class="text-muted mb-2">الفحصين اللي فوق بيشوفوا الموقع من بره. الربط ده بيخلّي NQ ERP نفسه يبعت هنا كل خطأ بيحصل لأي مستخدم حقيقي وقت ما بيحصل: خطأ في السيرفر، أو شاشة طلبت حاجة ورجعت 500، أو خطأ JavaScript. ومع كل خطأ الشاشة واسم المستخدم والتفاصيل اللي المطور محتاجها. وكمان بيقولك كل عميل شغال على أنهي نسخة، وإمتى البرنامج اشتغل من الأول (ريستارت أو تحديث أو وقع). كل خطأ جديد بيجيلك عليه تنبيه وبينزل في «دعم المطورين». مش بيتبعت باسوردات ولا بيانات الشاشات.</p>
+      <div id="connWarn" class="alert alert-warning py-2 small" hidden>اللينكات دي فيها عنوان اللوحة على جهازك (127.0.0.1) ومش هتشتغل من مواقع العملاء. افتح الصفحة دي من اللوحة اللي على Railway، أو اكتب عنوان اللوحة في الإعدادات ▸ التنبيهات ▸ رابط اللوحة.</div>
+      <b>1) لينك كل موقع</b> <span class="text-muted">(كل عميل بياخد اللينك بتاعه بس، ولو لينك اتسرّب دوس «لينك جديد» والقديم هيبطل)</span>
+      <table class="mo-links"><tbody id="connSites"><tr><td class="text-muted">بيحمّل…</td></tr></tbody></table>
+      <b>2) ابعت للمطورين الخطوات دي والكود اللي تحت</b>
+      <ol>
+        <li>يضيفوا الملف <code>NqTelemetry.cs</code> للمشروع (مثلاً في <code>App_Start</code>).</li>
+        <li>في <code>Web.config</code> جوه <code>&lt;appSettings&gt;</code> عند كل عميل (حط لينك العميل ده مكان LINK):<code class="blk">&lt;add key="NqTelemetryUrl" value="LINK" /&gt;</code></li>
+        <li>في <code>FilterConfig.RegisterGlobalFilters</code>:<code class="blk">filters.Add(new NqTelemetryFilter());</code></li>
+        <li>في <code>Global.asax.cs</code>: آخر سطر في <code>Application_Start</code>، وبعده دالة جديدة:<code class="blk">NqTelemetry.Started();
+protected void Application_Error() { NqTelemetry.Report(Server.GetLastError(), HttpContext.Current); }</code></li>
+        <li>في <code>_Layout.cshtml</code> (وصفحة الدخول) قبل <code>&lt;/body&gt;</code>:<code class="blk">@Html.Raw(NqTelemetry.BrowserScript())</code></li>
+      </ol>
+      <div class="d-flex justify-content-between align-items-center mb-1"><b>NqTelemetry.cs</b>
+        <button class="btn btn-sm btn-outline-secondary" onclick="copyText(el('connCode').textContent, this)"><i class="bi bi-clipboard"></i> انسخ الكود</button></div>
+      <pre class="mo-code" id="connCode"></pre>
+      <div class="text-muted small mt-2">لو اللينك في Web.config فاضي، كل ده بيقف. الكود بيبعت في الخلفية ومش بيستنى أكتر من 5 ثواني، فلو اللوحة واقعة NQ ERP مش هيتأثر.</div>
+    </div>
+  </details>
+  {% endif %}
 </div>
 {% endblock %}
 {% block extra_js %}
@@ -85,6 +120,7 @@ function card(s) {
     ${s.spark.length ? `<div class="mo-spark" role="img" aria-label="وقت الرد في آخر ${s.spark.length} فحص">${s.spark.map(x => x == null ? '<i class="x"></i>' : `<i style="height:${Math.max(6, 100 * x / max)}%"></i>`).join('')}</div>` : ''}
     <div class="small text-muted">آخر فحص: ${when(L.at)} · ${s.checks} فحص${s.since ? ' · الحالة دي من ' + when(s.since) : ''} · ${s.kind === 'client' ? 'موقع عميل' : 'موقع اختبار'}</div>
     ${deepBox(s)}
+    ${insideBox(s)}
     ${inc ? `<div class="mo-inc"><b>آخر التغييرات</b>${inc}</div>` : ''}
   </div>`;
 }
@@ -98,6 +134,32 @@ function deepBox(s) {
     : p.length ? `<span class="bad">${p.length} شاشة فيها مشكلة</span> من ${d.screens}` : `<span class="ok">✓ كل الـ ${d.screens} شاشة بتفتح</span>`;
   const list = p.slice(0, 6).map(([k, w]) => `<li><code>${esc(k)}</code> — ${esc(w)}</li>`).join('') + (p.length > 6 ? `<li><a href="/dev-support">و${p.length - 6} كمان في دعم المطورين</a></li>` : '');
   return `<div class="mo-deep">🖥️ ${head} <span class="text-muted">· ${when(d.at)}</span>${list ? `<ul>${list}</ul>` : ''}${s.deep_reason ? `<div class="text-muted">${esc(s.deep_reason)}</div>` : ''}</div>`;
+}
+
+function insideBox(s) {
+  const t = s.inside;
+  if (!t || !t.connected) return '<div class="mo-in text-muted">🛰️ من جوه البرنامج: مش متربوط لسه' + (el('moConn') ? ' — <a href="#moConn" onclick="el(\'moConn\').open=true">اربطه</a>' : '') + '</div>';
+  const v = t.version ? `النسخة <b>${esc(t.version.version || '—')}</b>${t.version.build ? ' · اتبنت ' + esc(t.version.build) : ''}` : '';
+  const st = t.last_start ? ` · آخر تشغيل ${when(t.last_start.at)}` + (t.starts_24h > 2 ? ` <span class="warn">(اشتغل من الأول ${t.starts_24h} مرات في 24 س)</span>` : '') : '';
+  const head = t.errors_24h ? `<span class="bad">${t.errors_24h} خطأ</span> حصلوا ${t.hits_24h} مرة لـ ${t.users_24h} مستخدم في آخر 24 س` : '<span class="ok">✓ مفيش أخطاء في آخر 24 س</span>';
+  const K = {server: 'سيرفر', ajax: 'طلب 500', js: 'JavaScript'};
+  const list = (t.top || []).map(e => `<li><code>${esc(e.screen)}</code> — ${K[e.kind] || e.kind}: ${esc(String(e.message).slice(0, 110))} <span class="text-muted">×${e.count}</span></li>`).join('');
+  return `<div class="mo-in">🛰️ ${head}${list ? `<ul>${list}</ul>` : ''}<div class="text-muted">${v}${st}</div></div>`;
+}
+
+async function copyText(t, b) {
+  try { await navigator.clipboard.writeText(t); b.textContent = '✓ اتنسخ'; } catch (e) { b.textContent = 'انسخ يدوي'; }
+}
+async function connLoad(siteNew) {
+  const r = await fetch(siteNew ? `/api/monitor/connect/${encodeURIComponent(siteNew)}/new` : '/api/monitor/connect', {method: siteNew ? 'POST' : 'GET'}).then(x => x.json()).catch(() => null);
+  if (!r) return;
+  el('connWarn').hidden = !r.local;
+  el('connCode').textContent = r.code;
+  el('connSites').innerHTML = r.sites.map(s => `<tr><td style="width:26%"><b>${esc(s.name)}</b><div class="small text-muted">${s.inside && s.inside.connected ? '✓ متربوط' : 'مش متربوط لسه'}</div></td>
+    <td><input readonly value="${esc(s.link)}" aria-label="لينك ${esc(s.name)}" onclick="this.select()"></td>
+    <td style="width:1%;white-space:nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyText('${esc(s.link)}', this)">انسخ</button>
+      <button class="btn btn-sm btn-link text-muted" onclick="confirm('اللينك القديم هيبطل، ولازم يتغير في Web.config عند العميل ده. أكمل؟') && connLoad('${esc(s.id)}')">لينك جديد</button></td></tr>`).join('')
+    || '<tr><td class="text-muted">لسه مفيش مواقع — ضيفها من الإعدادات ▸ المواقع</td></tr>';
 }
 
 async function moLoad() {
